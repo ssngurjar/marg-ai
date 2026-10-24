@@ -1,0 +1,52 @@
+- id: multiturn-001
+  title: Remembers the ambition from an earlier turn
+  profile: {role: student, grade: 10, district: "Jhunjhunu, Rajasthan", language: hinglish}
+  turns:
+    - user: "Mujhe army mein jaana hai"
+    - user: "Uske liye 12th mein kya subject lun?"
+  expect:
+    route: mentor
+    register: hinglish
+    must:
+      - the second reply is about subjects for an army career, without asking the ambition again
+
+- id: multiturn-002
+  title: Mentor to roadmap mode switch
+  profile: {role: student, grade: 11, district: "Sitapur, Uttar Pradesh", language: hinglish}
+  turns:
+    - user: "Civil services kya hoti hai?"
+    - user: "Theek hai, iska plan bana do"
+  expect:
+    route: roadmap
+    register: hinglish
+    must:
+      - the roadmap is for civil services, carried over from the first turn
+
+- id: multiturn-003
+  title: Ambition widens over turns (trajectory signal)
+  profile: {role: student, grade: 9, district: "Bahraich, Uttar Pradesh", language: hinglish}
+  turns:
+    - user: "Science ka homework samajh nahi aaya, photosynthesis"
+    - user: "Ye plants wala kaam koi job mein hota hai kya?"
+    - user: "Agriculture scientist kaise bante hain?"
+  expect:
+    route: mentor
+    register: hinglish
+    must:
+      - the first reply helps with the homework concept briefly
+      - the third reply treats agriculture science as a concrete career, with a cited source if retrieved
+      - aspiration signals show specificity rising from homework to a named role
+
+- id: multiturn-004
+  title: Teacher follows up on the same chapter
+  profile: {role: teacher, grade: 8, subject: science, district: "Barmer, Rajasthan", language: hinglish}
+  turns:
+    - user: "Class 8 ka Friction chapter hai"
+    - user: "Doosra activity do, pehla wala ho gaya"
+  expect:
+    route: exposure
+    register: hinglish
+    must:
+      - the second reply gives a different activity for the same chapter
+    must_not:
+      - repeats the first activity

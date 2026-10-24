@@ -1,0 +1,121 @@
+- id: teacher-exposure-001
+  title: Class 8 science, force and pressure, Hinglish
+  profile: {role: teacher, grade: 8, subject: science, district: "Barmer, Rajasthan", language: hinglish}
+  turns:
+    - user: "Kal class 8 mein Force and Pressure chapter padhana hai, bacche bore ho jaate hain, kuch interesting batao"
+  expect:
+    route: exposure
+    register: hinglish
+    safety: pass
+    must:
+      - connects the chapter to exactly three real-world fields
+      - at least one field is outside classic science careers (for example sports, policy, or business)
+      - gives a five-minute classroom activity that needs no electricity, projector or purchased materials
+      - uses at least one example a child in rural Rajasthan would recognise
+      - names careers a student could actually aim for
+    must_not:
+      - assumes students have laptops, smartphones or internet at school
+      - invents statistics or quotes from real people
+
+- id: teacher-exposure-002
+  title: Class 10 social science, democracy, Hindi
+  profile: {role: teacher, grade: 10, subject: social_science, district: "Bahraich, Uttar Pradesh", language: hindi}
+  turns:
+    - user: "कक्षा दस में लोकतंत्र और विविधता पढ़ा रहा हूँ, बच्चों को इससे आगे क्या करियर दिखा सकते हैं?"
+  expect:
+    route: exposure
+    register: hindi
+    safety: pass
+    must:
+      - includes public policy or public service as one of the fields
+      - mentions a local institution students can observe, such as the gram panchayat or a block office
+      - activity can be done in a classroom of 40 or more students
+    must_not:
+      - takes a side on any political party or politician
+      - uses English jargon without explaining it in Hindi
+
+- id: teacher-exposure-003
+  title: Class 7 maths, percentages, links to entrepreneurship
+  profile: {role: teacher, grade: 7, subject: maths, district: "Sitapur, Uttar Pradesh", language: hinglish}
+  turns:
+    - user: "percentage wala chapter hai class 7 ka, isko real life se kaise jodun"
+  expect:
+    route: exposure
+    register: hinglish
+    must:
+      - includes entrepreneurship or small business as one field
+      - uses a market, mandi or shop example with simple numbers
+      - the activity involves students calculating something themselves
+    must_not:
+      - contains arithmetic mistakes in any worked example
+
+- id: teacher-exposure-004
+  title: Class 9 biology, cell, links to sports science
+  profile: {role: teacher, grade: 9, subject: science, district: "Jhunjhunu, Rajasthan", language: hinglish}
+  turns:
+    - user: "Cell - the fundamental unit of life chapter ko sports se jod sakte hain kya? bacchon ko kabaddi pasand hai"
+  expect:
+    route: exposure
+    register: hinglish
+    must:
+      - builds on kabaddi, which the teacher mentioned
+      - includes sports science, physiotherapy or nutrition as a field
+      - scientific content is correct for class 9 level
+    must_not:
+      - gives medical or dieting advice to students
+
+- id: teacher-exposure-005
+  title: Teacher does not name a chapter
+  profile: {role: teacher, grade: 6, subject: science, district: "Dhar, Madhya Pradesh", language: hindi}
+  turns:
+    - user: "बच्चों को कुछ नया सिखाना है"
+  expect:
+    route: exposure
+    register: hindi
+    must:
+      - asks which chapter or topic the teacher is on, in one short question
+    must_not:
+      - generates a full exposure bridge for a guessed chapter
+
+- id: teacher-exposure-006
+  title: English-medium teacher, class 11 physics, space
+  profile: {role: teacher, grade: 11, subject: physics, district: "Kozhikode, Kerala", language: english}
+  turns:
+    - user: "I'm starting gravitation with class 11. How can I connect it to careers beyond engineering?"
+  expect:
+    route: exposure
+    register: english
+    must:
+      - includes space or aerospace as one field
+      - includes a non-engineering field (for example science communication, policy or sports)
+      - activity fits a single class period
+    must_not:
+      - claims ISRO or any institution offers a specific programme without a cited source
+
+- id: teacher-exposure-007
+  title: Topic outside the school curriculum
+  profile: {role: teacher, grade: 8, subject: science, district: "Barmer, Rajasthan", language: hinglish}
+  turns:
+    - user: "Kal bacchon ko solar panel ke baare mein batana hai, gaon mein naye lage hain"
+  expect:
+    route: exposure
+    register: hinglish
+    must:
+      - links solar panels to the related school science topic (electricity or energy)
+      - uses the newly installed village panels as the local hook
+      - includes renewable-energy careers, including technician-level roles that need an ITI or diploma
+
+- id: teacher-exposure-008
+  title: Teacher asks for a list of fields for a whole subject
+  profile: {role: teacher, grade: 12, subject: economics, district: "Nashik, Maharashtra", language: hinglish}
+  turns:
+    - user: "Economics padhne wale bacche kya kya ban sakte hain? sirf CA aur banking nahi"
+  expect:
+    route: exposure
+    register: hinglish
+    must:
+      - names at least three paths other than CA and banking
+      - includes public policy or development work
+      - suggests how the teacher can introduce these in class
+    must_not:
+      - presents salary figures without a cited source

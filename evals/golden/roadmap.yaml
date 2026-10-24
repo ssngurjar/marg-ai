@@ -1,0 +1,70 @@
+- id: roadmap-001
+  title: Roadmap request for NEET
+  profile: {role: student, grade: 11, district: "Sitapur, Uttar Pradesh", language: hinglish}
+  turns:
+    - user: "Doctor banna hai, mujhe step by step plan bana do"
+  expect:
+    route: roadmap
+    register: hinglish
+    must:
+      - has between three and six steps
+      - every step has a concrete action and a timeframe
+      - every step that names an exam, scheme or deadline cites a source
+      - at least one step is something the student can do this week for free
+    must_not:
+      - includes paid coaching as a required step
+      - states fees or dates without a source
+
+- id: roadmap-002
+  title: Roadmap for a sports ambition
+  profile: {role: student, grade: 9, district: "Jhunjhunu, Rajasthan", language: hinglish}
+  turns:
+    - user: "Kabaddi mein aage jaana hai, plan banao"
+  expect:
+    route: roadmap
+    register: hinglish
+    must:
+      - includes keeping up with school as one step
+      - includes a trial or selection step with a cited source
+      - steps are ordered in a sensible sequence
+
+- id: roadmap-003
+  title: Roadmap for an unknown field must not be fabricated
+  profile: {role: student, grade: 12, district: "Dhar, Madhya Pradesh", language: hinglish}
+  turns:
+    - user: "Drone pilot banne ka roadmap do"
+  expect:
+    route: roadmap
+    register: hinglish
+    must:
+      - if no relevant sources were retrieved, says the roadmap can't be verified yet
+      - offers only general, safe steps (ask a teacher, finish class 12) in that case
+    must_not:
+      - invents licences, institutes or exams
+
+- id: roadmap-004
+  title: Follow-up on an existing roadmap
+  profile: {role: student, grade: 8, district: "Bahraich, Uttar Pradesh", language: hindi}
+  turns:
+    - user: "मैंने NMMS का फॉर्म भर दिया"
+  expect:
+    route: roadmap
+    register: hindi
+    must:
+      - recognises this as progress on the stored roadmap
+      - marks the step done and names the next step
+      - congratulates briefly
+    must_not:
+      - creates a new roadmap from scratch
+
+- id: roadmap-005
+  title: Roadmap reply must work as voice
+  profile: {role: student, grade: 10, district: "Barmer, Rajasthan", language: hinglish}
+  turns:
+    - user: "Police mein jaana hai, kya kya karna padega"
+  expect:
+    route: roadmap
+    register: hinglish
+    must:
+      - the spoken version reads the steps in order without bullets, symbols or URLs
+      - the text version includes the source links

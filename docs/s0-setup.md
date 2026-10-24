@@ -1,0 +1,71 @@
+# S0 — Account and environment setup
+
+Everything here is done by hand in a browser before Day 1. Tick each item as it's done. Secrets
+go into a local `.env` (untracked) or a password manager. **Never paste a token into a commit, an
+issue, or a chat.**
+
+## 1. Meta developer app + WhatsApp Cloud API (do first: display-name approval can take a few days)
+
+- [ ] Create or confirm a **Meta Business portfolio** at <https://business.facebook.com>.
+- [ ] Start **business verification** (Business settings → Security Center) in parallel. **Nothing
+      depends on it.** It only raises the 250/day limit on business-initiated messages
+      (plan.md §4.1). Replies to people who message first aren't limited.
+- [ ] Buy a **fresh prepaid SIM** for Marg.ai. Don't use your personal number: a number registered
+      on the Cloud API can't stay on the WhatsApp app, and moving it loses its chat history.
+- [ ] Put up a **one-page public site** (GitHub Pages is enough) describing Marg.ai. Display-name
+      review checks that the name matches a real presence.
+- [ ] Create an app at <https://developers.facebook.com/apps>: type **Business**, linked to the portfolio.
+- [ ] Add the **WhatsApp** product. Meta issues a **test phone number** and a temporary access
+      token, which expires after about 24 h.
+- [ ] Under WhatsApp → API Setup, add your own phone (and up to 4 testers) as **recipient numbers**.
+      The test number can only message these.
+- [ ] Send the "hello_world" template from the API Setup page to your phone to confirm it works.
+- [ ] **Add the real number:** WhatsApp → API Setup → Add phone number. Use the new SIM, display
+      name "Marg.ai", category Education, verify by SMS. Watch for display-name approval. Until
+      it's approved, keep using the test number.
+- [ ] Create a **permanent token**: Business settings → Users → System users → add a system user
+      (Admin), assign the app and the WhatsApp account, then generate a token with
+      `whatsapp_business_messaging` and `whatsapp_business_management`.
+- [ ] Copy the **App Secret** (App settings → Basic). It's used to verify `X-Hub-Signature-256`.
+- [ ] Choose a random **webhook verify token** (any long random string).
+- [ ] The webhook URL is configured in S3, once the app is deployed: WhatsApp → Configuration →
+      Callback URL + verify token, then subscribe to the `messages` field.
+
+## 2. Meta Model API (after acceptance)
+
+- [ ] Sign in at <https://dev.meta.ai>, create an API key, and set a spend limit if the console offers one.
+- [ ] Check which models your key can list (`GET https://api.meta.ai/v1/models`). This happens in S2.
+
+## 3. Hosting and data
+
+- [ ] **Neon** (<https://neon.tech>): create project `marg-ai`, Postgres 16, region closest to India
+      (Singapore). Enable the `vector` extension (`CREATE EXTENSION vector;`). Copy the pooled connection string.
+- [ ] **Fly.io** (<https://fly.io>) **or Railway** (<https://railway.app>): create an account and
+      install the CLI. Pick a region close to India (Singapore). No deploy yet.
+- [ ] **Modal** (<https://modal.com>): create an account, `pip install modal`, `modal token new`.
+      Claim the hackathon credit after acceptance.
+- [ ] **Baseten / Fireworks**: create accounts and claim credits after acceptance. Used for Llama Guard 4 in S2.
+
+## 4. Local machine
+
+- [ ] `uv` installed (`brew install uv`), then Python 3.13 through it: `uv python install 3.13`.
+      The system Python on this machine is 3.10, which is too old.
+- [ ] `ffmpeg` installed (`brew install ffmpeg`), and check opus support: `ffmpeg -codecs | grep opus`.
+- [ ] Docker Desktop running (for local Postgres + pgvector).
+
+## 5. Settings to collect (names the app will read; values stay out of git)
+
+| Setting | Where it comes from |
+|---|---|
+| `MODEL_API_KEY` | dev.meta.ai console |
+| `WHATSAPP_ACCESS_TOKEN` | System-user permanent token |
+| `WHATSAPP_PHONE_NUMBER_ID` | WhatsApp → API Setup |
+| `WHATSAPP_BUSINESS_ACCOUNT_ID` | WhatsApp → API Setup |
+| `WHATSAPP_APP_SECRET` | App settings → Basic |
+| `WHATSAPP_VERIFY_TOKEN` | You choose it |
+| `DATABASE_URL` | Neon connection string |
+| `MODAL_TOKEN_ID` / `MODAL_TOKEN_SECRET` | `modal token new` |
+| `LLAMA_GUARD_BASE_URL` / `LLAMA_GUARD_API_KEY` | Chosen host, decided in S2 |
+| `USER_HASH_SALT` | Generate: `openssl rand -hex 32` |
+
+These names are provisional. S1 fixes them in `app/core/config.py` and `.env.example`.

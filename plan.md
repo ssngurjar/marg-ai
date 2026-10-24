@@ -17,7 +17,7 @@ Sources: <https://dev.meta.ai/events/global-hackathon>, <https://cerebralvalley.
 | Theme fit | "Build for Your World" — a problem you know firsthand | Marg.ai fits well. Lead the story with the rural exposure gap. |
 | Kickoff | **Mon Oct 26, 9:00 AM ET = 18:30 IST** | Day 1 starts in the evening IST |
 | Submission deadline | **Wed Nov 4, 9:00 PM ET = Thu Nov 5, 07:30 IST** (US DST ends Nov 1, so this is EST) | Plan to submit by **Nov 4, 23:00 IST**. Don't use the overnight buffer. |
-| Judging / finals | Nov 4–8 judging, Nov 9 closing ceremony with live finals | Judges must be able to **try it themselves**. A WhatsApp test number only reaches 5 verified recipients, so we need a public web demo (§4.7). |
+| Judging / finals | Nov 4–8 judging, Nov 9 closing ceremony with live finals | Judges must be able to **try it themselves**. Plan: a real WhatsApp number anyone can message (it works without business verification, see §4.1), with the public web demo (§4.7) as the guaranteed path. |
 | Official rules | "To be published before the hackathon begins" | **Read them on Oct 26.** Check: whether code written before kickoff counts, submission format (video length, repo visibility), required models. |
 | Partner credits | Baseten $100 (+2M TPM), Modal $100, Fireworks $25 | Use these for open-weights models (Llama Guard, TTS, embeddings) |
 
@@ -149,6 +149,17 @@ app/store/      Postgres repositories. The only place SQL lives.
 - **24-hour customer-service window:** free-form replies only within 24h of the user's last
   message. Outside it, use a pre-approved template (needed for roadmap nudges, a stretch goal).
 - Mark as read, plus a typing indicator as soon as work starts, so the user knows we heard them.
+- **Number strategy (doesn't depend on business verification).** Verification only raises the
+  limit on *business-initiated* messages. Without it, a portfolio can still register a real number
+  (after display-name approval), reply without limit to anyone who messages first within the 24h
+  window, and send 250 business-initiated conversations a day.
+  1. **Primary:** a fresh prepaid SIM registered on the Cloud API with display name "Marg.ai",
+     backed by a one-page public site so the display name gets approved. Judges and field testers
+     can message it directly. Put the `wa.me` link and a QR code in the submission.
+  2. **Fallback:** the test number (5 recipients) for the demo video, plus `/demo` for judges.
+  3. Verification, if it arrives, only matters for proactive roadmap nudges at scale.
+- **The pipeline is channel-agnostic** (`channels/base.py`). WhatsApp is the first channel, not
+  the only one. That's what makes the distribution story in §4.10 believable.
 
 ### 4.2 Voice
 - **STT:** Muse Voice Transcribe, with keyword biasing for Indian exam and scheme names (NEET,
@@ -226,6 +237,16 @@ For the MVP, onboarding asks students under 18 to confirm a parent or teacher is
 agrees. Consent is recorded with a timestamp, and `delete my data` ("mera data hatao") purges the
 user. The demo materials call this out explicitly.
 
+### 4.10 Distribution beyond WhatsApp (pitch, not MVP scope)
+The engine sits behind a `Channel` port, so new channels are adapters, not rewrites. The story for judges:
+- **Teacher as the distribution node:** one teacher's phone on a classroom speaker reaches 40
+  students. Teacher mode is the cheapest way to reach students without smartphones.
+- **IVR / missed-call callback** for 2G feature phones (common in rural India): the same
+  STT → LLM → TTS pipeline over a phone call through a telephony provider. A stretch goal at most;
+  in the pitch it's the next channel.
+- **Web/PWA** for school computer labs and NGOs, already proven by `/demo`.
+- **Messenger / Instagram DMs:** the same Meta Graph API family, so a short step from WhatsApp.
+
 ---
 
 ## 5. Cross-cutting engineering
@@ -300,7 +321,7 @@ Day boundaries are IST. **Feature freeze: end of Day 8.** Days 9 and 10 are for 
 | 10 | Wed Nov 4 | Demo video (voice-first story: student → teacher → trajectory), README, architecture diagram, eval scorecard, submission form. **Submitted by 23:00 IST**, which leaves 8.5 h of buffer before the 07:30 IST Nov 5 deadline. |
 
 **Stretch goals, in order, only if a day finishes early:** roadmap nudges through approved
-templates (outside the 24h window) · Muse Image visual explainer cards for teachers · Hindi
+templates (outside the 24h window) · an IVR channel adapter (§4.10) · Muse Image visual explainer cards for teachers · Hindi
 dialect biasing in STT · a second regional language.
 
 ---
@@ -310,7 +331,7 @@ dialect biasing in STT · a second regional language.
 | Risk | Likelihood | Mitigation |
 |---|---|---|
 | Muse Voice Transcribe weak or missing for Hindi | Medium | Day-1 spike. A Whisper adapter behind the same port. |
-| WhatsApp test number limited to 5 recipients; business verification for a production number takes days | High | Start business verification on Day 1. The web simulator is the judge path. The demo video shows the real phone. |
+| Real-number display name rejected or delayed (business verification itself isn't needed, see §4.1) | Medium | Apply in S0 with a simple public site behind it. Fallback: test number (5 recipients) for the video, `/demo` for judges. Verification runs in parallel but nothing depends on it. |
 | MMS-TTS Hindi sounds robotic | Medium | Day-1 listening test. Indic Parler-TTS as a fallback adapter. Always send text alongside audio. |
 | Llama Guard 4 hosting unavailable on partner credits | Low–Med | Modal self-host (12B fits one A10G/L4). Fail closed while it's down. |
 | Latency above 15 s on voice turns | Medium | Typing indicator immediately. Parallelise safety-in with routing. Stream TTS per sentence (stretch). |

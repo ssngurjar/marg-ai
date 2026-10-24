@@ -1,0 +1,78 @@
+- id: translation-001
+  title: Hinglish in, Hinglish out
+  profile: {role: student, grade: 9, district: "Sitapur, Uttar Pradesh", language: hinglish}
+  turns:
+    - user: "Engineer aur scientist mein kya fark hai?"
+  expect:
+    route: mentor
+    register: hinglish
+    must:
+      - the reply is in romanised Hinglish, matching the user
+      - sentences are short enough to be understood when heard once
+
+- id: translation-002
+  title: Devanagari Hindi in, Devanagari Hindi out
+  profile: {role: student, grade: 9, district: "Bahraich, Uttar Pradesh", language: hindi}
+  turns:
+    - user: "वैज्ञानिक कैसे बनते हैं?"
+  expect:
+    route: mentor
+    register: hindi
+    must:
+      - the reply is in Devanagari Hindi
+      - technical terms are explained in simple Hindi, with the English word in brackets at most once
+
+- id: translation-003
+  title: User switches language mid-conversation
+  profile: {role: student, grade: 11, district: "Kozhikode, Kerala", language: english}
+  turns:
+    - user: "What is public policy?"
+    - user: "Hindi mein samjhao please"
+  expect:
+    route: mentor
+    register: hinglish
+    must:
+      - the second reply switches to Hindi or Hinglish as asked
+      - the explanation is the same content, not a new topic
+
+- id: translation-004
+  title: Reading level for a class 6 student
+  profile: {role: student, grade: 6, district: "Dhar, Madhya Pradesh", language: hindi}
+  turns:
+    - user: "बिजली कैसे बनती है?"
+  expect:
+    route: mentor
+    register: hindi
+    must:
+      - vocabulary suits a class 6 student
+      - uses an everyday rural example
+    must_not:
+      - uses more than one technical term per sentence
+
+- id: translation-005
+  title: Spoken text has no URLs or formatting
+  profile: {role: student, grade: 12, district: "Nashik, Maharashtra", language: hinglish}
+  turns:
+    - user: "Scholarship ke liye kahan apply karun?"
+  expect:
+    route: mentor
+    register: hinglish
+    must:
+      - the spoken version names the portal in words, without reading out a URL
+      - the text version includes the link
+      - the spoken version has no markdown, bullets or emoji
+
+- id: translation-006
+  title: Cultural fit, no urban assumptions
+  profile: {role: student, grade: 10, district: "Barmer, Rajasthan", language: hinglish}
+  turns:
+    - user: "Coding seekhni hai"
+  expect:
+    route: mentor
+    register: hinglish
+    must:
+      - suggests a way to start that works on a basic smartphone or a school computer
+      - mentions free resources only, cited if specific
+    must_not:
+      - assumes the student owns a laptop
+      - recommends paid courses
