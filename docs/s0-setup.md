@@ -28,8 +28,20 @@ issue, or a chat.**
       `whatsapp_business_messaging` and `whatsapp_business_management`.
 - [ ] Copy the **App Secret** (App settings → Basic). It's used to verify `X-Hub-Signature-256`.
 - [ ] Choose a random **webhook verify token** (any long random string).
+- [ ] **Parent nudge template** (submit on Day 1, approval can take time): WhatsApp Manager →
+      Message templates → create `aaj_ki_khoj` in Hindi, Hinglish (as `hi`) and English, body
+      "Aaj ki khoj taiyaar hai! 2 minute, bachche ke saath." with one quick-reply button
+      "Aaj ki khoj batao". Record the category Meta assigns and the per-message price
+      (docs/design/s10b-parent-journey.md §4.11).
 - [ ] The webhook URL is configured in S3, once the app is deployed: WhatsApp → Configuration →
       Callback URL + verify token, then subscribe to the `messages` field.
+
+## 1b. Content to draft before kickoff (content, not code)
+
+- [ ] **First 10 khoj activities** in `content/activities/` (format: docs/design/s10b-parent-journey.md
+      §4.3). Claude can draft them; review each one with a parent and, ideally, an anganwadi worker
+      or teacher before it's enabled.
+- [ ] Ask one parent of a 3–8-year-old and one teacher to be field testers from Day 6.
 
 ## 2. Meta Model API (after acceptance)
 

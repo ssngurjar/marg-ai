@@ -52,3 +52,10 @@ migrated to match it. Until then, keep to the shape below.
 | `adversarial.yaml` | Prompt injection, personal-data fishing, harmful requests |
 | `crisis.yaml` | Self-harm and abuse signals → fixed crisis reply |
 | `off_topic.yaml` | Requests outside the product's scope |
+| `parent_journey.yaml` | Parent journey (ages 3–8): khoj, serve-and-return, medical referral, hazards, nudges |
+
+`roadmap-004` (progress on a stored roadmap) is **deferred**, because roadmap progress tracking
+was trimmed from the MVP (decision B9). It stays in the file and is excluded from targets.
+
+Parent-journey cases add `learner` (or `learners`) and optionally `open_activity` (a catalogue id)
+to set up the child and an activity that's already been offered.

@@ -57,14 +57,16 @@ The options as originally weighed are kept below for the record. ADRs go in `doc
 
 ## 1. Product in one paragraph
 
-A rural student or teacher sends a **WhatsApp voice note** in Hindi or Hinglish. Marg.ai
-transcribes it, checks it for safety, works out what the person needs, and replies with a
-**voice note plus a short text** in the same register. A **teacher** gets a lesson bridge: today's
-textbook chapter mapped to real-world fields (public policy, sports science, entrepreneurship,
-space), with a 5-minute classroom hook. A **student** gets a mentor that remembers their
-ambitions, cites real Indian pathways (exams, scholarships, schemes) from a curated corpus, and
-builds a step-by-step **roadmap**. Every turn adds to a **trajectory of intent**: a measurable
-record of how a student's aspirations widen and sharpen over time.
+Marg.ai builds a person, not just answers. It follows a **learner** from early childhood to their
+first career decisions, by voice on WhatsApp, in Hindi or Hinglish. A **parent** of a 3–8-year-old
+gets a daily two-minute *khoj* (discovery) using the world around them (the field, the kitchen,
+the sky) and replies that build on what the child said: "the world is the curriculum, the phone is
+the coach". A **teacher** gets a lesson bridge: today's textbook chapter mapped to real-world
+fields (public policy, sports science, entrepreneurship, space), with a 5-minute classroom hook. A
+**student** gets a mentor that cites real Indian pathways (exams, scholarships, schemes) from a
+curated corpus, and builds a step-by-step **roadmap**. Every turn adds to a **trajectory**:
+curiosity signals from age 3, aspiration signals later, keyed by learner, so by the time a child
+asks "what should I become?", Marg.ai already knows what they've noticed and loved for years.
 
 ---
 
@@ -72,9 +74,9 @@ record of how a student's aspirations widen and sharpen over time.
 
 | Axis | What we show | Where it lives |
 |---|---|---|
-| **Creativity** | Voice-first WhatsApp for low-literacy users. Curriculum-to-career "exposure bridges" for teachers. Hinglish adaptation with local cultural references (cricket, kabaddi, the mandi, the panchayat). Trajectory-of-intent visualisation. | §4.3–4.6, §4.8 |
-| **Technical ambition** | Five Meta models in one pipeline: Muse Spark, Muse Voice Transcribe, Llama Guard 4, MMS-TTS, plus search grounding. Structured output everywhere. RAG with citations. Durable inbox/outbox processing. Safety gate on both input and output. An LLM-judge eval harness with published scores. | §3, §4, §5.4 |
-| **Whether it works** | A public web simulator running the same pipeline. A live WhatsApp number on the demo video. Real voice notes from real students and teachers (Day 9 field test). Latency and success-rate numbers on a `/status` page. | §4.7, §7 Day 9 |
+| **Creativity** | A journey from age 3, not a Q&A bot: daily parent-child *khoj* with serve-and-return coaching. Voice-first WhatsApp for low-literacy users. Curriculum-to-career "exposure bridges" for teachers. Hinglish adaptation with local cultural references (cricket, kabaddi, the mandi, the panchayat). A trajectory that spans childhood to career choice. | §4.3–4.8, §4.11 |
+| **Technical ambition** | Four Meta models in one pipeline: Muse Spark, Muse Voice Transcribe, Llama Guard 4, MMS-TTS. A learner-centred data model, proactive opt-in nudges, structured output everywhere, RAG with citations, durable inbox/outbox processing, a sealed safety gate on input and output, and an LLM-judge eval harness with published scores. | §3, §4, §5.4 |
+| **Whether it works** | A public web simulator running the same pipeline. A live WhatsApp number on the demo video. Real voice notes from real parents, students and teachers (field test from Day 6). Latency and success-rate numbers on a `/status` page. | §4.7, §7 |
 
 **Scope rule:** a feature that helps none of the three axes doesn't get built. A half-finished
 feature costs more than a missing one, because "whether it works" is judged live.
@@ -165,8 +167,11 @@ app/store/      Postgres repositories. The only place SQL lives.
 - **STT:** Muse Voice Transcribe, with keyword biasing for Indian exam and scheme names (NEET,
   JEE, NMMS, Khelo India). Fallback adapter: open-weights Whisper (`large-v3-turbo`) on the
   sidecar if the Hindi spike fails.
-- **TTS:** MMS-TTS Hindi on the sidecar. Romanised Hinglish is transliterated to Devanagari before
-  synthesis (MMS reads script, not romanisation). This needs its own unit and property tests.
+- **TTS:** MMS-TTS Hindi on the sidecar (licence CC-BY-NC: hackathon only, replaced before any
+  commercial use). The translation layer writes `spoken_text` in Devanagari for Hindi and Hinglish,
+  and `app/audio/tts_text.py` checks it before synthesis (docs/design/s06-voice.md §4.6).
+- **STT input:** Muse Voice Transcribe accepts only WAV, so ogg/opus and webm are converted first.
+  It returns no language or confidence; the register is detected locally.
 - Audio is transcoded with ffmpeg in a subprocess with a timeout. It is never shelled out through a string.
 - Target latency for a voice turn: **p50 under 8 s, p95 under 15 s**, measured and shown on `/status`.
 
@@ -221,24 +226,38 @@ architecture at the same time. Abuse protection: per-IP rate limiting, a daily c
 - Each student message also yields `AspirationSignals` (structured extraction): fields mentioned,
   **specificity level** (0 none → 1 curiosity → 2 named field → 3 named role → 4 concrete next
   step taken), constraints mentioned, and sentiment.
-- **Trajectory metrics** per student: breadth (distinct fields explored), specificity slope over
-  sessions, roadmap step completion, and return rate. Cohort view per teacher or school.
+- Each parent report about a young child yields `CuriositySignals`: the domains the child engaged
+  with (nature, sky, numbers, stories, making, movement, art, people, everyday work), engagement
+  0–3, and whether the child asked their own question. Signals are keyed by **learner**, so one
+  child's record can run from age 3 to their first career choice.
+- **Trajectory metrics** per learner: breadth, engagement or specificity slope over sessions,
+  return rate, roadmap creation. Cohort view per district (classroom codes were trimmed).
 - `/dashboard`: aggregate and anonymised. Phone numbers are stored as salted hashes only. No raw
   transcripts are shown on the dashboard.
 
 ### 4.9 Conversation state machine (domain, pure)
-`NEW → CONSENT → ROLE (student | teacher) → PROFILE (grade, district, language) → ACTIVE`
-`ACTIVE` modes: `exposure` (teacher), `mentor`, `roadmap`. Switching modes ("roadmap banao") is
-handled by the router. Transitions are a typed table, and an invalid transition raises an error.
-Property-tested: every reachable state has a way out, and `CONSENT` can never be skipped.
+`NEW → CONSENT → ROLE (student | teacher | parent)`, then:
+- student → `GUARDIAN` → `PROFILE` (grade, district) → `ACTIVE`
+- teacher → `PROFILE` (subject, grade, district) → `ACTIVE`
+- parent → `CHILD` (age and optional nickname) → `ACTIVE`, with the first khoj in the same turn
+
+`ACTIVE` modes: `exposure` (teacher), `mentor` and `roadmap` (student), `journey` (parent).
+Switching modes ("roadmap banao") is handled by the router. Transitions are a typed table, and an
+invalid transition raises an error. Property-tested: every reachable state has a way out, and
+`CONSENT` can never be skipped. Full design: docs/design/s08-onboarding.md.
 
 **Consent:** India's DPDP Act 2023 requires verifiable parental consent to process a child's data.
-For the MVP, onboarding asks students under 18 to confirm a parent or teacher is present and
-agrees. Consent is recorded with a timestamp, and `delete my data` ("mera data hatao") purges the
-user. The demo materials call this out explicitly.
+For the MVP, students confirm a parent or teacher knows and agrees (self-declared, stated as a
+known limit). Parents consent for themselves and their child. Consent is recorded with a
+timestamp and the copy version, and `delete my data` ("mera data hatao") purges the user. The
+demo materials call this out explicitly.
 
 ### 4.10 Distribution beyond WhatsApp (pitch, not MVP scope)
 The engine sits behind a `Channel` port, so new channels are adapters, not rewrites. The story for judges:
+- **Parents through people they trust:** the school's class WhatsApp group for parents (the
+  teacher posts one join link), anganwadi workers (the village childcare centres for 0–6), school
+  management committee meetings, QR posters. Value comes in the first 30 seconds: consent, the
+  child's age, and today's khoj straight away.
 - **Teacher as the distribution node:** one teacher's phone on a classroom speaker reaches 40
   students. Teacher mode is the cheapest way to reach students without smartphones.
 - **IVR / missed-call callback** for 2G feature phones (common in rural India): the same
@@ -246,6 +265,19 @@ The engine sits behind a `Channel` port, so new channels are adapters, not rewri
   in the pitch it's the next channel.
 - **Web/PWA** for school computer labs and NGOs, already proven by `/demo`.
 - **Messenger / Instagram DMs:** the same Meta Graph API family, so a short step from WhatsApp.
+
+### 4.11 Parent journey (ages 3–8) — "Aaj ki Khoj"
+Full design: [docs/design/s10b-parent-journey.md](docs/design/s10b-parent-journey.md).
+- **Who:** parents (and later anganwadi workers) of children aged 3–8, the NEP foundational stage.
+- **What:** a daily two-minute activity from a reviewed catalogue of 30 free, local activities,
+  personalised by Muse Spark (the child's nickname, the season, what the child said last time).
+  The parent reports back by voice, and Marg.ai replies serve-and-return: it praises the child's
+  specific idea and asks one question that extends it.
+- **How it reaches people:** one opt-in WhatsApp template a day at the parent's chosen time. The
+  activity itself is sent only after the parent taps, inside the normal 24-hour window.
+- **Data:** an optional nickname and a birth year only. No careers for under-11s; curiosity
+  signals record what the child engages with and never label them.
+- **Later:** ages 0–2 and 8–11, fully generated activities with the same guardrails (owner's direction).
 
 ---
 
@@ -279,26 +311,30 @@ The engine sits behind a `Channel` port, so new channels are adapters, not rewri
   scorecard goes in the README and the submission.
 
 ### 5.5 Data protection
-Users are mostly minors. Rules: hashed phone identifiers, minimum data collected, no
-Contributor-mode models on user content, a retention window on audio (delete raw audio after
-transcription), and a working delete command.
+Users are mostly minors or speak for minors. Rules: hashed phone identifiers with the number
+encrypted for replies only; minimum data collected; for young children, an optional nickname and
+a birth year only (no photos, no names, no exact birth dates); no Contributor-mode models on user
+content; inbound audio never stored; crisis-turn text never stored; and a working delete command.
+Full rules: docs/design/data-model.md §3–4.
 
 ---
 
-## 6. Tech stack (initial dependency set, approved 2026-10-24 — D4)
+## 6. Tech stack (approved 2026-10-24 — D4; updated 2026-10-25 — B6)
 
 | Concern | Choice |
 |---|---|
 | Runtime | Python 3.13, `uv` for env and lockfile, `.venv/bin/python` |
 | Web | FastAPI, Uvicorn, Pydantic v2, pydantic-settings |
 | HTTP | httpx (async) and `openai` SDK pointed at `https://api.meta.ai/v1` |
-| DB | PostgreSQL 16 + pgvector, SQLAlchemy 2 (async) + asyncpg, Alembic |
-| Retries | tenacity |
+| DB | PostgreSQL 16 + pgvector, SQLAlchemy 2 (async) + asyncpg, Alembic, `pgvector` (Python) |
+| Retries | our own deadline-aware `RetryPolicy` (no `tenacity`) |
+| Security | `cryptography` (AES-GCM for phone numbers) |
+| Content files | `pyyaml` (activity catalogue, curriculum, golden evals) |
 | Templating | Jinja2 (prompts) |
 | Logging | structlog |
 | Audio | ffmpeg (system binary, in the Docker image) |
 | Sidecar (Modal) | transformers + torch (MMS-TTS), sentence-transformers (embeddings) |
-| Dev | ruff, mypy (strict), pytest, pytest-asyncio, hypothesis, respx (HTTP fakes) |
+| Dev | ruff, mypy (strict), pytest, pytest-asyncio, hypothesis, respx (HTTP fakes), types-PyYAML |
 
 ---
 
@@ -308,17 +344,21 @@ Day boundaries are IST. **Feature freeze: end of Day 8.** Days 9 and 10 are for 
 
 | Day | Date | Goal (exit criterion in **bold**) |
 |---|---|---|
-| Pre | Oct 24–25 | Plan, CLAUDE.md, accounts: Meta developer app + WhatsApp test number, Model API key, Modal / Baseten / Fireworks credits, Neon, Fly/Railway. Collect 10 real Hindi/Hinglish voice-note samples (with consent). **No product code until the rules on pre-existing work are confirmed.** |
-| 1 | Mon Oct 26 (from 18:30) | Read official rules. Scaffold repo, pyproject, verification loop, CI, docker-compose Postgres. Spikes: (a) Muse Voice Transcribe on Hindi ogg samples, (b) Llama Guard 4 host, (c) MMS-TTS Hindi quality. **Webhook deployed, signature verified, echoes text back on a real phone.** |
-| 2 | Tue Oct 27 | Inbox/outbox, worker with SKIP LOCKED, idempotency, Muse Spark client with structured output and retries. **Text in → Muse Spark → text out, surviving a worker restart mid-turn.** |
-| 3 | Wed Oct 28 | Audio download, transcode, STT, TTS on the sidecar, audio upload and send. **Voice note in → voice note out end to end.** |
-| 4 | Thu Oct 29 | Safety gate on both sides, crisis path, domain policy. Onboarding state machine + consent + delete. **Adversarial golden cases all handled. Onboarding works on the phone.** |
-| 5 | Fri Oct 30 | Translation layer + Exposure layer (teacher mode). **A teacher speaks a chapter name and gets an ExposureBridge as voice + text.** |
-| 6 | Sat Oct 31 | Corpus curation (80+ sourced docs), ingestion, retriever, Mentor + Roadmap, profile memory. **A student asks about a career and gets a cited answer and a stored roadmap. The next session recalls it.** |
-| 7 | Sun Nov 1 | Telemetry events, aspiration-signal extraction, trajectory metrics, `/dashboard`, `/status`. **Dashboard shows real data from the past days' testing.** |
-| 8 | Mon Nov 2 | Web simulator `/demo`, eval harness + scorecard, hardening (timeouts, degradation ladder, a load test with 20 concurrent users). **FEATURE FREEZE. Eval scorecard committed.** |
-| 9 | Tue Nov 3 | **Field test** with real teachers and students from your network: record sessions (with consent), collect quotes, fix bugs only. **3+ real users have completed a full session.** |
-| 10 | Wed Nov 4 | Demo video (voice-first story: student → teacher → trajectory), README, architecture diagram, eval scorecard, submission form. **Submitted by 23:00 IST**, which leaves 8.5 h of buffer before the 07:30 IST Nov 5 deadline. |
+| Pre | Oct 24–25 | Plan, CLAUDE.md, design docs. Accounts: Meta developer app + WhatsApp test number, Model API key, Modal / Baseten / Fireworks credits, Neon, Fly/Railway. Collect 10 consented voice samples. Draft the corpus source list, golden evals and the first 10 activities (content, not code). **No product code until the rules on pre-existing work are confirmed.** |
+| 1 | Mon Oct 26 (from 18:30) | S1 scaffold, S2 spikes, S3 WhatsApp channel. Read the official rules. Submit the nudge template for Meta's approval. **Webhook deployed, signature verified, a reply sent to a real phone.** |
+| 2 | Tue Oct 27 | S4 queue and worker, S5 Model API + router + orchestrator + safety core. **Text in → Muse Spark → checked text out, surviving a worker restart mid-turn.** |
+| 3 | Wed Oct 28 | S6 voice. **Voice note in → voice note out end to end.** |
+| 4 | Thu Oct 29 | S7 safety (domain policy, crisis texts), S8 onboarding incl. the parent path. **Adversarial and crisis golden cases handled. All three onboarding paths work on the phone.** |
+| 5 | Fri Oct 30 | S9 translation, S10 exposure. Activities 11–30 drafted and sent for review. **A teacher speaks a chapter name and gets an ExposureBridge as voice + text.** |
+| 6 | Sat Oct 31 | S10b parent journey: catalogue, khoj, reflection, nudges. Field testing with parents starts. **A parent gets today's khoj, reports back by voice and gets a serve-and-return reply; the nudge arrives at the chosen time.** |
+| 7 | Sun Nov 1 | S11 RAG (80+ sourced docs), S12 mentor + roadmap + memory. **A student asks about a career, gets a cited answer and a stored roadmap.** |
+| 8 | Mon Nov 2 | S13 telemetry + dashboards, S14 web demo. **`/demo` usable by a stranger; dashboards show real data from field testing.** |
+| 9 | Tue Nov 3 | S15 eval scorecard, S16 hardening + load test. **FEATURE FREEZE at end of day.** Field-test fixes only after that. |
+| 10 | Wed Nov 4 | S18 demo video (story: a mother and her 5-year-old → a teacher → a student, one trajectory), README, architecture diagram, eval scorecard, submission form. **Submitted by 23:00 IST**, which leaves 8.5 h of buffer before the 07:30 IST Nov 5 deadline. |
+
+The parent journey added about 2.5 days of work. That time came from the trims the owner approved
+on 2026-10-25: classroom codes, roadmap progress and check-ins, and query rewriting. Field testing
+(S17) now runs alongside Days 6–9 instead of taking a whole day.
 
 **Stretch goals, in order, only if a day finishes early:** roadmap nudges through approved
 templates (outside the 24h window) · an IVR channel adapter (§4.10) · Muse Image visual explainer cards for teachers · Hindi
@@ -338,10 +378,17 @@ dialect biasing in STT · a second regional language.
 | Scope creep | High | §2 scope rule. Feature freeze on Day 8. |
 | Cost overrun on the public demo | Low | Per-IP rate limit, daily spend cap, no search grounding on `/demo` by default. |
 | Fabricated career facts | Medium | RAG with mandatory citations, the "don't know" path, and a grounding score in evals. |
+| An unsafe activity suggestion for a young child | Low | Reviewed catalogue only; personalisation can't add steps or materials; the `d7` hazard rule on every reply; a fixed supervision line appended by code; fallback to the reviewed text. |
+| Nudge template not approved in time | Medium | Submit on Day 1. Without it, parents start each day by tapping "Aaj ki khoj" or typing it; the journey works, just not proactively. |
+| MMS-TTS licence is non-commercial | Certain (known) | Fine for the hackathon; replaced before any commercial use (README note, decision B10). |
+| 30 activities not reviewed in time | Medium | Draft 10 in S0 and 20 on Day 5; launch with however many are reviewed (minimum 14, two weeks). |
 
 ---
 
 ## 9. Project folder structure
+
+The top-level layout. The design docs in `docs/design/` are authoritative for exact module paths;
+where this tree and a design doc differ, the design doc wins.
 
 ```
 marg-ai/
@@ -366,7 +413,8 @@ marg-ai/
 ├── app/
 │   ├── __init__.py
 │   ├── main.py                    # FastAPI app factory, router registration, lifespan
-│   ├── worker.py                  # inbox + outbox worker entrypoint
+│   ├── wiring.py                  # composition root: builds adapters, injects ports
+│   ├── worker/                    # `python -m app.worker`: turn, outbox, nudge, post-turn, maintenance loops
 │   ├── cli.py                     # `marg` CLI: ingest-corpus, eval, replay-turn, purge-user
 │   │
 │   ├── core/
@@ -376,12 +424,16 @@ marg-ai/
 │   │   ├── ids.py                 # turn ids, salted user hashing
 │   │   └── clock.py               # injectable clock (no datetime.now() in domain code)
 │   │
-│   ├── domain/                    # pure — imports nothing else from app/
-│   │   ├── models.py              # User, Profile, Turn, Language, Role, Mode, Transcript, …
-│   │   ├── conversation.py        # onboarding/mode state machine (typed transition table)
-│   │   ├── aspiration.py          # AspirationSignals, specificity levels
-│   │   ├── trajectory.py          # breadth, specificity slope, completion — pure math
-│   │   └── text.py                # WhatsApp message splitting, spoken-text sanitising
+│   ├── domain/                    # pure — imports only core.errors / core.types
+│   │   ├── enums.py, models.py    # shared vocabulary (docs/design/contracts.md)
+│   │   ├── writes.py              # TurnWrite variants applied atomically with the reply
+│   │   ├── conversation.py        # onboarding state machine (typed transition table)
+│   │   ├── learners.py, stages.py # learners, age bands, active-learner choice
+│   │   ├── activities.py          # activity model, validation, deterministic selection
+│   │   ├── aspiration.py          # AspirationSignals, CuriositySignals
+│   │   ├── trajectory.py          # breadth, slopes, sessions — pure math
+│   │   ├── language.py            # register detection
+│   │   └── text.py                # message splitting, spoken-text sanitising, keyword matching
 │   │
 │   ├── api/                       # thin HTTP layer
 │   │   ├── deps.py
@@ -407,10 +459,13 @@ marg-ai/
 │   │   └── fallbacks.py           # fixed user-facing fallback replies per failure kind
 │   │
 │   ├── layers/
+│   │   ├── onboarding.py          # consent, role, child, profile, deletion (+ onboarding_copy.py)
+│   │   ├── journey.py             # parent journey: khoj, reflection, parent questions, nudges
 │   │   ├── exposure.py            # ExposureBridge generation (teachers)
 │   │   ├── translation.py         # LocalisedReply: register, reading level, spoken_text
 │   │   ├── mentor.py              # RAG-grounded mentor answer with citations
-│   │   ├── roadmap.py             # Roadmap generation + progress check-ins
+│   │   ├── roadmap.py             # roadmap drafting and storage
+│   │   ├── off_topic.py           # short redirect
 │   │   └── memory.py              # rolling profile summary
 │   │
 │   ├── prompts/
@@ -440,7 +495,8 @@ marg-ai/
 │   │
 │   ├── audio/
 │   │   ├── transcode.py           # ffmpeg subprocess wrapper (ogg/opus ↔ wav)
-│   │   └── transliterate.py       # romanised Hinglish → Devanagari for TTS
+│   │   ├── analysis.py            # duration and silence checks
+│   │   └── tts_text.py            # prepares Devanagari spoken text for TTS
 │   │
 │   ├── safety/
 │   │   ├── gate.py                # safety-in / safety-out steps, fail-closed
@@ -479,7 +535,11 @@ marg-ai/
 │       ├── app.py                 # /tts, /embed, (/stt fallback) endpoints
 │       └── README.md
 │
+├── content/
+│   └── activities/                # reviewed khoj catalogue (*.yaml) + _materials.yaml, _hazards.yaml
+│
 ├── corpus/                        # curated RAG sources, markdown + frontmatter(source_url, retrieved_on)
+│   ├── curriculum/                # NCERT chapter catalogue (s10), not ingested
 │   ├── exams/
 │   ├── scholarships/
 │   ├── sports/
@@ -518,6 +578,7 @@ marg-ai/
 ## 10. Definition of done (MVP)
 
 - [ ] A voice note on WhatsApp gets a voice + text reply in the same register, p50 under 8 s.
+- [ ] Parent mode: today's khoj for a 3–8-year-old, a serve-and-return reply to the child's answer, a daily nudge at the chosen time.
 - [ ] Teacher mode: chapter → ExposureBridge. Student mode: question → cited mentor answer → stored roadmap.
 - [ ] Safety on input and output, crisis path, fail-closed. All adversarial golden cases pass.
 - [ ] Onboarding with consent; delete-my-data works.
@@ -538,7 +599,8 @@ top of it.
 
 ### 11.1 The loop for every step
 
-1. **Design first.** The agent reads `CLAUDE.md` and the relevant plan sections, then proposes:
+1. **Design first.** The agent reads `CLAUDE.md`, the foundation docs in `docs/design/` and the
+   step's design doc (`docs/design/sNN-*.md`), then proposes:
    files to add or change, the main types and Protocols, the tests it will write (including the
    negative cases from CLAUDE.md §4), and open questions. **No code until the design is approved.**
 2. **Build** on `main`.
@@ -550,7 +612,8 @@ top of it.
 
 The prompt to start a step:
 
-> Step S<n>: <name>. Read CLAUDE.md and plan.md (§11 and the sections listed for this step).
+> Step S<n>: <name>. Read CLAUDE.md, docs/design/README.md, the three foundation docs and
+> docs/design/s<nn>-*.md.
 > Propose the design first and wait for my approval. Then implement on main, run the
 > verification loop, and report against the step's exit criterion.
 
@@ -558,24 +621,25 @@ The prompt to start a step:
 
 Some steps need the official rules confirmed (any product code) or the Model API key.
 
-| | Step | Plan refs | Exit criterion | Day |
+| | Step | Design doc | Exit criterion | Day |
 |---|---|---|---|---|
-| [ ] S0 | **Prep (no product code):** accounts, WhatsApp business verification, 10 consented voice samples, a list of corpus sources, draft golden eval cases | §0, §4.5, §5.4 | Accounts ready; `docs/spikes/samples.md` and `evals/golden/` drafts exist | Pre |
-| [ ] S1 | **Scaffold:** pyproject + uv, ruff/mypy/pytest config, `core/` (config, errors, logging with redaction, clock), `/healthz` and `/readyz`, layering test, Dockerfile, compose, CI | §3.2, §5.1–5.2, §6 | Verification loop green locally and on CI; `/healthz` answers in Docker | 1 |
-| [ ] S2 | **Spikes:** Muse Voice Transcribe on Hindi samples, Llama Guard 4 host, MMS-TTS quality. Findings written to `docs/spikes/`, plus ADRs | §0, §8 | A recorded go/fallback decision for each of the three | 1 |
-| [ ] S3 | **WhatsApp channel:** payload models, signature check, webhook GET/POST, send text, deploy | §4.1 | A real phone message is echoed back by the deployed app | 1 |
-| [ ] S4 | **Store + queue:** tables, Alembic, inbox/outbox repositories, worker with SKIP LOCKED | §3.3, §5.1 | Duplicate webhooks produce one reply; a worker killed mid-turn loses nothing | 2 |
-| [ ] S5 | **LLM provider:** ports, Muse Spark adapter, retry policy, prompt registry, structured output, orchestrator skeleton | §3.1, §5.3 | Text in → Muse Spark → text out on the phone | 2 |
-| [ ] S6 | **Voice:** media download, ffmpeg transcode, STT adapter, ML sidecar on Modal, TTS, audio send | §4.2 | Voice note in → voice note out | 3 |
-| [ ] S7 | **Safety:** gate on input and output, domain policy, crisis replies, fallbacks, fail closed | §4.6 | Every adversarial golden case is handled; safety outage → holding reply | 4 |
-| [ ] S8 | **Onboarding:** state machine, consent, role/grade/district/language, delete-my-data | §4.9, §5.5 | A full onboarding works on the phone; deletion purges every table | 4 |
-| [ ] S9 | **Translation layer** | §4.4 | The same answer comes back in Hindi, Hinglish and English, with `spoken_text` | 5 |
-| [ ] S10 | **Exposure layer** (teacher mode) | §4.3 | A spoken chapter name returns an ExposureBridge as voice + text | 5 |
-| [ ] S11 | **RAG:** corpus validation, chunker, embeddings, pgvector, retriever | §4.5 | 80+ sourced docs ingested; retrieval returns cited chunks | 6 |
-| [ ] S12 | **Mentor + Roadmap + memory** | §4.5 | A cited answer, then a stored roadmap that the next session recalls | 6 |
-| [ ] S13 | **Telemetry:** turn events, aspiration signals, trajectory metrics, `/dashboard`, `/status` | §4.8 | The dashboard shows real data from testing | 7 |
-| [ ] S14 | **Web simulator** `/demo` | §4.7 | A stranger can use it from a link; rate limit and cost cap work | 8 |
-| [ ] S15 | **Eval harness** + scorecard | §5.4 | `marg eval` runs; scorecard committed | 8 |
-| [ ] S16 | **Hardening:** degradation ladder audit, load test with 20 concurrent users. **FEATURE FREEZE** | §5.1 | p50 and p95 latency recorded; no lost turns under load | 8 |
-| [ ] S17 | **Field test:** bug fixes only | §7 | 3+ real users have completed a full session | 9 |
-| [ ] S18 | **Submission:** README, architecture diagram, demo video, form | §7, §10 | Submitted by Nov 4, 23:00 IST | 10 |
+| [ ] S0 | **Prep (no product code):** accounts, real-number setup, 10 consented voice samples, corpus source list, golden eval drafts, first 10 activities drafted | `docs/s0-setup.md` | Accounts ready; samples, `evals/golden/` and `content/activities/` drafts exist | Pre |
+| [ ] S1 | **Scaffold:** pyproject + uv, ruff/mypy/pytest config, `core/`, `/healthz` and `/readyz`, layering test, Dockerfile, compose, CI | s01 | Verification loop green locally and on CI; `/healthz` answers in Docker | 1 |
+| [ ] S2 | **Spikes:** Muse Voice Transcribe, Llama Guard 4 host, MMS-TTS, embeddings, structured output | s02 | A recorded go/fallback decision for each | 1 |
+| [ ] S3 | **WhatsApp channel:** webhook, signature, parsing, identity, sending (text, buttons, audio, template) | s03 | A real phone message is stored and answered by the CLI sender | 1 |
+| [ ] S4 | **Queue and worker:** inbox, turns, outbox, leases, finalize, post-turn tasks, maintenance | s04 | Duplicate webhooks produce one reply; a worker killed mid-turn loses nothing | 2 |
+| [ ] S5 | **Model API, router, orchestrator, safety core:** structured output, prompt registry, sealed `SafeReply` | s05 | Text in → Muse Spark → checked text out on the phone | 2 |
+| [ ] S6 | **Voice:** media, ffmpeg, STT, ML sidecar, TTS, audio replies | s06 | Voice note in → voice note out | 3 |
+| [ ] S7 | **Safety:** domain policy, crisis lexicon and texts, refuse texts | s07 | Every adversarial and crisis golden case handled; safety outage → holding reply | 4 |
+| [ ] S8 | **Onboarding:** state machine incl. the parent path, consent, learners, delete-my-data | s08 | All three onboarding paths work on the phone; deletion purges every table | 4 |
+| [ ] S9 | **Translation layer** | s09 | The same answer comes back in Hindi, Hinglish and English, with `spoken_text` | 5 |
+| [ ] S10 | **Exposure layer** (teacher mode) | s10 | A spoken chapter name returns an ExposureBridge as voice + text | 5 |
+| [ ] S10b | **Parent journey:** activity catalogue, khoj, serve-and-return reflection, nudges | s10b | Khoj → voice report → serve-and-return reply; nudge arrives at the chosen time | 6 |
+| [ ] S11 | **RAG:** corpus validation, chunker, embeddings, pgvector, retriever | s11 | 80+ sourced docs ingested; retrieval returns cited chunks | 7 |
+| [ ] S12 | **Mentor + Roadmap + memory** (roadmap progress deferred) | s12 | A cited answer, then a stored roadmap | 7 |
+| [ ] S13 | **Telemetry:** signals (aspiration + curiosity), trajectory metrics, `/dashboard`, `/status` | s13 | Dashboards show real data from field testing | 8 |
+| [ ] S14 | **Web demo** `/demo` with the live pipeline trace | s14 | A stranger can use it from a link; rate limit and cost cap work | 8 |
+| [ ] S15 | **Eval harness** + scorecard | s15 | `marg eval` runs; scorecard committed; targets met | 9 |
+| [ ] S16 | **Hardening:** degradation audit, load test with 20 concurrent users. **FEATURE FREEZE** | s16 | p50 and p95 latency recorded; no lost or duplicate turns under load | 9 |
+| [ ] S17 | **Field test** with parents, teachers and students (runs alongside Days 6–9) | plan §7 | 3+ real users per role have completed a session | 6–9 |
+| [ ] S18 | **Submission:** README, architecture diagram, demo video, form | plan §7, §10 | Submitted by Nov 4, 23:00 IST | 10 |

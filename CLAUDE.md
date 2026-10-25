@@ -5,7 +5,17 @@ repository. They override convenience, speed, and brevity, including under hacka
 A feature shipped broken costs more than a feature not shipped: the Indie track is judged on
 "whether it works", live.
 
-The build plan, architecture and schedule live in [plan.md](plan.md). Read it before writing code.
+The build plan, architecture and schedule live in [plan.md](plan.md). The technical design lives in
+[docs/design/](docs/design/README.md). Before writing code for a step, read the three foundation
+docs (`00-overview.md`, `contracts.md`, `data-model.md`) and that step's design doc. Names come
+from `contracts.md` and `data-model.md` only.
+
+**Never change a design decision or make a new assumption on your own.** If a design doc's
+assumption turns out wrong (an API behaves differently, a model's quality is too low, a limit
+doesn't hold), or the work needs something no doc settles, stop and ask the owner. Show the
+evidence, give 2–3 options with their costs, and recommend one. After the owner decides, update
+the doc (including its "Decisions log") and the code in the same commit. The format is in
+`docs/design/README.md`, "How to use them" §3.
 
 Interpreter: always use `.venv/bin/python`. Never invoke a bare `python`/`python3`.
 Python **3.13**. Dependencies are managed with `uv`; the lockfile is committed.
@@ -89,15 +99,17 @@ and report the scorecard delta. A prompt change that lowers a rubric score needs
 
 Core logic carries `hypothesis` property tests in addition to example-based tests. In Marg.ai,
 core logic means: **the conversation state machine, message splitting, spoken-text sanitising,
-transliteration, the chunker, trajectory math, webhook signature verification, payload parsing,
-and the inbox/outbox idempotency logic.**
+TTS text preparation, activity validation and selection, age bands, the chunker, trajectory
+math, webhook signature verification, payload parsing, and the inbox/outbox idempotency logic.**
 
 | Component | Property |
 |---|---|
 | `domain/conversation` | every reachable state has a path to `ACTIVE`; `CONSENT` cannot be bypassed from `NEW` by any event sequence; invalid transitions raise, never no-op |
 | `domain/text` splitting | every part ≤ 4096 chars; `"".join(parts)` preserves all non-whitespace content in order; no part is empty; a word is never split mid-grapheme (Devanagari conjuncts, emoji) |
 | `domain/text` spoken sanitising | output contains no URLs, markdown or bullet glyphs; idempotent: `s(s(x)) == s(x)` |
-| `audio/transliterate` | Devanagari input passes through unchanged; output contains only Devanagari, digits, whitespace and punctuation |
+| `audio/tts_text` | Devanagari input keeps its letter sequence; output for the Hindi voice contains only Devanagari, digits, whitespace and sentence punctuation; every sentence ≤ the TTS limit; idempotent |
+| `domain/activities` | selection never returns an activity outside the learner's age or inside the repeat window (when another exists); deterministic; every catalogue entry passes validation |
+| `domain/stages` | age band is total over valid birth years; boundaries (2/3, 8/9, 11, 14, 18) are exact |
 | `rag/chunker` | chunks cover the source text in order with bounded overlap; no chunk exceeds the token budget; deterministic |
 | `domain/trajectory` | breadth is monotonic non-decreasing over a growing history; metrics are invariant to the order events arrive in when timestamps are equal |
 | `channels/whatsapp/signature` | a valid signature verifies; any single-byte change to body or signature fails |
@@ -234,13 +246,13 @@ dict. Length is not the enemy, density is.
 app/api/        thin HTTP: verify, parse, enqueue, project. No domain logic.
 app/pipeline/   orchestrator + router. Depends on ports, never on concrete providers.
 app/layers/     Exposure, Translation, Mentor, Roadmap, Memory.
-app/domain/     pure models, state machine, trajectory math, text rules. NO I/O, NO imports from app/.
+app/domain/     pure models, state machine, activities, trajectory math, text rules. NO I/O; imports only core.errors / core.types.
 app/providers/  adapters behind ports in providers/ports.py. The ONLY place an SDK is imported.
 app/channels/   the ONLY place that knows a WhatsApp (or web) payload shape.
 app/store/      the ONLY place SQL lives.
 ```
 
-- `domain/` importing anything else from `app/` is a bug.
+- `domain/` importing anything from `app/` other than `core.errors` and `core.types` is a bug.
 - `pipeline/` or `layers/` importing a concrete provider (`meta_model_api`, `llama_guard`) instead
   of a Protocol from `ports.py` is a bug. This is what keeps every unit test offline.
 - Nothing outside `channels/` reads `entry[0].changes[0].value` or any other WhatsApp structure.
@@ -273,7 +285,11 @@ app/store/      the ONLY place SQL lives.
   Never send unclassified generated text.
 - **Crisis replies are fixed text** in `app/safety/crisis.py`, reviewed by a human, with helpline
   numbers copied from their official source. An LLM never writes them.
-- Users are mostly minors: collect only role, grade, district and language. Phone numbers are
+- Users are mostly minors or speak for them: collect only role, grade, district and language;
+  for a parent's child, only an optional nickname (≤ 20 chars) and a birth year. Never photos,
+  full names, school names or exact birth dates. Activities for young children come from the
+  reviewed catalogue; personalisation may not add steps or materials, the `d7` hazard rule runs
+  on every journey reply, and the supervision line is appended by code (s10b). Phone numbers are
   stored as salted hashes. Raw audio is deleted after transcription. Logs never contain phone
   numbers, transcripts or generated replies, only ids and hashes (enforced by the redaction
   processor in `app/core/logging.py`, which has its own tests).
