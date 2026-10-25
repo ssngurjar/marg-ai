@@ -1,5 +1,7 @@
 # S10 — Exposure layer (teacher mode)
 
+> **Hackathon build level: Stretch (Day 8 checkpoint).** We build the full design by default; lite only as the listed exceptions in [mvp-scope.md](mvp-scope.md), which wins for the hackathon where it differs.
+
 ## 1. Purpose
 
 A rural teacher says what they're teaching ("Kal class 8 mein Force and Pressure hai"). Marg.ai

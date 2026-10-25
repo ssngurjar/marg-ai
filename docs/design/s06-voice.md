@@ -1,5 +1,7 @@
 # S6 — Voice: media, transcoding, speech-to-text, text-to-speech
 
+> **Hackathon build level: Full.** We build the full design by default; lite only as the listed exceptions in [mvp-scope.md](mvp-scope.md), which wins for the hackathon where it differs.
+
 ## 1. Purpose
 
 S6 makes Marg.ai voice-first:

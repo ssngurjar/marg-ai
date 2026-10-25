@@ -1,5 +1,7 @@
 # S13 — Telemetry: turn metrics, aspiration and curiosity signals, trajectory, dashboards
 
+> **Hackathon build level: Full (scoped). Parent and young-learner parts (mvp-scope.md §4.5).** We build the full design by default; lite only as the listed exceptions in [mvp-scope.md](mvp-scope.md), which wins for the hackathon where it differs.
+
 ## 1. Purpose
 
 Make the system **measurable**, for two audiences:

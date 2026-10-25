@@ -1,5 +1,7 @@
 # S7 — Safety: gate in and out, domain policy, crisis path
 
+> **Hackathon build level: Full, with the C3a ordering rule.** We build the full design by default; lite only as the listed exceptions in [mvp-scope.md](mvp-scope.md), which wins for the hackathon where it differs.
+
 ## 1. Purpose
 
 Most users are minors. S7 makes it impossible for Marg.ai to:
@@ -8,7 +10,8 @@ Most users are minors. S7 makes it impossible for Marg.ai to:
 - answer a crisis with anything other than fixed, human-reviewed text that includes official helplines
 
 It runs **both ways**:
-- `safety_in` checks the user's text before any generation
+- `safety_in` checks the user's text before any generated output is used (generation may run
+  concurrently and is discarded unless `safety_in` allows it; decision C3a)
 - `safety_out` checks the localised reply before anything is queued for delivery
 
 It **fails closed:** if safety can't decide, the user gets a fixed holding reply, never unchecked text.

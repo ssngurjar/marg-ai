@@ -1,5 +1,7 @@
 # S10b — Parent journey: "Aaj ki Khoj" for ages 3–8
 
+> **Hackathon build level: Full (core). Launch content per exception E3.** We build the full design by default; lite only as the listed exceptions in [mvp-scope.md](mvp-scope.md), which wins for the hackathon where it differs.
+
 > Draft v1, 2026-10-25. Reviewed and approved at the start of S10b, before any code.
 
 ## 1. Purpose
@@ -146,9 +148,10 @@ the file and field, and the app refuses to start):
 - no purchase words ("buy", "kharid", "dukaan se lao", "₹") in any text field
 - `status: enabled` requires `reviewed_by_role` and `reviewed_on`
 
-**MVP catalogue: 30 enabled activities.** That's a month of daily khoj without repeats. They're
-spread across all 9 domains (at least 3 each) and settings, with at least 6 that work indoors
-(monsoon days). Authoring workflow:
+**MVP catalogue: 10 enabled activities at launch, minimum 7** (decision C4). Polished beats many:
+that's a week and a half of daily khoj without repeats, enough for the demo and field testing.
+They cover at least 6 of the 9 domains, ages 3–8, and at least 3 work indoors (monsoon days).
+The catalogue grows to 30+ in Phase 2. Authoring workflow:
 1. Claude drafts activities in batches of 10 (they contain no factual claims, only instructions and questions).
 2. The owner reviews each one, ideally with one parent and one anganwadi worker or teacher, then
    sets `status: enabled` and the review fields.
@@ -441,7 +444,7 @@ async def claim_due_nudges(session, limit: int) -> list[UserHash]: ...
 **Unit**
 - `age_band` boundaries: ages 2, 3, 8, 9, 11, 14, 18, and a future birth year → `InvalidProfileValue`
 - `validate_activity`: each rule in §4.3 rejects a crafted file with a message naming the field (unknown material, undeclared hazard word in steps, a purchase word, age_max 9, enabled without review fields)
-- the shipped catalogue loads, every enabled activity validates, all 9 domains have ≥ 3 activities, and ≥ 6 are indoors
+- the shipped catalogue loads, every enabled activity validates, ≥ 7 are enabled, ≥ 6 domains are covered, and ≥ 3 are indoors
 - `choose_activity`: excludes recent repeats; rotation prefers unseen domains; the engagement boost applies at most once in 3; deterministic tie-break
 - `season_of` for each month
 - personalisation `semantic_check`: step count mismatch, a new hazard word, "doctor ban jaayega", "genius" → each rejected; catalogue fallback used after the second failure
@@ -453,8 +456,8 @@ async def claim_due_nudges(session, limit: int) -> list[UserHash]: ...
 **Property (hypothesis)**
 - `choose_activity` never returns an activity outside the learner's age range, never returns one
   offered within the repeat window when another candidate exists, and is deterministic.
-- Over any 30-day simulated history with the shipped catalogue, every domain appears at least
-  once (breadth by construction).
+- Over any simulated history as long as the catalogue (one activity a day), every domain the
+  catalogue covers appears at least once (breadth by construction).
 - `NudgeLoop` scheduling (pure function `next_due(local_time, now)`): never in quiet hours, at
   most one per IST day, and `next_due > now`.
 - The `d7` rule: a hazard word found in `t` is found in `prefix + t + suffix` (detection survives context).
@@ -492,7 +495,7 @@ specificity, no careers for a 5-year-old, medical refusal, register).
 
 | # | Question | Recommendation |
 |---|---|---|
-| Q1 | Who reviews the 30 activities? | The owner, plus one parent and one anganwadi worker or teacher during S0–S10b. Record the role and date on each file. |
+| Q1 | Who reviews the activities? | The owner, plus one parent and one anganwadi worker or teacher during S0–S10b. Record the role and date on each file. |
 | Q2 | Template category and price per message in India | Create it in S10b and record Meta's category and current per-message price in `docs/decisions/`. Keep the daily limit at 200 until verification raises the cap. |
 | Q3 | Should a parent's child also get a `self` link when they later get their own phone? | Post-MVP: a learner link table with a verification step. The data model already keys trajectories by learner, so nothing needs migrating. |
 | Q4 | Should the web demo show the journey? | Yes: the demo has a "Parent" onboarding option, and the reply includes a "Aaj ki khoj" button instead of a nudge (no proactive messages on web). |
@@ -501,4 +504,5 @@ specificity, no careers for a 5-year-old, medical refusal, register).
 
 | Date | Change | Why | Approved |
 |---|---|---|---|
+| 2026-10-25 | Launch catalogue 10 activities (minimum 7); deterministic flow dispatch for the MVP | Decisions C4 and C3b (mvp-scope.md) | owner |
 | 2026-10-25 | v1: parent journey for ages 3–8, daily opt-in template nudges, nickname + birth year only, curated catalogue with LLM personalisation, designed to move to guarded full generation | Owner decision (build a person from inception) | owner |

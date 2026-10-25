@@ -1,5 +1,7 @@
 # S8 — Onboarding: conversation state machine, consent, profile, learners, delete-my-data
 
+> **Hackathon build level: Full (scoped). Parent and teacher paths (mvp-scope.md §4.4); the student path is Phase 2.** We build the full design by default; lite only as the listed exceptions in [mvp-scope.md](mvp-scope.md), which wins for the hackathon where it differs.
+
 ## 1. Purpose
 
 A brand-new WhatsApp or web user has to give consent and say whether they're a **student**, a

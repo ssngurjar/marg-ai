@@ -1,5 +1,7 @@
 # S11 — RAG: corpus, chunking, embeddings, hybrid retrieval
 
+> **Hackathon build level: Phase 2.** We build the full design by default; lite only as the listed exceptions in [mvp-scope.md](mvp-scope.md), which wins for the hackathon where it differs.
+
 ## 1. Purpose
 
 Give the mentor and roadmap layers (S12) a **verifiable** knowledge base: official-source

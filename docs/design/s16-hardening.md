@@ -1,5 +1,7 @@
 # S16 — Hardening
 
+> **Hackathon build level: Exception E4. Smoke test instead of the staging load test until the trigger fires (mvp-scope.md §4.7).** We build the full design by default; lite only as the listed exceptions in [mvp-scope.md](mvp-scope.md), which wins for the hackathon where it differs.
+
 ## 1. Purpose
 
 By S16 every feature exists. This step makes sure the system behaves well when things go wrong,

@@ -1,5 +1,7 @@
 # S15 — Evaluation harness, LLM judge, scorecards
 
+> **Hackathon build level: Full (scoped). Parent journey, safety and onboarding files (mvp-scope.md §4.7).** We build the full design by default; lite only as the listed exceptions in [mvp-scope.md](mvp-scope.md), which wins for the hackathon where it differs.
+
 ## 1. Purpose
 
 Answer "is it good, and did my change make it worse?" with numbers instead of impressions.

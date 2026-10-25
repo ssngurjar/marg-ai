@@ -1,5 +1,7 @@
 # S1 — Scaffold
 
+> **Hackathon build level: Full. One process while exception E1 holds.** We build the full design by default; lite only as the listed exceptions in [mvp-scope.md](mvp-scope.md), which wins for the hackathon where it differs.
+
 ## 1. Purpose
 
 Set up the repository so every later step starts on solid ground: dependency management,

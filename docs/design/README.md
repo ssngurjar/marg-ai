@@ -10,6 +10,10 @@ code must be written*. These docs say *how each part works*.
 
 ## How to use them
 
+0. **For the hackathon build, read [mvp-scope.md](mvp-scope.md) first.** We build the full
+   enterprise design by default; it lists the few exceptions (each with a reason and an upgrade
+   trigger), the scope (stretch, Phase 2) and the hard lines. Where it differs from a step doc,
+   it wins for the hackathon; the step docs remain the full Phase 2 (enterprise) design.
 1. **Always read the three foundation docs first:**
    - [00-overview.md](00-overview.md): the system on one page: processes, the request lifecycle, layering, glossary.
    - [contracts.md](contracts.md): the shared vocabulary: enums, domain models, ports, errors, settings.
@@ -34,6 +38,8 @@ code must be written*. These docs say *how each part works*.
    `data-model.md` first, with approval. Step docs only reference them.
 
 ## Step → design doc
+
+The build level of each step (Full, Full (scoped), Exception, Stretch, Phase 2) is in [mvp-scope.md](mvp-scope.md) §5 and in a banner at the top of each doc.
 
 | Step | Doc | Builds |
 |---|---|---|
@@ -97,5 +103,10 @@ that step, in the "design first" part of the loop in plan.md §11, before any co
 | B8 | Search grounding off; teachers get memory; `/status` public with cost and crisis counts admin-only; no nightly evals before the deadline; targets ≥ 85% overall, 100% crisis and adversarial. | s10, s12, s13, s15 |
 | B9 | Trimmed for time: classroom codes, roadmap progress and check-ins, query rewriting (off unless the retrieval eval shows ≥ +0.05 recall@5). | s11, s12, s13 |
 | B10 | MMS-TTS (CC-BY-NC) is used for the hackathon and replaced before any commercial use. | s06 |
-| B11 | Layers write canonical replies in English, and a separate translation step localises them. | s09 |
+| B11 | Layers write canonical replies in English, and a separate translation step localises them. **Phase 2; for the MVP, revised by C3.** | s09 |
+| C1 | **Hackathon MVP = the parent journey.** Teacher exposure-lite is a stretch after the Day 8 checkpoint; student mentor, RAG and roadmaps are Phase 2. | mvp-scope.md |
+| C2 | Simplified durable processing for the MVP (single process, inbox dedupe, per-user lock, direct send, startup recovery, polling web demo). Full s04/s14 design is Phase 2. | mvp-scope.md §4.1, §4.6 |
+| C3 | Latency: generation concurrent with `safety_in` (used only on ALLOW); deterministic parent routing; layers write directly in the user's register (separate translation is Phase 2; revises B11). | mvp-scope.md §4.2–4.3 |
+| C4 | 10 polished activities at launch (minimum 7). | mvp-scope.md §4.8 |
+| C5 | **Enterprise grade by default.** Lite only where the full version would stretch the 10 days, listed as exceptions E1–E4 with upgrade triggers; proposed with a time estimate at each step's design review. | mvp-scope.md §0, §4 |
 | B12 | The parent journey (ages 3–8): a learner-centred data model, daily opt-in template nudges, nickname + birth year only, a curated activity catalogue with personalisation, designed to move to guarded full generation. | s10b, s08, data-model.md |

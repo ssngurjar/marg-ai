@@ -1,5 +1,7 @@
 # S4 — Queue, turns and the worker
 
+> **Hackathon build level: Exception E1. Build the single-process dispatcher in mvp-scope.md §4.1 until E1's upgrade trigger fires; then this full design.** We build the full design by default; lite only as the listed exceptions in [mvp-scope.md](mvp-scope.md), which wins for the hackathon where it differs.
+
 > Draft v1, 2026-10-25. Reviewed and approved at the start of S4, before any code.
 
 ## 1. Purpose

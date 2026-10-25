@@ -1,5 +1,7 @@
 # S14 — Web channel and `/demo`
 
+> **Hackathon build level: Exception E2. Polling until the upgrade trigger fires (mvp-scope.md §4.6).** We build the full design by default; lite only as the listed exceptions in [mvp-scope.md](mvp-scope.md), which wins for the hackathon where it differs.
+
 > Draft v1, 2026-10-25. Reviewed and approved at the start of S14, before any code.
 
 ## 1. Purpose

@@ -5,7 +5,11 @@ repository. They override convenience, speed, and brevity, including under hacka
 A feature shipped broken costs more than a feature not shipped: the Indie track is judged on
 "whether it works", live.
 
-The build plan, architecture and schedule live in [plan.md](plan.md). The technical design lives in
+The build plan, architecture and schedule live in [plan.md](plan.md). **For the hackathon build,
+[docs/design/mvp-scope.md](docs/design/mvp-scope.md) decides what is built now and what waits for Phase 2, and lists the hard lines that are never
+cut.** Build the full design by default. A lite version is allowed only as an exception listed
+there (reason + upgrade trigger); propose any new exception, with a time estimate, at the step's
+design review and let the owner decide. Don't build Phase 2 items without the owner's approval. The technical design lives in
 [docs/design/](docs/design/README.md). Before writing code for a step, read the three foundation
 docs (`00-overview.md`, `contracts.md`, `data-model.md`) and that step's design doc. Names come
 from `contracts.md` and `data-model.md` only.
@@ -278,7 +282,8 @@ app/store/      the ONLY place SQL lives.
 
 ## 11. Safety rules (non-negotiable)
 
-- The orchestrator runs `safety-in` before any generation and `safety-out` before any send.
+- No generated output is used, stored or delivered before `safety-in` returns ALLOW (generation
+  may run concurrently and is discarded otherwise), and nothing is sent without `safety-out`.
   **No code path reaches the outbox without a passing `safety-out` verdict.** Tests assert this
   for every route through the pipeline.
 - **Fail closed.** If the safety service errors or times out, send the fixed holding reply.

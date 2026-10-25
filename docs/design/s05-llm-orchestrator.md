@@ -1,5 +1,7 @@
 # S5 — LLM provider, prompts, router and orchestrator
 
+> **Hackathon build level: Full, with C3: concurrent generation, deterministic parent routing, direct localisation (mvp-scope.md §4.2–4.3).** We build the full design by default; lite only as the listed exceptions in [mvp-scope.md](mvp-scope.md), which wins for the hackathon where it differs.
+
 ## 1. Purpose
 
 S5 builds the engine that turns a `TurnContext` into a reply. It has five parts:
@@ -407,11 +409,13 @@ run_turn(ctx, recorder, observer)
  │     route failed     → fixed TRY_AGAIN_LATER
  │     route REPEAT_PLEASE → fixed REPEAT_PLEASE
  │
- ├─ C. generate                         dispatch (§4.4a) → LayerResult(CanonicalReply, writes)   (only after safety_in = ALLOW)
+ ├─ C. generate                         dispatch (§4.4a) → LayerResult(CanonicalReply, writes); started as soon as route
+ │                                      resolves, concurrently with safety_in; its result is used only on ALLOW (C3a)
  │     failed → fixed TRY_AGAIN_LATER
  │     HandoffPendingQuestion / first khoj → one re-dispatch (§4.4a)
  │
- ├─ D. translate                        CanonicalReply → LocalisedReply        (S9; §4.6 before S9)
+ ├─ D. translate                        CanonicalReply → LocalisedReply        (S9, Phase 2. In the MVP the layer writes
+ │                                      text + spoken_text in the user's register and translate is SKIPPED: mvp-scope §4.2)
  │     failed → if canonical.body_language == register: use canonical as-is (DEGRADED)
  │              else fixed TRY_AGAIN_LATER
  │
@@ -436,10 +440,13 @@ Fixed replies (any branch above) skip C–E's generation work:
 - Fixed replies are synthesized too when the turn contained audio, so a voice user gets a voice
   reply (s06), unless `synthesize` isn't registered.
 
-**The safety ordering rule.** Generation output never exists before `safety_in` has returned
-`ALLOW`: `generate` starts only after branch B resolves. The only work allowed in parallel with a
-safety check is work whose output is never delivered unless that check passes: the router (B) and
-speculative synthesis (E). Tests assert this ordering using a fake clock and call log (§9).
+**The safety ordering rule (revised 2026-10-25, decision C3a).** No generated output is used,
+stored or delivered before `safety_in` has returned `ALLOW`. Work may run *concurrently* with a
+safety check only if its result is discarded unread when the check doesn't pass: the router and
+`generate` (branch B runs `safety_in ‖ (route → generate)`), and speculative synthesis (E). On
+BLOCK, CRISIS or a safety failure, the generate task is cancelled (or its result dropped), its
+`TurnWrite`s are dropped, and the fixed reply is sent. Tests assert this with a fake clock and a
+call log (§9). Running generation concurrently saves about 1–2 s per turn (docs/design/mvp-scope.md §4.2).
 
 **Per-step time budgets.** Each step runs inside `asyncio.timeout(effective)`, where
 `effective = min(TIMEOUT_<STEP>_S, seconds_until(deadline) − DELIVERY_RESERVE_S)`.
@@ -687,9 +694,9 @@ built here (B1).
 - happy path → `TurnOutcome` with route `MENTOR`, text parts, and versions recorded
 - every row of the `StepFailure` → reply table (parametrized): the right fixed kind, a recorder
   row with `FAILED` and the kind, and `first_failure` set
-- **ordering:** `generate` is never called before `safety_in` returns `ALLOW`; with `safety_in`
-  returning BLOCK, CRISIS or failure, `generate` is never called at all; the route result is
-  discarded on a safety block
+- **ordering (C3a):** with `safety_in` returning BLOCK, CRISIS or failure, no generated text
+  appears in the outcome, no generated `TurnWrite` is in `writes`, and the reply is the fixed one,
+  even when `generate` finished first; with ALLOW, the generated reply is used
 - speculative synthesis: `safety_out` BLOCK means no AUDIO part, even though `synthesize` succeeded
 - writes: a generate layer returning a `SaveRoadmap` write, then `safety_out` BLOCK → the outcome's
   `writes` is empty; onboarding's `ProfileChange` on a fixed reply is kept

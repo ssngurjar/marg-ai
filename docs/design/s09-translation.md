@@ -1,5 +1,7 @@
 # S9 — Translation layer: register, reading level, spoken text
 
+> **Hackathon build level: Full, applied inside each layer (C3c); the separate translation call is optional later.** We build the full design by default; lite only as the listed exceptions in [mvp-scope.md](mvp-scope.md), which wins for the hackathon where it differs.
+
 ## 1. Purpose
 
 Every generated answer goes through one more step before the user sees it. The translation

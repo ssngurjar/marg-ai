@@ -1,5 +1,7 @@
 # S12 — Mentor, Roadmap and profile memory
 
+> **Hackathon build level: Phase 2, except `LayerResult`, which every layer uses.** We build the full design by default; lite only as the listed exceptions in [mvp-scope.md](mvp-scope.md), which wins for the hackathon where it differs.
+
 ## 1. Purpose
 
 This is the student side of Marg.ai, the "Aspirational Layer":

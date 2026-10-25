@@ -1,5 +1,8 @@
 # Contracts — shared vocabulary
 
+> Hackathon build: see [mvp-scope.md](mvp-scope.md) for which parts are built now. Contracts
+> for Phase 2 parts stay defined here so the MVP code grows into them without renaming.
+
 **This is the single source of truth for names.** Enums, domain models, ports, errors and settings
 are defined here once. Step docs reference them and never redefine them. Changing a contract
 needs the owner's approval (docs/design/README.md, "How to use them" §3). Make the change here,
@@ -310,8 +313,10 @@ class TemplateRef(BaseModel):                # PartKind.TEMPLATE (s10b nudges)
     button_payloads: list[str]               # quick-reply payloads, e.g. ["jrn:today"]
 
 class CanonicalReply(BaseModel):             # what every generate step returns
-    body: str                                # English for generated replies (s09); the user's language for fixed text
+    body: str                                # MVP: the user's register (direct localisation, C3c).
+                                             # Phase 2 with the s09 layer: English. Fixed text: the user's language.
     body_language: Language
+    spoken_text: str | None                  # set when the layer localised directly; translate is then SKIPPED
     citations: list[Citation]
     buttons: list[ReplyButton]               # ≤ 3
     fixed_kind: FixedReplyKind | None        # set when this is fixed text (no translation, no LLM)
@@ -644,5 +649,7 @@ Per-step timeouts `TIMEOUT_<STEP>_S`: `FETCH_MEDIA` 5, `TRANSCRIBE` 8, `SAFETY_I
 | 2026-10-25 | Parent journey: `Role.PARENT`, `Learner`, `LearnerRelation`, `AWAITING_CHILD`, `Route.JOURNEY`/`NUDGE`, `PartKind.TEMPLATE`, `CuriosityDomain`, `ActivitySource`, `d7 CHILD_PHYSICAL_HAZARD` | Owner decision: build a person from early childhood; learner-centred data model from inception | owner |
 | 2026-10-25 | `Transcript.language` derived locally, `confidence` always None for Muse Voice Transcribe | The API returns neither (s06 §4.5) | owner (defaults) |
 | 2026-10-25 | `TurnObserver.on_step` carries the step result; `process_user_turn` accepts an observer; `GoldenLearner`; `SignedTokenCodec`; `ExtractSignals`/`UpdateMemory` fields; writes applied in list order | Requested by s13 and s15 forks; needed for evals to capture replies and for the first-khoj handoff | pending owner review |
+| 2026-10-25 | `CanonicalReply.spoken_text`; layers write in the user's register for the MVP | Decision C3c (direct localisation) | owner |
+| 2026-10-25 | Safety ordering: generation may run concurrently with `safety_in`, used only on ALLOW | Decision C3a | owner |
 | 2026-10-25 | `StepRecorder.record` gains `decision` | Needed to fill `turn_steps.decision` (s07 writes it, s14 trace reads it); requested by s05 C9 | pending owner review |
 | 2026-10-25 | Trimmed: classroom codes, roadmap progress/check-ins, query rewriting default off | Fund the parent journey within 10 days | owner |

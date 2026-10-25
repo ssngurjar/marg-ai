@@ -1,5 +1,7 @@
 # S2 — Spikes
 
+> **Hackathon build level: Full (scoped). Spikes A, B, C, E; D belongs to Phase 2 RAG.** We build the full design by default; lite only as the listed exceptions in [mvp-scope.md](mvp-scope.md), which wins for the hackathon where it differs.
+
 ## 1. Purpose
 
 Before building on the external services, measure the five assumptions the whole design rests

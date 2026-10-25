@@ -2,6 +2,10 @@
 
 Read this first. It's the whole system on one page. Details live in the step docs.
 
+> **Hackathon build:** the MVP is the parent journey, run as a single process with a simplified
+> dispatcher, direct localisation and a polling web demo. See [mvp-scope.md](mvp-scope.md). This
+> overview describes the full design, which the MVP grows into in Phase 2.
+
 ## 1. What the system does
 
 Marg.ai follows a **learner** from early childhood to their first career decisions, through the

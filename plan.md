@@ -1,5 +1,10 @@
 # Marg.ai — Build Plan (Meta Global AI Developer Hackathon, Indie Track)
 
+> **Hackathon MVP = the parent journey ("Aaj ki Khoj").** What's built in 10 days, what's a
+> stretch, what's Phase 2, and the hard lines: [docs/design/mvp-scope.md](docs/design/mvp-scope.md).
+> We build to full enterprise grade by default; lite steps only where the 10 days demand it
+> (listed exceptions with upgrade triggers). Phase 2 completes the rest of the product.
+
 > Status: **draft v1**, written 2026-10-24, before kickoff. Revisit at the end of every build day.
 > Engineering rules are in [CLAUDE.md](CLAUDE.md). This file covers *what* gets built and *when*.
 
@@ -344,21 +349,22 @@ Day boundaries are IST. **Feature freeze: end of Day 8.** Days 9 and 10 are for 
 
 | Day | Date | Goal (exit criterion in **bold**) |
 |---|---|---|
-| Pre | Oct 24–25 | Plan, CLAUDE.md, design docs. Accounts: Meta developer app + WhatsApp test number, Model API key, Modal / Baseten / Fireworks credits, Neon, Fly/Railway. Collect 10 consented voice samples. Draft the corpus source list, golden evals and the first 10 activities (content, not code). **No product code until the rules on pre-existing work are confirmed.** |
-| 1 | Mon Oct 26 (from 18:30) | S1 scaffold, S2 spikes, S3 WhatsApp channel. Read the official rules. Submit the nudge template for Meta's approval. **Webhook deployed, signature verified, a reply sent to a real phone.** |
-| 2 | Tue Oct 27 | S4 queue and worker, S5 Model API + router + orchestrator + safety core. **Text in → Muse Spark → checked text out, surviving a worker restart mid-turn.** |
-| 3 | Wed Oct 28 | S6 voice. **Voice note in → voice note out end to end.** |
-| 4 | Thu Oct 29 | S7 safety (domain policy, crisis texts), S8 onboarding incl. the parent path. **Adversarial and crisis golden cases handled. All three onboarding paths work on the phone.** |
-| 5 | Fri Oct 30 | S9 translation, S10 exposure. Activities 11–30 drafted and sent for review. **A teacher speaks a chapter name and gets an ExposureBridge as voice + text.** |
-| 6 | Sat Oct 31 | S10b parent journey: catalogue, khoj, reflection, nudges. Field testing with parents starts. **A parent gets today's khoj, reports back by voice and gets a serve-and-return reply; the nudge arrives at the chosen time.** |
-| 7 | Sun Nov 1 | S11 RAG (80+ sourced docs), S12 mentor + roadmap + memory. **A student asks about a career, gets a cited answer and a stored roadmap.** |
-| 8 | Mon Nov 2 | S13 telemetry + dashboards, S14 web demo. **`/demo` usable by a stranger; dashboards show real data from field testing.** |
-| 9 | Tue Nov 3 | S15 eval scorecard, S16 hardening + load test. **FEATURE FREEZE at end of day.** Field-test fixes only after that. |
-| 10 | Wed Nov 4 | S18 demo video (story: a mother and her 5-year-old → a teacher → a student, one trajectory), README, architecture diagram, eval scorecard, submission form. **Submitted by 23:00 IST**, which leaves 8.5 h of buffer before the 07:30 IST Nov 5 deadline. |
+| Pre | Oct 24–25 | Plan, CLAUDE.md, design docs. Accounts and the real-number setup. 10 consented voice samples. Draft the 10 launch activities and the golden evals (content, not code). **No product code until the rules on pre-existing work are confirmed.** |
+| 1 | Mon Oct 26 (from 18:30) | S1, S2, S3; submit the nudge template. **A reply sent to a real phone.** |
+| 2 | Tue Oct 27 | S4 (exception E1), S5 with the safety core. **Text in → checked Muse Spark reply out; a restart mid-turn loses nothing.** |
+| 3 | Wed Oct 28 | S6 voice. **Voice note in → voice note out.** |
+| 4 | Thu Oct 29 | S7 safety, S8 onboarding. **Crisis and adversarial cases pass; parent onboarding works on the phone.** |
+| 5 | Fri Oct 30 | S10b core: catalogue, selection, personalisation, reflection; activities reviewed. **Khoj → voice report → serve-and-return reply.** |
+| 6 | Sat Oct 31 | S10b nudges and polish, S13 curiosity signals. **Field testing with parents starts; the nudge arrives at the chosen time.** |
+| 7 | Sun Nov 1 | S14 (E2) web demo, S13 `/status` and admin dashboard. **A stranger can use `/demo`.** |
+| 8 | Mon Nov 2 | S15 scorecard. **Checkpoint:** if the parent journey is demo-ready, S10 teacher exposure-lite (half a day); otherwise polish. **Scorecard committed.** |
+| 9 | Tue Nov 3 | S16 hardening (E4). **Feature freeze at end of day**; field-test fixes only after that. |
+| 10 | Wed Nov 4 | S18: demo video (a mother and her 5-year-old, then the full-journey pitch), README, architecture diagram, scorecard, submission form. **Submitted by 23:00 IST**, which leaves 8.5 h of buffer before the 07:30 IST Nov 5 deadline. |
 
-The parent journey added about 2.5 days of work. That time came from the trims the owner approved
-on 2026-10-25: classroom codes, roadmap progress and check-ins, and query rewriting. Field testing
-(S17) now runs alongside Days 6–9 instead of taking a whole day.
+**Hackathon cut (owner decisions C1–C4, 2026-10-25):** the MVP is the parent journey. Teacher
+exposure-lite is a stretch after the Day 8 checkpoint. The student mentor, RAG and roadmaps, the
+full multi-worker queue, the separate translation call and SSE are Phase 2, already designed in
+`docs/design/`. Full details and the hard lines: [docs/design/mvp-scope.md](docs/design/mvp-scope.md).
 
 **Stretch goals, in order, only if a day finishes early:** roadmap nudges through approved
 templates (outside the 24h window) · an IVR channel adapter (§4.10) · Muse Image visual explainer cards for teachers · Hindi
@@ -381,7 +387,8 @@ dialect biasing in STT · a second regional language.
 | An unsafe activity suggestion for a young child | Low | Reviewed catalogue only; personalisation can't add steps or materials; the `d7` hazard rule on every reply; a fixed supervision line appended by code; fallback to the reviewed text. |
 | Nudge template not approved in time | Medium | Submit on Day 1. Without it, parents start each day by tapping "Aaj ki khoj" or typing it; the journey works, just not proactively. |
 | MMS-TTS licence is non-commercial | Certain (known) | Fine for the hackathon; replaced before any commercial use (README note, decision B10). |
-| 30 activities not reviewed in time | Medium | Draft 10 in S0 and 20 on Day 5; launch with however many are reviewed (minimum 14, two weeks). |
+| Launch activities not reviewed in time | Low | 10 drafted in S0, reviewed by Day 5; launch with a minimum of 7 (decision C4). |
+| Single app instance (MVP) | Known | Deliberate (C2): one Fly machine, no autoscaling; startup recovery covers restarts. Phase 2 restores multi-worker leases. |
 
 ---
 
@@ -579,7 +586,7 @@ marg-ai/
 
 - [ ] A voice note on WhatsApp gets a voice + text reply in the same register, p50 under 8 s.
 - [ ] Parent mode: today's khoj for a 3–8-year-old, a serve-and-return reply to the child's answer, a daily nudge at the chosen time.
-- [ ] Teacher mode: chapter → ExposureBridge. Student mode: question → cited mentor answer → stored roadmap.
+- [ ] Stretch: teacher mode, chapter → ExposureBridge. (Student mentor and roadmaps are Phase 2.)
 - [ ] Safety on input and output, crisis path, fail-closed. All adversarial golden cases pass.
 - [ ] Onboarding with consent; delete-my-data works.
 - [ ] Worker restart mid-turn loses nothing; duplicate webhooks produce one reply.
@@ -621,25 +628,25 @@ The prompt to start a step:
 
 Some steps need the official rules confirmed (any product code) or the Model API key.
 
-| | Step | Design doc | Exit criterion | Day |
-|---|---|---|---|---|
-| [ ] S0 | **Prep (no product code):** accounts, real-number setup, 10 consented voice samples, corpus source list, golden eval drafts, first 10 activities drafted | `docs/s0-setup.md` | Accounts ready; samples, `evals/golden/` and `content/activities/` drafts exist | Pre |
-| [ ] S1 | **Scaffold:** pyproject + uv, ruff/mypy/pytest config, `core/`, `/healthz` and `/readyz`, layering test, Dockerfile, compose, CI | s01 | Verification loop green locally and on CI; `/healthz` answers in Docker | 1 |
-| [ ] S2 | **Spikes:** Muse Voice Transcribe, Llama Guard 4 host, MMS-TTS, embeddings, structured output | s02 | A recorded go/fallback decision for each | 1 |
-| [ ] S3 | **WhatsApp channel:** webhook, signature, parsing, identity, sending (text, buttons, audio, template) | s03 | A real phone message is stored and answered by the CLI sender | 1 |
-| [ ] S4 | **Queue and worker:** inbox, turns, outbox, leases, finalize, post-turn tasks, maintenance | s04 | Duplicate webhooks produce one reply; a worker killed mid-turn loses nothing | 2 |
-| [ ] S5 | **Model API, router, orchestrator, safety core:** structured output, prompt registry, sealed `SafeReply` | s05 | Text in → Muse Spark → checked text out on the phone | 2 |
-| [ ] S6 | **Voice:** media, ffmpeg, STT, ML sidecar, TTS, audio replies | s06 | Voice note in → voice note out | 3 |
-| [ ] S7 | **Safety:** domain policy, crisis lexicon and texts, refuse texts | s07 | Every adversarial and crisis golden case handled; safety outage → holding reply | 4 |
-| [ ] S8 | **Onboarding:** state machine incl. the parent path, consent, learners, delete-my-data | s08 | All three onboarding paths work on the phone; deletion purges every table | 4 |
-| [ ] S9 | **Translation layer** | s09 | The same answer comes back in Hindi, Hinglish and English, with `spoken_text` | 5 |
-| [ ] S10 | **Exposure layer** (teacher mode) | s10 | A spoken chapter name returns an ExposureBridge as voice + text | 5 |
-| [ ] S10b | **Parent journey:** activity catalogue, khoj, serve-and-return reflection, nudges | s10b | Khoj → voice report → serve-and-return reply; nudge arrives at the chosen time | 6 |
-| [ ] S11 | **RAG:** corpus validation, chunker, embeddings, pgvector, retriever | s11 | 80+ sourced docs ingested; retrieval returns cited chunks | 7 |
-| [ ] S12 | **Mentor + Roadmap + memory** (roadmap progress deferred) | s12 | A cited answer, then a stored roadmap | 7 |
-| [ ] S13 | **Telemetry:** signals (aspiration + curiosity), trajectory metrics, `/dashboard`, `/status` | s13 | Dashboards show real data from field testing | 8 |
-| [ ] S14 | **Web demo** `/demo` with the live pipeline trace | s14 | A stranger can use it from a link; rate limit and cost cap work | 8 |
-| [ ] S15 | **Eval harness** + scorecard | s15 | `marg eval` runs; scorecard committed; targets met | 9 |
-| [ ] S16 | **Hardening:** degradation audit, load test with 20 concurrent users. **FEATURE FREEZE** | s16 | p50 and p95 latency recorded; no lost or duplicate turns under load | 9 |
-| [ ] S17 | **Field test** with parents, teachers and students (runs alongside Days 6–9) | plan §7 | 3+ real users per role have completed a session | 6–9 |
-| [ ] S18 | **Submission:** README, architecture diagram, demo video, form | plan §7, §10 | Submitted by Nov 4, 23:00 IST | 10 |
+| | Step | Build level | Design doc | Exit criterion | Day |
+|---|---|---|---|---|---|
+| [ ] S0 | **Prep (no product code):** accounts, real-number setup, 10 consented voice samples, golden eval drafts, 10 launch activities drafted | Full | `docs/s0-setup.md` | Accounts ready; samples, `evals/golden/` and `content/activities/` drafts exist | Pre |
+| [ ] S1 | **Scaffold** (single process while E1 holds) | Full | s01 | Verification loop green locally and on CI; `/healthz` answers in Docker | 1 |
+| [ ] S2 | **Spikes:** STT, Llama Guard 4, MMS-TTS, structured output | Full | s02 | A recorded go/fallback decision for each | 1 |
+| [ ] S3 | **WhatsApp channel:** webhook, signature, parsing, identity, sending (text, buttons, audio, template) | Full | s03 | A real phone message is stored and answered by the CLI sender | 1 |
+| [ ] S4 | **Processing:** inbox dedupe, in-process dispatcher, finalize, direct send, startup recovery | Exception E1 | mvp-scope §4.1 (full: s04) | Duplicate webhooks produce one reply; a restart mid-turn loses nothing | 2 |
+| [ ] S5 | **Model API, router, orchestrator, safety core** | Full (with C3) | s05 + mvp-scope §4.2–4.3 | Text in → checked Muse Spark reply out on the phone | 2 |
+| [ ] S6 | **Voice:** media, ffmpeg, STT, ML sidecar, TTS, audio replies | Full | s06 | Voice note in → voice note out | 3 |
+| [ ] S7 | **Safety:** domain policy, crisis lexicon and texts, refuse texts, `d7` | Full | s07 | Every adversarial and crisis golden case handled; safety outage → holding reply | 4 |
+| [ ] S8 | **Onboarding:** parent and teacher paths, consent, learners, delete-my-data | Full (scoped) | s08 + mvp-scope §4.4 | Parent onboarding works on the phone; deletion purges every table | 4 |
+| [ ] S9 | **Localisation rules and checks** inside layers (no separate call) | Full (in-layer) | s09 + mvp-scope §4.2 | Replies in Hindi, Hinglish and English with valid `spoken_text` | 5 |
+| [ ] S10b | **Parent journey:** catalogue, khoj, serve-and-return reflection, nudges | **Full (core)** | s10b | Khoj → voice report → serve-and-return reply; nudge at the chosen time | 5–6 |
+| [ ] S13 | **Telemetry:** `/status`, curiosity signals, admin young-learner dashboard | Full (scoped) | s13 + mvp-scope §4.5 | Curiosity signals and metrics from field testing visible | 6–7 |
+| [ ] S14 | **Web demo** `/demo` with the pipeline trace (polling) | Exception E2 | s14 + mvp-scope §4.6 | A stranger can use it from a link; rate limit and cost cap work | 7 |
+| [ ] S15 | **Eval scorecard** (parent journey, safety, onboarding) | Full (scoped) | s15 + mvp-scope §4.7 | Scorecard committed; targets met | 8 |
+| [ ] S10 | **Teacher exposure-lite** | Stretch (Day 8 checkpoint) | s10 | A spoken chapter name returns an ExposureBridge | 8 |
+| [ ] S16 | **Hardening:** audit, timeouts, readiness, 10-user smoke test. **FEATURE FREEZE** | Exception E4 | s16 + mvp-scope §4.7 | p50 recorded; checklist done | 9 |
+| [ ] S17 | **Field test** with parents (from Day 6) | Full | plan §7 | 3+ parents have completed a khoj and a report | 6–9 |
+| [ ] S18 | **Submission:** README, architecture diagram, demo video, form | Full | plan §7, §10 | Submitted by Nov 4, 23:00 IST | 10 |
+| — S11 | RAG | Phase 2 | s11 | — | — |
+| — S12 | Mentor, roadmap, memory | Phase 2 | s12 | — | — |
