@@ -1,4 +1,4 @@
-# 0001 — Pin the WhatsApp Graph API to v26.0
+# 0008 — Pin the WhatsApp Graph API to v26.0
 
 - **Date:** 2026-10-27
 - **Step:** S3 (docs/design/s03-whatsapp-ingress-auth.md §4.11)

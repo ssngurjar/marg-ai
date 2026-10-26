@@ -638,7 +638,7 @@ and a unit test enforce. When the user's language is unknown, the Hinglish versi
 
 | Setting | Type | Default |
 |---|---|---|
-| `WHATSAPP_GRAPH_BASE_URL` | `HttpUrl` | — (set to `https://graph.facebook.com/v26.0`; docs/decisions/0001) |
+| `WHATSAPP_GRAPH_BASE_URL` | `HttpUrl` | — (set to `https://graph.facebook.com/v26.0`; docs/decisions/0008) |
 | `TIMEOUT_WHATSAPP_S` | `float` | 5.0 (one Graph API call) |
 | `WHATSAPP_ACCESS_TOKEN` / `WHATSAPP_APP_SECRET` / `WHATSAPP_VERIFY_TOKEN` | `SecretStr` | — |
 | `WHATSAPP_PHONE_NUMBER_ID` | `str` | — |

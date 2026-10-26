@@ -265,7 +265,7 @@ after the API accepted the message.
 ### 4.11 Graph API version
 
 `WHATSAPP_GRAPH_BASE_URL` pins the version: **`https://graph.facebook.com/v26.0`**, recorded in
-[docs/decisions/0001-graph-api-v26.md](../decisions/0001-graph-api-v26.md). Meta keeps each version
+[docs/decisions/0008-graph-api-v26.md](../decisions/0008-graph-api-v26.md). Meta keeps each version
 for roughly two years, so one pin lasts the whole project.
 
 ## 5. Interfaces
@@ -555,7 +555,7 @@ quick tunnel). Meta rejects self-signed certificates.
 |---|---|---|---|
 | 2026-10-25 | Requested contract changes applied; added `TEMPLATE` part sending and the template quick-reply link for s10b nudges; template error codes marked for verification | Consolidation against the updated foundation docs; parent journey (B12) | owner |
 | 2026-10-26 | WhatsApp `image` messages map to `MessageKind.IMAGE` (media id, mime, caption → text; url and caption never kept in `raw_payload`); `IMAGE` parts can be sent (upload, then `type=image` with a caption ≤ 1024 chars) | Owner decisions C6 (khoj card) and C7 (activity photos) | owner |
-| 2026-10-27 | Graph API pinned to `v26.0` (§4.11, docs/decisions/0001) | The dashboard's current version on Day 1; the `hello_world` template send succeeded on it | owner (S3 design) |
+| 2026-10-27 | Graph API pinned to `v26.0` (§4.11, docs/decisions/0008) | The dashboard's current version on Day 1; the `hello_world` template send succeeded on it | owner (S3 design) |
 | 2026-10-27 | `Clock` moved from `providers/ports.py` to `app/core/clock.py` (contracts §3) | `api` needs a clock and may not import `providers`; a clock isn't a provider | owner |
 | 2026-10-27 | No `WhatsAppIngest` in `channels`: `channels` parses with no I/O, `store` writes (`InboundStore`), the route hands one to the other (§4.1, §5.6, §5.7) | The layering guard: `channels` may not import `store`, and SQL lives only in `store` | owner (S3 review) |
 | 2026-10-27 | Repositories are one `InboundStore` class instead of module functions in `users.py` / `inbox.py`; `apply_status_update` moves to S4 with `outbox_messages`; the forward-only rule ships now as the pure `next_delivery_status` (§4.8, §5.7) | One object owns the webhook transaction; the SQL can't be integration-tested before its table exists | owner (S3 review) |
