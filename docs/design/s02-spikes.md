@@ -286,12 +286,14 @@ Hinglish and English (60 queries). Passages are written in plain English, like t
 **Procedure.** With the OpenAI SDK pointed at `MODEL_API_BASE_URL`:
 1. `GET /v1/models`: record which models the key can use (`muse-spark-1.3`, `1.2`,
    `muse-voice-transcribe-1.0`).
-2. Define three representative schemas as Pydantic models in the script: a router output
+2. Define four representative schemas as Pydantic models in the script: a router output
    (an enum + a short string), an exposure bridge (a nested list of 3 objects with string lists),
-   and a mentor answer with nullable fields. Generate the JSON schema with
+   a mentor answer with nullable fields, and the parent journey's `ParentReflection` (s10b §4.8,
+   with its length limits) on the parent-journey golden cases. Generate the JSON schema with
    `model_json_schema()` and check it satisfies the strict subset (`extra="forbid"` gives
    `additionalProperties: false`; nullable fields need `required`).
-3. Call each 10 times with Hinglish and Hindi inputs from `evals/golden/`, with `strict: true`.
+3. Call each 30 times with Hinglish and Hindi inputs from `evals/golden/`, with `strict: true`,
+   then 10 more each at reasoning effort `minimal` and `low` on the same inputs.
    Record: schema-valid rate (parse with `model_validate_json`), whether Devanagari survives
    intact after decoding (and isn't transliterated to Roman script), latency p50/p95, `usage` token counts,
    and whether a reasoning-effort setting changes latency.
@@ -500,5 +502,6 @@ None from this design itself. Outcomes that could still request changes, each br
 
 | Date | Change | Why | Approved |
 |---|---|---|---|
+| 2026-10-27 | Spike E: 30 calls per schema (the go bar is "29 of 30 per schema"); a fourth schema, `ParentReflection` (s10b §4.8) on the parent-journey golden cases; effort sweep (`minimal`, `low`) on the same inputs as the default run; the repair test uses S5's repair message under the real same-register system prompt (the first run kept an "English only" system prompt, so the model refused the repair); routing accuracy is recorded but not part of the go bar (it depends on S5's router prompt) | The procedure said 10 calls but the bar assumed 30; §4.6 predates the parent-journey pivot; first-run review findings | owner |
 | 2026-10-26 | Spike B checks Llama Guard 4 image input; spike C measures MMS-TTS and Indic Parler-TTS side by side, MMS only if the organisers confirm the licence; new spike F (Muse Image, SAM 3.1 with a 100% person-recall bar) | Owner decisions C6, C7, C8 | owner |
 | 2026-10-25 | Spike C runs MMS-TTS on CPU, checks Devanagari vs uroman input, records the CC-BY-NC licence; Indic Parler-TTS only if MMS fails. Spike E checks the repair turn. A5 approved; `tts_text.py` replaces `transliterate.py` | Consolidation against the updated foundation docs (B9, B10, A5) | owner (defaults) |
