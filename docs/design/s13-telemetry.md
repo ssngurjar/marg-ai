@@ -95,6 +95,7 @@ transaction**. It's off the critical path, and failure never affects the reply.
 |---|---|---|
 | Student (`role == STUDENT`), route `MENTOR`, `ROADMAP` or `OFF_TOPIC`, no fixed reply | `AspirationSignals` for the student's `self` learner | — |
 | Parent, route `JOURNEY`, and the turn's writes include an `ActivityReported` | `CuriositySignals` for the reported activity's learner | — |
+| Route `CHILD_TALK` with a generated reply (C13), or a `JOURNEY` curiosity-moment turn (C11) | `CuriositySignals` for the active learner, with `child_asked_question = true` when the child (or the parent relaying) asked a question; judged from the child's own words, never labelling the child | — |
 | Teacher turns | — | `not_learner_turn` |
 | Fixed replies, onboarding, crisis, refuse, data deletion, dashboard link, nudge | — | `not_applicable` |
 | Parent `JOURNEY` turn with no report (an activity offered, a question, settings) | — | `no_report` |
@@ -222,6 +223,9 @@ class YoungLearnerTrajectory:
     engagement_by_session: list[int]   # max engagement per session, chronological
     engagement_slope: float | None     # None when sessions < 2
     child_question_rate: float | None  # reports with child_asked_question ÷ reports; None when no reports
+    child_talk_sessions: int           # child_sessions for this learner (C13)
+    questions_per_session: float | None  # child-talk turns with child_asked_question ÷ sessions; None when 0 sessions
+    child_talk_domains: int            # distinct curiosity domains from child-talk turns
     returned: bool
 
 def split_sessions(times: Sequence[datetime]) -> list[list[int]]: ...   # indices grouped into sessions
@@ -308,6 +312,8 @@ WHERE l.relation = 'self' AND u.role = 'student'
   AND (:district IS NULL OR u.district = :district)
 ORDER BY l.id, t.started_at;
 ```
+
+Child talk on the dashboard (C13) is **aggregate only**: sessions per learner (median), questions per session, domains touched, end reasons (turn limit, time limit, child ended, crisis, expired: crisis counted only on the admin `/status`). Parent summaries are counted (sent / not sent), **never their text**; no transcript of a child ever reaches a page.
 
 **Young-learner trajectory inputs** (all only; parents aren't asked their district, s08):
 
@@ -620,3 +626,4 @@ scope; `?t=` with malformed base64 → 401 (not 500); `/dashboard/data.json` obe
 | 2026-10-25 | v1 written | telemetry design | owner |
 | 2026-10-25 | Classroom codes moved to Deferred, teacher scope = district; tokens via the shared `SignedTokenCodec` (purpose `"dash"`); aspiration signals keyed by learner; `CuriositySignals` and young-learner metrics added; `ExtractSignals` as a post-turn task; cost-today query takes a channel filter for s14 | A4, B2, B8, B9, B12 and the consolidated contracts | owner |
 | 2026-10-26 | Image steps (`FETCH_IMAGE`, `ANALYZE_IMAGE`, `MAKE_CARD`) on `/status`; journey counts add photos received/rejected and cards sent; young-learner section adds photos-with-counts and cards sent (forwarding isn't measurable); cost includes image generation and segmentation | Owner decisions C6, C7 | owner |
+| 2026-10-26 | Curiosity signals also from `CHILD_TALK` turns and curiosity-moment turns (`child_asked_question`); young-learner metrics add child-talk sessions, questions per session and domains; aggregate only, summaries counted never shown | Owner decisions C11–C13 | owner |

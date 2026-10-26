@@ -268,11 +268,13 @@ s10, s10b, s12, s13) refer to it rather than defining their own.
 | # | Rule | Route | Added in |
 |---|---|---|---|
 | 1 | `user_text` is blank after stripping, and the turn has no interactive reply | `REPEAT_PLEASE` | S5 |
+| 1a | **An open child session** (`ctx.child_session` set and not expired: `CHILD_SESSION_MAX_TURNS` / `CHILD_SESSION_MAX_MINUTES` not reached) | `CHILD_TALK`, `speaker = LEARNER`. Inside a child session, rules 2–14 don't apply: a deletion phrase or any button from the child **does not** delete or change the account; the child gets a gentle "Mummy-Papa se kaho" and the session continues (design point for the owner, s10b §4.16). "bye"/"bas"/"tata" ends the session (`ChildSessionEnd(CHILD_ENDED)`) | S10b (C13) |
 | 2 | **Delete-my-data phrase** in `user_text` (normalised: casefold, NFC, punctuation removed, spaces collapsed), matching s08's `DELETION_KEYWORDS` (e.g. "delete my data", "mera data hatao", "मेरा डेटा हटाओ"). **Bare "stop" is not a deletion phrase**: it's ambiguous with turning off nudges (s10b §4.11) | `DATA_DELETION`, in any state | S8 (list owned by S8) |
 | 3 | `profile.state == AWAITING_DELETION_CONFIRM` | `DATA_DELETION` | S8 |
 | 4 | `profile.state != ACTIVE` | `ONBOARDING` | S8 |
 | 5 | `ACTIVE` and the message is only a language name ("english", "hindi", "हिंदी", "hinglish") | `ONBOARDING` (handled as `LanguageSwitched`) | S8 |
 | 6 | Interactive id `onb:*` (including `onb:add-child`), or a parent's message matching s08's add-child phrases ("doosre bachche ke liye", "ek aur bachcha") | `ONBOARDING` | S8 |
+| 6a | `role == PARENT`, `ACTIVE`, and either the interactive id `kid:start` / `kid:start:<learner_id>`, or a text/voice message matching "Main <nickname> hoon" / "<nickname> bol rahi/raha hoon" (normalised, nickname from `ctx.learners`) | **If** the chosen learner has `child_talk_consented_at`: `CHILD_TALK` with a `ChildSessionStart` write, `speaker = LEARNER` from this turn. **Otherwise**: `JOURNEY` with the fixed reply `CHILD_TALK_NOT_ENABLED` to the parent, explaining how to turn it on (button `onb:childtalk:yes`); no session. Within `CHILD_SESSION_COOLDOWN_MINUTES` of the last session: the fixed `CHILD_TALK_COOLDOWN` reply | S10b (C13) |
 | 7 | Interactive id `mode:exposure` / `mode:mentor` / `mode:roadmap` / `mode:journey` | that route, with `mode_switch`, if allowed for the role (rule 13) | S5 |
 | 8 | Interactive id `exp:*` | `EXPOSURE` (teachers only) | S10 |
 | 9 | Interactive id `rm:create` | `ROADMAP` (students only). `rm:done:*` is **deferred** with roadmap progress (B9) and falls under rule 13 | S12 |
@@ -326,7 +328,8 @@ delivery, not a stub.
 |---|---|---|
 | `ONBOARDING`, `DATA_DELETION` | s08 `OnboardingLayer.handle` | its `OnboardingResult` is adapted into `LayerResult`: `writes` = its `ProfileChange`, any `LearnerUpsert`, and `MarkPurgeAfterDelivery` when deletion or a declined consent was confirmed; `fixed_kind` set, so translation is skipped |
 | `EXPOSURE` | s10 `ExposureLayer` | |
-| `JOURNEY` | s10b `JourneyLayer.handle` | flows A–E |
+| `JOURNEY` | s10b `JourneyLayer.handle` | flows A–E, plus the **curiosity moment** (s10b §4.15, C11) when the parent relays the child's own question; gentle "who explores this" exposure allowed (C12) |
+| `CHILD_TALK` | s10b `JourneyLayer.child_turn` | child mode (s10b §4.16): `ChildReply` in the child register; on the limit (turn count or minutes), a kind fixed goodbye + a find-out activity + "Mummy-Papa ko bhi batao" and a `ChildSessionEnd(TURN_LIMIT \| TIME_LIMIT)` write; a crisis verdict on a learner turn ends the session with `ChildSessionEnd(CRISIS)` |
 | `MENTOR`, `ROADMAP`, `OFF_TOPIC` | s12 `MentorLayer` / `RoadmapLayer` / `OffTopicLayer` | mentor-lite at S5 (§3) |
 | `DASHBOARD_LINK` | s13 dashboard-link handler | |
 
@@ -385,7 +388,11 @@ and §4.6 defines what happens when one is `None`. It's constructed only in `app
     `ActivityReported` write (s13 §4.2, s10b flow B)
   - `UpdateMemory` when s12's rules apply: a turn routed `MENTOR`, `ROADMAP` or `EXPOSURE` with a
     generated reply (s12 §4.7)
-  - neither for fixed replies, onboarding, crisis or refuse turns
+  - `ExtractSignals(curiosity)` also for every `CHILD_TALK` turn with a generated reply and for a
+    curiosity-moment `JOURNEY` turn (`child_asked_question = true`, s13)
+  - `SendChildSessionSummary` when the turn wrote `ChildSessionEnd` (any reason): a topic-only
+    summary to the parent; for `CRISIS` it says only that Marg.ai shared a helpline, never the child's words (s10b §4.16, s07)
+  - neither signals nor memory for fixed replies, onboarding, crisis or refuse turns
 
 **Flow.** Times are budgets, not targets. `deadline = turn_start + TURN_BUDGET_S`.
 
@@ -684,6 +691,7 @@ built here (B1).
 - prefixes not allowed for the role, with no LLM call: `exp:more` from a student, `jrn:today` from
   a teacher, `rm:create` from a parent, `dash:open` from a student → `REPEAT_PLEASE` "prefix not allowed for role"
 - `rm:done:2` (deferred) → `REPEAT_PLEASE`
+- child talk: an open child session → `CHILD_TALK` before every other rule; a deletion phrase from a child never reaches `DATA_DELETION`; `kid:start` without consent → `CHILD_TALK_NOT_ENABLED` and no `ChildSessionStart` write; with consent → one `ChildSessionStart`; turn 7 of a session (limit 6) or minute 11 → the goodbye and `ChildSessionEnd`
 - a parent with an `open_activity` → `JOURNEY` by default; the LLM may move it to `OFF_TOPIC` only
 - every remap in the role table (parametrized): e.g. `EXPOSURE` for a student → `MENTOR`,
   `ROADMAP` for a teacher → `MENTOR`, `MENTOR` for a parent → `JOURNEY`, each with the reason recorded
@@ -793,4 +801,5 @@ real Model API, logging latency, tokens and cost per call.
 
 | Date | Change | Why | Approved |
 |---|---|---|---|
+| 2026-10-26 | Router rules 1a (open child session → `CHILD_TALK`, child can't trigger deletion or account changes) and 6a (`kid:start` / "Main <nickname> hoon" with consent → session start; without → `CHILD_TALK_NOT_ENABLED`); dispatch adds `CHILD_TALK` and the curiosity moment; post-turn adds curiosity signals for child turns and `SendChildSessionSummary` | Owner decisions C11–C13 | owner |
 | 2026-10-25 | Consolidated against the foundation docs: `TurnOutcome` with `post_turn`; signals and memory moved out of `run_turn` (B2); `run_turn(ctx, recorder, observer)`; `semantic_check` repair; one 14-rule router table for all roles, with role remaps; generate dispatch and handoff re-dispatch (§4.4a); generated writes dropped when the reply falls back; `split_for_channel` keeps sources lines whole; `build_parts` gains preamble and template; NUDGE turns bypass `run_turn`; Q1, Q4, Q5 resolved | Resolve conflicts between the step docs and add the parent journey | owner (B1–B12) |

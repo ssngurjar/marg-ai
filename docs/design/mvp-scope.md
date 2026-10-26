@@ -44,6 +44,9 @@ These are about children's safety, trust, and not breaking in front of judges:
 2. **Consent and delete-my-data**, and the children's data rules: an optional nickname and a
    birth year only; inbound audio never stored; crisis text never stored; **photos checked for
    people before anything else and never stored** (C7).
+2b. **Direct child talk only with the parent's one-time consent**, voice-only, time-limited; never
+   asks a child for personal details; never secrecy or attachment language; child-worded crisis
+   reply with the official helpline; the parent gets a topic summary, never a disclosure quote (C13).
 3. **No double replies:** the unique inbox insert (`channel, external_id`). Meta re-sends webhooks.
 4. **No lost messages on restart:** pending work is picked up again at startup.
 5. **CLAUDE.md engineering rules:** typed (no `Any`), no swallowed exceptions, no stubs or
@@ -78,6 +81,10 @@ contracts, ports, `TurnWrite`s, sealed safety types and tables.
 | C8 | TTS licence: ask the organisers on Day 1 whether MMS-TTS (CC-BY-NC) is fine; spike MMS and Indic Parler-TTS (Apache 2.0) in S2; use MMS only if confirmed. | The rules require every open-source licence to be followed |
 | C9 | Muse Spark Open on Baseten (`meta-models/muse-spark-open-1026`) runs the parent reflection and curiosity extraction, behind the same `LanguageModel` port, with Muse Spark on the Model API as the fallback. | Best Build on Meta Open Weight Models ($10k) and the Meta tooling criterion |
 | C10 | Code starts Oct 27 00:00 ET (09:30 IST), the official building period; 9 build days. | Participant Guide: building period Oct 27 – Nov 4, new work only |
+| C11 | Curiosity moment: when a parent relays the child's own question, Marg.ai gives a true, simple answer to share, a 2-minute "let's find out" activity, and one question back. | Marg.ai mentors the child, not only coaches the parent |
+| C12 | Gentle exposure for ages 3–8: "who explores this in the real world", never careers, exams or "you should become". | Close the exposure gap without assigning interests |
+| C13 | Direct child talk: one-time parent consent, then the child starts by button or "Main Munni hoon"; voice-only; 6 exchanges / 10 minutes; child safeguards; topic summary to the parent. | Children don't always say everything they wonder to a parent |
+| C14 | Nothing is dropped for C11–C13; build order Day 5–7: curiosity moment → child talk → khoj card → web demo; SAM photos on Day 8. If a day slips, the owner decides what moves. | Owner: drop nothing |
 | C5 | Enterprise grade by default; a lite version only where the full one would stretch the 10 days, each with a reason and an upgrade trigger (§0, §4). C3's latency changes are part of the full design, not shortcuts. | "MVP-lite" as the default framing |
 
 ## 4. Exceptions and scoped designs
@@ -254,11 +261,19 @@ That gives 9 build days, so the old Day 1 evening is folded in.
 | 2 | Wed Oct 28 | S4 (E1), S5 with the safety core; start drafting the 10 activities | text in → checked Muse Spark reply out; restart mid-turn loses nothing |
 | 3 | Thu Oct 29 | S6 voice | voice note in → voice note out |
 | 4 | Fri Oct 30 | S7, S8 | crisis and adversarial cases pass; parent onboarding on the phone |
-| 5 | Sat Oct 31 | S10b core; activities reviewed in the village | khoj → report → serve-and-return reply |
-| 6 | Sun Nov 1 | S10b nudges, khoj card (C6), S13 signals; **field testing with parents starts** | nudge at the chosen time; a card after a good report |
-| 7 | Mon Nov 2 | S14 (E2) web demo, Muse Spark Open on Baseten (C9), `/status` and admin dashboard | a stranger can use `/demo`; reflection runs on Muse Spark Open |
+| 5 | Sat Oct 31 | S10b core, **curiosity moment (C11)**; activities reviewed in the village | khoj → report → serve-and-return reply; a child's question answered through the parent |
+| 6 | Sun Nov 1 | **Child talk (C13)**, S10b nudges, S13 signals; **field testing with parents and children starts** | a child talks directly for a session; the parent gets a summary; nudge at the chosen time |
+| 7 | Mon Nov 2 | Khoj card (C6), S14 (E2) web demo, Muse Spark Open on Baseten (C9), `/status` and admin dashboard | a card after a good report; a stranger can use `/demo` |
 | 8 | Tue Nov 3 | SAM 3.1 photos (C7), S15 scorecard, S16 (E4). **Feature freeze at end of day** (also the last day for submission troubleshooting on Discord) | scorecard committed; checklist done |
 | 9 | Wed Nov 4 | S18: video, README, X post, submission | **submitted by 23:00 IST** (deadline 07:30 IST Nov 5) |
+
+**Owner's reminder (2026-10-26): the Aspirational engine.** At every checkpoint where time is ahead
+of plan (end of Day 5, Day 7, and the Day 8 checkpoint), **remind the owner** that the Aspirational
+engine (s11 RAG + s12 mentor, roadmaps, memory) is wanted if time allows, and propose the smallest
+honest slice that fits the time left, with an estimate. It is never started without the owner's go,
+and it comes after everything in the schedule above. Note for the proposal: "basic RAG apps" are a
+Guide anti-project, so any slice must build on the child's curiosity record, not be a standalone
+career chatbot.
 
 If a day slips, the owner decides what gives way. The suggested order to cut is: the teacher
 stretch (S10) first, then SAM photos (C7), then the khoj card (C6). The hard lines (§2) never move.
@@ -267,6 +282,7 @@ stretch (S10) first, then SAM photos (C7), then the khoj card (C6). The hard lin
 
 | Date | Change | Why | Approved |
 |---|---|---|---|
+| 2026-10-26 | C11 curiosity moment, C12 gentle exposure, C13 direct child talk, C14 nothing dropped | Owner: Marg.ai mentors the child too | owner |
 | 2026-10-26 | C9 Muse Spark Open, C10 code start and 9-day schedule | Participant Guide (bonus prizes, building period) | owner |
 | 2026-10-26 | C6 khoj card, C7 activity photos, C8 TTS licence check | Official Rules: Meta tooling 25%, licences must be followed | owner |
 | 2026-10-25 | C5: enterprise by default; lite only as listed exceptions E1–E4 with upgrade triggers | Owner: aim for full enterprise grade, take lite steps only where they'd stretch the 10 days | owner |

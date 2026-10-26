@@ -295,7 +295,10 @@ app/store/      the ONLY place SQL lives.
   names, school names or exact birth dates. Photos of what a child made are checked for people
   first (a person → reject and drop) and are never stored; only object counts are kept. Activities for young children come from the
   reviewed catalogue; personalisation may not add steps or materials, the `d7` hazard rule runs
-  on every journey reply, and the supervision line is appended by code (s10b). Phone numbers are
+  on every journey reply, and the supervision line is appended by code (s10b). **Direct child talk**
+  (s10b §4.16) requires the parent's recorded consent; it never asks a child for personal details,
+  never uses secrecy or attachment language (`d8`), always encourages telling a parent, ends at
+  the session limits, uses child-worded crisis replies, and the parent summary never quotes a disclosure. Phone numbers are
   stored as salted hashes. Raw audio is deleted after transcription. Logs never contain phone
   numbers, transcripts or generated replies, only ids and hashes (enforced by the redaction
   processor in `app/core/logging.py`, which has its own tests).

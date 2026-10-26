@@ -188,6 +188,7 @@ checks that every `SafetyCategory` value has an entry in both (§9).
 | d4 `MEDICAL` | BLOCK (variant MEDICAL) | BLOCK | |
 | d5 `ABUSE_DISCLOSURE` | **CRISIS** (variant ABUSE) | BLOCK | crisis-002 |
 | d6 `PROMPT_LEAK` | ALLOW (the user *asking* for the prompt is handled by the layer and the slot isolation) | BLOCK | adversarial-001 / 002 |
+| d8 `CHILD_MANIPULATION` (C13) | ALLOW (a child or parent *saying* "secret" isn't a risk; the reply decides) | BLOCK | Child talk: a reply must never agree to secrecy, claim exclusivity or encourage attachment (s10b §4.16) |
 | d7 `CHILD_PHYSICAL_HAZARD` | ALLOW (a parent mentioning the pond isn't a risk) | BLOCK, **unless** the hazard is declared and reviewed on the offered catalogue activity (s10b §4.10) | Parent journey: a personalised activity must not add a physical risk for a small child |
 
 **Precedence:** CRISIS > BLOCK > ALLOW. The decision over a set of categories is the most severe one.
@@ -207,6 +208,8 @@ three detectors and merges their categories with Llama Guard's **before** the ma
 | Outbound PII | output | Phone numbers (`\+?\d[\d\s-]{8,}\d`), email addresses, Aadhaar-like 12-digit runs, **except** numbers and URLs in the allowlist: helplines from `crisis.py` and citation URLs present in the reply's `citations` | d1 |
 | Guarantee phrases | output | "pakka", "guarantee", "100%", "zaroor milega", "निश्चित रूप से मिलेगा"… next to selection, admission or job terms (`lexicon.toml` `[guarantee]`) | d2 |
 | Prompt leak | output | The reply contains `PROMPT_CANARY` (a random string embedded in every system prompt by the registry, s05), or the literal separator `=== USER ===` | d6 |
+| Child manipulation | output, every reply when `speaker = LEARNER`, and every `JOURNEY` reply | Secrecy, exclusivity and attachment phrases from `lexicon.toml` `[child_manipulation]` in three languages: "secret", "kisi ko mat batana", "don't tell", "sirf main samajhta hoon", "only I understand", "best friend", "tumhara sabse achha dost", "hamesha mujhse hi baat karna" | d8 |
+| Personal-detail questions to a child | output, `speaker = LEARNER` | A **question** (question mark or question words) asking for the child's full name, school, address, village or street, phone number, family members' names or jobs, or a photo, from `[child_personal_questions]`. The nickname already known is allowed | d1 |
 | Child physical hazard | output, `JOURNEY` replies | Water bodies, fire, sharp tools, electricity, roads, heights, snakes and scorpions, unknown plants, medicines, from `lexicon.toml` `[child_hazards]` (the list and the declared-hazard exception are defined in s10b §4.10). Matches covered by the offered activity's declared `hazards` are allowed | d7 |
 
 `lexicon.toml` carries a `version`. Every phrase is reviewed by the owner, and should ideally be
@@ -257,6 +260,16 @@ class MinorPolicyCheck(BaseModel):
   content goes out in the same turn (crisis-001 `must_not`).
 - **Text** (`app/safety/crisis.py`): `CRISIS_REPLIES: Mapping[tuple[CrisisVariant, Language], CrisisReply]`, where:
   - `CrisisVariant` is `SELF_HARM` or `ABUSE`
+  - **keyed also by `Speaker` (C13):** `CRISIS_REPLIES[(variant, speaker, language)]`. The
+    `LEARNER` texts are written for a 3–8-year-old: very short sentences, "Yeh tumhari galti nahi
+    hai. Abhi Mummy, Papa ya teacher ko batao.", the official **child helpline** (copied from its
+    official source with `source_url` and `retrieved_on`, like every helpline), and no questions
+    at all. Refuse texts are keyed by `Speaker` the same way (child wording for MEDICAL: "Yeh
+    sawaal kisi bade se poochho, jaise Mummy, Papa ya doctor").
+  - **A crisis on a learner turn ends the child session** (`ChildSessionEnd(CRISIS)`), and the
+    parent summary says only that Marg.ai shared a helpline with the child. **It never quotes or
+    paraphrases the disclosure** (s10b §4.16). That also holds when the adult who is the subject
+    of a disclosure may be the one reading the parent's phone; the helpline text is the protection.
   - `CrisisReply` has `text`, `spoken_text`, `helplines: tuple[Helpline, ...]` and `version`
   - `Helpline` has `name`, `number`, `source_url` and `retrieved_on`
 - Content rules for the text:
@@ -456,7 +469,10 @@ def helpline_numbers() -> frozenset[str]: ...      # allowlist for the outbound 
   planted reference (a fixture module in `tests/` containing `_SEAL`)
 
 *Crisis texts:*
-- every `(CrisisVariant, Language)` pair exists
+- every `(CrisisVariant, Speaker, Language)` triple exists; the `LEARNER` texts contain no question mark and no word over the child-register length limit
+- d8: "Haan, yeh hamara secret hai" in a child reply → BLOCK; "Mummy-Papa ko bhi batana" → ALLOW; d8 is in both decision tables (ALLOW in, BLOCK out)
+- child personal-detail rule: "Tumhara school kaunsa hai?" in a `LEARNER` reply → d1 BLOCK; "Munni, tumne kya dekha?" → ALLOW; the same school question to a parent (`GUIDE`) isn't checked by this rule
+- a learner crisis turn → the `LEARNER` crisis text, a `ChildSessionEnd(CRISIS)` write, and a parent summary with no words from the child's message (assert by searching the summary for input tokens)
 - every helpline has a `.gov.in` / `.nic.in` `source_url` and a `retrieved_on` date
 - `spoken_text` has no URLs
 - the text contains no question asking for name, address or details (a check for "naam", "pata",
@@ -543,4 +559,5 @@ the real stack with live providers, give the expected route or fixed reply.
 | Date | Change | Why | Approved |
 |---|---|---|---|
 | 2026-10-25 | Safety core built in S5 (B1); crisis text never stored (B5); d7 child-hazard rule and the parent wording of REFUSE/MEDICAL added for the parent journey; safety rows write `turn_steps.decision` | Consolidation against the updated foundation docs (B1, B5, B12) | owner |
+| 2026-10-26 | Child talk safety (C13): `d8 CHILD_MANIPULATION` output rule and mapping rows; child personal-detail question rule (d1) on `LEARNER` replies; crisis and refuse texts keyed by `Speaker` with child-worded `LEARNER` variants and the official child helpline; a learner crisis ends the session and the parent summary never quotes the disclosure | Owner decisions C11–C13 | owner |
 | 2026-10-26 | Image safety: `safety_in` on activity photos after s10b's person check, `safety_out` on khoj card image + caption via `SafetyRequest.image`; same decision tables; fail closed (photo dropped with `HOLDING`, no card); `PHOTO_HAS_PERSON` and `PHOTO_NOT_NEEDED` listed in the fixed-reply table | Owner decisions C6, C7 | owner |

@@ -303,6 +303,9 @@ Full design: [docs/design/s10b-parent-journey.md](docs/design/s10b-parent-journe
   specific idea and asks one question that extends it.
 - **How it reaches people:** one opt-in WhatsApp template a day at the parent's chosen time. The
   activity itself is sent only after the parent taps, inside the normal 24-hour window.
+- **The child's own questions (C11, C13):** Marg.ai mentors the child's curiosity: through the
+  parent when they relay a question, and directly when the child talks to Marg.ai themselves on the
+  parent's phone, with the parent's one-time consent, by voice, in short sessions with child safeguards.
 - **Data:** an optional nickname and a birth year only. No careers for under-11s; curiosity
   signals record what the child engages with and never label them.
 - **Later:** ages 0–2 and 8–11, fully generated activities with the same guardrails (owner's direction).
@@ -399,6 +402,8 @@ dialect biasing in STT · a second regional language.
 | Scope creep | High | §2 scope rule. Feature freeze on Day 8. |
 | Cost overrun on the public demo | Low | Per-IP rate limit, daily spend cap, no search grounding on `/demo` by default. |
 | Fabricated career facts | Medium | RAG with mandatory citations, the "don't know" path, and a grounding score in evals. |
+| **Children's data law for a live launch (DPDP Act 2023)**: verifiable parental consent is required, and tracking or behavioural monitoring of children is restricted, which a curiosity record and child talk could be read as | Medium (post-hackathon) | For the hackathon: explicit parent consent per child and per child-talk, minimal data, no transcripts in summaries, deletion on request. **Before any public launch: a legal review** of the curiosity record and child talk against the Act and its Rules. |
+| WhatsApp's minimum age (13 in most countries) | Known | The account is always the parent's; children speak through it only with the parent's consent (C13). |
 | **Judged as an "AI for Education chatbot"** (an anti-project in the Guide) | Medium | Marg.ai is not a chatbot for children: the child never uses a screen. Lead every artefact (README first line, video first 20 s, submission text) with *offline parent-child discovery coached by voice*, proactive daily nudges, multimodal (voice, photos via SAM 3.1, Muse Image cards), and the learner trajectory. Medical questions are refused and referred, never answered. |
 | An unsafe activity suggestion for a young child | Low | Reviewed catalogue only; personalisation can't add steps or materials; the `d7` hazard rule on every reply; a fixed supervision line appended by code; fallback to the reviewed text. |
 | Nudge template not approved in time | Medium | Submit on Day 1. Without it, parents start each day by tapping "Aaj ki khoj" or typing it; the journey works, just not proactively. |

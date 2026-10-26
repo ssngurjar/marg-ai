@@ -108,6 +108,7 @@ All events are frozen dataclasses. The union is closed.
 @dataclass(frozen=True) class ChildAnswered:      birth_year: int; nickname: str | None   # validated on construction
 @dataclass(frozen=True) class ChildInvalid:       reason: Literal["age_out_of_range", "nickname_too_long", "looks_like_full_name"]
 @dataclass(frozen=True) class AddChild:           pass
+@dataclass(frozen=True) class ChildTalkAnswered:  learner_id: LearnerId; allowed: bool   # C13: one-time consent, or a later enable/revoke
 @dataclass(frozen=True) class LanguageSwitched:   language: Language
 @dataclass(frozen=True) class QuestionNoted:      question: str          # off-script question during onboarding
 @dataclass(frozen=True) class Unrecognised:       pass                   # the answer couldn't be parsed
@@ -186,6 +187,8 @@ INTERNAL)` and a `TRY_AGAIN_LATER` reply.
 | `AWAITING_CHILD` | `ChildAnswered` with `n ≥ 3` | `ACTIVE` | copy `MAX_CHILDREN` |
 | `AWAITING_CHILD` | `ChildInvalid(age_out_of_range)` | `AWAITING_CHILD` | copy `CHILD_INVALID_AGE` |
 | `AWAITING_CHILD` | `ChildInvalid(nickname_too_long \| looks_like_full_name)` | `AWAITING_CHILD` | copy `CHILD_NICKNAME_TOO_LONG` (nothing stored) |
+| `ACTIVE` (role parent) | `ChildTalkAnswered(learner, allowed=True)` | `ACTIVE` | `ChildTalkConsent(learner, granted)` write; `RecordConsent(CHILD_TALK_CONSENT)`; copy `CHILD_TALK_ENABLED` (how the child starts: the "Main bachcha hoon" button or "Main <nickname> hoon") |
+| `ACTIVE` (role parent) | `ChildTalkAnswered(learner, allowed=False)` | `ACTIVE` | `ChildTalkConsent(learner, revoked)` write (sets `child_talk_consented_at` NULL; ends any open session with `CHILD_ENDED`); copy `CHILD_TALK_OFF` |
 | `ACTIVE` (role parent) | `AddChild` with `n < 3` | `AWAITING_CHILD` | copy `ASK_CHILD` |
 | `ACTIVE` (role parent) | `AddChild` with `n ≥ 3` | `ACTIVE` | copy `MAX_CHILDREN` |
 | `AWAITING_ROLE`, `AWAITING_GUARDIAN`, `AWAITING_PROFILE`, `AWAITING_CHILD` | `LanguageSwitched(l)` | same | `language = l`; re-send that state's question copy |
@@ -387,6 +390,17 @@ def copy_for(key: CopyKey, language: Language, channel: Channel) -> CopyEntry: .
 | | `onb:guardian:no` | Abhi nahi | अभी नहीं | Not yet |
 | `CONFIRM_DELETE` | `onb:delete:yes` | Haan, delete karo | हाँ, डिलीट करो | Yes, delete |
 | | `onb:delete:no` | Nahi, rehne do | नहीं, रहने दो | No, keep it |
+| `ASK_CHILD_TALK` | `onb:childtalk:yes[:<learner_id>]` | Haan, baat kare | हाँ, बात करे | Yes, they can |
+| | `onb:childtalk:no[:<learner_id>]` | Abhi nahi | अभी नहीं | Not now |
+
+**Child-talk consent (C13).** When a parent's `ChildAnswered` completes onboarding, the
+`PROFILE_DONE_PARENT` preamble part carries the `ASK_CHILD_TALK` question and its two buttons:
+"Kya <nickname or 'aapka bachcha'> khud bhi Marg se baat kar sakta/sakti hai? Sirf awaaz se,
+10 minute tak, aur har baar aapko chhota sa saar milega." (gender from the parent's own words;
+when unknown, "aapka bachcha … sakta hai"). The first khoj still follows in the same turn, so
+consent never delays the first value. A parent can enable or revoke later by the same buttons,
+which s10b offers in settings replies, or by a phrase ("Munni ko baat karne do", "bachche ki baat
+band karo") → `ChildTalkAnswered`. No answer means child talk stays off.
 
 The `onb:add-child` button ("Doosra bachcha" / "दूसरा बच्चा" / "Another child") is offered by s10b's
 journey replies; this layer only interprets it.
@@ -432,7 +446,9 @@ journey replies; this layer only interprets it.
 | `QUESTION_NOTED` | "Aapka sawaal yaad hai, profile poori hote hi jawab doonga." |
 | `NOT_UNDERSTOOD` | "Maaf kijiye, samajh nahi aaya." |
 | `PROFILE_DONE` | "Shukriya! Ab aap kuch bhi pooch sakte hain — career, padhai, ya koi sapna." (teacher variant: "…kal ka chapter batayiye, main use asli duniya se jodunga.") |
-| `PROFILE_DONE_PARENT` | "Shukriya! Ab roz ek chhoti khoj — bachche ke saath 2 minute. Pehli khoj abhi bhej raha hoon." |
+| `PROFILE_DONE_PARENT` | "Shukriya! Ab roz ek chhoti khoj — bachche ke saath 2 minute. Pehli khoj abhi bhej raha hoon." + the `ASK_CHILD_TALK` question |
+| `CHILD_TALK_ENABLED` | "Theek hai! Jab Munni baat karna chahe, woh 'Main bachcha hoon' dabaye ya bole 'Main Munni hoon'. Har baat ke baad aapko saar milega." |
+| `CHILD_TALK_OFF` | "Theek hai, bachche se seedhi baat band hai. Kabhi bhi chalu kar sakte hain." |
 | `LANGUAGE_CHANGED` | "Theek hai, ab main Hinglish mein baat karunga." |
 | `CONFIRM_DELETE` | "Kya aap sach mein apna saara data delete karna chahte hain? Aapki profile, bachchon ki jaankari, roadmap aur baatein hamesha ke liye mit jayengi." |
 | `DELETE_CANCELLED` | "Theek hai, kuch delete nahi kiya." |
@@ -592,6 +608,7 @@ budget), `USER_HASH_SALT`, `PURGE_SWEEP_AFTER_S`. The 3-learner limit is a modul
 
 **Property (`@pytest.mark.unit`, hypothesis; strategies over the closed event union with generated payloads, including Devanagari, emoji and empty strings, and random learner counts 0–3)**
 - **Reachability:** from every reachable state there's a sequence of events that ends in `ACTIVE`, checked by BFS over `_TRANSITIONS` from `NEW`.
+- **No child session without consent (C13):** for any generated event sequence, a `ChildSessionStart` write is only ever produced for a learner whose last `ChildTalkAnswered` was `allowed=True`; a revoke always ends an open session.
 - **Consent can't be bypassed, on any path:** for any generated event sequence starting at `NEW`, if `ACTIVE` is reached then a `ConsentGiven` came earlier and `consented_at` is set; for students a `GuardianConfirmed` also came earlier; for parents a `CHILD_PROFILE_CONSENT` was recorded.
 - **Parents never pass through `AWAITING_GUARDIAN`; students always do** before `ACTIVE`.
 - **A parent can't reach `ACTIVE` without a learner:** every parent `ACTIVE` state is preceded by an `UpsertLearner` effect.
@@ -614,7 +631,7 @@ budget), `USER_HASH_SALT`, `PURGE_SWEEP_AFTER_S`. The 3-learner limit is a modul
 - `apply_profile_change` with the wrong `expected_state` raises `LeaseLost` and changes nothing.
 - The profile change, learner insert and outbox rows commit in one transaction: an injected failure after the profile write leaves all three unchanged.
 - `upsert_learner` refuses a 4th learner for one owner; the partial unique index allows only one `self` learner.
-- **Cascade completeness:** query `information_schema` for every foreign key referencing `users.user_hash` or `learners.id` and assert `ON DELETE CASCADE`; insert a row in every user and learner table for one user, `purge_user`, assert zero rows remain for that hash in every table, and that other users' rows are untouched.
+- **Cascade completeness:** (includes `child_sessions`) query `information_schema` for every foreign key referencing `users.user_hash` or `learners.id` and assert `ON DELETE CASCADE`; insert a row in every user and learner table for one user, `purge_user`, assert zero rows remain for that hash in every table, and that other users' rows are untouched.
 - Post-delivery purge: delivering the last part of a `DATA_DELETED` turn removes the user; a new inbound message from the same number afterwards creates a `NEW` user.
 - Purge sweep: a user with `purge_after_turn_id` whose turn completed 11 minutes ago and whose part is still `pending` is purged.
 - `consent_events` rows carry `COPY_VERSION`.
@@ -669,3 +686,4 @@ On a real phone, from a number with no `users` row:
 |---|---|---|---|
 | 2026-10-25 | v1 written | onboarding design | owner |
 | 2026-10-25 | Parent path (`AWAITING_CHILD`, child age + optional nickname, `CHILD_PROFILE_CONSENT`, first-khoj handoff, add a child up to 3); student `self` learner; `writes` replace change/purge fields; purge via `purge_after_turn_id`; bare "stop" removed from deletion keywords; `detect_register` imported from s06; web consent variant; classroom codes removed | B4, B9, B12 and the consolidated contracts | owner |
+| 2026-10-26 | Child-talk consent (C13): `ChildTalkAnswered` event in `ACTIVE` for parents, `ASK_CHILD_TALK` asked in the `PROFILE_DONE_PARENT` preamble (first khoj still follows), enable/revoke later by button or phrase, `ChildTalkConsent` write + `CHILD_TALK_CONSENT` event; property: no child session without consent; deletion cascades `child_sessions` | Owner decisions C11–C13 | owner |

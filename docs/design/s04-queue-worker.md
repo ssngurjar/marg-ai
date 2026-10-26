@@ -195,6 +195,10 @@ Combining rules:
 - `learners` ← `learners WHERE owner_user_hash = :u` (S8; `[]` for teachers)
 - `open_activity` ← the latest `learner_activities` row with `status = 'offered'` for any of those
   learners, offered less than 48 h ago (s10b; `None` until that table exists)
+- `child_session` ← the open `child_sessions` row for the active learner (`ended_at IS NULL`) if it
+  started less than `CHILD_SESSION_MAX_MINUTES` ago; an older open row is treated as expired
+  (housekeeping closes it). `speaker` ← `LEARNER` when `child_session` is set, else `GUIDE`.
+  A `ChildSessionStart` write in this turn makes later turns load it (s10b §4.16, C13)
 - `active_learner` ← `choose_active_learner(learners, messages, recent_offered)`, the pure function
   owned by s10b (`app/domain/learners.py`, rules in s10b §4.2). S4 only passes the inputs; it
   doesn't encode any of the rules
@@ -438,6 +442,7 @@ Every `MAINTENANCE_INTERVAL_S` (30 s), each job in its own transaction, each ide
 |---|---|
 | Expired leases | §4.8 takeover query |
 | Stuck sends | `UPDATE outbox_messages SET status = 'pending', sending_since = NULL WHERE status = 'sending' AND sending_since < now() - OUTBOX_SENDING_STUCK_S` |
+| Child sessions | `UPDATE child_sessions SET ended_at = now(), end_reason = 'expired' WHERE ended_at IS NULL AND started_at < now() - CHILD_SESSION_MAX_MINUTES` … `RETURNING id`; for each, run the `SendChildSessionSummary` post-turn task (topics only), inside the 24 h window (C13) |
 | Purge sweep | §4.15: purge users whose `purge_after_turn_id` turn completed more than `PURGE_SWEEP_AFTER_S` (600 s) ago |
 | Inbound audio | `DELETE FROM media_blobs WHERE purpose = 'inbound_audio' AND expires_at < now()` (S6 deletes on successful transcription; this catches the rest) |
 | Reply audio | `DELETE FROM media_blobs WHERE purpose = 'reply_audio' AND expires_at < now()` |
@@ -733,3 +738,4 @@ Startup check: `LEASE_DURATION_S ≥ 2 × TURN_BUDGET_S`, else `ConfigError` nam
 | Date | Change | Why | Approved |
 |---|---|---|---|
 | 2026-10-25 | Consolidated against the foundation docs: contracts' `TurnOutcome`/`TurnWrite`/`PostTurnTask`; `WriteApplier` registry; turn status per B3; crisis `user_text` NULL (B5); stale and poisoned turns before `run_turn`; `process_user_turn`; post-turn tasks (§4.16); purge after delivery and sweep (§4.15, B4); template parts skip the 24h check; `sending_since`; web `mark_sent` notify; `NudgeLoop` hosted; context loads learners, open activity, `is_session_start`, `active_learner` | Resolve conflicts between the step docs and add the parent journey | owner (A1–A5, B1–B12) |
+| 2026-10-26 | Context loads `child_session` and sets `speaker`; housekeeping expires child sessions past `CHILD_SESSION_MAX_MINUTES` and queues the parent summary | Owner decision C13 | owner |

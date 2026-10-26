@@ -277,6 +277,7 @@ never fail, which is fine: one code path.
   nudges on the web (no proactive channel), so every parent-journey reply carries an
   **"Aaj ki khoj"** button (`jrn:today`) that starts flow A of s10b (s10b Q4). This is how judges
   see the parent journey without a WhatsApp number.
+- **Child talk on the web (C13):** a parent can enable child talk with the `onb:childtalk:yes` button, then press **"Main bachcha hoon 🙋"** (`kid:start`). The page switches to a child view: a large mic button, voice replies played automatically, minimal text, and a visible **session timer and exchange counter** (`CHILD_SESSION_MAX_MINUTES`, `CHILD_SESSION_MAX_TURNS`). When the session ends, the view returns to the parent and shows the topic summary. The same safeguards as WhatsApp apply (s10b §4.16, s07): consent required, no personal questions, no secrecy language, child-worded crisis replies, cooldown between sessions. The trace panel marks child turns with `speaker = learner`.
 - Buttons from replies are rendered as real buttons, and a tap posts `button_id`.
 - `POST /demo/reset` (rate-limited like a message): runs the s08 deletion for this `user_hash`
   directly (no confirmation turn: the click is the confirmation), clears the cookie, and returns
@@ -504,3 +505,4 @@ Requested: `SESSION_SIGNING_KEY_PREVIOUS: SecretStr | None`, `PUBLIC_BASE_URL: H
 |---|---|---|---|
 | 2026-10-25 | Session cookie on the shared purpose-based `SignedTokenCodec`; web cost cap on the IST day via s13's query; trace reads `turn_steps.decision`; parent role and the "Aaj ki khoj" button on the web | Consolidation against the updated foundation docs (A2, B1, B8, B12) | owner |
 | 2026-10-26 | Web image upload for parents with an open activity (jpeg/png/webp, magic bytes, size cap), handed to the in-process dispatcher in memory with a 60 s TTL and never stored; khoj card shown with a download button; image steps in the trace | Owner decisions C6, C7; the in-memory hand-off is a design point for the owner's review | pending owner review |
+| 2026-10-26 | Child talk on the web: enable via `onb:childtalk:yes`, "Main bachcha hoon" button, child view with session timer and exchange counter, summary back to the parent, same safeguards | Owner decision C13 | owner |

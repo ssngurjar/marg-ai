@@ -30,7 +30,7 @@ class ConversationState(StrEnum):  NEW; AWAITING_CONSENT; AWAITING_ROLE; AWAITIN
                                    AWAITING_CHILD; AWAITING_PROFILE; ACTIVE; AWAITING_DELETION_CONFIRM
 class Mode(StrEnum):               EXPOSURE; MENTOR; ROADMAP; JOURNEY
 class Route(StrEnum):              ONBOARDING; EXPOSURE; MENTOR; ROADMAP; JOURNEY; CRISIS; REFUSE;
-                                   OFF_TOPIC; DATA_DELETION; REPEAT_PLEASE; DASHBOARD_LINK; NUDGE; KHOJ_CARD
+                                   OFF_TOPIC; DATA_DELETION; REPEAT_PLEASE; DASHBOARD_LINK; NUDGE; KHOJ_CARD; CHILD_TALK
 class StepName(StrEnum):           FETCH_MEDIA; TRANSCRIBE; SAFETY_IN; ROUTE; GENERATE; TRANSLATE;
                                    SAFETY_OUT; SYNTHESIZE; ENQUEUE_REPLY; EXTRACT_SIGNALS; UPDATE_MEMORY;
                                    FETCH_IMAGE; ANALYZE_IMAGE; MAKE_CARD
@@ -50,14 +50,16 @@ class SafetyCategory(StrEnum):     # Llama Guard 4 / MLCommons hazard taxonomy (
     # domain policy categories (s07, s10b), not from Llama Guard:
     MINOR_PII = "d1"; GUARANTEE_PROMISE = "d2"; ROMANTIC = "d3"; MEDICAL = "d4"
     ABUSE_DISCLOSURE = "d5"; PROMPT_LEAK = "d6"; CHILD_PHYSICAL_HAZARD = "d7"
+    CHILD_MANIPULATION = "d8"     # secrecy, exclusivity or attachment language toward a child (output)
 class FixedReplyKind(StrEnum):     CRISIS; HOLDING; REPEAT_PLEASE; TRY_AGAIN_LATER; TOO_LONG;
                                    UNSUPPORTED_MEDIA; REFUSE; ONBOARDING; CONSENT_DECLINED;
-                                   DATA_DELETED; ASK_CHAPTER; NUDGE; PHOTO_HAS_PERSON; PHOTO_NOT_NEEDED
+                                   DATA_DELETED; ASK_CHAPTER; NUDGE; PHOTO_HAS_PERSON; PHOTO_NOT_NEEDED;
+                                   CHILD_TALK_NOT_ENABLED; CHILD_TALK_COOLDOWN; CHILD_SESSION_END
 class MediaPurpose(StrEnum):       INBOUND_AUDIO; REPLY_AUDIO; KHOJ_CARD
 class EmbedPurpose(StrEnum):       QUERY; PASSAGE
 class RoadmapStatus(StrEnum):      ACTIVE; COMPLETED; ABANDONED
 class RoadmapStepStatus(StrEnum):  TODO; DONE; SKIPPED
-class ConsentEventKind(StrEnum):   GRANTED; GUARDIAN_CONFIRMED; CHILD_PROFILE_CONSENT; REVOKED; DELETION_REQUESTED
+class ConsentEventKind(StrEnum):   GRANTED; GUARDIAN_CONFIRMED; CHILD_PROFILE_CONSENT; CHILD_TALK_CONSENT; REVOKED; DELETION_REQUESTED
 class LearnerRelation(StrEnum):    SELF; PARENT                  # how the user relates to the learner
 class ActivityStatus(StrEnum):     OFFERED; DONE; SKIPPED
 class AspirationField(StrEnum):    MEDICINE; HEALTH_ALLIED; ENGINEERING; TECHNOLOGY_COMPUTING;
@@ -71,16 +73,19 @@ class CuriosityDomain(StrEnum):    NATURE_LIVING; EARTH_SKY; NUMBERS_PATTERNS; W
                                    MAKING_BUILDING; MOVEMENT_BODY; ART_MUSIC; PEOPLE_FEELINGS;
                                    EVERYDAY_WORK
 class Sentiment(StrEnum):          POSITIVE; NEUTRAL; NEGATIVE
+class Speaker(StrEnum):            GUIDE; LEARNER                 # who is talking this turn (C13 child talk)
+class ChildSessionEndReason(StrEnum): TURN_LIMIT; TIME_LIMIT; CHILD_ENDED; CRISIS; EXPIRED
 ```
 
 `Route` → owner of the `GENERATE` work: `ONBOARDING`, `DATA_DELETION` → s08; `EXPOSURE` → s10;
-`JOURNEY` → s10b; `MENTOR`, `ROADMAP`, `OFF_TOPIC` → s12; `CRISIS`, `REFUSE` → s07 (fixed text);
+`JOURNEY`, `CHILD_TALK` → s10b; `MENTOR`, `ROADMAP`, `OFF_TOPIC` → s12; `CRISIS`, `REFUSE` → s07 (fixed text);
 `REPEAT_PLEASE` → s06 (fixed text); `DASHBOARD_LINK` → s13; `NUDGE`, `KHOJ_CARD` → s10b. A `NUDGE` turn is
 created by the scheduler, never by inbound messages, and sends a fixed, Meta-approved template.
 
 Fixed-reply variants (`FixedReplyVariant`, `app/pipeline/fallbacks.py`): `DEFAULT` for every kind,
 plus `HARMFUL`, `PRIVACY`, `MEDICAL`, `GENERAL`, `GENERIC` (for `REFUSE`) and `SELF_HARM`, `ABUSE`
-(for `CRISIS`, which `app/safety/crisis.py` also calls `CrisisVariant`).
+(for `CRISIS`, which `app/safety/crisis.py` also calls `CrisisVariant`). Crisis and refuse texts are
+keyed additionally by `Speaker`: the `LEARNER` versions use a child's words (s10b §4.16).
 
 ---
 
@@ -176,6 +181,8 @@ class TurnContext(BaseModel):                # built by the worker (s04), read b
     memory: ProfileMemory | None
     active_roadmap: "Roadmap | None"
     open_activity: "OfferedActivity | None"  # s10b: the latest OFFERED activity for active_learner, < 48 h old
+    speaker: Speaker                         # LEARNER only inside an open child session (C13)
+    child_session: "ChildSession | None"     # the open child session for active_learner, if any
     is_session_start: bool                   # gap since the previous turn > SESSION_GAP (6 h)
 ```
 
@@ -238,7 +245,10 @@ TurnWrite = Annotated[
   | ActivityOffered          # s10b: an activity was sent for a learner
   | ActivityReported         # s10b: the parent reported back (status, ≤ 200-char summary)
   | NudgePreference          # s10b: opt in / change time / opt out
-  | MarkPurgeAfterDelivery,  # s08: delete the user once this turn's last part is delivered
+  | MarkPurgeAfterDelivery   # s08: delete the user once this turn's last part is delivered
+  | ChildTalkConsent         # s08: parent grants or revokes direct child talk (C13); field granted: bool
+  | ChildSessionStart        # s10b: the child started talking
+  | ChildSessionEnd,         # s10b: limit reached, child ended, crisis, or expired
   Field(discriminator="kind")]
 
 class ProfileChange(BaseModel):
@@ -267,7 +277,8 @@ so a same-turn handoff, such as the first khoj after a parent's onboarding, can 
 in its `TurnContext` and its `ActivityOffered` write before anything is committed.
 
 ```python
-PostTurnTask = Annotated[ExtractSignals | UpdateMemory | MakeKhojCard, Field(discriminator="kind")]
+PostTurnTask = Annotated[ExtractSignals | UpdateMemory | MakeKhojCard | SendChildSessionSummary,
+                         Field(discriminator="kind")]   # SendChildSessionSummary: s10b §4.16
 
 class ExtractSignals(BaseModel):            # s13
     kind: Literal["extract_signals"]
@@ -315,7 +326,8 @@ class Citation(BaseModel):
     chunk_id: UUID
 
 class ReplyButton(BaseModel):                # WhatsApp interactive, max 3 per message
-    id: str                                  # ≤ 256 chars, namespaced: "onb:", "exp:", "rm:", "jrn:", "nudge:", "mode:"
+    id: str                                  # ≤ 256 chars, namespaced: "onb:" (incl. "onb:childtalk:", "onb:add-child"),
+                                             # "exp:", "rm:", "jrn:", "nudge:", "mode:", "kid:"
     title: str                               # ≤ 20 chars (WhatsApp limit)
 
 class TemplateRef(BaseModel):                # PartKind.TEMPLATE (s10b nudges)
@@ -373,7 +385,7 @@ Each lives in its owner's module. They're listed here so names stay unique.
 | `MemoryUpdate` | `app/layers/memory.py` | s12 |
 | `MinorPolicyCheck` | `app/safety/policy.py` | s07 |
 | `AspirationSignals`, `CuriositySignals` | `app/domain/aspiration.py` | s13 |
-| `KhojCardText`, `PhotoFindings` | `app/layers/journey.py` | s10b |
+| `KhojCardText`, `PhotoFindings`, `CuriosityMoment`, `ChildReply`, `ChildSession` | `app/layers/journey.py`, `app/domain/models.py` | s10b |
 | `DashboardClaims` | `app/telemetry/links.py` | s13 |
 | `GoldenCase`, `GoldenTurn`, `GoldenProfile`, `GoldenLearner`, `TurnExpectation`, `TurnRecord`, `CheckResult`, `JudgeItem`, `JudgeScore`, `Scorecard` | `app/evals/` | s15 |
 
@@ -655,6 +667,9 @@ Per-step timeouts `TIMEOUT_<STEP>_S`: `FETCH_MEDIA` 5, `TRANSCRIBE` 8, `SAFETY_I
 `KHOJ_CARD_ENABLED` true · `PHOTO_INPUT_ENABLED` true · `MAX_INBOUND_IMAGE_BYTES` 5_242_880 ·
 `TIMEOUT_FETCH_IMAGE_S` 5 · `TIMEOUT_ANALYZE_IMAGE_S` 6 · `TIMEOUT_MAKE_CARD_S` 20
 
+**Child talk (s10b, C13)**: `CHILD_TALK_ENABLED` true · `CHILD_SESSION_MAX_TURNS` 6 ·
+`CHILD_SESSION_MAX_MINUTES` 10 · `CHILD_SESSION_COOLDOWN_MINUTES` 30
+
 **Parent journey (s10b)**: `NUDGE_TEMPLATE_NAME` (str, approved in WhatsApp Manager) ·
 `NUDGE_QUIET_START` 20:00 / `NUDGE_QUIET_END` 07:00 (IST) · `NUDGE_DAILY_LIMIT` 200 (below the
 250/day unverified cap) · `ACTIVITY_REPEAT_DAYS` 30
@@ -682,6 +697,8 @@ Per-step timeouts `TIMEOUT_<STEP>_S`: `FETCH_MEDIA` 5, `TRANSCRIBE` 8, `SAFETY_I
 | 2026-10-25 | `TurnObserver.on_step` carries the step result; `process_user_turn` accepts an observer; `GoldenLearner`; `SignedTokenCodec`; `ExtractSignals`/`UpdateMemory` fields; writes applied in list order | Requested by s13 and s15 forks; needed for evals to capture replies and for the first-khoj handoff | pending owner review |
 | 2026-10-25 | `CanonicalReply.spoken_text`; layers write in the user's register for the MVP | Decision C3c (direct localisation) | owner |
 | 2026-10-25 | Safety ordering: generation may run concurrently with `safety_in`, used only on ALLOW | Decision C3a | owner |
+| 2026-10-26 | `CHILD_TALK_NOT_ENABLED`, `CHILD_TALK_COOLDOWN`, `CHILD_SESSION_END` fixed replies; `kid:` and `onb:childtalk:` button namespaces; `ChildTalkConsent.granted` | Mechanical follow-ups from the child-talk fork | owner (C13) |
+| 2026-10-26 | Child talk and curiosity moments: `Route.CHILD_TALK`, `Speaker`, `TurnContext.speaker/child_session`, `ChildTalkConsent`/`ChildSessionStart`/`ChildSessionEnd` writes, `SendChildSessionSummary`, `d8 CHILD_MANIPULATION`, `CHILD_TALK_CONSENT`, child-worded crisis texts, settings | Owner decisions C11–C13 | owner |
 | 2026-10-26 | `OPEN_MODEL_*` settings: Muse Spark Open on Baseten for selected prompts | Decision C9 | owner |
 | 2026-10-26 | Images: `MessageKind.IMAGE`, `PartKind.IMAGE`, `ImageClip`, `ImageGenerator` (Muse Image), `ImageSegmenter` (SAM 3.1), image safety in `SafetyRequest`, `MakeKhojCard` post-turn task, `Route.KHOJ_CARD`, image steps, settings | Owner decisions C6 (khoj card) and C7 (activity photos) after reading the Official Rules (Meta tooling is 25% of the score) | owner |
 | 2026-10-26 | `MediaFetcher.fetch_image`, `ChannelSender.send(image=…)`, `TTS_ENGINE` | Mechanical consequences of C6–C8, requested by the image fork | owner (C6–C8) |

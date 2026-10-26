@@ -77,6 +77,12 @@ This step builds that for the NEP **foundational stage, ages 3–8**, the MVP sc
    reflection builds on what the child actually said.
 4. **Interests emerge; they're never assigned.** No careers, exams or "what will you become" for
    children under 11. Signals record what the child engages with; they never label the child.
+   **Gentle exposure is allowed (C12):** a reply may mention who explores this in the real world
+   ("jo log chaand-taaron ko samajhte hain unhe khagol-vaigyanik kehte hain, aur woh bhi tumhari
+   tarah sawaal poochte hain"), without suggesting the child become one, and with no exams, money or careers advice.
+7. **The child is a person with their own questions (C11, C13).** Marg.ai mentors the child's own
+   curiosity: through the parent when the parent relays it, and directly when the child talks to
+   Marg.ai themselves, with the parent's one-time consent and strict safeguards (§4.16).
 5. **The parent learns too.** Each reply carries one short idea about how children learn
    ("asking 'why do you think so?' matters more than the right answer").
 6. **Safety is structural.** An adult is always present (a fixed supervision line, appended by
@@ -422,6 +428,76 @@ inbound IMAGE (WhatsApp "image" message, or a web upload)
 - Onboarding copy says photos of children aren't accepted, and the person check enforces it.
 - `PHOTO_INPUT_ENABLED` turns the feature off at once if anything looks wrong in field testing.
 
+### 4.15 Curiosity moment — mentoring the child's own question (C11)
+
+Trigger: a parent relays the child's question or spark ("Munni poochh rahi hai, chaand roz shape
+kyun badalta hai?"), detected deterministically by the journey dispatch (a question mark or
+question words with a child reference: the nickname, "beta", "beti", "bachcha", "poochh rahi/raha")
+and confirmed by the `curiosity_moment` prompt's `is_child_question` field. Otherwise → flow D.
+
+Output (`CuriosityMoment`, strict schema, written in the parent's register, C3c):
+- `say_to_child` ≤ 300 chars: a **true, simple answer** at the child's age. Only well-established
+  everyday science, nature and how-things-work knowledge. When the model isn't confident,
+  `confident = false` and the answer becomes "Chalo saath mein pata lagate hain" plus the mini-activity.
+- `find_out_together`: a 2-minute mini-activity with household things (steps ≤ 4, materials from
+  the closed materials list, hazard rule `d7`, the supervision line appended by code).
+- `ask_back` ≤ 160 chars: one question that keeps the child wondering.
+- `who_explores_this` ≤ 160 chars, optional: gentle exposure (C12), never "you should become".
+- writes: none. Post-turn: `ExtractSignals(curiosity)` with `child_asked_question = true`.
+
+Health, body or medicine questions are refused by safety and referred (d4), as everywhere.
+Golden cases: moon phases, why it rains, why plants need sun, a fever question (referred), a
+question the model can't answer confidently ("let's find out" path).
+
+### 4.16 Child talk — the child asks Marg.ai directly (C13)
+
+Children don't always say everything they wonder to a parent. With the parent's **one-time
+consent**, the child can talk to Marg.ai themselves on the parent's phone, by voice.
+
+**Why the parent is still involved at all:** 3–8-year-olds use the parent's phone and WhatsApp
+account (WhatsApp's minimum age is 13 in most countries); India's DPDP Act requires verifiable
+parental consent for a child's data and restricts behavioural monitoring of children (a legal
+review is required before any public launch, see plan.md §8); and an adult must be able to act if
+a child says something worrying. So the parent consents once and receives a summary; they are
+**not** in the middle of the conversation.
+
+```
+consent (once, s08): after the child's details, "Kya Munni khud bhi Marg se baat kar sakti hai?"
+   yes → learners.child_talk_consented_at, consent_events CHILD_TALK_CONSENT
+start (by the child): the "Main bachcha hoon 🙋" button (kid:start[:<learner_id>]) shown on journey
+   replies, or a voice note "Main Munni hoon" / "Munni bol rahi hoon" (nickname match)
+   → ChildSessionStart write → child_sessions row (open)
+during: speaker = LEARNER; every turn → child_talk prompt → ChildReply; voice reply always
+end: after CHILD_SESSION_MAX_TURNS (6) or CHILD_SESSION_MAX_MINUTES (10), or "bye"/"bas":
+   a kind fixed goodbye + one "go find out" activity + "Mummy-Papa ko bhi batao!"
+   → ChildSessionEnd write; then a summary for the parent (post-turn): "Aaj Munni ne poochha: …"
+```
+
+**`ChildReply`** (strict schema, child register: very short sentences, ≤ 8 words each for ages 3–5,
+≤ 12 for 6–8; spoken first, text second): `answer` (true and simple, or "let's find out"),
+`find_out` (an optional 1-minute thing to try, same materials and hazard rules), `ask_back` (one
+question), `who_explores_this` (optional, C12).
+
+**Safeguards (hard lines; deterministic checks plus the normal safety gate):**
+- **Never asks the child for personal information** (name beyond the nickname, school, address,
+  phone, family details, photos). An output rule blocks question patterns for these (`d1` on output).
+- **Never secrecy or attachment:** no "keep this secret", "don't tell", "I'm your best friend",
+  "only I understand you". A lexicon rule blocks them (new category `d8 CHILD_MANIPULATION` on output).
+  Replies regularly say "Mummy-Papa ko bhi batana".
+- **Crisis in a child's words:** self-harm or abuse signals → the fixed `CRISIS` reply in the
+  **child variant** (simple words: "Yeh tumhari galti nahi hai. Abhi Mummy, Papa ya teacher ko
+  batao.", plus the official child helpline, copied from the official source), and the session ends.
+  The parent summary then says only that Marg.ai shared a helpline, never the child's words.
+- **Medical and body questions** → refused and referred to a grown-up (d4, child wording).
+- **Time limits** as above; no new session for 30 minutes after one ends (`CHILD_SESSION_COOLDOWN_MINUTES`).
+- **Voice-first:** replies are voice notes plus very short text; no links, no images other than the khoj card.
+- **Nothing stored beyond the normal turn data;** the child's voice is never stored. `turns.user_text`
+  retention is the same as for parents, and crisis turns store none.
+
+**Parent summary** (post-turn task `SendChildSessionSummary`, fixed wording plus the topics in
+≤ 2 lines, sent inside the open 24 h window): what the child asked about (topics, not transcripts),
+and one suggestion to continue together. Never quotes a disclosure.
+
 ## 5. Interfaces
 
 ```python
@@ -579,6 +655,7 @@ specificity, no careers for a 5-year-old, medical refusal, register).
 
 | Date | Change | Why | Approved |
 |---|---|---|---|
+| 2026-10-26 | Curiosity moment (§4.15), gentle exposure (principle 4), direct child talk with one-time parent consent and safeguards (§4.16) | Owner decisions C11, C12, C13: Marg.ai mentors the child's own curiosity; children don't always say everything to a parent | owner |
 | 2026-10-26 | Reflection on Muse Spark Open via Baseten with fallback | Decision C9 | owner |
 | 2026-10-26 | Khoj card with Muse Image (§4.13) and activity photos with SAM 3.1 (§4.14) | Owner decisions C6, C7: Use of Meta AI Tooling is 25% of the score (Official Rules) | owner |
 | 2026-10-25 | Launch catalogue 10 activities (minimum 7); deterministic flow dispatch for the MVP | Decisions C4 and C3b (mvp-scope.md) | owner |

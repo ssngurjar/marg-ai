@@ -84,6 +84,7 @@ partial `WHERE purge_after_turn_id IS NOT NULL`.
 | `relation` | `text` | `LearnerRelation` |
 | `nickname` | `text` NULL | ≤ 20 chars, optional; never a full name (s10b §4.2) |
 | `birth_year` | `smallint` | `CHECK (birth_year BETWEEN 2000 AND 2100)` as a sanity bound; the real range (age 2–19 today) is validated in code (`InvalidProfileValue`) |
+| `child_talk_consented_at` | `timestamptz` NULL | the parent's one-time consent for direct child talk (C13); NULL = child talk off |
 | `created_at` / `updated_at` | `timestamptz` | |
 
 Constraints: at most 3 learners per owner, enforced by the repository inside the finalize
@@ -236,6 +237,22 @@ Index: `(expires_at)`. WhatsApp inbound audio is never stored, and **inbound pho
 
 Index: `(learner_id, offered_at DESC)`.
 
+### `child_sessions` (S10b, C13)
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `uuid` PK | |
+| `learner_id` | `uuid` FK → learners CASCADE | |
+| `user_hash` | `text` FK → users CASCADE | the parent's account the child is using |
+| `started_at` / `ended_at` | `timestamptz` | `ended_at` NULL while open |
+| `turns_count` | `smallint` | |
+| `end_reason` | `text` NULL | `ChildSessionEndReason` |
+| `topics` | `text[]` | `CuriosityDomain` values touched, for the parent summary (no transcripts) |
+| `summary_sent_at` | `timestamptz` NULL | |
+
+Indexes: `(learner_id, started_at DESC)`; at most one open session per learner (partial unique
+index `WHERE ended_at IS NULL`).
+
 ### `nudge_subscriptions` (S10b)
 
 | Column | Type | Notes |
@@ -350,5 +367,6 @@ upgrade → downgrade → upgrade against `docker-compose.test.yml`.
 | 2026-10-25 | v1 written | foundation | owner |
 | 2026-10-25 | Added `users.pending_question`, `users.purge_after_turn_id`, `outbox_messages.sending_since`, `outbox_messages.template`, `turn_steps.decision`, `corpus_chunks.heading_path`, `corpus_documents.language`, the `turn_metrics` view; crisis `user_text` NULL | Requested by s04, s07, s08, s11, s13, s14 | owner (defaults 1–10) |
 | 2026-10-25 | Added `learners`, `learner_activities`, `nudge_subscriptions`, `curiosity_signals`, `turns.learner_id`; `aspiration_signals` keyed by `learner_id` | Parent journey and learner-centred model | owner |
+| 2026-10-26 | `child_sessions`, `learners.child_talk_consented_at` | Owner decision C13 (direct child talk) | owner |
 | 2026-10-26 | `outbox_messages.image_blob_id`, `learner_activities.photo_findings` and `card_blob_id`, `media_blobs` purpose `khoj_card`; the photo rules in §3 | Owner decisions C6, C7 | owner |
 | 2026-10-25 | Dropped the proposed `classrooms` table and `users.classroom_id` | Classroom codes trimmed; teachers see district aggregates | owner |
