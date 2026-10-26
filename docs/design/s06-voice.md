@@ -603,6 +603,7 @@ an explicit reason in `pytest.ini` markers, not via `skip` in code):**
 | Q3 | Is MMS-TTS Hindi quality good enough to demo? | B10 fixes MMS-TTS as the hackathon voice; quality is still measured in the S2 listening test with 3 local listeners. Only if it fails does Indic Parler-TTS (same sidecar interface) go to the owner as a change. |
 | Q4 | A CPU or GPU sidecar for TTS? | CPU unless warm 3-sentence `/tts` exceeds 1.5 s in S2. |
 | Q5 | Should text-input users also get audio? | No by default (cost and latency); `REPLY_AUDIO_FOR_TEXT_INPUT` exists for the demo if wanted. |
+| Q7 | Enable Zero Data Retention for Muse Voice Transcribe? How (console, header, approval)? | Yes if available; asked on Discord (s0-setup). Until answered, Standard mode applies (no training on our content). |
 | Q6 | WhatsApp has no documented "voice note" flag for audio messages. Will OGG/Opus mono render as a playable voice bubble? | Confirm in S3/S6 on a real phone. |
 
 ## Contract changes (resolved 2026-10-25)
@@ -617,6 +618,22 @@ an explicit reason in `pytest.ini` markers, not via `skip` in code):**
 | C12 | `MediaError` family and its `FailureKind` mapping | **Applied** (contracts §4) |
 | C13 | `Transcript.language` from `detect_register`, `confidence` always `None` here | **Applied** (contracts §2.1) |
 | C14 | `transliterate.py` → `tts_text.py` in plan.md §9 and CLAUDE.md §3 | **Applied** by the parent |
+
+## Speech-to-text doc check (2026-10-26, https://dev.meta.ai/docs/speech-to-text)
+
+Confirms this design: multipart `request` (JSON) + `audio` (mono 16-bit WAV, 16 or 24 kHz),
+10 minutes / 32 MB, response `sessionId`, `transcript`, `audioDurationMs`, `turns` (empty in
+`PUSH_TO_TALK`), no confidence and no detected-language field, `languageBias` is a hint, keywords
+bias but don't guarantee spelling (no documented maximum), 429s and failures before a transcript
+aren't billed. New points:
+- **24 kHz is the native rate**; 16 kHz is resampled server-side. Spike A compares word error
+  rate at 16 and 24 kHz on the village samples; the default stays 16 kHz unless 24 kHz is measurably better.
+- **`500` means "processing budget exceeded: retry once"**. The shared retry policy already
+  retries `ProviderUnavailable`; for this endpoint it's capped at one retry.
+- **Zero Data Retention (ZDR)** exists for Muse Voice Transcribe at Standard price, but how to
+  enable it isn't documented. Open question Q7 (asked on Discord, see s0-setup); recommendation:
+  enable it if available, since the audio includes children's voices.
+- Standard mode content isn't used to train Meta models (pricing page). We never use Contributor mode.
 
 ## Decisions log
 

@@ -70,6 +70,10 @@ issue, or a chat.**
 - [ ] Ask on the event Discord: "Can a submission call Meta's MMS-TTS (`facebook/mms-tts-hin`,
       CC-BY-NC 4.0) for Hindi speech, given the Official Rules' open-source licence clause?" Record
       the answer in `docs/decisions/` (decision C8).
+- [ ] Ask in #office-hours (or check the Model API console): **how is Zero Data Retention (ZDR)
+      enabled for Muse Voice Transcribe** (and other models), and what does it cover? The docs only
+      say ZDR is priced at parity with Standard. Our users' voices include children's, so we want
+      it on if it's available. Record the answer in `docs/decisions/`.
 - [ ] Demo video consent form (Hindi and English) for the parent who appears: covers public use
       and Meta's perpetual marketing use under the Official Rules; no child's face.
 
