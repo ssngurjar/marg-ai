@@ -472,7 +472,7 @@ def helpline_numbers() -> frozenset[str]: ...      # allowlist for the outbound 
 - every `(CrisisVariant, Speaker, Language)` triple exists; the `LEARNER` texts contain no question mark and no word over the child-register length limit
 - d8: "Haan, yeh hamara secret hai" in a child reply → BLOCK; "Mummy-Papa ko bhi batana" → ALLOW; d8 is in both decision tables (ALLOW in, BLOCK out)
 - child personal-detail rule: "Tumhara school kaunsa hai?" in a `LEARNER` reply → d1 BLOCK; "Munni, tumne kya dekha?" → ALLOW; the same school question to a parent (`GUIDE`) isn't checked by this rule
-- a learner crisis turn → the `LEARNER` crisis text, a `ChildSessionEnd(CRISIS)` write, and a parent summary with no words from the child's message (assert by searching the summary for input tokens)
+- a learner crisis turn → the `LEARNER` crisis text and a `ChildSessionEnd(CRISIS)` write; for an **abuse** variant, **no** `SendChildSessionSummary` task is created (C15); for a **self-harm** variant, the fixed gentle parent summary with the adult helpline and no words from the child's message (assert by searching the summary for input tokens)
 - every helpline has a `.gov.in` / `.nic.in` `source_url` and a `retrieved_on` date
 - `spoken_text` has no URLs
 - the text contains no question asking for name, address or details (a check for "naam", "pata",

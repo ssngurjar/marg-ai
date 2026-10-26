@@ -84,6 +84,8 @@ contracts, ports, `TurnWrite`s, sealed safety types and tables.
 | C11 | Curiosity moment: when a parent relays the child's own question, Marg.ai gives a true, simple answer to share, a 2-minute "let's find out" activity, and one question back. | Marg.ai mentors the child, not only coaches the parent |
 | C12 | Gentle exposure for ages 3–8: "who explores this in the real world", never careers, exams or "you should become". | Close the exposure gap without assigning interests |
 | C13 | Direct child talk: one-time parent consent, then the child starts by button or "Main Munni hoon"; voice-only; 6 exchanges / 10 minutes; child safeguards; topic summary to the parent. | Children don't always say everything they wonder to a parent |
+| C15 | Child-talk crisis endings: abuse disclosure → no parent summary at all; self-harm or sadness → gentle fixed summary with the adult helpline, never the child's words. | The adult reading the phone may be the abuser |
+| C16 | Inside a child session, account actions (delete, nudges, add child, consent) never work; the child is told to ask a grown-up. | A child must not change the family's account by accident |
 | C14 | Nothing is dropped for C11–C13; build order Day 5–7: curiosity moment → child talk → khoj card → web demo; SAM photos on Day 8. If a day slips, the owner decides what moves. | Owner: drop nothing |
 | C5 | Enterprise grade by default; a lite version only where the full one would stretch the 10 days, each with a reason and an upgrade trigger (§0, §4). C3's latency changes are part of the full design, not shortcuts. | "MVP-lite" as the default framing |
 

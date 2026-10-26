@@ -495,6 +495,16 @@ question), `who_explores_this` (optional, C12).
 - **Nothing stored beyond the normal turn data;** the child's voice is never stored. `turns.user_text`
   retention is the same as for parents, and crisis turns store none.
 
+**Crisis endings (C15):** after an **abuse disclosure** (d5), **no summary is sent to the parent at
+all**. The child gets the fixed child-worded reply with the official child helpline, and the session
+ends quietly, because the adult reading the parent's phone may be the one causing harm. After a
+**self-harm or deep-sadness** signal (s11), the parent gets a fixed, gentle summary ("Munni aaj udaas
+lag rahi thi, pyaar se baat kijiye") plus the official helpline for adults, never the child's words.
+
+**Account actions from a child (C16):** inside a child session, nothing changes the account:
+deletion phrases, nudge settings, add-child, consent and any non-`kid:` button are ignored, and
+the child hears a fixed "Yeh Mummy-Papa se karwana". The parent can do it after the session ends.
+
 **Parent summary** (post-turn task `SendChildSessionSummary`, fixed wording plus the topics in
 ≤ 2 lines, sent inside the open 24 h window): what the child asked about (topics, not transcripts),
 and one suggestion to continue together. Never quotes a disclosure.
@@ -656,6 +666,7 @@ specificity, no careers for a 5-year-old, medical refusal, register).
 
 | Date | Change | Why | Approved |
 |---|---|---|---|
+| 2026-10-26 | C15: no parent summary after an abuse disclosure; gentle summary after self-harm signals. C16: no account actions from a child session | Owner decisions on the fork's safety questions | owner |
 | 2026-10-26 | Curiosity moment (§4.15), gentle exposure (principle 4), direct child talk with one-time parent consent and safeguards (§4.16) | Owner decisions C11, C12, C13: Marg.ai mentors the child's own curiosity; children don't always say everything to a parent | owner |
 | 2026-10-26 | Reflection on Muse Spark Open via Baseten with fallback | Decision C9 | owner |
 | 2026-10-26 | Khoj card with Muse Image (§4.13) and activity photos with SAM 3.1 (§4.14) | Owner decisions C6, C7: Use of Meta AI Tooling is 25% of the score (Official Rules) | owner |

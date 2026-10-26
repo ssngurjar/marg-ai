@@ -391,7 +391,7 @@ and §4.6 defines what happens when one is `None`. It's constructed only in `app
   - `ExtractSignals(curiosity)` also for every `CHILD_TALK` turn with a generated reply and for a
     curiosity-moment `JOURNEY` turn (`child_asked_question = true`, s13)
   - `SendChildSessionSummary` when the turn wrote `ChildSessionEnd` (any reason): a topic-only
-    summary to the parent; for `CRISIS` it says only that Marg.ai shared a helpline, never the child's words (s10b §4.16, s07)
+    summary to the parent, except after an abuse disclosure, when **no summary is sent** (C15); after a self-harm or sadness signal it's the fixed gentle summary with the adult helpline, never the child's words (s10b §4.16, s07)
   - neither signals nor memory for fixed replies, onboarding, crisis or refuse turns
 
 **Flow.** Times are budgets, not targets. `deadline = turn_start + TURN_BUDGET_S`.
