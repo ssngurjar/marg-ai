@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from app.core.config import Settings, load_settings
+from app.core.config import Settings, load_database_settings, load_settings
 from app.core.errors import ConfigError
 from tests.support.app_factory import TEST_ENCRYPTION_KEY, TEST_SALT
 
@@ -118,3 +118,27 @@ def test_missing_s3_setting_is_named(monkeypatch: pytest.MonkeyPatch, name: str)
     monkeypatch.delenv(name)
     with pytest.raises(ConfigError, match=name):
         load_settings()
+
+
+# --- migrations (alembic/env.py) read only DATABASE_URL ---------------------------------------
+
+
+def test_database_settings_load_without_any_other_setting(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Regression: CI's migration step sets only DATABASE_URL and failed once S3 added settings.
+    for name in S3_SETTINGS:
+        monkeypatch.delenv(name)
+    monkeypatch.setenv("DATABASE_URL", VALID_URL)
+    assert load_database_settings().database_url.get_secret_value() == VALID_URL
+
+
+def test_database_settings_missing_url_names_field() -> None:
+    with pytest.raises(ConfigError, match=r"DATABASE_URL \(field required\)"):
+        load_database_settings()
+
+
+def test_database_settings_reject_non_asyncpg_scheme(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DATABASE_URL", "postgresql://marg:marg@localhost:5432/marg")
+    with pytest.raises(
+        ConfigError, match=r"DATABASE_URL \(must use the postgresql\+asyncpg:// scheme\)"
+    ):
+        load_database_settings()

@@ -334,8 +334,10 @@ async def ping(engine: AsyncEngine) -> None:
 ```
 
 Neon's pooled endpoint closes idle connections, which is why `pool_pre_ping` and a short
-`pool_recycle` are set. Alembic's `env.py` reads `DATABASE_URL` through `load_settings()` and
-runs migrations with the async engine (`connection.run_sync(do_run_migrations)`).
+`pool_recycle` are set. Alembic's `env.py` reads only `DATABASE_URL`, through
+`load_database_settings()` (`DatabaseSettings`, the base class of `Settings`), so migrations run
+without the app's other secrets. It runs them with the async engine
+(`connection.run_sync(do_run_migrations)`).
 
 ### 4.10 Composition root — `app/wiring.py`
 
@@ -815,4 +817,5 @@ timeouts; secrets in error messages; personal data in log keys, messages and tra
 | 2026-10-26 | Ruff excludes `*.md` | Ruff formats code blocks inside Markdown and rewrapped the design docs | implementation detail, reported to owner |
 | 2026-10-26 | `ReadinessProbe` is a small dataclass (`name`, `critical`, `check`), in `app/api/readiness.py` | A timed-out probe must still report its name; also avoids a circular import between `deps` and `health` | implementation detail, reported to owner |
 | 2026-10-26 | uvicorn runs with `--no-access-log` | Its access log bypasses redaction and would print query strings such as the WhatsApp verify token | CLAUDE.md §11, reported to owner |
+| 2026-10-27 | Migrations read only `DATABASE_URL` (`DatabaseSettings` / `load_database_settings()`); `create_engine` takes `DatabaseSettings` | CI's migration step broke once S3 added required settings it doesn't have; migrations shouldn't need WhatsApp secrets anywhere | owner |
 | 2026-10-25 | Dependencies per B6; `disallow_any_decorated=false` per B7; layering table aligned with 00-overview §5; `ENVIRONMENT` adds `staging`; full error hierarchy from contracts §4; `.env.example` lists every setting grouped by step; worker is the `app/worker/` package | Consolidation against the updated foundation docs | owner (defaults B6, B7) |

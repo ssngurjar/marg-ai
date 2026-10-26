@@ -16,9 +16,11 @@ ASYNCPG_SCHEME = "postgresql+asyncpg://"
 type Environment = Literal["local", "test", "staging", "prod"]
 
 
-class Settings(BaseSettings):
-    """Every setting the app reads. Secrets are `SecretStr` and never printed."""
+class DatabaseSettings(BaseSettings):
+    """The one setting migrations need, so `alembic` runs without the app's other secrets."""
 
+    # Written inline (not shared through a variable) so the pydantic mypy plugin sees `frozen`.
+    # Settings inherits it.
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
@@ -27,9 +29,21 @@ class Settings(BaseSettings):
         hide_input_in_errors=True,  # a secret that fails validation must not reach a log
     )
 
-    # S1
-    environment: Environment = "local"
     database_url: SecretStr
+
+    @field_validator("database_url")
+    @classmethod
+    def _require_asyncpg_scheme(cls, database_url: SecretStr) -> SecretStr:
+        if not database_url.get_secret_value().startswith(ASYNCPG_SCHEME):
+            raise ValueError(f"must use the {ASYNCPG_SCHEME} scheme")
+        return database_url
+
+
+class Settings(DatabaseSettings):
+    """Every setting the app reads. Secrets are `SecretStr` and never printed."""
+
+    # S1, plus the inherited database URL
+    environment: Environment = "local"
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
 
     # Added in S3 for identity and WhatsApp
@@ -43,21 +57,23 @@ class Settings(BaseSettings):
     webhook_max_body_bytes: int = Field(default=5_000_000, gt=0)
     timeout_whatsapp_s: float = Field(default=5.0, gt=0)
 
-    @field_validator("database_url")
-    @classmethod
-    def _require_asyncpg_scheme(cls, database_url: SecretStr) -> SecretStr:
-        if not database_url.get_secret_value().startswith(ASYNCPG_SCHEME):
-            raise ValueError(f"must use the {ASYNCPG_SCHEME} scheme")
-        return database_url
-
 
 def load_settings() -> Settings:
     """Read settings from the environment (and `.env` locally).
 
     Raises ConfigError listing every invalid field by name with the reason, never the value.
     """
+    return _load(Settings)
+
+
+def load_database_settings() -> DatabaseSettings:
+    """Only DATABASE_URL, for migrations. Same errors as load_settings()."""
+    return _load(DatabaseSettings)
+
+
+def _load[SettingsModel: BaseSettings](settings_class: type[SettingsModel]) -> SettingsModel:
     try:
-        return Settings()
+        return settings_class()
     except ValidationError as exc:
         raise ConfigError(f"invalid settings: {describe_validation_errors(exc)}") from exc
 

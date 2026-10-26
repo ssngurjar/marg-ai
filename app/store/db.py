@@ -5,11 +5,11 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from sqlalchemy.ext.asyncio import create_async_engine as sqlalchemy_create_async_engine
 
-from app.core.config import Settings
+from app.core.config import DatabaseSettings
 from app.core.errors import StoreError
 
 
-def create_engine(settings: Settings) -> AsyncEngine:
+def create_engine(settings: DatabaseSettings) -> AsyncEngine:
     """asyncpg engine sized for Neon's pooled endpoint, which closes idle connections."""
     return sqlalchemy_create_async_engine(
         settings.database_url.get_secret_value(),
