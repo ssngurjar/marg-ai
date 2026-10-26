@@ -1,0 +1,14 @@
+# Ephemeral database for integration tests (`make test-db-up`). Data lives in tmpfs.
+services:
+  postgres-test:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: marg
+      POSTGRES_PASSWORD: marg
+      POSTGRES_DB: marg_test
+    ports: ["55432:5432"]
+    tmpfs: [/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "marg"]
+      interval: 2s
+      retries: 20

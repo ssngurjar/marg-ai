@@ -102,7 +102,7 @@ Every version is pinned with `==` when it's added (`uv add 'fastapi==<current>'`
 [tool.ruff]
 line-length = 100
 target-version = "py313"
-extend-exclude = [".venv"]
+extend-exclude = [".venv", "*.md"]  # ruff also formats code blocks in Markdown; the docs' snippets are illustrations
 
 [tool.ruff.lint]
 select = [
@@ -123,6 +123,7 @@ select = [
 ]
 ignore = [
   "TRY003",  # long messages in exception constructors are what CLAUDE.md asks for
+  "N818",    # contracts.md names exceptions by what happened (LeaseLost, ProviderTimeout)
 ]
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
@@ -384,8 +385,15 @@ class ReadinessResponse(BaseModel):
     environment: Literal["local", "test", "staging", "prod"]   # lets the s16 load driver refuse prod
     checks: list[ProbeResult]
 
-ReadinessProbe = Callable[[], Awaitable[ProbeResult]]
+@dataclass(frozen=True, slots=True)
+class ReadinessProbe:                     # app/api/readiness.py
+    name: str
+    critical: bool
+    check: Callable[[], Awaitable[None]]  # raises a MargError when the dependency isn't usable
 ```
+
+The probe carries its own `name` and `critical` so a timeout can still be reported under the
+right name; `run_probe` turns a `MargError` or a timeout into `ok=False`.
 
 | Route | Behaviour |
 |---|---|
@@ -528,7 +536,7 @@ RUN uv sync --frozen --no-dev
 RUN useradd --system --uid 10001 marg && chown -R marg /srv
 USER marg
 EXPOSE 8000
-CMD [".venv/bin/uvicorn", "app.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000"]
+CMD [".venv/bin/uvicorn", "app.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]
 ```
 
 ffmpeg is installed in S1 even though S6 is its first user. It's part of the base image, so
@@ -803,4 +811,8 @@ timeouts; secrets in error messages; personal data in log keys, messages and tra
 
 | Date | Change | Why | Approved |
 |---|---|---|---|
+| 2026-10-26 | Ruff ignores `N818`, keeping the contracts.md exception names | N818 conflicted with the contract names | owner |
+| 2026-10-26 | Ruff excludes `*.md` | Ruff formats code blocks inside Markdown and rewrapped the design docs | implementation detail, reported to owner |
+| 2026-10-26 | `ReadinessProbe` is a small dataclass (`name`, `critical`, `check`), in `app/api/readiness.py` | A timed-out probe must still report its name; also avoids a circular import between `deps` and `health` | implementation detail, reported to owner |
+| 2026-10-26 | uvicorn runs with `--no-access-log` | Its access log bypasses redaction and would print query strings such as the WhatsApp verify token | CLAUDE.md §11, reported to owner |
 | 2026-10-25 | Dependencies per B6; `disallow_any_decorated=false` per B7; layering table aligned with 00-overview §5; `ENVIRONMENT` adds `staging`; full error hierarchy from contracts §4; `.env.example` lists every setting grouped by step; worker is the `app/worker/` package | Consolidation against the updated foundation docs | owner (defaults B6, B7) |

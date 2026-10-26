@@ -1,0 +1,67 @@
+# The CLAUDE.md §2 verification loop on every push to main and every pull request.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      HYPOTHESIS_PROFILE: ci
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: astral-sh/setup-uv@v10.3.2
+        with:
+          version: "0.13.5"
+      - run: uv python install 3.13
+      - run: uv sync --frozen
+      - run: .venv/bin/ruff format --check .
+      - run: .venv/bin/ruff check .
+      - run: .venv/bin/mypy .
+      - run: .venv/bin/pytest
+
+  integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: marg
+          POSTGRES_PASSWORD: marg
+          POSTGRES_DB: marg_test
+        ports: ["55432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U marg"
+          --health-interval 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+asyncpg://marg:marg@localhost:55432/marg_test
+      HYPOTHESIS_PROFILE: ci
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: astral-sh/setup-uv@v10.3.2
+        with:
+          version: "0.13.5"
+      - run: uv python install 3.13
+      - run: uv sync --frozen
+      - run: .venv/bin/alembic upgrade head
+      - run: .venv/bin/alembic downgrade base
+      - run: .venv/bin/alembic upgrade head
+      - run: .venv/bin/pytest -m integration
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - run: docker build -t marg-ai:ci .
+      - run: docker run --rm --entrypoint ffmpeg marg-ai:ci -hide_banner -encoders | grep -q libopus

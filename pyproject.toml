@@ -1,0 +1,100 @@
+[project]
+name = "marg-ai"
+version = "0.1.0"
+description = "Voice-first WhatsApp coach that helps rural parents nurture their 3-8-year-old's curiosity."
+readme = "README.md"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "alembic==1.20.1",
+    "asyncpg==0.32.0",
+    "fastapi==0.162.0",
+    "httpx==0.28.1",
+    "jinja2==3.1.6",
+    "openai==3.38.0",
+    "pydantic==2.14.1",
+    "pydantic-settings==2.16.1",
+    "sqlalchemy[asyncio]==2.1.6",
+    "structlog==26.1.0",
+    "uvicorn[standard]==0.54.0",
+]
+
+[dependency-groups]
+dev = [
+    "hypothesis==6.170.12",
+    "mypy==2.4.0",
+    "pytest==9.1.1",
+    "pytest-asyncio==1.4.1",
+    "respx==0.23.1",
+    "ruff==0.17.2",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+extend-exclude = [".venv", "*.md"]  # the design docs' code blocks are illustrations, not code to format
+
+[tool.ruff.lint]
+select = [
+  "E", "W", "F", "I", "N", "UP", "B", "A", "C4", "SIM", "RET", "PIE", "PTH", "RUF",
+  "ANN",    # every function annotated; ANN401 bans Any in annotations
+  "BLE",    # no blind `except Exception`
+  "TRY",    # exception hygiene
+  "S",      # bandit: no shell=True, no hardcoded secrets
+  "DTZ",    # no naive datetimes
+  "T20",    # no print in app code
+  "ERA",    # no commented-out code
+  "FIX", "TD",  # no TODO / FIXME / XXX (CLAUDE.md §1)
+  "ASYNC",  # no blocking calls inside async functions
+  "PT",     # pytest style
+  "PL",     # pylint subset
+  "FBT",    # no boolean positional args
+  "TID",    # banned APIs, below
+]
+ignore = [
+  "TRY003",  # long messages in exception constructors are what CLAUDE.md asks for
+  "N818",    # contracts.md names exceptions by what happened (LeaseLost, ProviderTimeout); all subclass MargError (owner, 2026-10-26)
+]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"typing.Any".msg = "CLAUDE.md §1: never use Any. Use a TypeVar, Protocol, TypedDict, Literal or object + narrowing."
+"datetime.datetime.now".msg = "Use app.core.clock.Clock so time is injectable."
+"datetime.datetime.utcnow".msg = "Naive UTC. Use app.core.clock.Clock."
+"subprocess.run".msg = "Use asyncio.create_subprocess_exec with a timeout (CLAUDE.md §12)."
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "PLR2004"]   # assert and literal values are how tests work
+"scripts/spikes/**" = ["T20"]       # spike scripts print their measurements
+"app/core/clock.py" = ["TID251"]    # the one place allowed to call datetime.now
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+disallow_any_unimported = true
+disallow_any_explicit = true
+disallow_any_decorated = false   # FastAPI decorators are Any-typed internally (decision B7)
+warn_unreachable = true
+warn_unused_ignores = true
+enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool", "possibly-undefined"]
+plugins = ["pydantic.mypy"]
+exclude = ["^\\.venv/"]
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = "-m 'not integration' --strict-markers --strict-config -ra"
+markers = [
+  "unit: pure or fake-backed, no I/O",
+  "contract: parsing of real-shaped external payloads",
+  "integration: needs docker-compose.test.yml Postgres",
+]
+filterwarnings = ["error"]
+xfail_strict = true
