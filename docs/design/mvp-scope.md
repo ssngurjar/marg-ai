@@ -80,7 +80,7 @@ contracts, ports, `TurnWrite`s, sealed safety types and tables.
 | C7 | Activity photos with SAM 3.1: a person check first (reject and drop), then object counts feed the reflection; photos never stored. | Same: "surfacing unexpected capabilities" |
 | C8 | TTS licence: ask the organisers on Day 1 whether MMS-TTS (CC-BY-NC) is fine; spike MMS and Indic Parler-TTS (Apache 2.0) in S2; use MMS only if confirmed. | The rules require every open-source licence to be followed |
 | C9 | Muse Spark Open on Baseten (`meta-models/muse-spark-open-1026`) runs the parent reflection and curiosity extraction, behind the same `LanguageModel` port, with Muse Spark on the Model API as the fallback. | Best Build on Meta Open Weight Models ($10k) and the Meta tooling criterion |
-| C10 | Code starts Oct 27 00:00 ET (09:30 IST), the official building period; 9 build days. | Participant Guide: building period Oct 27 – Nov 4, new work only |
+| C10 | Code starts after the kickoff livestream on Oct 26 (21:30 IST). (Revised: an earlier reading took the Guide's "building period" line, which describes workshop days, as the coding start.) | Rule: "built during the event"; the event runs Oct 26 – Nov 4 |
 | C11 | Curiosity moment: when a parent relays the child's own question, Marg.ai gives a true, simple answer to share, a 2-minute "let's find out" activity, and one question back. | Marg.ai mentors the child, not only coaches the parent |
 | C12 | Gentle exposure for ages 3–8: "who explores this in the real world", never careers, exams or "you should become". | Close the exposure gap without assigning interests |
 | C13 | Direct child talk: one-time parent consent, then the child starts by button or "Main Munni hoon"; voice-only; 6 exchanges / 10 minutes; child safeguards; topic summary to the parent. | Children don't always say everything they wonder to a parent |
@@ -252,14 +252,14 @@ parts in hackathon scope (C1). **Exception** = §4's lite version until its upgr
 
 ## 6. Schedule (IST)
 
-Code starts at the official building period: **Tue Oct 27, 00:00 ET = 09:30 IST** (decision C10).
-Monday Oct 26 is for the kickoff livestream (21:30 IST), accounts and credit requests only.
-That gives 9 build days, so the old Day 1 evening is folded in.
+Code starts **after the kickoff livestream, Mon Oct 26 (kickoff 12:00 PM ET = 21:30 IST)** (decision
+C10, revised). The rule is "built during the event", and the event runs Oct 26 – Nov 4 (Credit
+Terms); the Guide's "Building period: Oct 27 – Nov 4" describes when workshops and office hours run.
 
 | Day | Date | Work | Exit |
 |---|---|---|---|
-| 0 | Mon Oct 26 | Kickoff 21:30 IST; accounts, credits (Model API, Baseten, Modal), Discord, nudge template submitted. **No code.** | rules confirmed; credits requested |
-| 1 | Tue Oct 27 (from 09:30) | S1, S2 spikes, S3; ask the MMS licence question in #office-hours (19:30 IST) | a reply sent to a real phone |
+| 0 | Mon Oct 26 | Before kickoff: accounts, credits (Model API, Baseten, Modal), Discord, nudge template. **Kickoff 21:30 IST**, then **S1 scaffold starts** (no code before the livestream ends) | rules confirmed; S1 under way |
+| 1 | Tue Oct 27 | Finish S1, S2 spikes, S3; ask the MMS licence and ZDR questions in #office-hours (19:30 IST) | a reply sent to a real phone |
 | 2 | Wed Oct 28 | S4 (E1), S5 with the safety core; start drafting the 10 activities | text in → checked Muse Spark reply out; restart mid-turn loses nothing |
 | 3 | Thu Oct 29 | S6 voice | voice note in → voice note out |
 | 4 | Fri Oct 30 | S7, S8 | crisis and adversarial cases pass; parent onboarding on the phone |

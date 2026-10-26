@@ -27,7 +27,7 @@ waiver at <https://cerebralvalley.ai/e/meta-ai-developer-hackathon/waiver> (read
 | Rights | We keep ownership; Organizers get a perpetual, royalty-free licence to use and show the Submission, and no confidentiality | Never put secrets in the repo or video. Anyone appearing in the demo video must consent to Meta's public use of it (§8). |
 | Eligibility | 18+, not in sanctioned countries, not Meta/CV staff or family | Owner is eligible. |
 | Theme fit | "Build for Your World" — a problem you know firsthand | Marg.ai fits well. Lead the story with the rural exposure gap. |
-| Kickoff | **Mon Oct 26, 12:00 PM ET = 21:30 IST** (livestream: rules, prizes, judging). 9:00 AM ET was only the acceptance-email time. Official **building period: Oct 27 – Nov 4** | Code starts after kickoff (decision on the exact start below) |
+| Kickoff | **Mon Oct 26, 12:00 PM ET = 21:30 IST** (livestream: rules, prizes, judging). 9:00 AM ET was only the acceptance-email time. The Guide's "building period: Oct 27 – Nov 4" is when workshops and office hours run | **Code starts after the kickoff livestream** (C10): the rule is "built during the event", and the event runs Oct 26 – Nov 4 |
 | Submission deadline | **Wed Nov 4, 9:00 PM ET = Thu Nov 5, 07:30 IST** (US DST ends Nov 1, so this is EST) | Plan to submit by **Nov 4, 23:00 IST**. Don't use the overnight buffer. |
 | Judging / finals | Nov 4–8 judging, Nov 9 closing ceremony with live finals | Judges must be able to **try it themselves**. Plan: a real WhatsApp number anyone can message (it works without business verification, see §4.1), with the public web demo (§4.7) as the guaranteed path. |
 | Pre-existing work | The rules published so far only require "original work product"; no clause on code written before the event was found (re-checked 2026-10-26). The organisers can still add rules | We assume the strict reading: **no product code or content before kickoff**. Planning and design docs only, tagged `pre-kickoff`, disclosed in the README. Re-read the rules after the kickoff livestream. |
@@ -376,8 +376,8 @@ Day boundaries are IST. **Feature freeze: end of Day 8.** Days 9 and 10 are for 
 | Day | Date | Goal (exit criterion in **bold**) |
 |---|---|---|
 | Pre | Oct 24–25 | Plan, CLAUDE.md, design docs, golden eval drafts. **No product code or content.** Tagged `pre-kickoff`. |
-| 0 | Mon Oct 26 | Kickoff livestream **21:30 IST**; accounts; credit requests (Model API, Baseten, Modal); Discord; nudge template submitted. **No code.** |
-| 1–9 | Oct 27 – Nov 4 | Building period. Day-by-day plan: [docs/design/mvp-scope.md](docs/design/mvp-scope.md) §6. Code starts **Tue Oct 27, 09:30 IST** (00:00 ET). Feature freeze end of Nov 3. **Submitted by Nov 4, 23:00 IST** (deadline 07:30 IST Nov 5). |
+| 0 | Mon Oct 26 | Accounts; credit requests; Discord; nudge template. Kickoff livestream **21:30 IST**, then **S1 starts**. |
+| 1–9 | Oct 27 – Nov 4 | Day-by-day plan: [docs/design/mvp-scope.md](docs/design/mvp-scope.md) §6. Code started after kickoff on Oct 26. Feature freeze end of Nov 3. **Submitted by Nov 4, 23:00 IST** (deadline 07:30 IST Nov 5). |
 
 **Hackathon cut (owner decisions C1–C4, 2026-10-25):** the MVP is the parent journey. Teacher
 exposure-lite is a stretch after the Day 8 checkpoint. The student mentor, RAG and roadmaps, the
