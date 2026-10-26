@@ -655,7 +655,7 @@ Some steps need the official rules confirmed (any product code) or the Model API
 | [ ] S0 | **Prep (no product code or content):** accounts, real-number setup, 10 consented voice samples, golden eval drafts, reviewers lined up | Full | `docs/s0-setup.md` | Accounts ready; samples and `evals/golden/` drafts exist; repo tagged `pre-kickoff` | Pre |
 | [x] S1 | **Scaffold** (single process while E1 holds) | Full | s01 | Verification loop green locally and on CI; `/healthz` answers in Docker | 1 |
 | [ ] S2 | **Spikes:** STT, Llama Guard 4, MMS-TTS, structured output | Full | s02 | A recorded go/fallback decision for each | 1 |
-| [ ] S3 | **WhatsApp channel:** webhook, signature, parsing, identity, sending (text, buttons, audio, template) | Full | s03 | A real phone message is stored and answered by the CLI sender | 1 |
+| [x] S3 | **WhatsApp channel:** webhook, signature, parsing, identity, sending (text, buttons, audio, template) | Full | s03 | A real phone message is stored and answered by the CLI sender | 1 |
 | [ ] S4 | **Processing:** inbox dedupe, in-process dispatcher, finalize, direct send, startup recovery | Exception E1 | mvp-scope §4.1 (full: s04) | Duplicate webhooks produce one reply; a restart mid-turn loses nothing | 2 |
 | [ ] S5 | **Model API, router, orchestrator, safety core** | Full (with C3) | s05 + mvp-scope §4.2–4.3 | Text in → checked Muse Spark reply out on the phone | 2 |
 | [ ] S6 | **Voice:** media, ffmpeg, STT, ML sidecar, TTS, audio replies | Full | s06 | Voice note in → voice note out | 3 |

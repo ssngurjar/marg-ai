@@ -709,6 +709,6 @@ Per-step timeouts `TIMEOUT_<STEP>_S`: `FETCH_MEDIA` 5, `TRANSCRIBE` 8, `SAFETY_I
 | 2026-10-26 | `OPEN_MODEL_*` settings: Muse Spark Open on Baseten for selected prompts | Decision C9 | owner |
 | 2026-10-26 | Images: `MessageKind.IMAGE`, `PartKind.IMAGE`, `ImageClip`, `ImageGenerator` (Muse Image), `ImageSegmenter` (SAM 3.1), image safety in `SafetyRequest`, `MakeKhojCard` post-turn task, `Route.KHOJ_CARD`, image steps, settings | Owner decisions C6 (khoj card) and C7 (activity photos) after reading the Official Rules (Meta tooling is 25% of the score) | owner |
 | 2026-10-26 | `MediaFetcher.fetch_image`, `ChannelSender.send(image=…)`, `TTS_ENGINE` | Mechanical consequences of C6–C8, requested by the image fork | owner (C6–C8) |
-| 2026-10-27 | `Clock` lives in `app/core/clock.py`; `WHATSAPP_GRAPH_BASE_URL` pinned to `v26.0`; `TIMEOUT_WHATSAPP_S` added | S3 build: layering (api may not import providers), Day-1 version pin, the Graph client's timeout | owner (Clock, pin); pending owner review (timeout) |
+| 2026-10-27 | `Clock` lives in `app/core/clock.py`; `WHATSAPP_GRAPH_BASE_URL` pinned to `v26.0`; `TIMEOUT_WHATSAPP_S` added | S3 build: layering (api may not import providers), Day-1 version pin, the Graph client's timeout | owner |
 | 2026-10-25 | `StepRecorder.record` gains `decision` | Needed to fill `turn_steps.decision` (s07 writes it, s14 trace reads it); requested by s05 C9 | pending owner review |
 | 2026-10-25 | Trimmed: classroom codes, roadmap progress/check-ins, query rewriting default off | Fund the parent journey within 10 days | owner |
