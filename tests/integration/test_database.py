@@ -4,13 +4,12 @@ import os
 
 import pytest
 from fastapi.testclient import TestClient
-from pydantic import SecretStr
 from sqlalchemy.engine import make_url
 
-from app.core.config import Settings
 from app.core.errors import StoreError
 from app.main import create_app
 from app.store.db import create_engine, ping
+from tests.support.app_factory import make_settings
 
 pytestmark = pytest.mark.integration
 
@@ -24,7 +23,7 @@ def database_url() -> str:
 
 
 def test_readyz_against_real_postgres(database_url: str) -> None:
-    settings = Settings(database_url=SecretStr(database_url), environment="test")
+    settings = make_settings(database_url=database_url)
     with TestClient(create_app(settings=settings)) as client:
         response = client.get("/readyz")
     assert response.status_code == 200
@@ -36,9 +35,7 @@ def test_readyz_against_real_postgres(database_url: str) -> None:
 async def test_ping_raises_store_error_on_bad_credentials(database_url: str) -> None:
     wrong_credential = "definitely-wrong"
     wrong = make_url(database_url).set(password=wrong_credential)
-    settings = Settings(
-        database_url=SecretStr(wrong.render_as_string(hide_password=False)), environment="test"
-    )
+    settings = make_settings(database_url=wrong.render_as_string(hide_password=False))
     engine = create_engine(settings)
     try:
         with pytest.raises(StoreError, match="database ping failed") as caught:
