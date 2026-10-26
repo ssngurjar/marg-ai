@@ -5,6 +5,9 @@ repository. They override convenience, speed, and brevity, including under hacka
 A feature shipped broken costs more than a feature not shipped: the Indie track is judged on
 "whether it works", live.
 
+> Mirror: [AGENTS.md](AGENTS.md) carries these same rules for Muse Code (which gives AGENTS.md
+> precedence). Keep the two in sync; section numbers match.
+
 The build plan, architecture and schedule live in [plan.md](plan.md). **For the hackathon build,
 [docs/design/mvp-scope.md](docs/design/mvp-scope.md) decides what is built now and what waits for Phase 2, and lists the hard lines that are never
 cut.** Build the full design by default. A lite version is allowed only as an exception listed
