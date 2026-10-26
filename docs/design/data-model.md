@@ -169,6 +169,7 @@ Indexes: `(turn_id)`, `(started_at)`. Each insert runs `pg_notify('turn_progress
 | `kind` | `text` | `PartKind` |
 | `text` | `text` NULL | |
 | `audio_blob_id` | `uuid` NULL FK → media_blobs SET NULL | |
+| `image_blob_id` | `uuid` NULL FK → media_blobs SET NULL | khoj card (S10b) |
 | `buttons` | `jsonb` | `list[ReplyButton]`, default `[]` |
 | `template` | `jsonb` NULL | `TemplateRef` for `kind = 'template'` (S10b) |
 | `status` | `text` | `OutboxStatus` |
@@ -193,9 +194,9 @@ Constraints: `UNIQUE (turn_id, part_no)`. Index: `(status, available_at)` partia
 | `mime_type` | `text` | |
 | `data` | `bytea` | `CHECK (size_bytes <= 2097152)` |
 | `size_bytes` | `integer` | |
-| `created_at` / `expires_at` | `timestamptz` | inbound (web) audio: deleted by `DeleteInboundMedia` once transcribed, at most 24 h; reply audio: 24 h |
+| `created_at` / `expires_at` | `timestamptz` | inbound (web) audio: deleted by `DeleteInboundMedia` once transcribed, at most 24 h; reply audio: 24 h; khoj card: 7 days |
 
-Index: `(expires_at)`. WhatsApp inbound audio is never stored.
+Index: `(expires_at)`. WhatsApp inbound audio is never stored, and **inbound photos are never stored on any channel** (s10b §4.14).
 
 ### `profile_memory` (S12)
 
@@ -229,6 +230,8 @@ Index: `(expires_at)`. WhatsApp inbound audio is never stored.
 | `offered_turn_id` | `uuid` FK → turns CASCADE | |
 | `status` | `text` | `ActivityStatus` |
 | `child_response_summary` | `text` NULL | ≤ 200 chars, from the parent's report; cleared after `RETENTION_TURN_TEXT_DAYS` |
+| `photo_findings` | `jsonb` NULL | `list[ObjectCount]` from a photo of what the child made or collected (counts only, never the image) |
+| `card_blob_id` | `uuid` NULL FK → media_blobs SET NULL | the khoj card, if one was made |
 | `offered_at` / `reported_at` | `timestamptz` | |
 
 Index: `(learner_id, offered_at DESC)`.
@@ -310,9 +313,13 @@ One row per turn: `turn_id`, `user_hash`, `route`, `status`, `fixed_reply_kind`,
   the outbox loop just before sending, into a `SecretStr`.
 - Lookups use `user_hash` only. Logs, telemetry, `turn_steps.detail` and `raw_payload` never
   contain the number.
-- **Children's data** (s10b): only an optional nickname (≤ 20 chars) and a birth year. No photos,
-  no school name, no full name, no exact date of birth. A child's voice in a parent's voice note is
-  transcribed and never stored (WhatsApp audio is never persisted). `child_response_summary` is
+- **Children's data** (s10b): only an optional nickname (≤ 20 chars) and a birth year. No school
+  name, no full name, no exact date of birth. A child's voice in a parent's voice note is
+  transcribed and never stored (WhatsApp audio is never persisted). **Photos (C7):** a parent may
+  send a photo of what the child made or collected. It is checked for people **first**; a photo
+  containing a person is rejected and dropped without any other processing. Otherwise only object
+  counts are kept. **No photo is ever stored.** Khoj cards are generated illustrations with no
+  photo of the child. `child_response_summary` is
   capped at 200 characters and follows turn-text retention.
 - Personal data here: `address_ciphertext`, `pending_question`, `turns.user_text`, `turns.reply_text`,
   `media_blobs`, `profile_memory`, `roadmaps`, `learners`, `learner_activities.child_response_summary`.
@@ -343,4 +350,5 @@ upgrade → downgrade → upgrade against `docker-compose.test.yml`.
 | 2026-10-25 | v1 written | foundation | owner |
 | 2026-10-25 | Added `users.pending_question`, `users.purge_after_turn_id`, `outbox_messages.sending_since`, `outbox_messages.template`, `turn_steps.decision`, `corpus_chunks.heading_path`, `corpus_documents.language`, the `turn_metrics` view; crisis `user_text` NULL | Requested by s04, s07, s08, s11, s13, s14 | owner (defaults 1–10) |
 | 2026-10-25 | Added `learners`, `learner_activities`, `nudge_subscriptions`, `curiosity_signals`, `turns.learner_id`; `aspiration_signals` keyed by `learner_id` | Parent journey and learner-centred model | owner |
+| 2026-10-26 | `outbox_messages.image_blob_id`, `learner_activities.photo_findings` and `card_blob_id`, `media_blobs` purpose `khoj_card`; the photo rules in §3 | Owner decisions C6, C7 | owner |
 | 2026-10-25 | Dropped the proposed `classrooms` table and `users.classroom_id` | Classroom codes trimmed; teachers see district aggregates | owner |

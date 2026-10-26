@@ -110,6 +110,7 @@ Attributes: HttpOnly; SameSite=Lax; Path=/demo; Max-Age=2592000; Secure when ENV
 | `text` | typed message | 1–1000 chars after trimming; not only whitespace |
 | `audio` | recorded clip | ≤ `DEMO_MAX_AUDIO_BYTES` (1 MB, about 60 s of opus); declared type one of `audio/webm`, `audio/ogg`, `audio/mp4` (codecs param allowed); **magic bytes** must agree: webm `1A 45 DF A3`, ogg `OggS`, mp4 `ftyp` at offset 4 |
 | `button_id` | tap on a reply button | must match `^[a-z0-9:_-]{1,256}$` and must be a button id offered in this user's latest reply (prevents forging onboarding answers) |
+| `image` | a photo of what the child made or collected (C7, s10b §4.14) | only for a `parent` with an **open activity** (else `422 photo_not_accepted`); ≤ `MAX_INBOUND_IMAGE_BYTES`; declared type `image/jpeg`, `image/png` or `image/webp`; **magic bytes** must agree: JPEG `FF D8 FF`, PNG `89 50 4E 47`, WebP `RIFF`…`WEBP`. An optional `text` caption may accompany it (the one exception to "exactly one field") |
 
 Processing, in order:
 1. Cookie → `user_hash`. Missing or invalid → `401 {"error": "no_session"}` (the page calls `/demo/session` first).
@@ -121,6 +122,8 @@ Processing, in order:
    `type_mismatch`, `empty`, `unknown_button`.
 6. One transaction:
    - audio → `INSERT media_blobs (purpose='inbound_audio', expires_at = now() + 24h)`
+   - image → **never written to the database** (data-model §3, C7). See "Photos never touch the
+     database" below. The inbox row gets `kind='image'`, `media_mime_type`, and no media reference
    - upsert `users` (s03 §4.5 query, `channel='web'`, ciphertext NULL)
    - `INSERT inbox_messages (channel='web', external_id=<uuid4>, provider_sent_at=now(), …)`,
      with `media_blob_id` / `media_mime_type` for audio and `raw_payload = NULL` (nothing external to keep)
@@ -132,6 +135,20 @@ containers in the API is S6's job. `fetch_media`/`transcode` reject clips over 6
 `UNSUPPORTED_INPUT`, and the visitor gets the `REPEAT_PLEASE`-style fallback.
 
 Safari records `audio/mp4` (AAC), not opus. It's accepted here, and S6 must transcode it.
+
+**Photos never touch the database (C7; design point for the owner's review).** The photo rule
+forbids storing a photo anywhere, even briefly, so a `media_blobs` row deleted at turn end isn't
+allowed. Under exception E1 the API and the turn dispatcher are **one process** (mvp-scope.md §4.1),
+so the upload is handed over in memory:
+- the API puts the bytes in an in-process `PendingImages` map keyed by `message_id`, with a
+  **60-second TTL**, then wakes the dispatcher for that user
+- the `FETCH_IMAGE` step for a web `IMAGE` message takes the bytes out of the map (removing them);
+  the person check, safety and counting run; the bytes are dropped at the end of the turn
+- if the entry has expired or the process restarted, the step fails with `EMPTY_INPUT` and the
+  parent gets a fixed "please send the photo again" reply; nothing else is lost
+- when E1's upgrade (separate worker processes) is built, this hand-off needs a new design (for
+  example, the API runs the person check itself before enqueueing), because memory isn't shared.
+  That's recorded as a known limit of the in-memory approach.
 
 ### 4.4 `GET /demo/events` (Server-Sent Events)
 
@@ -299,6 +316,15 @@ Behaviour:
   (`ok` ✓, `degraded` ◐, `failed` ✗, `skipped` –), duration, provider/model on hover, `info` inline.
   Header: total time and cost from `turn.completed`.
 - **Reply:** the text with citations as links, an `<audio>` element for `audio_url`, and buttons.
+- **Photos (parents with an open activity):** a "Photo bhejiye" button opens the file picker or
+  camera (`<input type="file" accept="image/*" capture="environment">`), with a one-line reminder:
+  "Sirf banayi ya ikatthi cheezein, bachche ki photo nahi." A rejected photo shows the fixed
+  `PHOTO_HAS_PERSON` reply like any other message.
+- **Khoj card (C6):** shown in the chat as an image with its caption and a **Download** button
+  (an `<a download>` pointing at the reply's image URL, served like reply audio: owner check,
+  `purpose='khoj_card'`, expiry).
+- **Image steps in the trace:** `fetch_image`, `analyze_image` (with the counts as `info`, e.g.
+  `{"leaf": 7}`) and `make_card` rows appear like every other step.
 - **Errors:** `429`/`503` bodies shown as friendly banners; SSE disconnects show a small
   "reconnecting" pill (EventSource handles the retry).
 - **Accessibility:** buttons have labels, the trace is an ordered list, and colour is never the only signal.
@@ -477,3 +503,4 @@ Requested: `SESSION_SIGNING_KEY_PREVIOUS: SecretStr | None`, `PUBLIC_BASE_URL: H
 | Date | Change | Why | Approved |
 |---|---|---|---|
 | 2026-10-25 | Session cookie on the shared purpose-based `SignedTokenCodec`; web cost cap on the IST day via s13's query; trace reads `turn_steps.decision`; parent role and the "Aaj ki khoj" button on the web | Consolidation against the updated foundation docs (A2, B1, B8, B12) | owner |
+| 2026-10-26 | Web image upload for parents with an open activity (jpeg/png/webp, magic bytes, size cap), handed to the in-process dispatcher in memory with a 60 s TTL and never stored; khoj card shown with a download button; image steps in the trace | Owner decisions C6, C7; the in-memory hand-off is a design point for the owner's review | pending owner review |

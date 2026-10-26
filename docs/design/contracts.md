@@ -23,23 +23,24 @@ Add a new one and migrate instead.
 
 ```python
 class Channel(StrEnum):            WHATSAPP = "whatsapp"; WEB = "web"
-class MessageKind(StrEnum):        TEXT; AUDIO; INTERACTIVE; UNSUPPORTED
+class MessageKind(StrEnum):        TEXT; AUDIO; IMAGE; INTERACTIVE; UNSUPPORTED   # IMAGE: s10b activity photos (C7)
 class Language(StrEnum):           HINDI = "hindi"; HINGLISH = "hinglish"; ENGLISH = "english"
 class Role(StrEnum):               STUDENT; TEACHER; PARENT
 class ConversationState(StrEnum):  NEW; AWAITING_CONSENT; AWAITING_ROLE; AWAITING_GUARDIAN;
                                    AWAITING_CHILD; AWAITING_PROFILE; ACTIVE; AWAITING_DELETION_CONFIRM
 class Mode(StrEnum):               EXPOSURE; MENTOR; ROADMAP; JOURNEY
 class Route(StrEnum):              ONBOARDING; EXPOSURE; MENTOR; ROADMAP; JOURNEY; CRISIS; REFUSE;
-                                   OFF_TOPIC; DATA_DELETION; REPEAT_PLEASE; DASHBOARD_LINK; NUDGE
+                                   OFF_TOPIC; DATA_DELETION; REPEAT_PLEASE; DASHBOARD_LINK; NUDGE; KHOJ_CARD
 class StepName(StrEnum):           FETCH_MEDIA; TRANSCRIBE; SAFETY_IN; ROUTE; GENERATE; TRANSLATE;
-                                   SAFETY_OUT; SYNTHESIZE; ENQUEUE_REPLY; EXTRACT_SIGNALS; UPDATE_MEMORY
+                                   SAFETY_OUT; SYNTHESIZE; ENQUEUE_REPLY; EXTRACT_SIGNALS; UPDATE_MEMORY;
+                                   FETCH_IMAGE; ANALYZE_IMAGE; MAKE_CARD
 class StepOutcome(StrEnum):        OK; DEGRADED; FAILED; SKIPPED
 class FailureKind(StrEnum):        TIMEOUT; RATE_LIMITED; UNAVAILABLE; INVALID_RESPONSE;
                                    EMPTY_INPUT; UNSUPPORTED_INPUT; BUDGET_EXCEEDED; INTERNAL
 class InboxStatus(StrEnum):        PENDING; PROCESSING; DONE; FAILED
 class TurnStatus(StrEnum):         PROCESSING; COMPLETED; FAILED
 class OutboxStatus(StrEnum):       PENDING; SENDING; SENT; DELIVERED; READ; FAILED
-class PartKind(StrEnum):           TEXT; AUDIO; INTERACTIVE; TEMPLATE
+class PartKind(StrEnum):           TEXT; AUDIO; IMAGE; INTERACTIVE; TEMPLATE
 class SafetyDecision(StrEnum):     ALLOW; BLOCK; CRISIS
 class SafetyCategory(StrEnum):     # Llama Guard 4 / MLCommons hazard taxonomy (format confirmed in S2)
     VIOLENT_CRIMES = "s1"; NON_VIOLENT_CRIMES = "s2"; SEX_CRIMES = "s3"; CHILD_EXPLOITATION = "s4"
@@ -51,8 +52,8 @@ class SafetyCategory(StrEnum):     # Llama Guard 4 / MLCommons hazard taxonomy (
     ABUSE_DISCLOSURE = "d5"; PROMPT_LEAK = "d6"; CHILD_PHYSICAL_HAZARD = "d7"
 class FixedReplyKind(StrEnum):     CRISIS; HOLDING; REPEAT_PLEASE; TRY_AGAIN_LATER; TOO_LONG;
                                    UNSUPPORTED_MEDIA; REFUSE; ONBOARDING; CONSENT_DECLINED;
-                                   DATA_DELETED; ASK_CHAPTER; NUDGE
-class MediaPurpose(StrEnum):       INBOUND_AUDIO; REPLY_AUDIO
+                                   DATA_DELETED; ASK_CHAPTER; NUDGE; PHOTO_HAS_PERSON; PHOTO_NOT_NEEDED
+class MediaPurpose(StrEnum):       INBOUND_AUDIO; REPLY_AUDIO; KHOJ_CARD
 class EmbedPurpose(StrEnum):       QUERY; PASSAGE
 class RoadmapStatus(StrEnum):      ACTIVE; COMPLETED; ABANDONED
 class RoadmapStepStatus(StrEnum):  TODO; DONE; SKIPPED
@@ -74,7 +75,7 @@ class Sentiment(StrEnum):          POSITIVE; NEUTRAL; NEGATIVE
 
 `Route` → owner of the `GENERATE` work: `ONBOARDING`, `DATA_DELETION` → s08; `EXPOSURE` → s10;
 `JOURNEY` → s10b; `MENTOR`, `ROADMAP`, `OFF_TOPIC` → s12; `CRISIS`, `REFUSE` → s07 (fixed text);
-`REPEAT_PLEASE` → s06 (fixed text); `DASHBOARD_LINK` → s13; `NUDGE` → s10b. A `NUDGE` turn is
+`REPEAT_PLEASE` → s06 (fixed text); `DASHBOARD_LINK` → s13; `NUDGE`, `KHOJ_CARD` → s10b. A `NUDGE` turn is
 created by the scheduler, never by inbound messages, and sends a fixed, Meta-approved template.
 
 Fixed-reply variants (`FixedReplyVariant`, `app/pipeline/fallbacks.py`): `DEFAULT` for every kind,
@@ -114,6 +115,10 @@ class AudioClip(BaseModel):
     data: bytes
     mime_type: str                           # "audio/ogg; codecs=opus", "audio/wav", "audio/webm", "audio/mp4"
     duration_ms: int | None
+
+class ImageClip(BaseModel):                 # s10b photos (never persisted) and khoj cards
+    data: bytes
+    mime_type: str                           # "image/jpeg", "image/png", "image/webp"
 
 class Transcript(BaseModel):
     text: str
@@ -262,7 +267,7 @@ so a same-turn handoff, such as the first khoj after a parent's onboarding, can 
 in its `TurnContext` and its `ActivityOffered` write before anything is committed.
 
 ```python
-PostTurnTask = Annotated[ExtractSignals | UpdateMemory, Field(discriminator="kind")]
+PostTurnTask = Annotated[ExtractSignals | UpdateMemory | MakeKhojCard, Field(discriminator="kind")]
 
 class ExtractSignals(BaseModel):            # s13
     kind: Literal["extract_signals"]
@@ -277,6 +282,12 @@ class UpdateMemory(BaseModel):              # s12
     user_text: str
     reply_text: str
 ```
+
+class MakeKhojCard(BaseModel):              # s10b §4.13 (C6)
+    kind: Literal["make_khoj_card"]
+    turn_id: TurnId
+    learner_id: LearnerId
+    learner_activity_id: UUID
 
 These run after finalize, each in its own short transaction. They never delay or change the
 reply, and a failure is recorded as a `turn_steps` row only.
@@ -332,8 +343,9 @@ class LocalisedReply(BaseModel):             # s09 output; what safety_out sees
 class OutboundPart(BaseModel):               # one outbox row's content
     part_no: int                             # 0-based, delivery order
     kind: PartKind
-    text: str | None
+    text: str | None                         # for IMAGE: the caption
     audio_blob_id: UUID | None
+    image_blob_id: UUID | None               # IMAGE only (khoj card)
     buttons: list[ReplyButton]
     template: TemplateRef | None             # TEMPLATE only
 ```
@@ -361,6 +373,7 @@ Each lives in its owner's module. They're listed here so names stay unique.
 | `MemoryUpdate` | `app/layers/memory.py` | s12 |
 | `MinorPolicyCheck` | `app/safety/policy.py` | s07 |
 | `AspirationSignals`, `CuriositySignals` | `app/domain/aspiration.py` | s13 |
+| `KhojCardText`, `PhotoFindings` | `app/layers/journey.py` | s10b |
 | `DashboardClaims` | `app/telemetry/links.py` | s13 |
 | `GoldenCase`, `GoldenTurn`, `GoldenProfile`, `GoldenLearner`, `TurnExpectation`, `TurnRecord`, `CheckResult`, `JudgeItem`, `JudgeScore`, `Scorecard` | `app/evals/` | s15 |
 
@@ -409,6 +422,7 @@ class SafetyRequest(BaseModel):
     speaker: Literal["user", "assistant"]
     text: str
     prior_user_text: str | None              # required for assistant checks
+    image: ImageClip | None = None           # Llama Guard 4 is multimodal: photos in, khoj cards out (C6, C7)
 
 class SafetyClassifier(Protocol):
     async def classify(self, request: SafetyRequest) -> tuple[SafetyVerdict, StepUsage]: ...
@@ -419,6 +433,7 @@ class Embedder(Protocol):
 
 class MediaFetcher(Protocol):               # WhatsApp media download or web media_blobs read
     async def fetch(self, ref: MediaRef) -> AudioClip: ...
+    async def fetch_image(self, ref: MediaRef) -> ImageClip: ...   # photos: memory only, never persisted
 
 class ReplyAudioStore(Protocol):            # s06: saves reply audio after safety_out passes
     async def save(self, user_hash: UserHash, clip: AudioClip) -> UUID: ...
@@ -434,7 +449,7 @@ class DeliveryReceipt(BaseModel):
 class ChannelSender(Protocol):
     channel: Channel
     async def send(self, part: OutboundPart, recipient: ChannelAddress,
-                   audio: AudioClip | None = None) -> DeliveryReceipt: ...
+                   audio: AudioClip | None = None, image: ImageClip | None = None) -> DeliveryReceipt: ...
     async def acknowledge(self, external_id: str) -> None: ...   # WhatsApp: read + typing; web: no-op
 
 class StepRecorder(Protocol):               # implemented by s04; each call is its own transaction
@@ -448,6 +463,16 @@ class StepRecorder(Protocol):               # implemented by s04; each call is i
 class TurnObserver(Protocol):               # s15 evals capture; production passes NullTurnObserver
     async def on_step(self, turn_id: TurnId, step: StepName, result: StepSuccess[object] | StepFailure,
                       usage: StepUsage | None, duration_ms: int) -> None: ...
+
+class ImageGenerator(Protocol):            # Muse Image (s10b khoj card, C6)
+    async def generate(self, prompt: RenderedPrompt, size: Literal["1024x1024"]) -> tuple[ImageClip, StepUsage]: ...
+
+class ObjectCount(BaseModel):
+    phrase: str                              # the noun phrase asked for, e.g. "leaf"
+    count: int
+
+class ImageSegmenter(Protocol):             # SAM 3.1 (s10b activity photos, C7)
+    async def count(self, image: ImageClip, phrases: Sequence[str]) -> tuple[list[ObjectCount], StepUsage]: ...
 
 class ActivitySource(Protocol):             # s10b: catalogue now, guarded generation later
     async def candidates(self, learner: Learner, today: date, recent_ids: Sequence[str]) -> list["Activity"]: ...
@@ -624,6 +649,10 @@ Per-step timeouts `TIMEOUT_<STEP>_S`: `FETCH_MEDIA` 5, `TRANSCRIBE` 8, `SAFETY_I
 
 **Retrieval (s11)**: `RETRIEVAL_TOP_K` 5 · `RETRIEVAL_MIN_SIMILARITY` 0.80 (calibrated in S11)
 
+**Images (s10b, C6–C7)**: `MODEL_IMAGE` `muse-image-1.0` · `MODEL_SEGMENT` `sam-3.1` · `TTS_ENGINE` `Literal["mms","indic_parler"]` (C8) ·
+`KHOJ_CARD_ENABLED` true · `PHOTO_INPUT_ENABLED` true · `MAX_INBOUND_IMAGE_BYTES` 5_242_880 ·
+`TIMEOUT_FETCH_IMAGE_S` 5 · `TIMEOUT_ANALYZE_IMAGE_S` 6 · `TIMEOUT_MAKE_CARD_S` 20
+
 **Parent journey (s10b)**: `NUDGE_TEMPLATE_NAME` (str, approved in WhatsApp Manager) ·
 `NUDGE_QUIET_START` 20:00 / `NUDGE_QUIET_END` 07:00 (IST) · `NUDGE_DAILY_LIMIT` 200 (below the
 250/day unverified cap) · `ACTIVITY_REPEAT_DAYS` 30
@@ -651,5 +680,7 @@ Per-step timeouts `TIMEOUT_<STEP>_S`: `FETCH_MEDIA` 5, `TRANSCRIBE` 8, `SAFETY_I
 | 2026-10-25 | `TurnObserver.on_step` carries the step result; `process_user_turn` accepts an observer; `GoldenLearner`; `SignedTokenCodec`; `ExtractSignals`/`UpdateMemory` fields; writes applied in list order | Requested by s13 and s15 forks; needed for evals to capture replies and for the first-khoj handoff | pending owner review |
 | 2026-10-25 | `CanonicalReply.spoken_text`; layers write in the user's register for the MVP | Decision C3c (direct localisation) | owner |
 | 2026-10-25 | Safety ordering: generation may run concurrently with `safety_in`, used only on ALLOW | Decision C3a | owner |
+| 2026-10-26 | Images: `MessageKind.IMAGE`, `PartKind.IMAGE`, `ImageClip`, `ImageGenerator` (Muse Image), `ImageSegmenter` (SAM 3.1), image safety in `SafetyRequest`, `MakeKhojCard` post-turn task, `Route.KHOJ_CARD`, image steps, settings | Owner decisions C6 (khoj card) and C7 (activity photos) after reading the Official Rules (Meta tooling is 25% of the score) | owner |
+| 2026-10-26 | `MediaFetcher.fetch_image`, `ChannelSender.send(image=…)`, `TTS_ENGINE` | Mechanical consequences of C6–C8, requested by the image fork | owner (C6–C8) |
 | 2026-10-25 | `StepRecorder.record` gains `decision` | Needed to fill `turn_steps.decision` (s07 writes it, s14 trace reads it); requested by s05 C9 | pending owner review |
 | 2026-10-25 | Trimmed: classroom codes, roadmap progress/check-ins, query rewriting default off | Fund the parent journey within 10 days | owner |

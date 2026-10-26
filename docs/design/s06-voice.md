@@ -264,7 +264,19 @@ def prepare_tts_text(spoken_text: str, register: Language) -> TtsText: ...
 
 These are the replacement for CLAUDE.md §3's "audio/transliterate" properties; see §9.
 
-### 4.7 Text-to-speech adapter (`app/providers/speech/mms_tts.py`)
+### 4.7 Text-to-speech adapters (`app/providers/speech/mms_tts.py`, `indic_parler_tts.py`)
+
+**Engine choice (decision C8).** Two adapters implement the same `Synthesizer` port and call the
+same sidecar `/tts` endpoint shape. `app/wiring.py` picks one by the setting
+`TTS_ENGINE: Literal["mms", "indic_parler"]` (**requested**, not yet in contracts §7):
+
+| Engine | Model | Licence | Hardware | Used when |
+|---|---|---|---|---|
+| `mms` | `facebook/mms-tts-hin`, `facebook/mms-tts-eng` | CC-BY-NC 4.0 (non-commercial) | CPU | the organisers confirm on Discord that it's fine for a hackathon submission (C8) |
+| `indic_parler` | `ai4bharat/indic-parler-tts` (Hindi and English speakers) | Apache 2.0 | GPU (L4/A10G) | otherwise; also the commercial-safe path for Phase 2 |
+
+The S2 spike C findings decide the default and record the organisers' answer. Everything above the
+port (`prepare_tts_text`, `to_voice_note`, storage, the step) is identical for both engines.
 
 `MmsTtsSynthesizer.synthesize(text, language)`:
 - calls `prepare_tts_text`
@@ -276,6 +288,12 @@ The sidecar returns `X-Audio-Duration-Ms`. `StepUsage(provider="ml_sidecar",
 model="facebook/mms-tts-hin" | "facebook/mms-tts-eng", audio_seconds=duration/1000,
 cost_usd=Decimal("0"))`. Modal compute is billed to credits, not per request, so the cost is
 recorded as 0, and Modal's own usage page is the source for that spend.
+
+`IndicParlerSynthesizer.synthesize(text, language)` is the same flow with `{"engine":
+"indic_parler", "voice": "hin" | "eng", "sentences": [...]}`; the sidecar adds the fixed speaker
+description recorded in spike C, so outputs are consistent across turns. `StepUsage.model =
+"ai4bharat/indic-parler-tts"`. Its devanagari input expectation is confirmed in spike C; the
+`prepare_tts_text` script check applies unchanged.
 
 **Storing reply audio.** After `safety_out` passes:
 - the orchestrator saves the clip through the `ReplyAudioStore` port (contracts §3):
@@ -308,7 +326,7 @@ services/ml_sidecar/app.py`.
 
 | Endpoint | Request | Response |
 |---|---|---|
-| `POST /tts` | JSON `{"voice": "hin" \| "eng", "sentences": [str] (1–20 items, each 1–250 chars)}` | `audio/wav`: 16-bit mono at the model's `config.sampling_rate` (read at runtime; MMS checkpoints are 16 kHz, verify in S2). 250 ms of silence between sentences. Header `X-Audio-Duration-Ms` |
+| `POST /tts` | JSON `{"engine": "mms" \| "indic_parler", "voice": "hin" \| "eng", "sentences": [str] (1–20 items, each 1–250 chars)}`. The sidecar loads only the engine it's deployed with and returns `422` for the other | `audio/wav`: 16-bit mono at the model's `config.sampling_rate` (read at runtime; MMS checkpoints are 16 kHz, verify in S2). 250 ms of silence between sentences. Header `X-Audio-Duration-Ms` |
 | `POST /embed` | JSON `{"purpose": "query" \| "passage", "texts": [str] (1–64 items, each ≤ 2000 chars)}` | JSON `{"model": "intfloat/multilingual-e5-small", "dimensions": 384, "vectors": [[float]]}`. The sidecar adds the e5 prefixes `"query: "` / `"passage: "` and L2-normalises |
 | `POST /stt` (only when the fallback is enabled) | multipart `audio` (16 kHz mono PCM16 WAV, ≤ 180 s) | JSON `{"transcript": str, "audio_duration_ms": int, "language": str \| null}` |
 | `GET /healthz` | — | `{"status": "ok", "models_loaded": [...]}` |
@@ -318,9 +336,11 @@ services/ml_sidecar/app.py`.
   token. The token is a Modal Secret.
 - **Validation.** Requests are Pydantic models with `extra="forbid"`. Over-limit input → `422`,
   never truncated.
-- **Hardware.** TTS (VITS, about 36M parameters) and e5-small both run comfortably on CPU, which
-  avoids CUDA images and GPU cold starts. So `/tts` and `/embed` share one **CPU** class (4 vCPU,
-  8 GB). Whisper `large-v3-turbo` for `/stt` needs a GPU. It's a separate class on an L4,
+- **Hardware.** MMS-TTS (VITS, about 36M parameters) and e5-small both run comfortably on CPU, which
+  avoids CUDA images and GPU cold starts. So with `TTS_ENGINE=mms`, `/tts` and `/embed` share one
+  **CPU** class (4 vCPU, 8 GB). With `TTS_ENGINE=indic_parler` (about 0.9B parameters), `/tts` runs
+  in a separate **GPU** class (L4 or A10G, per spike C), and `min_containers=1` during demos and
+  judging matters even more because of GPU cold starts. Whisper `large-v3-turbo` for `/stt` needs a GPU. It's a separate class on an L4,
   deployed only if S2 decides the fallback is needed.
 - **Cold starts.**
   - Model weights are downloaded **at image build time** with `Image.run_function`, so a cold
@@ -330,10 +350,11 @@ services/ml_sidecar/app.py`.
   - **For the judging window (Nov 4–8) and demos, set `min_containers=1`** on the CPU class.
   - S2 measures cold and warm latency. If warm `/tts` for a 3-sentence reply exceeds 1.5 s,
     revisit the GPU decision.
-- **Licence (decision B10).** `facebook/mms-tts-hin` is **CC-BY-NC 4.0**, non-commercial use only.
-  The owner chose to use it for the hackathon and pilots, and to replace it (AI4Bharat Indic
-  Parler-TTS, Apache 2.0, or a commercial voice) before any commercial use. The README states this.
-  The sidecar's `/tts` interface stays the same when the voice changes.
+- **Licence (decision C8, superseding B10).** `facebook/mms-tts-hin` is **CC-BY-NC 4.0**
+  (non-commercial), and the Official Rules require every open-source licence to be followed. MMS is
+  used only if the organisers confirm it's acceptable; otherwise Indic Parler-TTS (Apache 2.0). Either
+  way MMS is replaced before any commercial use, and the README states the licences of every model.
+  The sidecar's `/tts` interface stays the same when the engine changes.
 - **Typing.** CLAUDE.md §6 applies here too. `torch` and `transformers` objects stay inside small
   typed wrapper functions, because those libraries are partially untyped. Dependencies live in
   the sidecar image definition, never in the API image (CLAUDE.md §8).
@@ -432,6 +453,17 @@ New (C9):
 | `TTS_MAX_SENTENCE_CHARS` | 250 |
 | `TTS_MAX_SPOKEN_CHARS` | 1200 |
 | `REPLY_AUDIO_FOR_TEXT_INPUT` | false |
+
+Requested (C8, not yet in contracts §7): `TTS_ENGINE: Literal["mms", "indic_parler"]`, default set
+from spike C's outcome.
+
+**Images reuse the media fetcher (C7, s10b §4.14).** The `FETCH_IMAGE` step uses
+`WhatsAppMediaFetcher` (and the web path in s14) with the same two-step download, Bearer auth,
+streaming cap and SHA-256 check, but capped at `MAX_INBOUND_IMAGE_BYTES` and returning an
+`ImageClip` (mime `image/jpeg`, `image/png` or `image/webp`; anything else → `MediaUnsupported`).
+The image is held in memory for the turn only and **never written to `media_blobs` or anywhere
+else**. A small `fetch_image(ref) -> ImageClip` method is added beside `fetch` (or a second port
+method; recorded as a requested contract change on `MediaFetcher`).
 
 ## 8. Failure modes
 
@@ -591,3 +623,4 @@ an explicit reason in `pytest.ini` markers, not via `skip` in code):**
 | Date | Change | Why | Approved |
 |---|---|---|---|
 | 2026-10-25 | All requested contract changes applied; `detect_register` has one home (`app/domain/language.py`); MMS-TTS licence handled by B10 | Consolidation against the updated foundation docs | owner (defaults, B10) |
+| 2026-10-26 | Two TTS adapters behind `Synthesizer` (`mms`, `indic_parler`) chosen by `TTS_ENGINE`; MMS only if the organisers confirm its licence, else Indic Parler on a GPU class; image fetch reuses the media fetcher (`FETCH_IMAGE`, `MAX_INBOUND_IMAGE_BYTES`, never persisted) | Owner decisions C8 (TTS licence) and C7 (activity photos) | owner |

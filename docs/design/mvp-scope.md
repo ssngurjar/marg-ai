@@ -42,7 +42,8 @@ These are about children's safety, trust, and not breaking in front of judges:
    crisis path with fixed, sourced helplines. Fail closed. The `d7` hazard rule and the
    supervision line on every activity.
 2. **Consent and delete-my-data**, and the children's data rules: an optional nickname and a
-   birth year only; inbound audio never stored; crisis text never stored.
+   birth year only; inbound audio never stored; crisis text never stored; **photos checked for
+   people before anything else and never stored** (C7).
 3. **No double replies:** the unique inbox insert (`channel, external_id`). Meta re-sends webhooks.
 4. **No lost messages on restart:** pending work is picked up again at startup.
 5. **CLAUDE.md engineering rules:** typed (no `Any`), no swallowed exceptions, no stubs or
@@ -72,6 +73,9 @@ contracts, ports, `TurnWrite`s, sealed safety types and tables.
 | C2 | Simplified durable processing: inbox dedupe, an in-process dispatcher with one lock per user, direct sending, recovery at startup; the web demo polls. The full s04 design is Phase 2. | full s04 / s14 SSE for the MVP |
 | C3 | Latency: (a) generation may run concurrently with `safety_in`, its output used only on ALLOW; (b) parents are routed without a model call; (c) layers write directly in the user's register, with `spoken_text`, in one call. | B11 (separate translate step) and the "no generation before safety_in" ordering |
 | C4 | 10 polished, reviewed activities at launch (minimum 7). | 30 activities |
+| C6 | Khoj card with Muse Image after a good report: a textless illustration with the discovery in the caption, safety-checked by Llama Guard 4 (multimodal), shareable. | Meta tooling is 25% of the score (Official Rules); also aims at the "most viral" bonus |
+| C7 | Activity photos with SAM 3.1: a person check first (reject and drop), then object counts feed the reflection; photos never stored. | Same: "surfacing unexpected capabilities" |
+| C8 | TTS licence: ask the organisers on Day 1 whether MMS-TTS (CC-BY-NC) is fine; spike MMS and Indic Parler-TTS (Apache 2.0) in S2; use MMS only if confirmed. | The rules require every open-source licence to be followed |
 | C5 | Enterprise grade by default; a lite version only where the full one would stretch the 10 days, each with a reason and an upgrade trigger (§0, §4). C3's latency changes are part of the full design, not shortcuts. | "MVP-lite" as the default framing |
 
 ## 4. Exceptions and scoped designs
@@ -203,8 +207,10 @@ logic is unchanged; with 10 activities, the repeat window is effectively 10 days
 
 ### 4.9 Spikes (s02)
 
-Keep A (speech-to-text), B (Llama Guard), C (MMS-TTS) and E (structured output). Drop D
-(embeddings): there's no RAG in the MVP.
+Keep A (speech-to-text), B (Llama Guard, now including **image** input), C (**MMS-TTS and Indic
+Parler-TTS side by side**, C8) and E (structured output). Add **F: Muse Image and SAM 3.1** (request
+formats, latency, cost, SAM's person/face detection on 10 test photos of objects and of people).
+Drop D (embeddings): there's no RAG in the MVP.
 
 ## 5. Build level per step
 
@@ -223,7 +229,7 @@ parts in hackathon scope (C1). **Exception** = §4's lite version until its upgr
 | S8 onboarding | Full (scoped) | parent and teacher paths (§4.4); the student path stays designed for Phase 2 |
 | S9 localisation | Full | rules and checks run inside each layer (C3c); a separate translation call is optional later |
 | S10 exposure | Stretch | Day 8 checkpoint |
-| S10b parent journey | **Full (core)** | with §4.3 dispatch; content per E3 |
+| S10b parent journey | **Full (core)** | with §4.3 dispatch; content per E3; khoj card (C6) and activity photos (C7) |
 | S11 RAG | Phase 2 | |
 | S12 mentor/roadmap/memory | Phase 2 | `LayerResult` is still defined there and used by every layer |
 | S13 telemetry | Full (scoped) | §4.5: no student or teacher parts until those audiences exist |
@@ -242,9 +248,9 @@ parts in hackathon scope (C1). **Exception** = §4's lite version until its upgr
 | 3 | Wed Oct 28 | S6 voice | voice note in → voice note out |
 | 4 | Thu Oct 29 | S7, S8 | crisis and adversarial cases pass; parent onboarding on the phone |
 | 5 | Fri Oct 30 | S10b core (catalogue, selection, personalisation, reflection); activities reviewed | khoj → report → serve-and-return reply |
-| 6 | Sat Oct 31 | S10b nudges and polish, S13 signals; **field testing with parents starts** | nudge at the chosen time; curiosity signals stored |
+| 6 | Sat Oct 31 | S10b nudges and **khoj card (C6)**, S13 signals; **field testing with parents starts** | nudge at the chosen time; a card after a good report |
 | 7 | Sun Nov 1 | S14 (E2) web demo, S13 `/status` and admin dashboard | a stranger can use `/demo` |
-| 8 | Mon Nov 2 | S15 scorecard. **Checkpoint:** if the parent journey is demo-ready, build S10 exposure-lite (half a day); otherwise polish | scorecard committed |
+| 8 | Mon Nov 2 | **Activity photos with SAM 3.1 (C7)**, S15 scorecard. **Checkpoint:** S10 exposure-lite only if everything above is demo-ready | photo counts in a reflection; scorecard committed |
 | 9 | Tue Nov 3 | S16 hardening (E4); **feature freeze at end of day**; field-test fixes | p50 recorded; pre-demo checklist done |
 | 10 | Wed Nov 4 | S18: video (a mother and her 5-year-old, then the pitch for the full journey), README, submission | submitted by 23:00 IST |
 
@@ -252,5 +258,6 @@ parts in hackathon scope (C1). **Exception** = §4's lite version until its upgr
 
 | Date | Change | Why | Approved |
 |---|---|---|---|
+| 2026-10-26 | C6 khoj card, C7 activity photos, C8 TTS licence check | Official Rules: Meta tooling 25%, licences must be followed | owner |
 | 2026-10-25 | C5: enterprise by default; lite only as listed exceptions E1–E4 with upgrade triggers | Owner: aim for full enterprise grade, take lite steps only where they'd stretch the 10 days | owner |
 | 2026-10-25 | v1: C1–C4 | External review: focus on the unique parent journey, cut invisible infrastructure, hit the latency target | owner |

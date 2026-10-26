@@ -178,16 +178,41 @@ back. Two shapes are tested:
 | No serverless host has Llama Guard 4 | Fallback: Llama Guard 3 8B on a serverless host if available; otherwise Modal + vLLM. Note the extra cold start, and S16 keeps it warm during judging. |
 | Nothing hostable in the time box | Escalate. Interim: the domain policy classifier alone, with fail-closed behaviour unchanged. |
 
-### 4.4 Spike C — MMS-TTS Hindi, transliteration, fallback
+**Image input (decisions C6, C7).** Llama Guard 4 is natively multimodal (model card: image +
+text in the user turn). The khoj card (s10b §4.13) is checked on output and activity photos
+(s10b §4.14) on input, so this spike also checks:
+- whether the chosen host accepts image content in the OpenAI-compatible `messages` format
+  (`{"type":"image_url","image_url":{"url":"data:image/jpeg;base64,…"}}`), *verify against the
+  model card and the host's docs*; record the exact request shape
+- 6 test images: 3 harmless object photos (leaves, stones, a drawing), 2 generated folk-art cards
+  from spike F, 1 clearly unsafe test image (a weapon from a stock library, licence noted).
+  Expect `safe` on the first five and `unsafe` on the last
+- image-check latency, p50 and p95 warm
+
+| Result | Decision |
+|---|---|
+| The host accepts images and the 6 results are as expected | **Go:** `SafetyRequest.image` is sent to the same host. |
+| The host is text-only | Find another host for the image checks (or Modal + vLLM). Until then, **cards and photos stay disabled** (`KHOJ_CARD_ENABLED`, `PHOTO_INPUT_ENABLED` false): images never skip safety. |
+
+### 4.4 Spike C — MMS-TTS and Indic Parler-TTS side by side (decision C8)
 
 **Setup.** A throwaway Modal function (`tts_modal_app.py`) loads `facebook/mms-tts-hin` with
 `transformers` (`VitsModel` + `AutoTokenizer`) and returns WAV bytes. Run it on **CPU** (the
 planned sidecar hardware, s06 §4.9); a small GPU only for comparison. Output sample rate comes
 from the model config (16 kHz expected, *verify*).
 
-**Licence (recorded, not re-decided).** `facebook/mms-tts-hin` is **CC-BY-NC 4.0**, non-commercial
-only. Decision B10: use it for the hackathon and pilots; replace it before any commercial use.
-The findings file and ADR 0005 state this, and the README repeats it.
+**Licence (decision C8).** `facebook/mms-tts-hin` is **CC-BY-NC 4.0** (non-commercial only), and
+the Official Rules require every open-source licence to be followed. `ai4bharat/indic-parler-tts`
+is **Apache 2.0**. On Day 1 the owner asks the organisers on Discord whether MMS-TTS is acceptable
+in a hackathon submission. **MMS-TTS is used only if they confirm it; otherwise Indic Parler-TTS.**
+So both engines are measured here, on the same sentences, and the findings file and ADR 0005
+record the organisers' answer and the choice.
+
+**Indic Parler setup.** A second throwaway Modal function loads `ai4bharat/indic-parler-tts` (the
+`parler-tts` package; gated on Hugging Face, accept the terms first) on a **GPU** (L4 or A10G;
+about 0.9B parameters, CPU is expected to be too slow, *verify* with one CPU run). Use a fixed
+speaker description per voice (e.g. "Divya speaks clearly at a moderate pace in a quiet room"),
+recorded in the findings so S6 can reuse it.
 
 **Input script check.** Inspect the tokenizer vocabulary and run one Devanagari sentence directly
 and once through `uroman` romanisation. Record which input the model expects. If it needs uroman,
@@ -203,8 +228,10 @@ the sidecar runs it server-side (s06 Q2) and the API side still sends Devanagari
 
 **Measurements**
 - **Intelligibility:** 3 listeners (you and two others) rate each clip 1–5 ("how easily would a
-  class 8 student in a village understand this?"). Report the mean per form.
-- **Latency:** synthesis time per clip (warm), and characters per second. Cold start separately.
+  parent in a village understand this?"), **blind to the engine**. Report the mean per form and engine.
+- **Latency:** synthesis time per clip (warm), and characters per second, per engine and hardware.
+  Cold start separately (GPU cold start matters most for Parler).
+- **Cost:** GPU seconds per clip for Parler (Modal credits), CPU seconds for MMS.
 - **Romanised input:** confirm what happens with form 1. The expectation is that it's unusable,
   which confirms Hinglish must be transliterated before TTS.
 - **End-to-end playback:** convert one WAV to `ogg/opus`
@@ -216,9 +243,11 @@ the sidecar runs it server-side (s06 Q2) and the API side still sends Devanagari
 
 | Result | Decision |
 |---|---|
-| Devanagari mean ≥ 3.5 and warm latency ≤ 2 s per 200 characters (CPU or a small GPU) | **Go** with MMS-TTS. |
+| The organisers confirm MMS-TTS is fine, and MMS's Devanagari mean ≥ 3.5 with warm latency ≤ 2 s per 200 characters | **Go** with MMS-TTS (`TTS_ENGINE=mms`). |
+| The organisers don't confirm (or say no), and Parler's mean ≥ 3.5 with warm latency ≤ 2 s per 200 characters on a GPU | **Go** with Indic Parler-TTS (`TTS_ENGINE=indic_parler`), GPU class on the sidecar (s06 §4.9). |
+| Parler is slower than 2 s per 200 characters warm | Still the licence-safe choice: keep it, sentence-split synthesis (s06 §4.6) and keep `min_containers=1` during judging; record the latency for S16. Bring the trade-off to the owner if p50 voice turns would exceed 8 s. |
 | LLM transliteration (form 2) scores ≥ 3.5 | Confirms the rule already in contracts §2.6 and s09: the translation layer writes `spoken_text` **in Devanagari** for both Hindi and Hinglish registers, and `app/audio/tts_text.py` is a *validator* (s06 §4.6), not a transliterator. |
-| Devanagari mean < 3.5 (MMS fails the listening test) | Only then try the fallback, `ai4bharat/indic-parler-tts` (Apache 2.0, about 0.9B parameters, GPU needed), on the same sentences. Going with it is a design change for the owner to approve (contracts, s06 hardware and cost). |
+| The engine the licence answer points to scores < 3.5 | Escalate to the owner with both engines' scores before S6. |
 | Both < 3 | Escalate. Interim: replies are text-only, with audio kept as a degraded-mode feature. |
 
 ### 4.5 Spike D — Embeddings (confirm decision A5)
@@ -283,10 +312,50 @@ Hinglish and English (60 queries). Passages are written in plain English, like t
 | Valid rate lower | S5 keeps the validate → one retry with the error → `StepFailure` path (already planned) and simplifies the failing schema. |
 | Responses API behaves better | Record it. S5 picks the API surface based on this finding. |
 
+### 4.6a Spike F — Muse Image and SAM 3.1 (decisions C6, C7)
+
+**What the docs say (checked 2026-10-26, [models](https://dev.meta.ai/docs/models)):**
+- Muse Image (`muse-image-1.0`): text and image in, image out; single-shot `POST /v1/images/generations`
+  (and `/v1/images/edits`), or the Responses API. Request and response field names are on the image
+  generation guide (`/docs/image-generation`), *not yet verified*. $0.01 per generated image.
+- SAM 3.1 (`sam-3.1`): `POST /v1/responses`, input = an image (or video) plus a short noun-phrase text
+  prompt (or boxes/points); output = boxes and pixel masks. How a single image is passed (base64
+  inline or a Files API id) and the response field names are on the media segmentation guide
+  (`/docs/media-segmentation`), *not yet verified*. $2.50 per 1,000 images.
+
+**Muse Image procedure.**
+1. Read the image generation guide; call `/v1/images/generations` with the textless style template
+   from s10b §4.13 (warm Indian folk-art illustration, village setting, **no text, no realistic
+   faces, no identifiable child**) for 5 activity domains. Record the request and response shapes
+   (URL vs base64), image size options, latency p50/p95, cost per image.
+2. Check every image by eye: no text drawn, no realistic child, culturally fitting. Run each
+   through spike B's Llama Guard image check.
+
+**SAM 3.1 procedure.**
+1. Read the media segmentation guide; record how one image is sent and what comes back (masks,
+   boxes, scores, a count or a list of instances).
+2. **Person check (the privacy gate, s10b §4.14):** 10 test photos. 5 contain a person (adult
+   volunteers with consent, or licensed stock photos; never a child; licences noted), including
+   hard cases: a hand only, a face at the edge of the frame, a person far in the background.
+   5 contain no person (leaves, stones, a drawing on paper). Prompt phrases `person`, `face`, `hand`.
+3. **Counting:** 4 photos of known object counts (e.g. 7 leaves, 5 stones); prompt the activity
+   material phrase (`leaf`, `stone`). Record the counted value and the score threshold used.
+4. Latency p50/p95 per call, and cost.
+
+**Go / fallback**
+
+| Result | Decision |
+|---|---|
+| Person/face detection finds a person in **all 5** person photos (recall 100% on the test set), with ≤ 1 false person on the 5 object photos | **Go** for activity photos (`PHOTO_INPUT_ENABLED=true`). Record the score threshold. |
+| Any person photo missed | **Photos stay disabled** (`PHOTO_INPUT_ENABLED=false`). Escalate to the owner with the misses; no lower bar without their decision. |
+| Counts within ±1 on 3 of 4 count photos | Go for counts in the reflection. Otherwise the reflection only says the photo was received ("kitne sundar patte!"), with no number. |
+| Muse Image produces textless, fitting images in ≥ 4 of 5, p95 ≤ 15 s | **Go** for khoj cards (`KHOJ_CARD_ENABLED=true`). Record the prompt template. |
+| Otherwise | Iterate the style prompt within the time box; if it still fails, cards stay disabled and the owner is told. |
+
 ### 4.7 Findings format — `docs/spikes/<spike>.md`
 
 ```markdown
-# Spike <A–E>: <name>
+# Spike <A–F>: <name>
 
 - Date: 2026-10-2x · Time spent: <h> · Script: scripts/spikes/<file>.py
 - Decision: GO | FALLBACK (<which>) | ESCALATE   → ADR docs/decisions/<nnnn>-<slug>.md
@@ -396,8 +465,9 @@ because the WER number decides a fallback:
 
 ## 10. Exit check
 
-1. `docs/spikes/stt.md`, `safety.md`, `tts.md`, `embeddings.md`, `structured-output.md` exist,
-   each with a decision line.
+1. `docs/spikes/stt.md`, `safety.md` (incl. image input), `tts.md` (both engines, the organisers'
+   licence answer), `structured-output.md` and `images.md` (Muse Image, SAM 3.1) exist, each with
+   a decision line. (`embeddings.md` belongs to Phase 2 RAG, mvp-scope.md §4.9.)
 2. ADRs 0001–0007 exist in `docs/decisions/`.
 3. You've listened to the TTS clips and the voice note played on your phone.
 4. Any contract change a spike requires (a new `SafetyCategory`, a different vector size, a new
@@ -420,11 +490,15 @@ None from this design itself. Outcomes that could still request changes, each br
 - Spike D: switching to `bge-m3` → `corpus_chunks.embedding vector(1024)`. (Still conditional; A5 approved e5.)
 - Spike A: Muse Voice Transcribe returns no language and no confidence field. **Applied:**
   contracts §2.1 says `Transcript.language` comes from `detect_register` and `confidence` is `None`.
-- `TTS_MODEL` setting: **not added.** Decision B10 keeps MMS-TTS; the setting would only be
-  requested if spike C fails and the owner approves Indic Parler-TTS.
+- `TTS_MODEL` setting: superseded by C8. A `TTS_ENGINE: Literal["mms", "indic_parler"]` setting
+  is **requested** (contracts §7 doesn't have it yet; see s06).
+- Spike F: no contract change expected; the image ports and settings are already in contracts
+  (§3, §7). The person-check score threshold and the card prompt template are recorded in the
+  findings and become constants in S10b.
 
 ## Decisions log
 
 | Date | Change | Why | Approved |
 |---|---|---|---|
+| 2026-10-26 | Spike B checks Llama Guard 4 image input; spike C measures MMS-TTS and Indic Parler-TTS side by side, MMS only if the organisers confirm the licence; new spike F (Muse Image, SAM 3.1 with a 100% person-recall bar) | Owner decisions C6, C7, C8 | owner |
 | 2026-10-25 | Spike C runs MMS-TTS on CPU, checks Devanagari vs uroman input, records the CC-BY-NC licence; Indic Parler-TTS only if MMS fails. Spike E checks the repair turn. A5 approved; `tts_text.py` replaces `transliterate.py` | Consolidation against the updated foundation docs (B9, B10, A5) | owner (defaults) |

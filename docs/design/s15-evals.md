@@ -53,7 +53,11 @@ The provisional format is kept almost as-is. The changes:
 - `tags`;
 - for parent-journey cases (`parent_journey.yaml`, s10b): `learner` / `learners` (the child or
   children, seeded as `learners` rows) and an optional `open_activity` (a catalogue id seeded as an
-  `OFFERED` `learner_activities` row, so a reflection case starts mid-journey).
+  `OFFERED` `learner_activities` row, so a reflection case starts mid-journey);
+- `attachments` per case (C7): `[{kind: image, fixture: leaves_7.jpg}]`, played as an `IMAGE`
+  message with the first turn. Fixtures live in `evals/fixtures/images/`: synthetic or own photos
+  of objects (no people), except the person-check fixture, which is a consented adult or a licensed
+  stock photo with its licence noted beside it. Never a child.
 
 ```python
 class GoldenProfile(BaseModel):
@@ -179,6 +183,13 @@ That's the `spoken_text` actually sent to TTS, which is what the "no URLs in spe
 `RecordingSynthesizer` lives in `app/evals/` (not `tests/`) because it's part of the shipped
 harness. It's honest about what it is and never runs in production wiring.
 
+**Images in evals (C6, C7):** khoj-card generation uses a `RecordingImageGenerator` by default (it
+returns a fixed placeholder PNG and records the prompt, so the "no nickname or parent's words in
+the image prompt" rule can be checked). It also lives in `app/evals/`. Live image generation runs
+only with `--live-images`, because it costs money per image and isn't what's being judged in a
+scorecard. **Activity photos always use the real SAM 3.1 call**: the person gate is a privacy
+guarantee, so the scorecard must measure the real model, not a fake.
+
 **Models:** standard Muse Spark models, exactly as in production, so the scorecard measures what
 users get. `--contributor` swaps in the Contributor variants for cheap iteration runs. It's
 **refused** when any selected case has an `audio_fixture` (real voices count as real data,
@@ -197,7 +208,10 @@ Run per turn with an expectation. Each returns `CheckResult(name, passed, detail
 | `citations` | `required` → ≥ 1 citation, and every citation's `chunk_id` is among the chunks retrieved in that turn; `forbidden` → 0 citations |
 | `spoken_clean` | always, when there's a reply: the text given to TTS contains no URL (`https?://`, `www.`, a bare domain like `x.gov.in`), no markdown (`*`, `#`, `[n]`, backticks), no emoji |
 | `length` | always: `text` ≤ 4096 chars per part (it was split correctly); `spoken_text` ≤ 1200 chars (around 90 s of speech) |
-| `no_step_failed` | always, except cases tagged `expects_failure`: no `FAILED` step other than `EXTRACT_SIGNALS`/`UPDATE_MEMORY` |
+| `no_step_failed` | always, except cases tagged `expects_failure`: no `FAILED` step other than `EXTRACT_SIGNALS`/`UPDATE_MEMORY`/`MAKE_CARD` |
+| `photo_person_gate` | a case whose image contains a person: `fixed_reply == photo_has_person`, **no `ANALYZE_IMAGE` step ran**, no `photo_findings` written, and no `media_blobs` row of any purpose was created in the turn (C7) |
+| `photo_counts` | a case with `expect.photo_count`: the `ANALYZE_IMAGE` step's counts include that phrase within ±1, and the reply text mentions a number |
+| `card` | a case with `expect.card: sent`: a `MAKE_CARD` step ran `OK` and an `IMAGE` part with a caption exists; `expect.card: none`: no card. Caption checks (no labels, no careers) go to the judge |
 
 ### 4.4 LLM judge — `app/evals/judge.py`, prompt `eval_judge.md.j2`
 
@@ -283,7 +297,7 @@ The baseline is the newest committed non-Contributor scorecard in `evals/results
 
 ```
 marg eval [--file adversarial.yaml]... [--case student-mentor-004]... [--tag multiturn]...
-          [--repeat N] [--with-tts] [--contributor] [--baseline PATH]
+          [--repeat N] [--with-tts] [--live-images] [--contributor] [--baseline PATH]
           [--fail-on-regression] [--keep-db] [--no-write]
 ```
 
@@ -469,3 +483,4 @@ with permission to create and drop databases), `EVAL_CONCURRENCY` (4).
 | Date | Change | Why | Approved |
 |---|---|---|---|
 | 2026-10-25 | `TurnObserver` and `process_user_turn` applied; parent-journey cases (`learner`, `learners`, `open_activity`, `GoldenLearner`); `roadmap-004` deferred and excluded; targets and no nightly runs (B8); `pyyaml` (B6) | Consolidation against the updated foundation docs | owner (defaults) |
+| 2026-10-26 | Case `attachments` for photos; deterministic checks `photo_person_gate`, `photo_counts`, `card`; a recording image generator by default with `--live-images` for real cards; real SAM 3.1 always for the person gate | Owner decisions C6, C7 | owner |

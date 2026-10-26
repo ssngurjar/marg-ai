@@ -147,6 +147,23 @@ unsafe\nS<n>[,S<n>]*        with n in 1..14, spaces after commas allowed
 cost_usd)`. The cost uses a per-host price constant in `pricing.py`, added in S2. With credits
 it's still recorded at list price, so `/status` shows the true cost.
 
+**Images (decisions C6, C7).** Llama Guard 4 is natively multimodal. When `SafetyRequest.image`
+is set, the adapter adds the image to the classified turn as an image content part (the exact
+OpenAI-compatible shape is confirmed in S2 spike B against the model card and the host). The same
+output grammar, category mapping (§4.4) and fail-closed behaviour apply:
+- **Input, activity photos** (s10b §4.14): `safety_in` runs on the photo **after** s10b's person
+  check. The person check is a privacy gate, not a safety classifier: a photo with a person is
+  dropped before it ever reaches Llama Guard. A photo that passes the person check and then gets
+  BLOCK → `REFUSE` (variant `GENERAL`), the image dropped, and nothing analysed.
+- **Output, khoj cards** (s10b §4.13): `safety_out` runs on the generated image **and** its caption
+  text in one request (`speaker="assistant"`, `text` = caption, `image` = card, `prior_user_text` =
+  the parent's report). BLOCK → no card is sent; nothing else changes for the parent.
+- **Fail closed:** if the image check errors or times out, the photo is dropped with the fixed
+  `HOLDING` reply ("photo abhi dekh nahi paaye, thodi der mein bhejiye"), and a card is simply not
+  sent. An image never skips safety.
+- If spike B shows the host can't take images, `KHOJ_CARD_ENABLED` and `PHOTO_INPUT_ENABLED` stay
+  false until an image-capable host is in place.
+
 **Language coverage.** Llama Guard is trained to be multilingual, but its coverage of
 **romanised Hinglish** is unknown. That's the main reason the domain policy (§4.5) exists.
 S2 runs every `adversarial.yaml` and `crisis.yaml` input through it and records recall.
@@ -275,7 +292,9 @@ to studies and careers. It never repeats the request, and never explains anythin
 | `REFUSE` / `MEDICAL` | d4 on input | Keyed by role. Students and teachers: "I can't suggest medicines. Please talk to a doctor or your parents. Here's a study tip instead…" (a fixed tip). **Parents** (`role == PARENT`): "I can't advise on medicines or illness. Please talk to your anganwadi worker, ASHA didi or a doctor." (s10b flow D) |
 | `REFUSE` / `GENERAL` | d3 on input, and any other BLOCK | generic decline + redirect |
 | `REFUSE` / `GENERIC` | any BLOCK on **output** | "Let me answer that differently. Can you ask again in another way?" |
-| `HOLDING` / `DEFAULT` | safety unavailable (input or output) | "I'm having trouble right now. Please send your message again in a few minutes." |
+| `HOLDING` / `DEFAULT` | safety unavailable (input or output), including an image check that fails | "I'm having trouble right now. Please send your message again in a few minutes." (for photos: "I couldn't look at the photo just now, please send it again in a little while") |
+| `PHOTO_HAS_PERSON` / `DEFAULT` | s10b's person check found a person or face in a photo (owned by s10b §4.14, listed here because it's a privacy refusal) | "Please don't send photos of your child or of people. Send only what your child made or collected." The image is dropped before any classifier sees it |
+| `PHOTO_NOT_NEEDED` / `DEFAULT` | a photo with no open activity (owned by s10b) | explains when photos help; nothing analysed |
 | `CRISIS` / `SELF_HARM`, `ABUSE` | §4.6 | in `crisis.py`, with helplines |
 
 ### 4.8 Mapping to the golden cases
@@ -524,3 +543,4 @@ the real stack with live providers, give the expected route or fixed reply.
 | Date | Change | Why | Approved |
 |---|---|---|---|
 | 2026-10-25 | Safety core built in S5 (B1); crisis text never stored (B5); d7 child-hazard rule and the parent wording of REFUSE/MEDICAL added for the parent journey; safety rows write `turn_steps.decision` | Consolidation against the updated foundation docs (B1, B5, B12) | owner |
+| 2026-10-26 | Image safety: `safety_in` on activity photos after s10b's person check, `safety_out` on khoj card image + caption via `SafetyRequest.image`; same decision tables; fail closed (photo dropped with `HOLDING`, no card); `PHOTO_HAS_PERSON` and `PHOTO_NOT_NEEDED` listed in the fixed-reply table | Owner decisions C6, C7 | owner |

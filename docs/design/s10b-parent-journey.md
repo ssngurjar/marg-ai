@@ -51,6 +51,7 @@ This step builds that for the NEP **foundational stage, ages 3–8**, the MVP sc
 - Nudges: subscription, the `NudgeLoop` in the worker, `NUDGE` turns that send a Meta-approved template
 - Migration `s10b_journey`: `learner_activities`, `nudge_subscriptions`, `turns.learner_id`
 - Golden eval file `evals/golden/parent_journey.yaml`
+- Khoj cards with Muse Image (§4.13) and activity photos with SAM 3.1 (§4.14): decisions C6, C7
 
 **Out**
 | Item | Owner / when |
@@ -59,7 +60,7 @@ This step builds that for the NEP **foundational stage, ages 3–8**, the MVP sc
 | Curiosity-signal extraction and young-learner dashboard metrics | s13 |
 | Ages 0–2 (serve-and-return talk prompts) and 9–11 (preparatory mini-projects) | post-MVP; the stage table in §4.2 already has their rows |
 | Fully generated activities | post-MVP, through the same port (§4.5) |
-| Weekly shareable "khoj card" | stretch |
+| (khoj card moved into scope: §4.13) | — |
 | Linking a child's own phone number later in life | post-MVP (a learner link table) |
 
 ## 4. Design
@@ -354,6 +355,65 @@ check in the outbox loop **doesn't apply to `TEMPLATE` parts**; that's the one p
 | `role == PARENT`, `ACTIVE`, and an `open_activity` exists | `JOURNEY` by default; the LLM router may choose `OFF_TOPIC` |
 | `role == PARENT`, `ACTIVE`, otherwise | LLM router over `{JOURNEY, OFF_TOPIC}`; `MENTOR`, `EXPOSURE` or `ROADMAP` from the LLM map to `JOURNEY` (documented policy, recorded in `reason`) |
 
+### 4.13 Khoj card — Muse Image (decision C6)
+
+After a parent reports back (flow B), Marg.ai sends an illustrated card of the child's discovery,
+which parents forward to family groups. It shows what Meta's image model can do in a warm,
+non-screen way, and every forwarded card carries Marg.ai to a new family.
+
+```
+post-turn task MakeKhojCard (after the reflection reply is delivered; never delays it)
+  1. card text (deterministic + one small Muse Spark call → KhojCardText, strict schema):
+       headline ≤ 60 chars  "Munni ne parchhai ka raaz khoja!"   (nickname only if the parent gave one)
+       line ≤ 90 chars      what the child noticed, from the stored summary; no labels, no careers
+  2. image (Muse Image, `MODEL_IMAGE`, POST /v1/images/generations, 1024×1024):
+       prompt = fixed style template (warm Indian folk-art illustration, village setting, no text,
+       no realistic faces, no identifiable child) + the activity's domain and setting. The child's
+       name and the parent's words are NOT in the image prompt.
+  3. safety_out on the image (Llama Guard 4 with `SafetyRequest.image`) and on the card text
+       (the normal gate). Any failure → no card, recorded, nothing sent.
+  4. the card text goes in the WhatsApp **caption** (forwarded together with the image), not
+       inside the image: the model never draws text, so there's no misspelt Hindi and no new
+       image-library dependency. Drawing text onto the image is a Phase 2 option
+  5. a KHOJ_CARD system turn (like NUDGE): one IMAGE part with a caption, through the sealed
+       path (gate.clear_fixed is NOT used: the image passed safety_out in step 3, so a SafeReply
+       is built from that verdict)
+  writes: media_blobs (khoj_card, 7 days), learner_activities.card_blob_id
+```
+
+- At most one card per learner per day, and only for reports with engagement ≥ 2, so cards stay special.
+- Cost: about $0.01 per image plus one small text call.
+- The card is sent only inside the open 24-hour window (the parent just wrote to us), so no template is needed.
+- **Web demo:** the card appears in the chat, with a download button.
+- Failure never affects the parent's reply. It's recorded as a `MAKE_CARD` `turn_steps` row.
+
+### 4.14 Activity photos — SAM 3.1 (decision C7)
+
+A parent may send a photo of what the child **made or collected** (leaves sorted by shape, stones
+by size, a drawing). Marg.ai uses SAM 3.1 to count what's there, so the serve-and-return reply can
+be specific ("Munni ne 7 alag patte dhoondhe! Sabse bada kaunsa hai?").
+
+```
+inbound IMAGE (WhatsApp "image" message, or a web upload)
+  1. fetch_image (WhatsApp media download, size cap MAX_INBOUND_IMAGE_BYTES); kept in memory only
+  2. PERSON CHECK FIRST: ImageSegmenter.count(image, ["person", "face", "hand"])
+       person or face count > 0 → drop the image at once, fixed reply PHOTO_HAS_PERSON
+       ("Bachche ki photo mat bhejiye; sirf unki banayi ya ikatthi cheezein"), no further processing
+       ("hand" alone is allowed: holding leaves is normal; it's recorded, not rejected)
+  3. safety_in on the image (Llama Guard 4 multimodal) → BLOCK → REFUSE, image dropped
+  4. analyze_image: count the activity's materials as noun phrases (from the catalogue's
+       `materials`, e.g. ["leaf", "stone"]) → PhotoFindings(counts) → TurnWrite onto learner_activities.photo_findings
+  5. the reflection prompt receives the counts (as data), never the image
+  the image bytes are discarded at the end of the turn; nothing is stored
+```
+
+- Photos are only accepted when there's an **open activity** for the learner. Otherwise the reply
+  is the fixed `PHOTO_NOT_NEEDED`, which explains when photos help.
+- Muse Spark is **not** sent the photo. Only counts reach the language model. This keeps the
+  child's surroundings out of any generated text beyond what the parent wrote.
+- Onboarding copy says photos of children aren't accepted, and the person check enforces it.
+- `PHOTO_INPUT_ENABLED` turns the feature off at once if anything looks wrong in field testing.
+
 ## 5. Interfaces
 
 ```python
@@ -475,6 +535,11 @@ async def claim_due_nudges(session, limit: int) -> list[UserHash]: ...
 - `NudgeLoop` with two worker processes sends exactly one template per due subscription.
 - User deletion removes learners, learner_activities, nudge_subscriptions and curiosity_signals.
 
+**Khoj card and photos (§4.13–4.14)**
+- Unit: the card prompt never contains the nickname or the parent's words; the person check runs before any other image step (call order in the fake); a person count > 0 → `PHOTO_HAS_PERSON` with no `analyze_image` call and no write; photos without an open activity → `PHOTO_NOT_NEEDED`; at most one card per learner per day; engagement < 2 → no card.
+- Property: for any fake segmenter output containing a person, no image byte is retained after the turn and no `photo_findings` is written.
+- Integration: no `media_blobs` row or column ever holds an inbound photo (scan after a photo turn).
+
 **Evals:** `evals/golden/parent_journey.yaml` (age fit, free materials, no hazards, serve-and-return
 specificity, no careers for a 5-year-old, medical refusal, register).
 
@@ -489,7 +554,9 @@ specificity, no careers for a 5-year-old, medical refusal, register).
    summary, and `curiosity_signals` has a row with `earth_sky`.
 4. Ask "Munni ko bukhar hai, kaunsi dawai doon?" → the fixed medical referral, no advice.
 5. "Doosri khoj" → a different activity in a different domain.
-6. `marg eval --file parent_journey.yaml` passes. The verification loop is green.
+6. Send a photo of 7 leaves → the reflection mentions the number; send a selfie → `PHOTO_HAS_PERSON`, nothing stored.
+7. After a good report, a khoj card arrives as an image with a caption; forwarding it works.
+8. `marg eval --file parent_journey.yaml` passes. The verification loop is green.
 
 ## 11. Open questions
 
@@ -504,5 +571,6 @@ specificity, no careers for a 5-year-old, medical refusal, register).
 
 | Date | Change | Why | Approved |
 |---|---|---|---|
+| 2026-10-26 | Khoj card with Muse Image (§4.13) and activity photos with SAM 3.1 (§4.14) | Owner decisions C6, C7: Use of Meta AI Tooling is 25% of the score (Official Rules) | owner |
 | 2026-10-25 | Launch catalogue 10 activities (minimum 7); deterministic flow dispatch for the MVP | Decisions C4 and C3b (mvp-scope.md) | owner |
 | 2026-10-25 | v1: parent journey for ages 3–8, daily opt-in template nudges, nickname + birth year only, curated catalogue with LLM personalisation, designed to move to guarded full generation | Owner decision (build a person from inception) | owner |

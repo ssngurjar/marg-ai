@@ -108,5 +108,8 @@ that step, in the "design first" part of the loop in plan.md §11, before any co
 | C2 | Simplified durable processing for the MVP (single process, inbox dedupe, per-user lock, direct send, startup recovery, polling web demo). Full s04/s14 design is Phase 2. | mvp-scope.md §4.1, §4.6 |
 | C3 | Latency: generation concurrent with `safety_in` (used only on ALLOW); deterministic parent routing; layers write directly in the user's register (separate translation is Phase 2; revises B11). | mvp-scope.md §4.2–4.3 |
 | C4 | 10 polished activities at launch (minimum 7). | mvp-scope.md §4.8 |
+| C6 | Khoj card with Muse Image (textless illustration, discovery in the caption, Llama Guard 4 image check). | s10b §4.13 |
+| C7 | Activity photos with SAM 3.1: person check first, counts only, photos never stored. | s10b §4.14 |
+| C8 | TTS licence: ask Meta; spike MMS and Indic Parler-TTS; MMS only if confirmed. | s02, s06 |
 | C5 | **Enterprise grade by default.** Lite only where the full version would stretch the 10 days, listed as exceptions E1–E4 with upgrade triggers; proposed with a time estimate at each step's design review. | mvp-scope.md §0, §4 |
 | B12 | The parent journey (ages 3–8): a learner-centred data model, daily opt-in template nudges, nickname + birth year only, a curated activity catalogue with personalisation, designed to move to guarded full generation. | s10b, s08, data-model.md |

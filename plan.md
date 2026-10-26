@@ -10,20 +10,26 @@
 
 ---
 
-## 0. What the hackathon rewards (researched 2026-10-24)
+## 0. What the hackathon rewards (researched 2026-10-24; Official Rules read 2026-10-26)
 
 Sources: <https://dev.meta.ai/events/global-hackathon>, <https://cerebralvalley.ai/e/meta-ai-developer-hackathon>,
-<https://dev.meta.ai/docs/models>, <https://dev.meta.ai/docs/pricing-rate-limits>.
+<https://dev.meta.ai/docs/models>, <https://dev.meta.ai/docs/pricing-rate-limits>, and the Official Rules +
+waiver at <https://cerebralvalley.ai/e/meta-ai-developer-hackathon/waiver> (read 2026-10-26).
 
 | Fact | Value | What it means for us |
 |---|---|---|
-| Indie track judging | **"creativity, technical ambition, and whether it works"** | Three axes, no published weights. Every feature has to help at least one of them (§2). |
-| Prize pool | **$1,000,000 total across both tracks** (not $400k). No per-track split published | — |
+| **Project judging (Official Rules)** | **Impact 30%** (real-world potential, who benefits, could people use it, theme fit) · **Use of Meta AI Tooling 25%** (creative use, beyond basic integration, surfacing unexpected capabilities) · **Technical Depth & Execution 20%** (sound, refined engineering, real craft) · **Demo 25%** (working, impressive, holds up live, quality of the demo video) | These weights replace the event page's one-line summary. Every feature must earn points on at least one (§2). |
+| Prizes | **Indie track $400,000**: 1st $150k, 2nd $100k, 3rd $75k, 4th $50k, 5th $25k. Startup track $550k. Up to $50k bonus prizes (e.g. community vote, **most viral project**) | A shareable artefact (e.g. a khoj card) also competes for the viral bonus. |
+| Team size | Indie: individuals, students, or teams of up to 4 | Solo is allowed; a teammate (e.g. for content review or the video) is an option. |
+| Credits | $150 Meta Model API credits, valid for the 10-day window (read the Credit Terms before claiming) | Our per-turn cost is a fraction of a cent; $150 covers development, evals and the demo. |
+| Original work and open source | The Submission must be our original work and solely ours; third-party technical help is allowed if we own the result; open source is allowed **if its licences are followed** and we build on it. No rule against preparing before kickoff was found | Design docs prepared before kickoff are fine. **Every model and library licence must be honoured**, which puts MMS-TTS (CC-BY-NC) in question (§8). |
+| Rights | We keep ownership; Organizers get a perpetual, royalty-free licence to use and show the Submission, and no confidentiality | Never put secrets in the repo or video. Anyone appearing in the demo video must consent to Meta's public use of it (§8). |
+| Eligibility | 18+, not in sanctioned countries, not Meta/CV staff or family | Owner is eligible. |
 | Theme fit | "Build for Your World" — a problem you know firsthand | Marg.ai fits well. Lead the story with the rural exposure gap. |
 | Kickoff | **Mon Oct 26, 9:00 AM ET = 18:30 IST** | Day 1 starts in the evening IST |
 | Submission deadline | **Wed Nov 4, 9:00 PM ET = Thu Nov 5, 07:30 IST** (US DST ends Nov 1, so this is EST) | Plan to submit by **Nov 4, 23:00 IST**. Don't use the overnight buffer. |
 | Judging / finals | Nov 4–8 judging, Nov 9 closing ceremony with live finals | Judges must be able to **try it themselves**. Plan: a real WhatsApp number anyone can message (it works without business verification, see §4.1), with the public web demo (§4.7) as the guaranteed path. |
-| Official rules | "To be published before the hackathon begins" | **Read them on Oct 26.** Check: whether code written before kickoff counts, submission format (video length, repo visibility), required models. |
+| Submission | Through the Cerebral Valley portal: <https://cerebralvalley.ai/e/meta-ai-developer-hackathon/hackathon/submit> | The rules name a demo video; check the portal's form for its other fields (repo, description, video length) on Day 1. |
 | Partner credits | Baseten $100 (+2M TPM), Modal $100, Fireworks $25 | Use these for open-weights models (Llama Guard, TTS, embeddings) |
 
 ### Meta Model API — what's actually available
@@ -75,7 +81,16 @@ asks "what should I become?", Marg.ai already knows what they've noticed and lov
 
 ---
 
-## 2. Mapping features to the judging axes
+## 2. Mapping features to the judging criteria (Official Rules weights)
+
+| Criterion (weight) | What we show | Where it lives |
+|---|---|---|
+| **Impact (30%)** | Rural parents of 3–8-year-olds, by voice, in Hindi/Hinglish, at no cost: a daily discovery ritual that builds a child's curiosity from age 3, and a trajectory that follows the learner to their first career choice. Real parents in the video and field test. | §1, §4.11 |
+| **Use of Meta AI Tooling (25%)** | Muse Spark (structured personalisation, serve-and-return reflection, curiosity extraction), Muse Voice Transcribe (Hinglish voice notes), Llama Guard 4 (child-safety gate both ways), Meta open-weights TTS, **Muse Image** khoj cards (shareable illustrations of a child's discovery) and **SAM 3.1** counting what a child collected in a photo, with a person check that protects children (decisions C6, C7). Go beyond "a chatbot calling an LLM". | §4 |
+| **Technical Depth & Execution (20%)** | Sealed safety types, learner-centred data model, durable idempotent processing, property tests, the eval scorecard, `/status` latency numbers. | §3, §5 |
+| **Demo (25%)** | A live WhatsApp number and `/demo` that hold up when judges try them, and a polished video. | §4.7, §7 |
+
+The original three-axis summary from the event page, kept for reference:
 
 | Axis | What we show | Where it lives |
 |---|---|---|
@@ -83,7 +98,7 @@ asks "what should I become?", Marg.ai already knows what they've noticed and lov
 | **Technical ambition** | Four Meta models in one pipeline: Muse Spark, Muse Voice Transcribe, Llama Guard 4, MMS-TTS. A learner-centred data model, proactive opt-in nudges, structured output everywhere, RAG with citations, durable inbox/outbox processing, a sealed safety gate on input and output, and an LLM-judge eval harness with published scores. | §3, §4, §5.4 |
 | **Whether it works** | A public web simulator running the same pipeline. A live WhatsApp number on the demo video. Real voice notes from real parents, students and teachers (field test from Day 6). Latency and success-rate numbers on a `/status` page. | §4.7, §7 |
 
-**Scope rule:** a feature that helps none of the three axes doesn't get built. A half-finished
+**Scope rule:** a feature that earns no points on the four criteria doesn't get built. A half-finished
 feature costs more than a missing one, because "whether it works" is judged live.
 
 ---
@@ -386,7 +401,8 @@ dialect biasing in STT · a second regional language.
 | Fabricated career facts | Medium | RAG with mandatory citations, the "don't know" path, and a grounding score in evals. |
 | An unsafe activity suggestion for a young child | Low | Reviewed catalogue only; personalisation can't add steps or materials; the `d7` hazard rule on every reply; a fixed supervision line appended by code; fallback to the reviewed text. |
 | Nudge template not approved in time | Medium | Submit on Day 1. Without it, parents start each day by tapping "Aaj ki khoj" or typing it; the journey works, just not proactively. |
-| MMS-TTS licence is non-commercial | Certain (known) | Fine for the hackathon; replaced before any commercial use (README note, decision B10). |
+| MMS-TTS licence is non-commercial (CC-BY-NC) while the Official Rules require every open-source licence to be followed, and grant Meta a licence to use the Submission for marketing | Medium | A prize competition may not count as non-commercial use. Ask the organisers on Discord on Day 1; spike Indic Parler-TTS (Apache 2.0) alongside MMS in S2; decision pending with the owner. |
+| Demo video shows real people (a parent and a child) | Certain | The Official Rules give Organizers perpetual rights to the video. Written consent from the parent covering public and Meta marketing use; no child's face; the child's voice only with that consent, or an adult re-enactment. |
 | Launch activities not reviewed in time | Low | 10 drafted in S0, reviewed by Day 5; launch with a minimum of 7 (decision C4). |
 | Single app instance (MVP) | Known | Deliberate (C2): one Fly machine, no autoscaling; startup recovery covers restarts. Phase 2 restores multi-worker leases. |
 

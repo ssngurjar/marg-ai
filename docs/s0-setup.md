@@ -43,6 +43,18 @@ issue, or a chat.**
       or teacher before it's enabled.
 - [ ] Ask one parent of a 3–8-year-old and one teacher to be field testers from Day 6.
 
+## 1c. Day 1 actions from the Official Rules (read 2026-10-26)
+
+- [ ] Accept the Official Rules and waiver in the portal.
+- [ ] Read the **Credit Terms**, then claim the $150 Model API credit (valid for the 10-day window).
+- [ ] Open the submission form (<https://cerebralvalley.ai/e/meta-ai-developer-hackathon/hackathon/submit>)
+      and note every field: video length, repo link, description, track. Record them in `docs/submission/`.
+- [ ] Ask on the event Discord: "Can a submission call Meta's MMS-TTS (`facebook/mms-tts-hin`,
+      CC-BY-NC 4.0) for Hindi speech, given the Official Rules' open-source licence clause?" Record
+      the answer in `docs/decisions/` (decision C8).
+- [ ] Demo video consent form (Hindi and English) for the parent who appears: covers public use
+      and Meta's perpetual marketing use under the Official Rules; no child's face.
+
 ## 2. Meta Model API (after acceptance)
 
 - [ ] Sign in at <https://dev.meta.ai>, create an API key, and set a spend limit if the console offers one.

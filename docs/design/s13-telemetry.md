@@ -334,12 +334,16 @@ video and for debugging.
 
 **`GET /status`** (public, B8):
 - p50 and p95 user latency, served-ok rate, turn count (24 h).
-- Per-step table: runs, p50, p95, ok rate, degraded rate.
-- Journey counts (24 h): journey turns, nudges sent.
+- Per-step table: runs, p50, p95, ok rate, degraded rate. It includes the image steps
+  `FETCH_IMAGE`, `ANALYZE_IMAGE` and `MAKE_CARD` (C6, C7) with no special handling: they're ordinary
+  `turn_steps` rows. `MAKE_CARD` runs as a post-turn task, so it's excluded from user latency.
+- Journey counts (24 h): journey turns, nudges sent, photos received, photos rejected by the person
+  check (`PHOTO_HAS_PERSON`), khoj cards sent.
 - Corpus chunk count.
 - Last-updated time.
-- With the admin scope (§4.9) only: cost today (all channels, and web against the cap),
-  crisis-turn count, and failure kinds by step.
+- With the admin scope (§4.9) only: cost today (all channels, and web against the cap; it already
+  includes image generation and segmentation, because Muse Image and SAM 3.1 calls record their
+  `cost_usd` in `turn_steps` like every other provider call), crisis-turn count, and failure kinds by step.
 
 **`GET /dashboard`** (scoped by signed link, §4.9). For the scope's cohort:
 
@@ -359,6 +363,9 @@ video and for debugging.
 10. **Domains explored:** count of distinct children per `CuriosityDomain`.
 11. **Engagement over time:** stacked bars per ISO week, share of reports at each level 0–3.
 12. **Child-question rate** over time, per ISO week.
+13. **Photos and cards** (C6, C7): share of reports that came with a usable photo (counts found),
+    and khoj cards sent. **Forwarding can't be measured**: WhatsApp doesn't tell a business when a
+    user forwards a message, so "viral" reach is shown only as cards sent, never as an estimate.
 
 **k-anonymity floor:** any displayed number or chart cell derived from **fewer than
 `K_ANONYMITY_FLOOR` (5) distinct learners** shows "fewer than 5" instead of the value. A section
@@ -612,3 +619,4 @@ scope; `?t=` with malformed base64 → 401 (not 500); `/dashboard/data.json` obe
 |---|---|---|---|
 | 2026-10-25 | v1 written | telemetry design | owner |
 | 2026-10-25 | Classroom codes moved to Deferred, teacher scope = district; tokens via the shared `SignedTokenCodec` (purpose `"dash"`); aspiration signals keyed by learner; `CuriositySignals` and young-learner metrics added; `ExtractSignals` as a post-turn task; cost-today query takes a channel filter for s14 | A4, B2, B8, B9, B12 and the consolidated contracts | owner |
+| 2026-10-26 | Image steps (`FETCH_IMAGE`, `ANALYZE_IMAGE`, `MAKE_CARD`) on `/status`; journey counts add photos received/rejected and cards sent; young-learner section adds photos-with-counts and cards sent (forwarding isn't measurable); cost includes image generation and segmentation | Owner decisions C6, C7 | owner |

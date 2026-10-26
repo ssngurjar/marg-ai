@@ -31,7 +31,7 @@ the reply.
 - Typed models for the webhook envelope, messages (text, audio, interactive, button, unsupported), statuses and errors
 - PII stripping for `raw_payload`
 - User identity: `user_hash`, AES-GCM address encryption, users upsert, `last_inbound_at`
-- `WhatsAppSender` (`ChannelSender`): text, interactive buttons, audio (media upload + send), template messages (s10b nudges), plus `acknowledge` (mark read + typing indicator)
+- `WhatsAppSender` (`ChannelSender`): text, interactive buttons, audio (media upload + send), images with a caption (khoj cards, C6), template messages (s10b nudges), plus `acknowledge` (mark read + typing indicator)
 - Graph API error classification into `ProviderError` subclasses
 - Parsing status webhooks, plus the `apply_status_update` repository function (wired up once `outbox_messages` exists in S4)
 - CLI `marg whatsapp reply-latest`: an ops tool used for the exit check
@@ -120,7 +120,8 @@ Message `type` → `MessageKind`:
 | `interactive` + `button_reply` | `INTERACTIVE` | `button_reply.id` → `interactive_reply_id`, `button_reply.title` → `text` |
 | `interactive` + `list_reply` | `INTERACTIVE` | `list_reply.id`, `list_reply.title` |
 | `button` (template quick reply) | `INTERACTIVE` | `button.payload` → `interactive_reply_id`, `button.text` → `text`. This is how a parent's tap on the daily nudge template arrives: payload `jrn:today` → s05 routes it to `JOURNEY` (s10b §4.11) |
-| `image`, `video`, `document`, `sticker`, `location`, `contacts`, `unsupported`, unknown | `UNSUPPORTED` | none (the reply is `UNSUPPORTED_MEDIA`, S5) |
+| `image` | `IMAGE` (decision C7) | `image.id` → `MediaRef.provider_media_id`, `image.mime_type`. `image.caption` → `text` (the parent may describe the photo). `image.url` and `image.sha256` are ignored here (the media fetch re-reads them). Only parents with an open activity get photo handling; everyone else gets `PHOTO_NOT_NEEDED` (s10b §4.14). The image itself is never stored |
+| `video`, `document`, `sticker`, `location`, `contacts`, `unsupported`, unknown | `UNSUPPORTED` | none (the reply is `UNSUPPORTED_MEDIA`, S5) |
 | `reaction` | not stored | an emoji reaction to our message isn't a request. Log at `debug` |
 | `system` (user changed number) | not stored | log `info`. Number changes aren't followed in the MVP (open question 3) |
 
@@ -173,9 +174,11 @@ a row it can't see.
 `raw_payload` is built from an **allowlist**, not by deleting known PII fields. An allowlist can't
 leak a field Meta adds next year.
 
-Kept: `id`, `timestamp`, `type`, the type sub-object (`text`, `audio` without `url`,
-`interactive`, `button`, `errors`), and `context.id` (the message being replied to).
-Dropped: `from`, `contacts`, `context.from`, `audio.url`, everything at envelope level.
+Kept: `id`, `timestamp`, `type`, the type sub-object (`text`, `audio` without `url`, `image`
+with only `id` and `mime_type`, `interactive`, `button`, `errors`), and `context.id` (the message
+being replied to). Dropped: `from`, `contacts`, `context.from`, `audio.url`, `image.url`,
+`image.sha256`, **`image.caption`** (free text the parent wrote, which goes to `inbox_messages.text`
+under turn-text retention instead), everything at envelope level.
 A property test asserts the stripped payload never contains the `wa_id` string anywhere.
 
 ### 4.8 Status webhooks
@@ -215,6 +218,7 @@ All sends are `POST {WHATSAPP_GRAPH_BASE_URL}/{WHATSAPP_PHONE_NUMBER_ID}/message
 | `TEXT` | `{"messaging_product":"whatsapp","recipient_type":"individual","to":<wa_id>,"type":"text","text":{"body":…,"preview_url":false}}` | 1 ≤ len(body) ≤ 4096, else `ValueError` (a bug upstream; never truncate) |
 | `INTERACTIVE` | `…"type":"interactive","interactive":{"type":"button","body":{"text":…},"action":{"buttons":[{"type":"reply","reply":{"id":…,"title":…}}]}}` | 1–3 buttons, title ≤ 20 chars, id ≤ 256 chars, body ≤ 1024 chars |
 | `AUDIO` | step 1: upload, `POST /{phone_number_id}/media` multipart `file`, `type=audio/ogg`, `messaging_product=whatsapp` → `{"id"}`; step 2: `…"type":"audio","audio":{"id":<media_id>}` | mime must be `audio/ogg; codecs=opus`, mono, ≤ 16 MB (plain `audio/ogg` without opus is rejected by Meta) |
+| `IMAGE` (khoj card, C6) | step 1: upload, `POST /{phone_number_id}/media` multipart `file`, `type=image/png` (or `image/jpeg`), `messaging_product=whatsapp` → `{"id"}`; step 2: `…"type":"image","image":{"id":<media_id>,"caption":<part.text>}` (**verify in S3** against Meta's media and image-message references) | `part.image_blob_id` set and the bytes passed in as `image: ImageClip`; mime `image/png` or `image/jpeg`, ≤ 5 MB (WhatsApp image limit, verify); caption ≤ 1024 chars, else `ValueError` (never truncated). Free-form, so inside the 24-hour window only (the card follows a parent's report, s10b §4.13) |
 | `TEMPLATE` | `…"type":"template","template":{"name":<TemplateRef.name>,"language":{"code":<TemplateRef.language_code>},"components":[{"type":"button","sub_type":"quick_reply","index":"0","parameters":[{"type":"payload","payload":<button_payloads[0]>}]}]}` (**verify in S3** against Meta's template-message reference; the exact component shape for quick-reply payloads is unverified) | `part.template` set and `text`/`audio` unset; the name must be an approved template (`NUDGE_TEMPLATE_NAME`); ≤ 3 payloads, matching the template's buttons. **Not subject to the 24-hour window**: the outbox loop skips its window check for `TEMPLATE` parts (s04, s10b §4.11) |
 
 The response `{"messages":[{"id":"wamid…"}]}` → `DeliveryReceipt(provider_message_id, sent_at)`.
@@ -274,6 +278,7 @@ class WaContactProfile(BaseModel):   name: str | None = None
 class WaContact(BaseModel):          wa_id: str; profile: WaContactProfile | None = None
 class WaText(BaseModel):             body: str
 class WaAudio(BaseModel):            id: str; mime_type: str; sha256: str | None = None; voice: bool | None = None
+class WaImage(BaseModel):            id: str; mime_type: str; sha256: str | None = None; caption: str | None = None
 class WaButtonReply(BaseModel):      id: str; title: str
 class WaListReply(BaseModel):        id: str; title: str; description: str | None = None
 class WaInteractive(BaseModel):      type: Literal["button_reply", "list_reply"]
@@ -286,6 +291,7 @@ class WaError(BaseModel):            code: int; title: str | None = None; messag
                                      error_data: WaErrorData | None = None
 class WaMessage(BaseModel):          from_: str = Field(alias="from"); id: str; timestamp: str; type: str
                                      text: WaText | None = None; audio: WaAudio | None = None
+                                     image: WaImage | None = None
                                      interactive: WaInteractive | None = None; button: WaButton | None = None
                                      context: WaContext | None = None; errors: list[WaError] = []
 class WaStatus(BaseModel):           id: str; status: Literal["sent","delivered","read","played","failed"]
@@ -332,7 +338,8 @@ def strip_message_payload(message: WaMessage) -> dict[str, JsonValue]: ...
 class WhatsAppSender:                # implements ChannelSender
     channel: Channel = Channel.WHATSAPP
     def __init__(self, http: ProviderHttp, settings: WhatsAppSettings) -> None: ...
-    async def send(self, part: OutboundPart, recipient: ChannelAddress, audio: AudioClip | None = None) -> DeliveryReceipt: ...
+    async def send(self, part: OutboundPart, recipient: ChannelAddress, audio: AudioClip | None = None,
+                   image: ImageClip | None = None) -> DeliveryReceipt: ...   # `image`: requested contract change (C6)
     async def acknowledge(self, external_id: str) -> None:
         """Mark read + typing indicator: {"messaging_product":"whatsapp","status":"read",
         "message_id": external_id, "typing_indicator": {"type": "text"}}"""
@@ -439,6 +446,8 @@ self-signed certificates.
 - `test_verify_subscription_returns_challenge_only_for_subscribe_with_matching_token`
 - Parsing, one test per row of §4.4's type table, from fixtures `tests/fixtures/whatsapp/*.json` (text, voice note, forwarded audio, button_reply, list_reply, template button, image, sticker, reaction, unsupported with `131051`, system, status sent/delivered/read/played/failed, account-level errors, a batch with 3 messages + 2 statuses)
 - `test_unknown_message_type_becomes_unsupported_not_dropped`
+- `test_image_message_maps_to_image_kind_with_media_id_and_caption_text` (C7); `test_video_still_unsupported`
+- Sender: an `IMAGE` part uploads then sends `type=image` with the caption; a 1025-char caption → `ValueError`; an `IMAGE` part without bytes → `ValueError`
 - `test_foreign_phone_number_id_is_ignored`
 - `test_reaction_is_not_stored`
 - `test_profile_name_never_reaches_inbound_message`
@@ -450,7 +459,7 @@ self-signed certificates.
 
 **Property** (`@pytest.mark.unit`, hypothesis)
 - Signature: for any body bytes and secret, a correctly computed header verifies; flipping any single byte of the body or header fails (CLAUDE.md §3).
-- `strip_message_payload`: for generated `WaMessage`s with arbitrary `from` / `context.from` / `audio.url`, the serialised result never contains the `wa_id` string or any `url` key.
+- `strip_message_payload`: for generated `WaMessage`s with arbitrary `from` / `context.from` / `audio.url` / `image.url` / `image.caption`, the serialised result never contains the `wa_id` string, any `url` key, or the caption text.
 - `parse(serialize(m)) == m` for generated `WaMessage` → our parsed form (CLAUDE.md §3 payload property); unknown `type` strings always produce `UNSUPPORTED`.
 - `UserIdentity`: `decrypt(encrypt(x)) == x`; decrypting with another row's `user_hash` as associated data always raises; the same address always gives the same hash; different channels give different hashes for the same address.
 - Status ordering: applying any permutation of {sent, delivered, read} ends in `read` with both timestamps set (pure function extracted from the SQL `CASE`, plus the integration test below).
@@ -502,3 +511,4 @@ self-signed certificates.
 | Date | Change | Why | Approved |
 |---|---|---|---|
 | 2026-10-25 | Requested contract changes applied; added `TEMPLATE` part sending and the template quick-reply link for s10b nudges; template error codes marked for verification | Consolidation against the updated foundation docs; parent journey (B12) | owner |
+| 2026-10-26 | WhatsApp `image` messages map to `MessageKind.IMAGE` (media id, mime, caption → text; url and caption never kept in `raw_payload`); `IMAGE` parts can be sent (upload, then `type=image` with a caption ≤ 1024 chars) | Owner decisions C6 (khoj card) and C7 (activity photos) | owner |

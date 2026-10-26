@@ -291,8 +291,9 @@ app/store/      the ONLY place SQL lives.
 - **Crisis replies are fixed text** in `app/safety/crisis.py`, reviewed by a human, with helpline
   numbers copied from their official source. An LLM never writes them.
 - Users are mostly minors or speak for them: collect only role, grade, district and language;
-  for a parent's child, only an optional nickname (≤ 20 chars) and a birth year. Never photos,
-  full names, school names or exact birth dates. Activities for young children come from the
+  for a parent's child, only an optional nickname (≤ 20 chars) and a birth year. Never full
+  names, school names or exact birth dates. Photos of what a child made are checked for people
+  first (a person → reject and drop) and are never stored; only object counts are kept. Activities for young children come from the
   reviewed catalogue; personalisation may not add steps or materials, the `d7` hazard rule runs
   on every journey reply, and the supervision line is appended by code (s10b). Phone numbers are
   stored as salted hashes. Raw audio is deleted after transcription. Logs never contain phone
