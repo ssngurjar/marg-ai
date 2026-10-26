@@ -278,6 +278,14 @@ acknowledge "she didn't want to" warmly ("kal phir koshish kijiye, khel ki tarah
 Writes `ActivityReported(learner_activity_id, status=DONE, summary=summary_for_record)`.
 A report with no open activity is handled as a parent question (flow D).
 
+**Model (C9):** the reflection prompt runs on **Muse Spark Open** via Baseten
+(`OPEN_MODEL`), through a second instance of the s05 `LanguageModel` adapter (same Chat
+Completions surface, different base URL and key), chosen per prompt id by `OPEN_MODEL_ROUTES`.
+On any `ProviderError` it falls back to Muse Spark on the Model API in the same step, and
+`turn_steps.model` records which one answered. The strict-schema and `semantic_check` rules are
+identical. Verify in S2 spike E that Muse Spark Open supports `json_schema` structured output;
+if it doesn't, ask the owner before changing approach.
+
 ### 4.9 Parent questions — prompt `parent_answer.md.j2`
 
 Output `CanonicalReply` fields via a small schema (`answer ≤ 500 chars`, `try_this ≤ 200 chars`,
@@ -571,6 +579,7 @@ specificity, no careers for a 5-year-old, medical refusal, register).
 
 | Date | Change | Why | Approved |
 |---|---|---|---|
+| 2026-10-26 | Reflection on Muse Spark Open via Baseten with fallback | Decision C9 | owner |
 | 2026-10-26 | Khoj card with Muse Image (§4.13) and activity photos with SAM 3.1 (§4.14) | Owner decisions C6, C7: Use of Meta AI Tooling is 25% of the score (Official Rules) | owner |
 | 2026-10-25 | Launch catalogue 10 activities (minimum 7); deterministic flow dispatch for the MVP | Decisions C4 and C3b (mvp-scope.md) | owner |
 | 2026-10-25 | v1: parent journey for ages 3–8, daily opt-in template nudges, nickname + birth year only, curated catalogue with LLM personalisation, designed to move to guarded full generation | Owner decision (build a person from inception) | owner |

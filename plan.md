@@ -18,6 +18,7 @@ waiver at <https://cerebralvalley.ai/e/meta-ai-developer-hackathon/waiver> (read
 
 | Fact | Value | What it means for us |
 |---|---|---|
+| **Judging process (Participant Guide)** | **Stage 1** pass/fail: fits a problem statement and genuinely uses the Meta Model API and/or Meta open-weight models. **Stage 2**: Impact, Use of Meta AI Tooling, Technical Depth & Execution, Demo, **equally weighted, 0–10 each**. **Stage 3**: top 5 per track; final judges **watch the demo videos live** and rank them | The Guide (equal weights) and the Official Rules (30/25/20/25) differ; plan for both: no criterion can be weak. The 3-minute video decides the final round. |
 | **Project judging (Official Rules)** | **Impact 30%** (real-world potential, who benefits, could people use it, theme fit) · **Use of Meta AI Tooling 25%** (creative use, beyond basic integration, surfacing unexpected capabilities) · **Technical Depth & Execution 20%** (sound, refined engineering, real craft) · **Demo 25%** (working, impressive, holds up live, quality of the demo video) | These weights replace the event page's one-line summary. Every feature must earn points on at least one (§2). |
 | Prizes | **Indie track $400,000**: 1st $150k, 2nd $100k, 3rd $75k, 4th $50k, 5th $25k. Startup track $550k. Up to $50k bonus prizes (e.g. community vote, **most viral project**) | A shareable artefact (e.g. a khoj card) also competes for the viral bonus. |
 | Team size | Indie: individuals, students, or teams of up to 4 | Solo is allowed; a teammate (e.g. for content review or the video) is an option. |
@@ -26,10 +27,16 @@ waiver at <https://cerebralvalley.ai/e/meta-ai-developer-hackathon/waiver> (read
 | Rights | We keep ownership; Organizers get a perpetual, royalty-free licence to use and show the Submission, and no confidentiality | Never put secrets in the repo or video. Anyone appearing in the demo video must consent to Meta's public use of it (§8). |
 | Eligibility | 18+, not in sanctioned countries, not Meta/CV staff or family | Owner is eligible. |
 | Theme fit | "Build for Your World" — a problem you know firsthand | Marg.ai fits well. Lead the story with the rural exposure gap. |
-| Kickoff | **Mon Oct 26, 9:00 AM ET = 18:30 IST** | Day 1 starts in the evening IST |
+| Kickoff | **Mon Oct 26, 12:00 PM ET = 21:30 IST** (livestream: rules, prizes, judging). 9:00 AM ET was only the acceptance-email time. Official **building period: Oct 27 – Nov 4** | Code starts after kickoff (decision on the exact start below) |
 | Submission deadline | **Wed Nov 4, 9:00 PM ET = Thu Nov 5, 07:30 IST** (US DST ends Nov 1, so this is EST) | Plan to submit by **Nov 4, 23:00 IST**. Don't use the overnight buffer. |
 | Judging / finals | Nov 4–8 judging, Nov 9 closing ceremony with live finals | Judges must be able to **try it themselves**. Plan: a real WhatsApp number anyone can message (it works without business verification, see §4.1), with the public web demo (§4.7) as the guaranteed path. |
 | Pre-existing work | The rules published so far only require "original work product"; no clause on code written before the event was found (re-checked 2026-10-26). The organisers can still add rules | We assume the strict reading: **no product code or content before kickoff**. Planning and design docs only, tagged `pre-kickoff`, disclosed in the README. Re-read the rules after the kickoff livestream. |
+| Hackathon rules (Participant Guide) | **Repositories must be public.** The demo may only show what was built during the hackathon, and judges must be able to tell what was new (or **disqualification**). New work only. Banned: projects using code, data or assets without rights. **Anti-projects to avoid:** AI medical advice (incl. mental-health advisors), basic RAG apps, simple image analyzers, **simple "AI for Education" chatbots**, job screeners, nutrition coaches, personality analyzers, sports coaches, anything political or about war | Repo public by submission. README and video state exactly what was built during the event (the `pre-kickoff` tag marks the line). **Marg.ai must never look like an education chatbot** (see §8). The student mentor (RAG) and sports/political content are already out. |
+| Submission requirements | One submission via the CV platform by **Nov 4, 9:00 PM ET** (Nov 5, 07:30 IST): public repo, an accessible **3-minute demo video** of the features built during the hackathon, every contributor listed. For Most Viral: post the demo on X and submit the post link | `docs/submission/` holds the checklist and video script. |
+| Bonus prizes (Participant Guide) | **Most Viral $20k** (X engagement until Nov 8) · **Best Build on Meta Open Weight Models $10k** (Muse Glimmer or Muse Spark Open, own hardware or partner inference) · **Community Vote $10k** (public gallery, one vote per verified account) · **Best Agentic Use-Case $5k** · **Best Creative Build $5k** (Muse Image or Muse Wonder) | The khoj card (C6) qualifies for Best Creative Build. Open-weights bonus: decision below. Viral and community vote: post on X, share with our village network. |
+| Models named by the Guide | Muse Spark series, Muse Wonder, Muse Image, **Muse Voice Transcribe**, SAM 3.1 (Model API); **Muse Glimmer**, **Muse Spark Open** (open weights; on Baseten use `meta-models/muse-spark-open-1026`); Muse Code | We already use five of these. |
+| Partner credits (apply now) | Baseten $100 + 2M TPM (**up to 2,000 participants**, reviewed by use case); Modal $100 (**first 1,000 participants**); Fireworks $25 (shortlisted teams) | Apply today, since the first two are first-come or capped. |
+| Schedule (ET) | Workshops Oct 27, 28, 30 at 12:00 PM ET; Discord **#office-hours daily 10–11 AM ET on weekdays** (19:30–20:30 IST until Nov 1, then 20:30–21:30 IST); Nov 3 last day for submission troubleshooting; Nov 9 12:00 PM ET closing (top 5 per track, live final judging) | Ask the MMS-TTS licence question in #office-hours on Oct 27. |
 | Submission | Through the Cerebral Valley portal: <https://cerebralvalley.ai/e/meta-ai-developer-hackathon/hackathon/submit> | The rules name a demo video; check the portal's form for its other fields (repo, description, video length) on Day 1. |
 | Partner credits | Baseten $100 (+2M TPM), Modal $100, Fireworks $25 | Use these for open-weights models (Llama Guard, TTS, embeddings) |
 
@@ -365,17 +372,9 @@ Day boundaries are IST. **Feature freeze: end of Day 8.** Days 9 and 10 are for 
 
 | Day | Date | Goal (exit criterion in **bold**) |
 |---|---|---|
-| Pre | Oct 24–25 | Plan, CLAUDE.md, design docs. Accounts and the real-number setup. 10 consented voice samples. Draft the golden evals (test data). **No product code or product content before kickoff**: the activities are written from Day 1. The repo is tagged `pre-kickoff` at the boundary. |
-| 1 | Mon Oct 26 (from 18:30) | Re-read the rules after the kickoff livestream. S1, S2, S3; submit the nudge template; start drafting the 10 activities. **A reply sent to a real phone.** |
-| 2 | Tue Oct 27 | S4 (exception E1), S5 with the safety core. **Text in → checked Muse Spark reply out; a restart mid-turn loses nothing.** |
-| 3 | Wed Oct 28 | S6 voice. **Voice note in → voice note out.** |
-| 4 | Thu Oct 29 | S7 safety, S8 onboarding. **Crisis and adversarial cases pass; parent onboarding works on the phone.** |
-| 5 | Fri Oct 30 | S10b core: catalogue, selection, personalisation, reflection; activities reviewed. **Khoj → voice report → serve-and-return reply.** |
-| 6 | Sat Oct 31 | S10b nudges and polish, S13 curiosity signals. **Field testing with parents starts; the nudge arrives at the chosen time.** |
-| 7 | Sun Nov 1 | S14 (E2) web demo, S13 `/status` and admin dashboard. **A stranger can use `/demo`.** |
-| 8 | Mon Nov 2 | S15 scorecard. **Checkpoint:** if the parent journey is demo-ready, S10 teacher exposure-lite (half a day); otherwise polish. **Scorecard committed.** |
-| 9 | Tue Nov 3 | S16 hardening (E4). **Feature freeze at end of day**; field-test fixes only after that. |
-| 10 | Wed Nov 4 | S18: demo video (a mother and her 5-year-old, then the full-journey pitch), README, architecture diagram, scorecard, submission form. **Submitted by 23:00 IST**, which leaves 8.5 h of buffer before the 07:30 IST Nov 5 deadline. |
+| Pre | Oct 24–25 | Plan, CLAUDE.md, design docs, golden eval drafts. **No product code or content.** Tagged `pre-kickoff`. |
+| 0 | Mon Oct 26 | Kickoff livestream **21:30 IST**; accounts; credit requests (Model API, Baseten, Modal); Discord; nudge template submitted. **No code.** |
+| 1–9 | Oct 27 – Nov 4 | Building period. Day-by-day plan: [docs/design/mvp-scope.md](docs/design/mvp-scope.md) §6. Code starts **Tue Oct 27, 09:30 IST** (00:00 ET). Feature freeze end of Nov 3. **Submitted by Nov 4, 23:00 IST** (deadline 07:30 IST Nov 5). |
 
 **Hackathon cut (owner decisions C1–C4, 2026-10-25):** the MVP is the parent journey. Teacher
 exposure-lite is a stretch after the Day 8 checkpoint. The student mentor, RAG and roadmaps, the
@@ -400,6 +399,7 @@ dialect biasing in STT · a second regional language.
 | Scope creep | High | §2 scope rule. Feature freeze on Day 8. |
 | Cost overrun on the public demo | Low | Per-IP rate limit, daily spend cap, no search grounding on `/demo` by default. |
 | Fabricated career facts | Medium | RAG with mandatory citations, the "don't know" path, and a grounding score in evals. |
+| **Judged as an "AI for Education chatbot"** (an anti-project in the Guide) | Medium | Marg.ai is not a chatbot for children: the child never uses a screen. Lead every artefact (README first line, video first 20 s, submission text) with *offline parent-child discovery coached by voice*, proactive daily nudges, multimodal (voice, photos via SAM 3.1, Muse Image cards), and the learner trajectory. Medical questions are refused and referred, never answered. |
 | An unsafe activity suggestion for a young child | Low | Reviewed catalogue only; personalisation can't add steps or materials; the `d7` hazard rule on every reply; a fixed supervision line appended by code; fallback to the reviewed text. |
 | Nudge template not approved in time | Medium | Submit on Day 1. Without it, parents start each day by tapping "Aaj ki khoj" or typing it; the journey works, just not proactively. |
 | MMS-TTS licence is non-commercial (CC-BY-NC) while the Official Rules require every open-source licence to be followed, and grant Meta a licence to use the Submission for marketing | Medium | A prize competition may not count as non-commercial use. Ask the organisers on Discord on Day 1; spike Indic Parler-TTS (Apache 2.0) alongside MMS in S2; decision pending with the owner. |
@@ -661,9 +661,9 @@ Some steps need the official rules confirmed (any product code) or the Model API
 | [ ] S13 | **Telemetry:** `/status`, curiosity signals, admin young-learner dashboard | Full (scoped) | s13 + mvp-scope §4.5 | Curiosity signals and metrics from field testing visible | 6–7 |
 | [ ] S14 | **Web demo** `/demo` with the pipeline trace (polling) | Exception E2 | s14 + mvp-scope §4.6 | A stranger can use it from a link; rate limit and cost cap work | 7 |
 | [ ] S15 | **Eval scorecard** (parent journey, safety, onboarding) | Full (scoped) | s15 + mvp-scope §4.7 | Scorecard committed; targets met | 8 |
-| [ ] S10 | **Teacher exposure-lite** | Stretch (Day 8 checkpoint) | s10 | A spoken chapter name returns an ExposureBridge | 8 |
-| [ ] S16 | **Hardening:** audit, timeouts, readiness, 10-user smoke test. **FEATURE FREEZE** | Exception E4 | s16 + mvp-scope §4.7 | p50 recorded; checklist done | 9 |
-| [ ] S17 | **Field test** with parents (from Day 6) | Full | plan §7 | 3+ parents have completed a khoj and a report | 6–9 |
-| [ ] S18 | **Submission:** README, architecture diagram, demo video, form | Full | plan §7, §10 | Submitted by Nov 4, 23:00 IST | 10 |
+| [ ] S10 | **Teacher exposure-lite** | Stretch (Day 8 checkpoint) | s10 | A spoken chapter name returns an ExposureBridge | after 8 (stretch) |
+| [ ] S16 | **Hardening:** audit, timeouts, readiness, 10-user smoke test. **FEATURE FREEZE** | Exception E4 | s16 + mvp-scope §4.7 | p50 recorded; checklist done | 8 |
+| [ ] S17 | **Field test** with parents (from Day 6, Nov 1) | Full | plan §7 | 3+ parents have completed a khoj and a report | 6–8 |
+| [ ] S18 | **Submission:** README, architecture diagram, demo video, form | Full | plan §7, §10 | Submitted by Nov 4, 23:00 IST | 9 |
 | — S11 | RAG | Phase 2 | s11 | — | — |
 | — S12 | Mentor, roadmap, memory | Phase 2 | s12 | — | — |

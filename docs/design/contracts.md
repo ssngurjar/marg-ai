@@ -605,6 +605,8 @@ and a unit test enforce. When the user's language is unknown, the Hinglish versi
 | `MODEL_API_KEY` | `SecretStr` | — |
 | `MODEL_TEXT` / `MODEL_AUDIO` / `MODEL_JUDGE` | `str` | `muse-spark-1.3` / `muse-spark-1.2` / `muse-spark-1.3` |
 | `MODEL_STT` | `str` | `muse-voice-transcribe-1.0` |
+| `OPEN_MODEL_BASE_URL` / `OPEN_MODEL_API_KEY` / `OPEN_MODEL` | `HttpUrl` / `SecretStr` / `str` | Baseten / — / `meta-models/muse-spark-open-1026` (C9) |
+| `OPEN_MODEL_ROUTES` | `frozenset[str]` | `{"parent_reflection", "curiosity_extract"}`: prompt ids served by Muse Spark Open; any failure falls back to `MODEL_TEXT` |
 | `SAFETY_BASE_URL` / `SAFETY_API_KEY` / `SAFETY_MODEL` | `HttpUrl` / `SecretStr` / `str` | host decided in S2 |
 | `SAFETY_POLICY_MODEL_ENABLED` | `bool` | `true` |
 | `SIDECAR_BASE_URL` / `SIDECAR_TOKEN` | `HttpUrl` / `SecretStr` | — |
@@ -680,6 +682,7 @@ Per-step timeouts `TIMEOUT_<STEP>_S`: `FETCH_MEDIA` 5, `TRANSCRIBE` 8, `SAFETY_I
 | 2026-10-25 | `TurnObserver.on_step` carries the step result; `process_user_turn` accepts an observer; `GoldenLearner`; `SignedTokenCodec`; `ExtractSignals`/`UpdateMemory` fields; writes applied in list order | Requested by s13 and s15 forks; needed for evals to capture replies and for the first-khoj handoff | pending owner review |
 | 2026-10-25 | `CanonicalReply.spoken_text`; layers write in the user's register for the MVP | Decision C3c (direct localisation) | owner |
 | 2026-10-25 | Safety ordering: generation may run concurrently with `safety_in`, used only on ALLOW | Decision C3a | owner |
+| 2026-10-26 | `OPEN_MODEL_*` settings: Muse Spark Open on Baseten for selected prompts | Decision C9 | owner |
 | 2026-10-26 | Images: `MessageKind.IMAGE`, `PartKind.IMAGE`, `ImageClip`, `ImageGenerator` (Muse Image), `ImageSegmenter` (SAM 3.1), image safety in `SafetyRequest`, `MakeKhojCard` post-turn task, `Route.KHOJ_CARD`, image steps, settings | Owner decisions C6 (khoj card) and C7 (activity photos) after reading the Official Rules (Meta tooling is 25% of the score) | owner |
 | 2026-10-26 | `MediaFetcher.fetch_image`, `ChannelSender.send(image=…)`, `TTS_ENGINE` | Mechanical consequences of C6–C8, requested by the image fork | owner (C6–C8) |
 | 2026-10-25 | `StepRecorder.record` gains `decision` | Needed to fill `turn_steps.decision` (s07 writes it, s14 trace reads it); requested by s05 C9 | pending owner review |

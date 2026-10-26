@@ -76,6 +76,8 @@ contracts, ports, `TurnWrite`s, sealed safety types and tables.
 | C6 | Khoj card with Muse Image after a good report: a textless illustration with the discovery in the caption, safety-checked by Llama Guard 4 (multimodal), shareable. | Meta tooling is 25% of the score (Official Rules); also aims at the "most viral" bonus |
 | C7 | Activity photos with SAM 3.1: a person check first (reject and drop), then object counts feed the reflection; photos never stored. | Same: "surfacing unexpected capabilities" |
 | C8 | TTS licence: ask the organisers on Day 1 whether MMS-TTS (CC-BY-NC) is fine; spike MMS and Indic Parler-TTS (Apache 2.0) in S2; use MMS only if confirmed. | The rules require every open-source licence to be followed |
+| C9 | Muse Spark Open on Baseten (`meta-models/muse-spark-open-1026`) runs the parent reflection and curiosity extraction, behind the same `LanguageModel` port, with Muse Spark on the Model API as the fallback. | Best Build on Meta Open Weight Models ($10k) and the Meta tooling criterion |
+| C10 | Code starts Oct 27 00:00 ET (09:30 IST), the official building period; 9 build days. | Participant Guide: building period Oct 27 – Nov 4, new work only |
 | C5 | Enterprise grade by default; a lite version only where the full one would stretch the 10 days, each with a reason and an upgrade trigger (§0, §4). C3's latency changes are part of the full design, not shortcuts. | "MVP-lite" as the default framing |
 
 ## 4. Exceptions and scoped designs
@@ -241,23 +243,31 @@ parts in hackathon scope (C1). **Exception** = §4's lite version until its upgr
 
 ## 6. Schedule (IST)
 
+Code starts at the official building period: **Tue Oct 27, 00:00 ET = 09:30 IST** (decision C10).
+Monday Oct 26 is for the kickoff livestream (21:30 IST), accounts and credit requests only.
+That gives 9 build days, so the old Day 1 evening is folded in.
+
 | Day | Date | Work | Exit |
 |---|---|---|---|
-| 1 | Mon Oct 26 (from 18:30) | Re-read the rules; S1, S2, S3; submit the nudge template; start drafting activities | reply sent to a real phone |
-| 2 | Tue Oct 27 | S4 (E1), S5 (+ safety core) | text in → checked Muse Spark reply out; restart mid-turn loses nothing |
-| 3 | Wed Oct 28 | S6 voice | voice note in → voice note out |
-| 4 | Thu Oct 29 | S7, S8 | crisis and adversarial cases pass; parent onboarding on the phone |
-| 5 | Fri Oct 30 | S10b core (catalogue, selection, personalisation, reflection); activities reviewed | khoj → report → serve-and-return reply |
-| 6 | Sat Oct 31 | S10b nudges and **khoj card (C6)**, S13 signals; **field testing with parents starts** | nudge at the chosen time; a card after a good report |
-| 7 | Sun Nov 1 | S14 (E2) web demo, S13 `/status` and admin dashboard | a stranger can use `/demo` |
-| 8 | Mon Nov 2 | **Activity photos with SAM 3.1 (C7)**, S15 scorecard. **Checkpoint:** S10 exposure-lite only if everything above is demo-ready | photo counts in a reflection; scorecard committed |
-| 9 | Tue Nov 3 | S16 hardening (E4); **feature freeze at end of day**; field-test fixes | p50 recorded; pre-demo checklist done |
-| 10 | Wed Nov 4 | S18: video (a mother and her 5-year-old, then the pitch for the full journey), README, submission | submitted by 23:00 IST |
+| 0 | Mon Oct 26 | Kickoff 21:30 IST; accounts, credits (Model API, Baseten, Modal), Discord, nudge template submitted. **No code.** | rules confirmed; credits requested |
+| 1 | Tue Oct 27 (from 09:30) | S1, S2 spikes, S3; ask the MMS licence question in #office-hours (19:30 IST) | a reply sent to a real phone |
+| 2 | Wed Oct 28 | S4 (E1), S5 with the safety core; start drafting the 10 activities | text in → checked Muse Spark reply out; restart mid-turn loses nothing |
+| 3 | Thu Oct 29 | S6 voice | voice note in → voice note out |
+| 4 | Fri Oct 30 | S7, S8 | crisis and adversarial cases pass; parent onboarding on the phone |
+| 5 | Sat Oct 31 | S10b core; activities reviewed in the village | khoj → report → serve-and-return reply |
+| 6 | Sun Nov 1 | S10b nudges, khoj card (C6), S13 signals; **field testing with parents starts** | nudge at the chosen time; a card after a good report |
+| 7 | Mon Nov 2 | S14 (E2) web demo, Muse Spark Open on Baseten (C9), `/status` and admin dashboard | a stranger can use `/demo`; reflection runs on Muse Spark Open |
+| 8 | Tue Nov 3 | SAM 3.1 photos (C7), S15 scorecard, S16 (E4). **Feature freeze at end of day** (also the last day for submission troubleshooting on Discord) | scorecard committed; checklist done |
+| 9 | Wed Nov 4 | S18: video, README, X post, submission | **submitted by 23:00 IST** (deadline 07:30 IST Nov 5) |
+
+If a day slips, the owner decides what gives way. The suggested order to cut is: the teacher
+stretch (S10) first, then SAM photos (C7), then the khoj card (C6). The hard lines (§2) never move.
 
 ## Decisions log
 
 | Date | Change | Why | Approved |
 |---|---|---|---|
+| 2026-10-26 | C9 Muse Spark Open, C10 code start and 9-day schedule | Participant Guide (bonus prizes, building period) | owner |
 | 2026-10-26 | C6 khoj card, C7 activity photos, C8 TTS licence check | Official Rules: Meta tooling 25%, licences must be followed | owner |
 | 2026-10-25 | C5: enterprise by default; lite only as listed exceptions E1–E4 with upgrade triggers | Owner: aim for full enterprise grade, take lite steps only where they'd stretch the 10 days | owner |
 | 2026-10-25 | v1: C1–C4 | External review: focus on the unique parent journey, cut invisible infrastructure, hit the latency target | owner |

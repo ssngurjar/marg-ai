@@ -44,6 +44,19 @@ issue, or a chat.**
       anganwadi worker or teacher) now.
 - [ ] Ask one parent of a 3–8-year-old and one teacher to be field testers from Day 6.
 
+## 1b′. Urgent today (from the Participant Guide)
+
+- [ ] **Request Modal credits** ($100, first 1,000 participants) and **Baseten credits** ($100 + 2M
+      TPM, up to 2,000, reviewed by use case: "voice-first WhatsApp coach for rural parents; Muse
+      Spark Open for multimodal reflection"). Fireworks is per-team shortlist: request too.
+- [ ] **Join the hackathon Discord**, post in #intros, follow #announcements. Questions for the
+      Meta team go to #office-hours (weekdays 10–11 AM ET = 19:30–20:30 IST until Nov 1).
+- [ ] **Watch the kickoff livestream: Mon Oct 26, 12:00 PM ET = 21:30 IST.**
+- [ ] The credit claim link is "coming soon" in the Guide: watch the portal and email. Add a card on
+      the Model API **Billing** page and set a **Spend Limit** notification at $150.
+- [ ] Create the GitHub repo as **public** (required by the rules) when the first code lands, with
+      the full git history so the `pre-kickoff` tag is visible.
+
 ## 1c. Day 1 actions from the Official Rules (read 2026-10-26)
 
 - [ ] Accept the Official Rules and waiver in the portal.
