@@ -11,9 +11,9 @@ from sqlalchemy.engine import Connection
 from alembic import context
 from app.core.config import load_settings
 from app.store.db import create_engine
+from app.store.tables import metadata
 
-# Table metadata is registered here from S3, when the first tables exist.
-target_metadata = None
+target_metadata = metadata
 
 
 def run_migrations_offline() -> None:

@@ -6,7 +6,7 @@ the code that reads them, and adds them to `.env.example`.
 
 from typing import Literal
 
-from pydantic import SecretStr, ValidationError, field_validator
+from pydantic import Field, HttpUrl, SecretStr, ValidationError, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.core.errors import ConfigError
@@ -31,6 +31,17 @@ class Settings(BaseSettings):
     environment: Environment = "local"
     database_url: SecretStr
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
+
+    # Added in S3 for identity and WhatsApp
+    user_hash_salt: SecretStr
+    address_encryption_key: SecretStr
+    whatsapp_graph_base_url: HttpUrl
+    whatsapp_access_token: SecretStr
+    whatsapp_app_secret: SecretStr
+    whatsapp_verify_token: SecretStr
+    whatsapp_phone_number_id: str = Field(min_length=1)
+    webhook_max_body_bytes: int = Field(default=5_000_000, gt=0)
+    timeout_whatsapp_s: float = Field(default=5.0, gt=0)
 
     @field_validator("database_url")
     @classmethod

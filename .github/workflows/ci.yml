@@ -57,6 +57,7 @@ jobs:
       - run: .venv/bin/alembic upgrade head
       - run: .venv/bin/alembic downgrade base
       - run: .venv/bin/alembic upgrade head
+      - run: .venv/bin/alembic check   # tables in code match the migrations
       - run: .venv/bin/pytest -m integration
 
   docker:

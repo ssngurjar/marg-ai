@@ -4,19 +4,13 @@ from contextlib import contextmanager
 
 import pytest
 from fastapi.testclient import TestClient
-from pydantic import SecretStr
 
 from app.api.readiness import ReadinessProbe
-from app.core.clock import SystemClock
-from app.core.config import Settings
 from app.core.errors import StoreError
 from app.main import create_app
-from app.store.db import create_engine, create_session_factory
-from app.wiring import Container
+from tests.support.app_factory import make_container, make_settings
 
 pytestmark = pytest.mark.unit
-
-UNREACHABLE_URL = "postgresql+asyncpg://marg:marg@127.0.0.1:1/marg"
 
 
 async def passing() -> None:
@@ -33,16 +27,7 @@ async def hanging() -> None:
 
 @contextmanager
 def make_client(*probes: ReadinessProbe) -> Iterator[TestClient]:
-    settings = Settings(database_url=SecretStr(UNREACHABLE_URL), environment="test")
-    engine = create_engine(settings)
-    container = Container(
-        settings=settings,
-        clock=SystemClock(),
-        engine=engine,
-        session_factory=create_session_factory(engine),
-        readiness_probes=probes,
-    )
-    with TestClient(create_app(container=container)) as client:
+    with TestClient(create_app(container=make_container(probes=probes))) as client:
         yield client
 
 
@@ -124,9 +109,7 @@ def test_readyz_with_no_probes_is_ready() -> None:
 
 
 def test_docs_hidden_in_prod() -> None:
-    settings = Settings(database_url=SecretStr(UNREACHABLE_URL), environment="prod")
-    engine = create_engine(settings)
-    container = Container(settings, SystemClock(), engine, create_session_factory(engine), ())
+    container = make_container(settings=make_settings(environment="prod"))
     with TestClient(create_app(container=container)) as client:
         assert client.get("/docs").status_code == 404
         assert client.get("/openapi.json").status_code == 404

@@ -489,6 +489,12 @@ class ImageSegmenter(Protocol):             # SAM 3.1 (s10b activity photos, C7)
 class ActivitySource(Protocol):             # s10b: catalogue now, guarded generation later
     async def candidates(self, learner: Learner, today: date, recent_ids: Sequence[str]) -> list["Activity"]: ...
 
+```
+
+**Clock** (`app/core/clock.py`, not `ports.py`: `api` and `core` need it and may not import
+`providers`; `SystemClock` is the only `datetime.now` in the app):
+
+```python
 class Clock(Protocol):
     def now(self) -> datetime: ...           # aware UTC
 ```
@@ -632,7 +638,8 @@ and a unit test enforce. When the user's language is unknown, the Hinglish versi
 
 | Setting | Type | Default |
 |---|---|---|
-| `WHATSAPP_GRAPH_BASE_URL` | `HttpUrl` | pinned in S3 (`…/vNN.0`) |
+| `WHATSAPP_GRAPH_BASE_URL` | `HttpUrl` | — (set to `https://graph.facebook.com/v26.0`; docs/decisions/0001) |
+| `TIMEOUT_WHATSAPP_S` | `float` | 5.0 (one Graph API call) |
 | `WHATSAPP_ACCESS_TOKEN` / `WHATSAPP_APP_SECRET` / `WHATSAPP_VERIFY_TOKEN` | `SecretStr` | — |
 | `WHATSAPP_PHONE_NUMBER_ID` | `str` | — |
 | `WEBHOOK_MAX_BODY_BYTES` | `int` | 5_000_000 |
@@ -702,5 +709,6 @@ Per-step timeouts `TIMEOUT_<STEP>_S`: `FETCH_MEDIA` 5, `TRANSCRIBE` 8, `SAFETY_I
 | 2026-10-26 | `OPEN_MODEL_*` settings: Muse Spark Open on Baseten for selected prompts | Decision C9 | owner |
 | 2026-10-26 | Images: `MessageKind.IMAGE`, `PartKind.IMAGE`, `ImageClip`, `ImageGenerator` (Muse Image), `ImageSegmenter` (SAM 3.1), image safety in `SafetyRequest`, `MakeKhojCard` post-turn task, `Route.KHOJ_CARD`, image steps, settings | Owner decisions C6 (khoj card) and C7 (activity photos) after reading the Official Rules (Meta tooling is 25% of the score) | owner |
 | 2026-10-26 | `MediaFetcher.fetch_image`, `ChannelSender.send(image=…)`, `TTS_ENGINE` | Mechanical consequences of C6–C8, requested by the image fork | owner (C6–C8) |
+| 2026-10-27 | `Clock` lives in `app/core/clock.py`; `WHATSAPP_GRAPH_BASE_URL` pinned to `v26.0`; `TIMEOUT_WHATSAPP_S` added | S3 build: layering (api may not import providers), Day-1 version pin, the Graph client's timeout | owner (Clock, pin); pending owner review (timeout) |
 | 2026-10-25 | `StepRecorder.record` gains `decision` | Needed to fill `turn_steps.decision` (s07 writes it, s14 trace reads it); requested by s05 C9 | pending owner review |
 | 2026-10-25 | Trimmed: classroom codes, roadmap progress/check-ins, query rewriting default off | Fund the parent journey within 10 days | owner |

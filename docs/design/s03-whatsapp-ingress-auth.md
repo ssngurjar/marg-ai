@@ -53,14 +53,19 @@ Meta ──POST /webhooks/whatsapp──▶ api
   1. raw = await request.body()                    (cap: 5 MB → 413)
   2. verify_signature(raw, X-Hub-Signature-256)    (fail → 401, nothing parsed, nothing stored)
   3. body = WebhookBody.model_validate_json(raw)   (fail → log error, 200; see 4.4)
-  4. for each entry[].changes[] with field == "messages"
+  4. parse_webhook (channels, no I/O): for each entry[].changes[] with field == "messages"
      and value.metadata.phone_number_id == WHATSAPP_PHONE_NUMBER_ID:
-       messages[] → InboundMessage + users upsert + inbox insert
-       statuses[] → StatusUpdate → apply_status_update (S4 onwards)
+       messages[] → ParsedMessage (InboundMessage + wa_id + stripped raw_payload)
+       statuses[] → StatusUpdate → apply_status_update (S4 onwards, with outbox_messages)
        value.errors[] → log at error (account or app level problems)
-  5. one DB transaction for the whole POST; pg_notify('inbox_new', '') if any row was inserted
+     changes for any other field are counted as ignored, whatever their value's shape
+  5. the route encrypts each address (UserIdentity) and calls InboundStore.save (store):
+     one DB transaction for the whole POST; pg_notify('inbox_new', '') if any row was inserted
   6. return 200 "ok"
 ```
+
+Each layer keeps to its lane (CLAUDE.md §9): `channels` knows the payload shape and does no I/O,
+`store` holds the SQL, and the route only hands one to the other.
 
 The handler does nothing else. No model calls, no outbound HTTP. Read receipts and the typing
 indicator are sent by the worker when it starts the turn (`acknowledge`, §5.4), because that's
@@ -105,7 +110,8 @@ must not turn every webhook into a parse failure. They're still fully typed, and
 | Valid signature, valid envelope | 200 | each message → inbox row |
 | Valid signature, body isn't JSON / envelope invalid | 200 | nothing (no user to attach it to). Log `error` with `fbtrace`-free summary: size, first validation error path, no values |
 | Envelope valid, one message fails its type-specific model | 200 | that message stored as `kind = UNSUPPORTED` with its stripped raw payload, so it's visible and gets the "I can only understand voice and text" reply |
-| `object != "whatsapp_business_account"` or `field != "messages"` | 200 | nothing; log `info` |
+| `object != "whatsapp_business_account"` or `field != "messages"` | 200 | nothing; log `info`. A change for another field (e.g. `account_update`, sent when an app is subscribed to the account) has no `messaging_product` or `metadata`; its value is not validated, so it can't make the webhook unparseable or drop a message batched beside it. A `messages` change is still validated strictly |
+| Envelope valid, a message lacks `from`, `id` or `timestamp` | 200 | that message is counted as `malformed` and not stored (there's no sender to attach it to); the rest of the batch is stored |
 | `phone_number_id` isn't ours | 200 | nothing; log `warning` (misrouted webhook or a second number on the app) |
 
 Returning 200 for an authentic payload we can't parse is deliberate. A non-200 makes Meta retry
@@ -203,8 +209,11 @@ SET status       = CASE
 WHERE provider_message_id = :provider_message_id;
 ```
 
-`outbox_messages` is created in S4. In S3, status updates are parsed, validated and logged, and
-the repository function exists and is unit-tested. The webhook calls it from S4 onwards.
+`outbox_messages` is created in S4. In S3, status updates are parsed, validated and counted in
+the `webhook_received` log line. The forward-only rule is the pure function
+`app/domain/delivery.py: next_delivery_status`, property-tested in S3. The SQL above
+(`apply_status_update`) is written in S4 together with the table it updates, and the webhook
+calls it from then on.
 An unknown `provider_message_id` (not ours, or the row was deleted with its user) updates zero
 rows and logs at `debug`.
 
@@ -255,9 +264,9 @@ after the API accepted the message.
 
 ### 4.11 Graph API version
 
-`WHATSAPP_GRAPH_BASE_URL` pins the version (`…/v23.0` in contracts.md is a placeholder). In S3,
-look up the current version in the App Dashboard, pin it, and record it in `docs/decisions/`.
-Meta keeps each version for roughly two years, so one pin lasts the whole project.
+`WHATSAPP_GRAPH_BASE_URL` pins the version: **`https://graph.facebook.com/v26.0`**, recorded in
+[docs/decisions/0001-graph-api-v26.md](../decisions/0001-graph-api-v26.md). Meta keeps each version
+for roughly two years, so one pin lasts the whole project.
 
 ## 5. Interfaces
 
@@ -296,16 +305,25 @@ class WaMessage(BaseModel):          from_: str = Field(alias="from"); id: str; 
                                      context: WaContext | None = None; errors: list[WaError] = []
 class WaStatus(BaseModel):           id: str; status: Literal["sent","delivered","read","played","failed"]
                                      timestamp: str; recipient_id: str; errors: list[WaError] = []
+class WaMessageEnvelope(BaseModel): from_: str = Field(alias="from"); id: str; timestamp: str; type: str = "unknown"
 class WaValue(BaseModel):            messaging_product: Literal["whatsapp"]; metadata: WaMetadata
-                                     contacts: list[WaContact] = []; messages: list[WaMessage] = []
-                                     statuses: list[WaStatus] = []; errors: list[WaError] = []
-class WaChange(BaseModel):           field: str; value: WaValue
+                                     contacts: list[WaContact] = []
+                                     messages: list[dict[str, JsonValue]] = []   # validated one by one
+                                     statuses: list[dict[str, JsonValue]] = []   # validated one by one
+                                     errors: list[WaError] = []
+class WaMessagesChange(BaseModel):   field: Literal["messages"]; value: WaValue
+class WaOtherChange(BaseModel):      field: str; value: JsonValue = None        # never read
+type WaChange = WaMessagesChange | WaOtherChange   # chosen by `field` (a Discriminator), never by trial
 class WaEntry(BaseModel):            id: str; changes: list[WaChange]
 class WebhookBody(BaseModel):        object: str; entry: list[WaEntry]
 ```
 
 `type` stays a `str` on `WaMessage` (not a `Literal`), so an unknown type validates and is then
-mapped to `UNSUPPORTED` by `to_inbound`, instead of failing the whole envelope.
+mapped to `UNSUPPORTED`, instead of failing the whole envelope. Messages and statuses are kept raw
+in `WaValue` and validated one at a time (`WaMessageEnvelope` first, then `WaMessage`), so one
+broken message can't make the whole batch unparseable. `WaChange` is picked by the `field` value
+rather than by trying each model in turn: with a plain union, a malformed `messages` change would
+quietly validate as `WaOtherChange` and its messages would be lost.
 
 ### 5.3 `app/channels/whatsapp/inbound.py`
 
@@ -325,42 +343,56 @@ class ParsedMessage(BaseModel):
 class ParsedWebhook(BaseModel):
     messages: list[ParsedMessage]
     statuses: list[StatusUpdate]
-    ignored: int                     # reactions, system messages, foreign phone_number_id
+    ignored: int                     # reactions, system messages, other objects or fields
+    foreign_phone_number_id: int     # changes addressed to a number that isn't ours
+    malformed: int                   # messages or statuses too broken to attribute to anyone
     account_errors: list[WaError]
 
-def parse_webhook(body: WebhookBody, own_phone_number_id: str, hasher: UserIdentity, received_at: datetime) -> ParsedWebhook: ...
-def strip_message_payload(message: WaMessage) -> dict[str, JsonValue]: ...
+def parse_webhook(body: WebhookBody, own_phone_number_id: str, identity: UserIdentity, received_at: datetime) -> ParsedWebhook: ...
+def strip_message_payload(envelope: WaMessageEnvelope, message: WaMessage) -> dict[str, JsonValue]: ...
 ```
 
 ### 5.4 `app/channels/whatsapp/client.py`
 
 ```python
+@dataclass(frozen=True)
+class WhatsAppConfig:                # built in app/wiring.py from Settings
+    graph_base_url: str; phone_number_id: str; access_token: SecretStr; timeout_s: float
+
 class WhatsAppSender:                # implements ChannelSender
     channel: Channel = Channel.WHATSAPP
-    def __init__(self, http: ProviderHttp, settings: WhatsAppSettings) -> None: ...
+    def __init__(self, *, config: WhatsAppConfig, clock: Clock, http: httpx.AsyncClient | None = None) -> None: ...
     async def send(self, part: OutboundPart, recipient: ChannelAddress, audio: AudioClip | None = None,
-                   image: ImageClip | None = None) -> DeliveryReceipt: ...   # `image`: requested contract change (C6)
+                   image: ImageClip | None = None) -> DeliveryReceipt: ...
     async def acknowledge(self, external_id: str) -> None:
         """Mark read + typing indicator: {"messaging_product":"whatsapp","status":"read",
         "message_id": external_id, "typing_indicator": {"type": "text"}}"""
-    async def upload_audio(self, clip: AudioClip) -> str: ...   # returns media id
+    async def upload_media(self, data: bytes, mime_type: str, filename: str) -> str: ...   # media id; audio and images
+    async def aclose(self) -> None: ...   # closes its own HTTP client at shutdown
 
 def classify_graph_error(status_code: int, body: bytes) -> ProviderError: ...
 ```
 
-`audio` is passed in by the outbox loop, which loads `media_blobs` for `part.audio_blob_id`. The
-sender does no database access. `ProviderHttp` is the shared client with retry policy
-from `app/providers/http.py` (S5 builds it fully; S3 uses its timeout and error mapping).
+`audio` and `image` are passed in by the outbox loop, which loads `media_blobs` for the part. The
+sender does no database access. It owns its `httpx.AsyncClient` (so `wiring` never imports
+httpx); `http` is injected only by tests. Each call is **one attempt** with
+`TIMEOUT_WHATSAPP_S`: retries with backoff belong to the outbox loop (S4), driven by each error's
+`retryable` flag, and the shared retry helper in `app/providers/http.py` arrives with S5.
 
 ### 5.5 `app/core/identity.py`
 
 ```python
 class UserIdentity:
     def __init__(self, salt: SecretStr, encryption_key: SecretStr) -> None: ...
-    def user_hash(self, channel: Channel, address: str) -> UserHash: ...
-    def encrypt_address(self, user_hash: UserHash, address: str) -> bytes: ...
-    def decrypt_address(self, user_hash: UserHash, ciphertext: bytes) -> SecretStr: ...   # raises InvalidAddressCiphertext
+    def user_hash(self, channel: str, address: str) -> str: ...
+    def encrypt_address(self, user_hash: str, address: str) -> bytes: ...
+    def decrypt_address(self, user_hash: str, ciphertext: bytes) -> SecretStr: ...   # raises InvalidAddressCiphertext
 ```
+
+`core` may not import `domain`, so the channel is its string value (`Channel.WHATSAPP.value`)
+and the hash is a plain `str`; callers in `channels` wrap it as `UserHash`. A salt that isn't hex
+of at least 32 bytes, or a key that isn't base64 of exactly 32 bytes, raises `ConfigError` at
+startup.
 
 ### 5.6 `app/api/webhooks_whatsapp.py`
 
@@ -368,28 +400,35 @@ class UserIdentity:
 router = APIRouter(prefix="/webhooks/whatsapp")
 
 @router.get("")   async def verify(mode: str | None = Query(None, alias="hub.mode"), ...) -> PlainTextResponse: ...
-@router.post("")  async def receive(request: Request, ingest: WhatsAppIngestDep) -> PlainTextResponse: ...
+@router.post("")  async def receive(request: Request, settings: SettingsDep,
+                                     identity: Annotated[UserIdentity, Depends(get_identity)],
+                                     store: Annotated[InboundStore, Depends(get_inbound_store)],
+                                     clock: Annotated[Clock, Depends(get_clock)]) -> Response: ...
 ```
 
-`WhatsAppIngest` (in `app/channels/whatsapp/ingest.py`) does steps 3–5 of §4.1, so the route stays
-thin and the logic can be tested without HTTP.
+The route does steps 1–6 of §4.1 by calling `verify_signature`, `parse_webhook`,
+`UserIdentity.encrypt_address` and `InboundStore.save` in turn; it holds no parsing or SQL itself.
+Errors are logged outside `except` blocks and without the exception attached, because a
+validation or driver error can quote user content.
 
 ### 5.7 Repositories
 
 ```python
-# app/store/repositories/users.py
-async def upsert_inbound_user(session: AsyncSession, user_hash: UserHash, channel: Channel,
-                              address_ciphertext: bytes | None, last_inbound_at: datetime) -> None: ...
-async def load_address(session: AsyncSession, user_hash: UserHash) -> bytes | None: ...
+# app/store/repositories/inbound.py
+@dataclass(frozen=True)
+class InboundRecord:  message: InboundMessage; address_ciphertext: bytes; raw_payload: dict[str, JsonValue]
 
-# app/store/repositories/inbox.py
-async def insert_inbound(session: AsyncSession, message: InboundMessage,
-                         raw_payload: dict[str, JsonValue] | None) -> bool: ...   # True if inserted
-async def notify_inbox_new(session: AsyncSession) -> None: ...
-
-# app/store/repositories/outbox.py
-async def apply_status_update(session: AsyncSession, update: StatusUpdate) -> bool: ...  # True if a row matched
+class InboundStore:
+    def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None: ...
+    async def save(self, records: Sequence[InboundRecord]) -> int: ...   # one transaction: users upsert,
+                                       # inbox insert ON CONFLICT DO NOTHING, pg_notify if any; returns rows stored
+    async def latest_whatsapp_message(self) -> LatestInbound | None: ...   # CLI
+    async def load_address(self, user_hash: UserHash) -> bytes | None: ...  # CLI, outbox (S4)
 ```
+
+One class owns the webhook's transaction, so the upsert, the insert and the notify can't be
+committed separately. A database error raises `StoreError`, which the route turns into `503`.
+`apply_status_update` (§4.8) is added in S4 with `outbox_messages`.
 
 ### 5.8 CLI (`app/cli.py`)
 
@@ -419,9 +458,13 @@ Hindi, Hinglish and English, with one quick-reply button (s10b §4.11). The send
 any other template setting.
 
 **Dashboard setup** (done once, recorded in `docs/s0-setup.md`): callback URL
-`https://<app-host>/webhooks/whatsapp`, verify token, subscribe the `messages` field. For local
-testing, `scripts/dev_tunnel.sh` exposes the local API over a public HTTPS tunnel. Meta rejects
-self-signed certificates.
+`https://<app-host>/webhooks/whatsapp`, verify token, subscribe the `messages` field, **and
+subscribe the app to the WhatsApp Business Account** (`POST /{WABA_ID}/subscribed_apps`). The
+dashboard steps alone are not enough: on 2026-10-27 the handshake was verified and `messages`
+subscribed, yet nothing arrived until the app was subscribed to the account. The WABA id is the
+"WhatsApp Business Account ID" under WhatsApp → API Setup, not the Business portfolio id. For local
+testing, `scripts/dev_tunnel.sh` exposes the local API over a public HTTPS tunnel (Cloudflare
+quick tunnel). Meta rejects self-signed certificates.
 
 ## 8. Failure modes
 
@@ -491,7 +534,7 @@ self-signed certificates.
 
 ## 11. Open questions
 
-1. **Graph API version:** pin whatever the dashboard shows as current on Day 1. *Recommendation:* the newest stable version.
+1. **Graph API version:** *resolved 2026-10-27:* pinned to `v26.0` (§4.11).
 2. **Real number vs test number:** the sender doesn't care. Only `WHATSAPP_PHONE_NUMBER_ID` changes. *Recommendation:* start on the test number, switch once the display name is approved (plan.md §4.1).
 3. **User changed their number** (`system` message): their history stays under the old hash.
    *Recommendation:* ignore for the MVP, and document it.
@@ -512,3 +555,12 @@ self-signed certificates.
 |---|---|---|---|
 | 2026-10-25 | Requested contract changes applied; added `TEMPLATE` part sending and the template quick-reply link for s10b nudges; template error codes marked for verification | Consolidation against the updated foundation docs; parent journey (B12) | owner |
 | 2026-10-26 | WhatsApp `image` messages map to `MessageKind.IMAGE` (media id, mime, caption → text; url and caption never kept in `raw_payload`); `IMAGE` parts can be sent (upload, then `type=image` with a caption ≤ 1024 chars) | Owner decisions C6 (khoj card) and C7 (activity photos) | owner |
+| 2026-10-27 | Graph API pinned to `v26.0` (§4.11, docs/decisions/0001) | The dashboard's current version on Day 1; the `hello_world` template send succeeded on it | owner (S3 design) |
+| 2026-10-27 | `Clock` moved from `providers/ports.py` to `app/core/clock.py` (contracts §3) | `api` needs a clock and may not import `providers`; a clock isn't a provider | owner |
+| 2026-10-27 | No `WhatsAppIngest` in `channels`: `channels` parses with no I/O, `store` writes (`InboundStore`), the route hands one to the other (§4.1, §5.6, §5.7) | The layering guard: `channels` may not import `store`, and SQL lives only in `store` | pending owner review (S3) |
+| 2026-10-27 | Repositories are one `InboundStore` class instead of module functions in `users.py` / `inbox.py`; `apply_status_update` moves to S4 with `outbox_messages`; the forward-only rule ships now as the pure `next_delivery_status` (§4.8, §5.7) | One object owns the webhook transaction; the SQL can't be integration-tested before its table exists | pending owner review (S3) |
+| 2026-10-27 | `WhatsAppSender(config=WhatsAppConfig, clock, http=None)` owns its httpx client and makes one attempt per call; `upload_audio` generalised to `upload_media`; `aclose()` added (§5.4) | `wiring` may not import httpx; retries belong to the outbox (S4); images need uploading too (C6) | pending owner review (S3) |
+| 2026-10-27 | `UserIdentity` takes the channel as `str` and returns `str` (§5.5) | `core` may not import `domain` | pending owner review (S3) |
+| 2026-10-27 | Messages and statuses validated one at a time; `ParsedWebhook` gains `foreign_phone_number_id` and `malformed`; a message with no sender or id is counted, not stored (§4.4, §5.2, §5.3) | One broken message must not lose the batch; counts make the log line useful | pending owner review (S3) |
+| 2026-10-27 | Changes for fields other than `messages` are no longer validated (`WaMessagesChange` / `WaOtherChange`, chosen by `field`) (§4.4, §5.2) | Bug found in the live exit check: the `account_update` sent on subscribing the app has no `messaging_product`, so the whole webhook was logged as unparseable, and a message batched beside it would have been lost. Regression tests added | pending owner review (S3) |
+| 2026-10-27 | Setup needs `POST /{WABA_ID}/subscribed_apps` as well as the dashboard's field subscription (§7); exit check run locally through a Cloudflare quick tunnel instead of a Fly deploy (§10) | Observed: no webhooks until the app was subscribed to the account. Tunnel chosen by the owner, since deploys wait for S16 | owner |

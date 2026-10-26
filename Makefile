@@ -30,6 +30,7 @@ test-int:
 	DATABASE_URL=$(TEST_DATABASE_URL) .venv/bin/alembic upgrade head
 	DATABASE_URL=$(TEST_DATABASE_URL) .venv/bin/alembic downgrade base
 	DATABASE_URL=$(TEST_DATABASE_URL) .venv/bin/alembic upgrade head
+	DATABASE_URL=$(TEST_DATABASE_URL) .venv/bin/alembic check
 	DATABASE_URL=$(TEST_DATABASE_URL) .venv/bin/pytest -m integration
 
 up:

@@ -33,8 +33,13 @@ issue, or a chat.**
       "Aaj ki khoj taiyaar hai! 2 minute, bachche ke saath." with one quick-reply button
       "Aaj ki khoj batao". Record the category Meta assigns and the per-message price
       (docs/design/s10b-parent-journey.md §4.11).
-- [ ] The webhook URL is configured in S3, once the app is deployed: WhatsApp → Configuration →
-      Callback URL + verify token, then subscribe to the `messages` field.
+- [x] The webhook URL is configured in S3: WhatsApp → Configuration → Callback URL + verify
+      token, then subscribe to the `messages` field. Locally, `scripts/dev_tunnel.sh` gives the
+      public URL; it changes every time the tunnel restarts, so save it again each time.
+- [x] **Subscribe the app to the WhatsApp Business Account.** The dashboard steps above are not
+      enough on their own: without this, the handshake verifies but no message ever arrives.
+      With the access token, `POST {WHATSAPP_GRAPH_BASE_URL}/{WABA_ID}/subscribed_apps`, then
+      `GET` the same URL and check the app's name is listed. Undo with `DELETE`. Done 2026-10-27.
 
 ## 1b. Content to draft before kickoff (content, not code)
 
@@ -106,7 +111,7 @@ issue, or a chat.**
 | `MODEL_API_KEY` | dev.meta.ai console |
 | `WHATSAPP_ACCESS_TOKEN` | System-user permanent token |
 | `WHATSAPP_PHONE_NUMBER_ID` | WhatsApp → API Setup |
-| `WHATSAPP_BUSINESS_ACCOUNT_ID` | WhatsApp → API Setup |
+| `WHATSAPP_BUSINESS_ACCOUNT_ID` | WhatsApp → API Setup → "WhatsApp Business Account ID". **Not** the Business portfolio id (Business settings), which looks the same but rejects every WhatsApp call with error 100. Used only for setup calls, not read by the app |
 | `WHATSAPP_APP_SECRET` | App settings → Basic |
 | `WHATSAPP_VERIFY_TOKEN` | You choose it |
 | `DATABASE_URL` | Neon connection string |
