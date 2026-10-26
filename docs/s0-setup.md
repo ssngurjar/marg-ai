@@ -47,7 +47,11 @@ issue, or a chat.**
 ## 1c. Day 1 actions from the Official Rules (read 2026-10-26)
 
 - [ ] Accept the Official Rules and waiver in the portal.
-- [ ] Read the **Credit Terms**, then claim the $150 Model API credit (valid for the 10-day window).
+- [ ] Claim the $150 Model API credit: find the claim form in the **"Know Before You Go"** email
+      (sent to your application address; check spam). It needs your name, that email, and your
+      Model API account's **Team ID** (the account needs a payment method on file). Credits arrive
+      within ~2 business days and don't expire; anything beyond $150 is charged to the card, so set
+      a spending alert.
 - [ ] Open the submission form (<https://cerebralvalley.ai/e/meta-ai-developer-hackathon/hackathon/submit>)
       and note every field: video length, repo link, description, track. Record them in `docs/submission/`.
 - [ ] Ask on the event Discord: "Can a submission call Meta's MMS-TTS (`facebook/mms-tts-hin`,
