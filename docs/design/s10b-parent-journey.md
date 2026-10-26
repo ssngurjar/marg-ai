@@ -482,7 +482,8 @@ question), `who_explores_this` (optional, C12).
 - **Never asks the child for personal information** (name beyond the nickname, school, address,
   phone, family details, photos). An output rule blocks question patterns for these (`d1` on output).
 - **Never secrecy or attachment:** no "keep this secret", "don't tell", "I'm your best friend",
-  "only I understand you". A lexicon rule blocks them (new category `d8 CHILD_MANIPULATION` on output).
+  "only I understand you". A lexicon rule blocks them (new category `d8 CHILD_MANIPULATION` on output;
+  lexicon sections `[child_manipulation]` and `[child_personal_questions]` in `app/safety/lexicon.toml`, owned by s07).
   Replies regularly say "Mummy-Papa ko bhi batana".
 - **Crisis in a child's words:** self-harm or abuse signals → the fixed `CRISIS` reply in the
   **child variant** (simple words: "Yeh tumhari galti nahi hai. Abhi Mummy, Papa ya teacher ko
