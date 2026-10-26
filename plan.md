@@ -45,7 +45,7 @@ waiver at <https://cerebralvalley.ai/e/meta-ai-developer-hackathon/waiver> (read
 | Need | Model | Notes |
 |---|---|---|
 | Reasoning, curriculum mapping, mentoring, vernacular adaptation | `muse-spark-1.3` (text), `muse-spark-1.2` (when audio input is used) | OpenAI-compatible at `https://api.meta.ai/v1`. 1M context, tool calling, **structured output**, search grounding. $1.25 / $4.25 per 1M tokens. 3,000 RPM. |
-| Speech-to-text | `muse-voice-transcribe-1.0` | `POST /v1/asr/transcribe`, $0.18/hr. 25 languages with code-switching, but **Hindi is not confirmed** and accepted audio formats aren't documented. Day-1 spike. |
+| Speech-to-text | `muse-voice-transcribe-1.0` | `POST /v1/asr/transcribe`, $0.18/hr, WAV only. 25 languages with code-switching, **including Hindi, Bengali, Marathi, Tamil, Telugu and Kannada** (confirmed 2026-10-26). S2 still measures Hinglish code-switching and village-accent accuracy. Phase 2 can add those five languages without new infrastructure. |
 | Cheap high-volume calls | `muse-spark-1.x-contributor` | 10–20× cheaper, but Meta trains on the content. **Never use it for student data** (minors). Fine for evals over synthetic prompts. |
 | Text-to-speech | **None on Model API** | Use open-weights **Meta MMS-TTS** (`facebook/mms-tts-hin`), so the stack stays Meta. Fallback: AI4Bharat Indic Parler-TTS. |
 | Safety classifier | **Not on Model API** | Use open-weights **Llama Guard 4** on a partner host (Baseten / Fireworks / Groq) or Modal. Day-1 spike. |
@@ -391,7 +391,7 @@ dialect biasing in STT · a second regional language.
 
 | Risk | Likelihood | Mitigation |
 |---|---|---|
-| Muse Voice Transcribe weak or missing for Hindi | Medium | Day-1 spike. A Whisper adapter behind the same port. |
+| Muse Voice Transcribe weak on Hinglish code-switching or village accents (Hindi itself is supported) | Low–Medium | S2 measures word error rate on the 10 village samples. A Whisper adapter behind the same port. |
 | Real-number display name rejected or delayed (business verification itself isn't needed, see §4.1) | Medium | Apply in S0 with a simple public site behind it. Fallback: test number (5 recipients) for the video, `/demo` for judges. Verification runs in parallel but nothing depends on it. |
 | MMS-TTS Hindi sounds robotic | Medium | Day-1 listening test. Indic Parler-TTS as a fallback adapter. Always send text alongside audio. |
 | Llama Guard 4 hosting unavailable on partner credits | Low–Med | Modal self-host (12B fits one A10G/L4). Fail closed while it's down. |

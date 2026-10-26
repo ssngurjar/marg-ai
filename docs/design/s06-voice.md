@@ -195,7 +195,7 @@ Verified against the dev.meta.ai voice docs on 2026-10-25:
 - From S11, the hints are extended with the `keywords` frontmatter of corpus documents, deduplicated.
 - Capped at `STT_MAX_KEYWORDS` (100; the API's limit isn't documented, so verify in S2).
 - `languageBias` is always `["Hindi", "English"]`, which covers Hinglish code-switching.
-  Hindi is in the 25 supported languages; code-switching quality is measured in S2.
+  Supported languages (confirmed 2026-10-26) include Hindi, Bengali, Marathi, Tamil, Telugu and Kannada; Hinglish code-switching quality is measured in S2. Phase 2 languages need only `languageBias`, translation rules and a TTS voice.
 
 **Register detection** (`app/domain/language.py`, pure; S9 may reuse it):
 
