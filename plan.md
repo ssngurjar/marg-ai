@@ -29,6 +29,7 @@ waiver at <https://cerebralvalley.ai/e/meta-ai-developer-hackathon/waiver> (read
 | Kickoff | **Mon Oct 26, 9:00 AM ET = 18:30 IST** | Day 1 starts in the evening IST |
 | Submission deadline | **Wed Nov 4, 9:00 PM ET = Thu Nov 5, 07:30 IST** (US DST ends Nov 1, so this is EST) | Plan to submit by **Nov 4, 23:00 IST**. Don't use the overnight buffer. |
 | Judging / finals | Nov 4–8 judging, Nov 9 closing ceremony with live finals | Judges must be able to **try it themselves**. Plan: a real WhatsApp number anyone can message (it works without business verification, see §4.1), with the public web demo (§4.7) as the guaranteed path. |
+| Pre-existing work | The rules published so far only require "original work product"; no clause on code written before the event was found (re-checked 2026-10-26). The organisers can still add rules | We assume the strict reading: **no product code or content before kickoff**. Planning and design docs only, tagged `pre-kickoff`, disclosed in the README. Re-read the rules after the kickoff livestream. |
 | Submission | Through the Cerebral Valley portal: <https://cerebralvalley.ai/e/meta-ai-developer-hackathon/hackathon/submit> | The rules name a demo video; check the portal's form for its other fields (repo, description, video length) on Day 1. |
 | Partner credits | Baseten $100 (+2M TPM), Modal $100, Fireworks $25 | Use these for open-weights models (Llama Guard, TTS, embeddings) |
 
@@ -364,8 +365,8 @@ Day boundaries are IST. **Feature freeze: end of Day 8.** Days 9 and 10 are for 
 
 | Day | Date | Goal (exit criterion in **bold**) |
 |---|---|---|
-| Pre | Oct 24–25 | Plan, CLAUDE.md, design docs. Accounts and the real-number setup. 10 consented voice samples. Draft the 10 launch activities and the golden evals (content, not code). **No product code until the rules on pre-existing work are confirmed.** |
-| 1 | Mon Oct 26 (from 18:30) | S1, S2, S3; submit the nudge template. **A reply sent to a real phone.** |
+| Pre | Oct 24–25 | Plan, CLAUDE.md, design docs. Accounts and the real-number setup. 10 consented voice samples. Draft the golden evals (test data). **No product code or product content before kickoff**: the activities are written from Day 1. The repo is tagged `pre-kickoff` at the boundary. |
+| 1 | Mon Oct 26 (from 18:30) | Re-read the rules after the kickoff livestream. S1, S2, S3; submit the nudge template; start drafting the 10 activities. **A reply sent to a real phone.** |
 | 2 | Tue Oct 27 | S4 (exception E1), S5 with the safety core. **Text in → checked Muse Spark reply out; a restart mid-turn loses nothing.** |
 | 3 | Wed Oct 28 | S6 voice. **Voice note in → voice note out.** |
 | 4 | Thu Oct 29 | S7 safety, S8 onboarding. **Crisis and adversarial cases pass; parent onboarding works on the phone.** |
@@ -646,7 +647,7 @@ Some steps need the official rules confirmed (any product code) or the Model API
 
 | | Step | Build level | Design doc | Exit criterion | Day |
 |---|---|---|---|---|---|
-| [ ] S0 | **Prep (no product code):** accounts, real-number setup, 10 consented voice samples, golden eval drafts, 10 launch activities drafted | Full | `docs/s0-setup.md` | Accounts ready; samples, `evals/golden/` and `content/activities/` drafts exist | Pre |
+| [ ] S0 | **Prep (no product code or content):** accounts, real-number setup, 10 consented voice samples, golden eval drafts, reviewers lined up | Full | `docs/s0-setup.md` | Accounts ready; samples and `evals/golden/` drafts exist; repo tagged `pre-kickoff` | Pre |
 | [ ] S1 | **Scaffold** (single process while E1 holds) | Full | s01 | Verification loop green locally and on CI; `/healthz` answers in Docker | 1 |
 | [ ] S2 | **Spikes:** STT, Llama Guard 4, MMS-TTS, structured output | Full | s02 | A recorded go/fallback decision for each | 1 |
 | [ ] S3 | **WhatsApp channel:** webhook, signature, parsing, identity, sending (text, buttons, audio, template) | Full | s03 | A real phone message is stored and answered by the CLI sender | 1 |

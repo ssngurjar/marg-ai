@@ -202,7 +202,7 @@ handles off-topic gently). The LLM router is only used for teachers, if the stre
 ### 4.8 Content (exception E3)
 
 10 enabled activities at launch (minimum 7): at least 6 different domains, at least 3 that work
-indoors, ages 3–8 covered. Drafted by Claude in S0, reviewed by the owner and one parent. Selection
+indoors, ages 3–8 covered. Drafted by Claude from Day 1 (after kickoff), reviewed by the owner and one parent by Day 5. Selection
 logic is unchanged; with 10 activities, the repeat window is effectively 10 days.
 
 ### 4.9 Spikes (s02)
@@ -243,7 +243,7 @@ parts in hackathon scope (C1). **Exception** = §4's lite version until its upgr
 
 | Day | Date | Work | Exit |
 |---|---|---|---|
-| 1 | Mon Oct 26 (from 18:30) | S1, S2, S3; submit the nudge template | reply sent to a real phone |
+| 1 | Mon Oct 26 (from 18:30) | Re-read the rules; S1, S2, S3; submit the nudge template; start drafting activities | reply sent to a real phone |
 | 2 | Tue Oct 27 | S4 (E1), S5 (+ safety core) | text in → checked Muse Spark reply out; restart mid-turn loses nothing |
 | 3 | Wed Oct 28 | S6 voice | voice note in → voice note out |
 | 4 | Thu Oct 29 | S7, S8 | crisis and adversarial cases pass; parent onboarding on the phone |

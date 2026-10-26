@@ -38,9 +38,10 @@ issue, or a chat.**
 
 ## 1b. Content to draft before kickoff (content, not code)
 
-- [ ] **First 10 khoj activities** in `content/activities/` (format: docs/design/s10b-parent-journey.md
-      §4.3). Claude can draft them; review each one with a parent and, ideally, an anganwadi worker
-      or teacher before it's enabled.
+- [ ] ~~Draft activities before kickoff~~ **Moved to after kickoff** (Day 1 evening and Day 2):
+      activities are product content, so they're written during the hackathon. Format:
+      docs/design/s10b-parent-journey.md §4.3. Line up the reviewers (a parent and, ideally, an
+      anganwadi worker or teacher) now.
 - [ ] Ask one parent of a 3–8-year-old and one teacher to be field testers from Day 6.
 
 ## 1c. Day 1 actions from the Official Rules (read 2026-10-26)
