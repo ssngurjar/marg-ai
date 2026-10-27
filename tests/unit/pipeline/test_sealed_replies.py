@@ -170,6 +170,24 @@ def test_a_preamble_comes_first() -> None:
     assert [part.text for part in delivery.parts] == ["Profile ho gaya!", "Aaj ki khoj: parchhai."]
 
 
+def test_a_trailer_comes_last_with_its_own_buttons_after_the_audio() -> None:
+    audio = uuid4()
+    delivery = ReplyPartsBuilder.build(
+        sealed("Aaj ki khoj: parchhai."),
+        audio_blob_id=audio,
+        preamble=sealed("Profile ho gaya!"),
+        trailer=sealed("Kab bhejein?", buttons=[ReplyButton(id="nudge:08", title="Subah 8")]),
+    )
+    assert [part.kind for part in delivery.parts] == [
+        PartKind.TEXT,
+        PartKind.AUDIO,
+        PartKind.TEXT,
+        PartKind.INTERACTIVE,
+    ]
+    assert delivery.parts[-1].text == "Kab bhejein?"
+    assert [button.id for button in delivery.parts[-1].buttons] == ["nudge:08"]
+
+
 def test_a_template_is_the_only_part() -> None:
     template = TemplateRef(name="aaj_ki_khoj", language_code="hi", button_payloads=["jrn:today"])
     delivery = ReplyPartsBuilder.build(sealed("ignored"), audio_blob_id=uuid4(), template=template)

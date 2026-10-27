@@ -123,3 +123,50 @@ CURIOSITY_FALLBACK: Final[dict[Language, str]] = {
         ' and why?" Listening to their thinking is the biggest lesson.'
     ),
 }
+
+# The daily khoj message (s10b §4.11): when to send it, and what the parent hears back. Button
+# ids carry the IST hour; "off" turns it off.
+NUDGE_AT_8 = "nudge:08"
+NUDGE_AT_18 = "nudge:18"
+NUDGE_OFF = "nudge:off"
+NUDGE_ASK: Final[dict[Language, str]] = {
+    _HINGLISH: "Roz ki khoj ka message kab bhejein?",
+    _HINDI: "रोज़ की खोज का संदेश कब भेजें?",
+    _ENGLISH: "When should I send the daily discovery?",
+}
+NUDGE_BUTTONS: Final[dict[Language, tuple[ReplyButton, ...]]] = {
+    _HINGLISH: (
+        ReplyButton(id=NUDGE_AT_8, title="Subah 8 baje"),
+        ReplyButton(id=NUDGE_AT_18, title="Shaam 6 baje"),
+        ReplyButton(id=NUDGE_OFF, title="Khud poochhenge"),
+    ),
+    _HINDI: (
+        ReplyButton(id=NUDGE_AT_8, title="सुबह 8 बजे"),
+        ReplyButton(id=NUDGE_AT_18, title="शाम 6 बजे"),
+        ReplyButton(id=NUDGE_OFF, title="खुद पूछेंगे"),
+    ),
+    _ENGLISH: (
+        ReplyButton(id=NUDGE_AT_8, title="8 in the morning"),
+        ReplyButton(id=NUDGE_AT_18, title="6 in the evening"),
+        ReplyButton(id=NUDGE_OFF, title="I'll ask myself"),
+    ),
+}
+NUDGE_ON: Final[dict[Language, str]] = {
+    _HINGLISH: (
+        'Theek hai! Roz {time} baje aaj ki khoj bhejenge. Badalna ho toh "time badlo" likhiye.'
+    ),
+    _HINDI: 'ठीक है! रोज़ {time} बजे आज की खोज भेजेंगे। बदलना हो तो "समय बदलो" लिखिए।',
+    _ENGLISH: (
+        "Done! I'll send the day's discovery at {time} every day. Write \"change time\" to"
+        " change it."
+    ),
+}
+NUDGE_TIME_NAMES: Final[dict[str, dict[Language, str]]] = {
+    NUDGE_AT_8: {_HINGLISH: "subah 8", _HINDI: "सुबह 8", _ENGLISH: "8 am"},
+    NUDGE_AT_18: {_HINGLISH: "shaam 6", _HINDI: "शाम 6", _ENGLISH: "6 pm"},
+}
+NUDGE_OFF_REPLY: Final[dict[Language, str]] = {
+    _HINGLISH: 'Theek hai, roz ka message nahi aayega. Jab chahein "aaj ki khoj" likhiye.',
+    _HINDI: 'ठीक है, रोज़ का संदेश नहीं आएगा। जब चाहें "आज की खोज" लिखिए।',
+    _ENGLISH: 'Okay, no daily message. Write "today\'s khoj" whenever you like.',
+}

@@ -5,7 +5,7 @@ list order, in the same transaction as the outbox rows. Variants arrive with the
 what they change.
 """
 
-from datetime import datetime
+from datetime import datetime, time
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -115,6 +115,14 @@ class ChildSessionEnd(DomainModel):
     reason: ChildSessionEndReason
 
 
+class NudgePreference(DomainModel):
+    """s10b: the parent turned the daily khoj message on at a time (IST), or off."""
+
+    kind: Literal["nudge_preference"] = "nudge_preference"
+    enabled: bool
+    local_time: time | None  # IST; None when turning off
+
+
 type TurnWrite = Annotated[
     ProfileChange
     | LearnerUpsert
@@ -124,6 +132,7 @@ type TurnWrite = Annotated[
     | ActivityReported
     | ChildSessionStart
     | ChildTalkTurn
-    | ChildSessionEnd,
+    | ChildSessionEnd
+    | NudgePreference,
     Field(discriminator="kind"),
 ]

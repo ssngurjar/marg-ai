@@ -4,6 +4,8 @@ Flows, picked deterministically (mvp-scope C3b):
   A. today's khoj     `jrn:today[:<child>]`, or "aaj ki khoj", or right after onboarding
   B. report back      `jrn:done`, or any message while an activity is open
   C. another khoj     `jrn:other`: the open one is marked skipped, then A without it
+  E. nudge settings   `nudge:08` / `nudge:18` / `nudge:off`, or "roz ka message band karo" /
+                      "time badlo": NudgePreference and a fixed confirmation (s10b §4.11)
   D. parent question  everything else (ParentQuestionLayer), except the curiosity moment: a
                       message passing on the child's own question goes to
                       CuriosityMomentLayer first (s10b §4.15, C11)
@@ -16,7 +18,7 @@ text goes out instead (DEGRADED), never an unchecked one.
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 from typing import ClassVar, Final
 from uuid import uuid4
 
@@ -34,6 +36,14 @@ from app.constants.journey_copy import (
     KHOJ_TODAY,
     LISTEN_LABEL,
     NO_ACTIVITY_LEFT,
+    NUDGE_ASK,
+    NUDGE_AT_8,
+    NUDGE_AT_18,
+    NUDGE_BUTTONS,
+    NUDGE_OFF,
+    NUDGE_OFF_REPLY,
+    NUDGE_ON,
+    NUDGE_TIME_NAMES,
     REFLECTION_FALLBACK,
     SUPERVISION_LINE,
     UNNAMED_CHILD,
@@ -47,7 +57,12 @@ from app.domain.models.learner import Learner
 from app.domain.models.reply import CanonicalReply, ReplyButton
 from app.domain.models.turn import TurnContext
 from app.domain.models.usage import StepUsage
-from app.domain.models.writes import ActivityOffered, ActivityReported, TurnWrite
+from app.domain.models.writes import (
+    ActivityOffered,
+    ActivityReported,
+    NudgePreference,
+    TurnWrite,
+)
 from app.domain.rules.activity_chooser import ActivityChooser
 from app.domain.rules.activity_validator import ActivityValidator
 from app.domain.rules.child_hazard_matcher import ChildHazardMatcher
@@ -105,6 +120,15 @@ class JourneyLayer:
     KHOJ_PHRASES: ClassVar[tuple[str, ...]] = (
         "aaj ki khoj", "khoj", "nayi khoj", "activity", "today's khoj", "आज की खोज", "खोज",
     )  # fmt: skip
+    NUDGE_OFF_PHRASES: ClassVar[tuple[str, ...]] = (
+        "roz ka message band", "roz ka message band karo", "message band karo", "message mat bhejo",
+        "daily message band", "stop the daily message", "रोज़ का संदेश बंद", "संदेश मत भेजो",
+    )  # fmt: skip
+    NUDGE_CHANGE_PHRASES: ClassVar[tuple[str, ...]] = (
+        "time badlo", "samay badlo", "change time", "change the time", "roz message bhejo",
+        "daily message", "समय बदलो", "रोज़ संदेश भेजो",
+    )  # fmt: skip
+    NUDGE_HOURS: ClassVar[dict[str, time]] = {NUDGE_AT_8: time(8, 0), NUDGE_AT_18: time(18, 0)}
     LANGUAGE_RULES: ClassVar[dict[Language, str]] = ParentQuestionLayer.LANGUAGE_RULES
     SPOKEN_RULES: ClassVar[dict[Language, str]] = ParentQuestionLayer.SPOKEN_RULES
 
@@ -134,6 +158,9 @@ class JourneyLayer:
         """Raises ProviderError only from flow D (the parent question); A to C fall back to
         reviewed text instead."""
         button = interactive_ids[-1] if interactive_ids else None
+        nudge_settings = self._nudge_settings(button, user_text, register)
+        if nudge_settings is not None:
+            return nudge_settings
         open_activity = self._offered(ctx)
         if button is not None and button.startswith(KHOJ_OTHER):
             return await self._another(ctx, open_activity, now, register)
@@ -177,6 +204,27 @@ class JourneyLayer:
     ) -> LayerResult:
         """The handoff right after onboarding (s08 §4.7): today's khoj for the new child."""
         return await self._today(ctx, learner, now, register, skipped=None)
+
+    def _nudge_settings(
+        self, button: str | None, user_text: str, register: Language
+    ) -> LayerResult | None:
+        """Flow E: the daily message turned on at a time, off, or the choice offered again."""
+        if button in self.NUDGE_HOURS:
+            hour = self.NUDGE_HOURS[button]
+            confirmed = NUDGE_ON[register].format(time=NUDGE_TIME_NAMES[button][register])
+            write = NudgePreference(enabled=True, local_time=hour)
+            return _fixed(confirmed, register, ()).model_copy(update={"writes": [write]})
+        turned_off = button == NUDGE_OFF or (
+            button is None and PhraseFinder.contains_any(user_text, self.NUDGE_OFF_PHRASES)
+        )
+        if turned_off:
+            write = NudgePreference(enabled=False, local_time=None)
+            return _fixed(NUDGE_OFF_REPLY[register], register, ()).model_copy(
+                update={"writes": [write]}
+            )
+        if button is None and PhraseFinder.contains_any(user_text, self.NUDGE_CHANGE_PHRASES):
+            return _fixed(NUDGE_ASK[register], register, NUDGE_BUTTONS[register])
+        return None
 
     def _offered(self, ctx: TurnContext) -> OfferedActivity | None:
         """The open activity with its catalogue entry; None if it's no longer in the catalogue."""

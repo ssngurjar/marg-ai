@@ -22,6 +22,7 @@ from app.store.repositories.media_blob_repository import MediaBlobRepository
 from app.store.repositories.outbox_repository import OutboxRepository
 from app.store.repositories.turn_repository import TurnRepository
 from app.store.repositories.user_repository import UserRepository
+from app.worker.nudge_sender import NudgeSender
 from app.worker.reply_deliverer import ReplyDeliverer
 from app.worker.turn_processor import TurnProcessor
 
@@ -50,6 +51,7 @@ class DispatcherDeps:
     clock: Clock
     media: MediaBlobRepository  # expired reply audio is deleted by the maintenance pass
     child_sessions: ChildSessionRepository  # sessions a child left mid-way are closed
+    nudges: NudgeSender | None  # the daily khoj message; None while NUDGES_ENABLED is false
 
 
 class TurnDispatcher:
@@ -61,6 +63,7 @@ class TurnDispatcher:
         self._users = deps.users
         self._media = deps.media
         self._child_sessions = deps.child_sessions
+        self._nudges = deps.nudges
         self._clock = deps.clock
         self._settings = settings
         self._user_tasks: dict[UserHash, asyncio.Task[None]] = {}
@@ -204,6 +207,10 @@ class TurnDispatcher:
         abandoned = await self._child_sessions.close_abandoned(self._settings.child_session_max)
         if abandoned:
             logger.info("child_sessions_expired", sessions=abandoned)
+        if self._nudges is not None:
+            nudged = await self._nudges.send_due()
+            if nudged:
+                logger.info("nudges_sent", parents=nudged)
 
     async def _deliver_due_parts(self) -> None:
         turn_ids: list[TurnId] = await self._outbox.turns_with_due_parts()

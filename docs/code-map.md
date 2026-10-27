@@ -99,7 +99,7 @@ line of the module's docstring.
 | `turn.py` | `UserProfile`, `Exchange`, `TurnContext`, `QueuedMessage` | A turn and what it knows about the user (contracts.md §2.2; s04 §4.4, §4.5). |
 | `usage.py` | `StepUsage` | What a provider call cost (contracts §2.3). Attached to every turn_steps row. |
 | `voice.py` | `AudioStats`, `VoiceLimits` | What a voice note measures, and the limits it's checked against (s06 §4.4). |
-| `writes.py` | `ProfileChange`, `LearnerUpsert`, `MarkPurgeAfterDelivery`, `ChildTalkConsent`, `ActivityOffered`, `ActivityReported`, `ChildSessionStart`, `ChildTalkTurn`, `ChildSessionEnd` | State changes that commit with the reply (contracts §2.4). |
+| `writes.py` | `ProfileChange`, `LearnerUpsert`, `MarkPurgeAfterDelivery`, `ChildTalkConsent`, `ActivityOffered`, `ActivityReported`, `ChildSessionStart`, `ChildTalkTurn`, `ChildSessionEnd`, `NudgePreference` | State changes that commit with the reply (contracts §2.4). |
 
 ## `domain/rules`
 
@@ -118,6 +118,7 @@ line of the module's docstring.
 | `filler_detector.py` | `FillerDetector` | FillerDetector: a transcript of only "umm" or "hmm" is nothing said (s06 §8, CLAUDE.md §4). Pure. |
 | `learner_chooser.py` | `RecentOffer`, `LearnerChooser` | LearnerChooser: which of a parent's children this turn is about (s10b §4.2). Pure. |
 | `message_splitter.py` | `MessageSplitter` | MessageSplitter: a reply cut into channel-sized messages (s05 §4.7). Pure. |
+| `nudge_schedule.py` | `NudgeSchedule` | NudgeSchedule: when the daily khoj message is due, in India time (s10b §4.11). Pure. |
 | `onboarding_answer_parser.py` | `Found`, `GradeParse`, `ChildAgeParse`, `NicknameParse`, `OnboardingAnswerParser` | OnboardingAnswerParser: what an onboarding answer says, without a model (s08 §4.4 step 4). Pure. |
 | `phrase_finder.py` | `PhraseFinder` | PhraseFinder: whole-phrase matching on normalised text, for keyword rules (s07, s08). Pure. |
 | `register_detector.py` | `RegisterDetector` | RegisterDetector: which language and script a message is in (s09's detect_register). Pure. |
@@ -210,6 +211,7 @@ line of the module's docstring.
 | `journey_repository.py` | `JourneyRepository` | The khoj offered to each child and how it went (s10b §5, data-model `learner_activities`). |
 | `learner_repository.py` | `LearnerRepository` | Learners: a parent's children or a student's own learner (s08 §4.11, data-model `learners`). |
 | `media_blob_repository.py` | `MediaBlobRepository` | MediaBlobRepository: reply audio kept until the sender uploads it (s06 §4.7, §4.8). |
+| `nudge_repository.py` | `NudgeBatch`, `NudgeResult`, `NudgeRepository` | Daily khoj messages: who opted in, and the NUDGE turns that send them (s10b §4.11). |
 | `outbox_repository.py` | `OutboxRow`, `OutboxRepository` | OutboxRepository: queued reply parts and their delivery (s04 §4.7, §4.10; s03 §4.8). |
 | `turn_repository.py` | `StartedTurn`, `FinishedTurn`, `FinalizeResult`, `TurnRepository` | Turns: claiming a user's pending messages, loading the context, finalizing (s04 §4.4 to §4.7). |
 | `turn_step_repository.py` | `StepRow`, `TurnStepRepository` | turn_steps rows and the turn columns written while a turn runs (s04 §4.6). |
@@ -220,6 +222,7 @@ line of the module's docstring.
 | Module | Classes | What it does |
 |---|---|---|
 | `database_step_recorder.py` | `DatabaseStepRecorder` | The production StepRecorder (contracts §3): pipeline step results → turn_steps rows. |
+| `nudge_sender.py` | `NudgeSettings`, `NudgeSender` | NudgeSender: the daily khoj message, sent from the maintenance pass (s10b §4.11). |
 | `reply_deliverer.py` | `DeliverySettings`, `DeliveryDeps`, `ReplyDeliverer` | Sending a turn's queued parts, in order, with retries (s04 §4.10; E1: sent directly). |
 | `turn_dispatcher.py` | `DispatcherSettings`, `DispatcherDeps`, `TurnDispatcher` | The in-process turn dispatcher (exception E1, mvp-scope §4.1). |
 | `turn_processor.py` | `TurnSettings`, `TurnDeps`, `TurnProcessor` | One turn for one user, start to finish (s04 §4.4 to §4.9; contracts §3 `process_user_turn`). |

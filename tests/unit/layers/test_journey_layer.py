@@ -1,7 +1,7 @@
 """JourneyLayer: today's khoj, another khoj, report back, which child, parent questions
 (s10b §4.4 to §4.9, §4.10 supervision line)."""
 
-from datetime import timedelta
+from datetime import time, timedelta
 
 import pytest
 
@@ -10,6 +10,8 @@ from app.constants.journey_copy import (
     KHOJ_DONE,
     KHOJ_OTHER,
     KHOJ_TODAY,
+    NUDGE_ASK,
+    NUDGE_OFF_REPLY,
     REFLECTION_FALLBACK,
     SUPERVISION_LINE,
     WHICH_CHILD,
@@ -18,7 +20,7 @@ from app.core.errors import ProviderError, ProviderResponseInvalid, ProviderUnav
 from app.domain.enums import ActivityStatus, Language, StepOutcome
 from app.domain.models.activity import OfferRecord
 from app.domain.models.learner import Learner
-from app.domain.models.writes import ActivityOffered, ActivityReported
+from app.domain.models.writes import ActivityOffered, ActivityReported, NudgePreference
 from app.layers.activity_catalogue import CatalogueActivitySource
 from app.layers.journey_layer import (
     ActivityPersonalisation,
@@ -408,3 +410,42 @@ async def test_after_a_report_the_child_can_start_talking() -> None:
         open_activity=offer(FIRST, talker),
     )
     assert result.reply.buttons[-1].id == f"kid:start:{talker.id}"
+
+
+# --- E: the daily khoj message ------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("button", "hour", "said"), [("nudge:08", 8, "subah 8"), ("nudge:18", 18, "shaam 6")]
+)
+async def test_choosing_a_time_turns_the_daily_message_on(
+    button: str, hour: int, said: str
+) -> None:
+    layer, llm = layer_with()
+    result = await khoj(button=button, layer=layer)
+    assert result.writes == [NudgePreference(enabled=True, local_time=time(hour, 0))]
+    assert f"Roz {said} baje" in result.reply.body
+    assert llm.by_prompt["activity_personalise"].prompts == []
+
+
+@pytest.mark.parametrize(
+    ("text", "button"),
+    [("", "nudge:off"), ("roz ka message band karo", None), ("message mat bhejo", None)],
+)
+async def test_turning_the_daily_message_off(text: str, button: str | None) -> None:
+    result = await khoj(text=text, button=button)
+    assert result.writes == [NudgePreference(enabled=False, local_time=None)]
+    assert result.reply.body == NUDGE_OFF_REPLY[H]
+
+
+@pytest.mark.parametrize("text", ["time badlo", "समय बदलो", "change the time"])
+async def test_asking_to_change_the_time_offers_the_choice_again(text: str) -> None:
+    result = await khoj(text=text, button=None)
+    assert result.reply.body == NUDGE_ASK[H]
+    assert [button.id for button in result.reply.buttons] == ["nudge:08", "nudge:18", "nudge:off"]
+    assert result.writes == []
+
+
+async def test_stop_alone_is_neither_deletion_nor_turning_off() -> None:
+    result = await khoj(text="stop", button=None)
+    assert not any(isinstance(write, NudgePreference) for write in result.writes)

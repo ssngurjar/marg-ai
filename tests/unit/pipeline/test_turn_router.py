@@ -127,3 +127,12 @@ def test_child_talk_never_starts_before_onboarding_is_done() -> None:
     onboarding = user_profile(state=ConversationState.AWAITING_CONSENT, role=None, consented=False)
     decision = TurnRouter.decide(onboarding, "Main Munni hoon", [], learners=[MUNNI])
     assert decision.route is Route.ONBOARDING
+
+
+@pytest.mark.parametrize("button", ["nudge:08", "nudge:18", "nudge:off"])
+def test_a_parents_nudge_button_goes_to_the_journey(button: str) -> None:
+    assert TurnRouter.decide(PARENT, "", [button]).route is Route.JOURNEY
+
+
+def test_a_teachers_nudge_button_is_not_routed_to_the_journey() -> None:
+    assert TurnRouter.decide(TEACHER, "", ["nudge:08"]).route is not Route.JOURNEY

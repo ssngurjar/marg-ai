@@ -117,6 +117,13 @@ class Settings(DatabaseSettings):
     stt_max_keywords: int = Field(default=100, ge=0)
     reply_audio_for_text_input: bool = False
 
+    # Added in S10b for the daily khoj message (s10b §4.11). Off until Meta approves the
+    # templates; opt-ins are recorded either way.
+    nudges_enabled: bool = False
+    nudge_template_name: str = Field(default="marg_daily_khoj", min_length=1)  # hi and en
+    nudge_template_name_hinglish: str = Field(default="marg_daily_khoj_hinglish", min_length=1)
+    nudge_daily_limit: int = Field(default=200, ge=0)  # below the 250/day unverified cap
+
     # Added in S10b for child talk (C13; contracts §7)
     child_talk_enabled: bool = True
     child_session_max_turns: int = Field(default=6, ge=1)

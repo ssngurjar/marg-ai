@@ -146,6 +146,7 @@ def build(
             clock=clock,
             media=MediaBlobRepository(sessions),
             child_sessions=ChildSessionRepository(sessions),
+            nudges=None,
         ),
         DispatcherSettings(
             debounce=timedelta(milliseconds=50),

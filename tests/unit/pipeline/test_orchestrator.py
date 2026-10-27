@@ -14,7 +14,7 @@ from enum import StrEnum
 
 import pytest
 
-from app.constants.journey_copy import SUPERVISION_LINE
+from app.constants.journey_copy import NUDGE_ASK, SUPERVISION_LINE
 from app.core.errors import (
     InvalidTransition,
     ProviderError,
@@ -743,7 +743,10 @@ async def test_onboarding_the_first_child_brings_the_first_khoj_in_the_same_turn
     parts = result.outcome.delivery.parts
     assert any(button.id.startswith("onb:childtalk:yes:") for button in parts[0].buttons)
     assert PERSONALISED_INTRO in result.delivered
-    assert [button.id for button in parts[-1].buttons] == ["jrn:done", "jrn:other"]
+    assert [button.id for button in parts[-2].buttons] == ["jrn:done", "jrn:other"]
+    # then, on its own (a message holds at most 3 buttons): when to send the daily khoj
+    assert parts[-1].text == NUDGE_ASK[Language.HINGLISH]
+    assert [button.id for button in parts[-1].buttons] == ["nudge:08", "nudge:18", "nudge:off"]
     kinds = [write.kind for write in result.outcome.writes]
     assert kinds == ["profile_change", "learner_upsert", "activity_offered"]
     _, upsert, offered = result.outcome.writes

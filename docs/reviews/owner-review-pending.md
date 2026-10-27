@@ -86,8 +86,16 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
   that warns about a road or fire ("keep her away from the road") is blocked and replaced with
   the generic redirect.
 - [ ] **Submit the nudge templates** in WhatsApp Manager (`marg_daily_khoj` in hi + en,
-  `marg_daily_khoj_hinglish` in en; text in the chat of 2026-10-27) and note the category Meta
-  gives them.
+  `marg_daily_khoj_hinglish` in en) and note the category Meta gives them. Their body must match
+  the text recorded on each nudge turn word for word (`app/constants/fixed_replies.py`, NUDGE:
+  "Aaj ki khoj taiyaar hai! 2 minute, bachche ke saath." / "आज की खोज तैयार है! 2 मिनट, बच्चे के
+  साथ।" / "Today's discovery is ready! 2 minutes, with your child."), with one quick-reply
+  button. Once approved, set `NUDGES_ENABLED=true` in `.env` (sending is off until then).
+- [ ] **Nudge copy**, `app/constants/journey_copy.py`: "Roz ki khoj ka message kab bhejein?"
+  (sent after the first khoj), the buttons "Subah 8 baje" / "Shaam 6 baje" / "Khud poochhenge"
+  (s10b said "Main khud poochunga", which is masculine), and the on/off confirmations.
+- [ ] **Phone test (nudges):** after onboarding a new child, tap "Subah 8 baje"; write "time
+  badlo" and "roz ka message band karo". Once templates are approved: wait for 8:00 IST.
 
 ## 2d. S6 voice (from 2026-10-27)
 

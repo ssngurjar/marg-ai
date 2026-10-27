@@ -18,6 +18,7 @@ from app.domain.rules.onboarding_answer_parser import OnboardingAnswerParser
 
 ONBOARDING_BUTTON_PREFIX: Final = "onb:"
 JOURNEY_BUTTON_PREFIX: Final = "jrn:"
+NUDGE_BUTTON_PREFIX: Final = "nudge:"
 
 
 class TurnRouter:
@@ -44,7 +45,8 @@ class TurnRouter:
         if any(button.startswith(ONBOARDING_BUTTON_PREFIX) for button in interactive_ids):
             return _to(Route.ONBOARDING, "onboarding button")
         if profile.role is Role.PARENT and any(
-            button.startswith(JOURNEY_BUTTON_PREFIX) for button in interactive_ids
+            button.startswith((JOURNEY_BUTTON_PREFIX, NUDGE_BUTTON_PREFIX))
+            for button in interactive_ids
         ):
             return _to(Route.JOURNEY, "journey button")
         if interactive_ids:

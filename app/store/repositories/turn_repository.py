@@ -43,6 +43,7 @@ from app.domain.models.writes import (
     ChildTalkTurn,
     LearnerUpsert,
     MarkPurgeAfterDelivery,
+    NudgePreference,
     ProfileChange,
     TurnWrite,
 )
@@ -53,6 +54,7 @@ from app.pipeline.reply_parts_builder import ReplyDelivery
 from app.store.repositories.child_session_repository import ChildSessionRepository
 from app.store.repositories.journey_repository import JourneyRepository
 from app.store.repositories.learner_repository import LearnerRepository
+from app.store.repositories.nudge_repository import NudgeRepository
 from app.store.repositories.outbox_repository import OutboxRepository
 from app.store.repositories.user_repository import UserRepository
 from app.store.tables import inbox_messages, learner_activities, turns, users
@@ -441,6 +443,8 @@ async def _apply(session: AsyncSession, started: StartedTurn, write: TurnWrite) 
             await ChildSessionRepository.count_turn(session, started.user_hash, write)
         case ChildSessionEnd():
             await ChildSessionRepository.end(session, started.user_hash, write)
+        case NudgePreference():
+            await NudgeRepository.set_preference(session, started.user_hash, write)
         case _:
             assert_never(write)
 

@@ -31,6 +31,7 @@ from datetime import datetime, timedelta
 from typing import ClassVar, Final, Literal
 
 from app.constants.child_talk_copy import PARENT_SUMMARY_AFTER_SADNESS, UNNAMED_CHILD_NAME
+from app.constants.journey_copy import NUDGE_ASK, NUDGE_BUTTONS
 from app.constants.stt_keywords import STT_KEYWORDS
 from app.core.clock import Clock
 from app.core.errors import (
@@ -149,6 +150,7 @@ class _Sealed:
 
     safe: SafeReply
     preamble: SafeReply | None
+    trailer: SafeReply | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -299,7 +301,7 @@ class _Turn:
         if isinstance(result.handoff, FirstKhojHandoff):
             khoj = await self._first_khoj(result.handoff, safe.reply_register)
             if khoj is not None:
-                delivery = self._delivery(khoj.safe, preamble=safe)
+                delivery = self._delivery(khoj.safe, preamble=safe, trailer=self._nudge_ask())
                 writes.extend(khoj.writes)
         return TurnOutcome(
             turn_id=self.ctx.turn_id,
@@ -638,14 +640,30 @@ class _Turn:
             _StepRecord(StepName.SYNTHESIZE, started, None, usage, f"voice={safe.reply_register}")
         )
         delivery = ReplyPartsBuilder.build(
-            safe, audio_blob_id=blob_id, preamble=self.sealed.preamble
+            safe, audio_blob_id=blob_id, preamble=self.sealed.preamble, trailer=self.sealed.trailer
         )
         return outcome.model_copy(update={"delivery": delivery})
 
-    def _delivery(self, safe: SafeReply, preamble: SafeReply | None = None) -> ReplyDelivery:
+    def _delivery(
+        self,
+        safe: SafeReply,
+        preamble: SafeReply | None = None,
+        trailer: SafeReply | None = None,
+    ) -> ReplyDelivery:
         """Text parts for `safe`; the reply is remembered so its voice note can be added."""
-        self.sealed = _Sealed(safe, preamble)
-        return ReplyPartsBuilder.build(safe, audio_blob_id=None, preamble=preamble)
+        self.sealed = _Sealed(safe, preamble, trailer)
+        return ReplyPartsBuilder.build(safe, audio_blob_id=None, preamble=preamble, trailer=trailer)
+
+    def _nudge_ask(self) -> SafeReply:
+        """After the first khoj: when should the daily one come? (s10b §4.11; fixed copy)."""
+        ask = LocalisedReply(
+            text=NUDGE_ASK[self.register],
+            spoken_text=NUDGE_ASK[self.register],
+            reply_register=self.register,
+            citations=[],
+            buttons=list(NUDGE_BUTTONS[self.register]),
+        )
+        return self.steps.gate.clear_fixed(ask, FixedReplyKind.ONBOARDING)
 
     @staticmethod
     def _refusal_for(check: InputCheck) -> _FixedChoice:

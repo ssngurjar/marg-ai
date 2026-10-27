@@ -63,11 +63,13 @@ from app.store.db import create_engine, create_session_factory, ping
 from app.store.repositories.child_session_repository import ChildSessionRepository
 from app.store.repositories.inbox_repository import InboxRepository
 from app.store.repositories.media_blob_repository import MediaBlobRepository
+from app.store.repositories.nudge_repository import NudgeRepository
 from app.store.repositories.outbox_repository import OutboxRepository
 from app.store.repositories.turn_repository import TurnRepository
 from app.store.repositories.turn_step_repository import TurnStepRepository
 from app.store.repositories.user_repository import UserRepository
 from app.worker.database_step_recorder import DatabaseStepRecorder
+from app.worker.nudge_sender import NudgeSender, NudgeSettings, nudge_templates
 from app.worker.reply_deliverer import DeliveryDeps, DeliverySettings, ReplyDeliverer
 from app.worker.turn_dispatcher import DispatcherDeps, DispatcherSettings, TurnDispatcher
 from app.worker.turn_processor import TurnDeps, TurnProcessor, TurnSettings
@@ -385,6 +387,7 @@ def build_turn_dispatcher(
     session_factory: async_sessionmaker[AsyncSession],
     engine_parts: EngineParts,
 ) -> TurnDispatcher:
+    worker_id = f"{socket.gethostname()}:{os.getpid()}:{uuid4().hex[:8]}"
     turns = TurnRepository(session_factory)
     processor = TurnProcessor(
         TurnDeps(
@@ -396,7 +399,7 @@ def build_turn_dispatcher(
             clock=engine_parts.clock,
         ),
         TurnSettings(
-            worker_id=f"{socket.gethostname()}:{os.getpid()}:{uuid4().hex[:8]}",
+            worker_id=worker_id,
             max_messages=settings.max_messages_per_turn,
             max_attempts=settings.max_turn_attempts,
             stale_after=timedelta(hours=settings.stale_message_hours),
@@ -429,6 +432,23 @@ def build_turn_dispatcher(
             clock=engine_parts.clock,
             media=engine_parts.media,
             child_sessions=ChildSessionRepository(session_factory),
+            nudges=(
+                NudgeSender(
+                    NudgeRepository(session_factory),
+                    deliverer,
+                    engine_parts.orchestrator.steps.gate,
+                    engine_parts.clock,
+                    NudgeSettings(
+                        templates=nudge_templates(
+                            settings.nudge_template_name, settings.nudge_template_name_hinglish
+                        ),
+                        daily_limit=settings.nudge_daily_limit,
+                        worker_id=worker_id,
+                    ),
+                )
+                if settings.nudges_enabled
+                else None
+            ),
         ),
         DispatcherSettings(
             debounce=timedelta(milliseconds=settings.turn_debounce_ms),

@@ -83,6 +83,13 @@ _PLAIN_TEXTS: Final[dict[tuple[FixedReplyKind, FixedReplyVariant], dict[Language
         _HINDI: "इस तरह का संदेश अभी समझ नहीं पाते। कृपया अपनी बात लिखकर भेजिए।",
         _ENGLISH: "I can't read this kind of message yet. Please type what you'd like to say.",
     },
+    # The daily nudge template's body, recorded on the NUDGE turn (s10b §4.11). Must match the
+    # templates submitted in WhatsApp Manager word for word.
+    (_K.NUDGE, _V.DEFAULT): {
+        _HINGLISH: "Aaj ki khoj taiyaar hai! 2 minute, bachche ke saath.",
+        _HINDI: "आज की खोज तैयार है! 2 मिनट, बच्चे के साथ।",
+        _ENGLISH: "Today's discovery is ready! 2 minutes, with your child.",
+    },
     (_K.REFUSE, _V.HARMFUL): {
         _HINGLISH: (
             "Is baare mein madad nahi kar sakte. Bachche ki padhai, khel aur seekhne ke baare "

@@ -21,6 +21,7 @@ from sqlalchemy import (
     SmallInteger,
     Table,
     Text,
+    Time,
     UniqueConstraint,
     func,
     text,
@@ -338,4 +339,21 @@ child_sessions = Table(
         unique=True,
         postgresql_where=text("ended_at IS NULL"),
     ),
+)
+
+nudge_subscriptions = Table(
+    "nudge_subscriptions",
+    metadata,
+    Column("user_hash", Text, ForeignKey("users.user_hash", ondelete="CASCADE"), primary_key=True),
+    Column("enabled", Boolean, nullable=False),
+    Column("local_time", Time, nullable=True),  # IST, as the parent chose
+    Column("next_due_at", DateTime(timezone=True), nullable=True),  # NULL while off
+    Column("last_sent_at", DateTime(timezone=True), nullable=True),
+    Column("opted_in_at", DateTime(timezone=True), nullable=True),
+    Column("opted_out_at", DateTime(timezone=True), nullable=True),
+    CheckConstraint(
+        "NOT enabled OR (local_time IS NOT NULL AND next_due_at IS NOT NULL)",
+        name="on_has_a_time",
+    ),
+    Index("ix_nudge_subscriptions_next_due_at", "next_due_at", postgresql_where=text("enabled")),
 )

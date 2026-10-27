@@ -63,10 +63,17 @@ def image_message(caption: str | None = "Munni ke patte") -> dict[str, JsonValue
 
 
 def button_reply(
-    button_id: str = "onb:consent:yes", title: str = "Haan, theek hai"
+    button_id: str = "onb:consent:yes",
+    title: str = "Haan, theek hai",
+    *,
+    message_id: str = "wamid.TEST1",
 ) -> dict[str, JsonValue]:
     reply: dict[str, JsonValue] = {"id": button_id, "title": title}
-    return message("interactive", {"interactive": {"type": "button_reply", "button_reply": reply}})
+    return message(
+        "interactive",
+        {"interactive": {"type": "button_reply", "button_reply": reply}},
+        message_id=message_id,
+    )
 
 
 def list_reply(row_id: str = "row:1", title: str = "Pehla bachcha") -> dict[str, JsonValue]:

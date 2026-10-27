@@ -9,7 +9,7 @@ import os
 import random
 from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, time, timedelta
 
 import pytest
 from sqlalchemy import text
@@ -147,6 +147,7 @@ EVERY_USER_TABLE = (
     "learners WHERE owner_user_hash = :h",
     "media_blobs WHERE user_hash = :h",
     "child_sessions WHERE user_hash = :h",
+    "nudge_subscriptions WHERE user_hash = :h",
     "turn_steps WHERE turn_id IN (SELECT id FROM turns WHERE user_hash = :h)",
 )
 
@@ -329,8 +330,18 @@ async def test_a_new_parent_is_onboarded_with_consent_recorded_and_one_child(
         ("granted", COPY_VERSION),
         ("child_profile_consent", COPY_VERSION),
     ]
-    first_khoj = pipeline.sender.sent[-1].part
+    first_khoj = pipeline.sender.sent[-2].part
     assert [button.id for button in first_khoj.buttons] == ["jrn:done", "jrn:other"]
+    nudge_question = pipeline.sender.sent[-1].part
+    assert [button.id for button in nudge_question.buttons] == [
+        "nudge:08",
+        "nudge:18",
+        "nudge:off",
+    ]
+    await send(pipeline, wa.button_reply("nudge:08", "Subah 8 baje", message_id="wamid.O6"))
+    assert await rows(engine, "SELECT enabled, local_time FROM nudge_subscriptions") == [
+        (True, time(8, 0))
+    ]
     assert await rows(engine, "SELECT activity_id, status FROM learner_activities") == [
         (first_choice().id, "offered")
     ]
