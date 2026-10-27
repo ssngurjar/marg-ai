@@ -53,6 +53,7 @@ CALL_TIMEOUT_S = 60.0
 TEMPERATURE = 0.0
 ERROR_LIMIT = 400
 RESULTS_NAME = "results.json"
+OPEN_MODEL_RESULTS_NAME = "results-open-model.json"
 
 # A reply "keeps Devanagari" when at least this share of its letters are Devanagari, and "stays
 # Roman" when at most this share are. Exam names (NEET, NMMS) are legitimately Roman in Hindi.
@@ -1027,25 +1028,39 @@ async def run_open_model(rows: list[ResultRow]) -> None:
     async with AsyncOpenAI(
         api_key=endpoint.api_key, base_url=endpoint.base_url, timeout=CALL_TIMEOUT_S, max_retries=0
     ) as client:
+        open_model_efforts: tuple[Effort, ...] = ("default", "minimal")
         try:
-            await _summarised(
-                rows,
-                run_schema(
-                    client,
-                    limit,
-                    SchemaRun(reflection, endpoint.model, "default"),
-                    OPEN_MODEL_CALLS,
-                ),
-            )
+            for effort in open_model_efforts:
+                await _summarised(
+                    rows,
+                    run_schema(
+                        client,
+                        limit,
+                        SchemaRun(reflection, endpoint.model, effort),
+                        OPEN_MODEL_CALLS,
+                    ),
+                )
         except BadRequestError as exc:
             status = f"HTTP {exc.status_code}: {_short(exc.message)}"
             rows.append({"section": "open_model", "status": status})
             print(f"muse spark open: json_schema rejected: {status}")
 
 
+async def run_open_model_only(out_dir: Path) -> Path:
+    """The Muse Spark Open check alone, for when Baseten is configured after the main run."""
+    rows: list[ResultRow] = []
+    await run_open_model(rows)
+    return write_results(out_dir, OPEN_MODEL_RESULTS_NAME, rows)
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Spike E: structured output (s02 §4.6).")
     parser.add_argument("--out-dir", required=True, type=Path, help="Outside the repo.")
+    parser.add_argument(
+        "--open-model-only",
+        action="store_true",
+        help="Run only the Muse Spark Open check (results-open-model.json).",
+    )
     args = parser.parse_args(argv)
     out_dir: Path = args.out_dir.resolve()
     repo_root = Path(__file__).resolve().parents[2]
@@ -1059,6 +1074,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         print("\n".join(f"strict-subset violation: {violation}" for violation in violations))
         return 2
     print(f"strict-subset check: all {len(SCHEMAS)} schemas pass")
+    if args.open_model_only:
+        open_model_path = asyncio.run(run_open_model_only(out_dir))
+        print(f"wrote {open_model_path}")
+        return 0
     base_url = require_env("MODEL_API_BASE_URL")
     api_key = require_env("MODEL_API_KEY")
     try:

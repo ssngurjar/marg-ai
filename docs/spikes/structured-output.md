@@ -87,8 +87,23 @@ careers; the longest field in any reply was 138 characters, inside every `max_le
 | Repair fixes the named problem in ≥ 8 of 10 | **met** (10/10) |
 | Exposure bridge p50 ≤ 4 s | **not met**: 5.62 s at `minimal` with 4 in flight (7.48 s at default, sequential). Exposure is the teacher stretch (mvp-scope, Day 8), not on the MVP path |
 
+**Muse Spark Open** (`meta-models/muse-spark-open-1026` on Baseten,
+`https://inference.baseten.co/v1`, s10b §4.8 / C9), `parent_reflection` × 10 per effort, 4 in
+flight (`--open-model-only`):
+
+| Effort | Valid | Kept script | p50 | p95 | Reasoning tokens per call |
+|---|---|---|---|---|---|
+| default | 10/10 | 10/10 | 11.13 s | 14.42 s | 1,500–3,800 |
+| minimal | 10/10 | 10/10 | 5.81 s | 7.71 s | ~150 (single-call probe: 144) |
+
+Strict `json_schema` works on Baseten's OpenAI-compatible endpoint, and `reasoning_effort` is
+accepted although Baseten describes the model as "always reasons". Reasoning text arrives in a
+separate `message.reasoning_content` field, never in `content`. Replies read as well as Spark
+1.3's (specific praise, one extending question, the Hindi case fully in Devanagari).
+
 **Cost:** 47,568 input + 281,275 output tokens across the 200 schema calls and 10 repair calls
-≈ **$1.25** at $1.25 / $4.25 per 1M (plan.md §0); the rest of the run adds a few cents.
+≈ **$1.25** at $1.25 / $4.25 per 1M (plan.md §0); the rest of the run adds a few cents. The
+Muse Spark Open calls run on the $100 Baseten hackathon credit.
 
 ## Surprises
 
@@ -104,8 +119,10 @@ careers; the longest field in any reply was 138 characters, inside every `max_le
 - **Routing accuracy is a prompt problem, not a model one:** with a one-line route description it
   was 25/30 at default (teacher-exposure-002, a Hindi teacher question, went to `mentor` 4 times),
   10/10 at `minimal`, 9/10 at `low`. S5's real router prompt and the eval set decide this.
-- Muse Spark Open (s10b §4.8, C9) was **not tested**: `OPEN_MODEL_BASE_URL` / `OPEN_MODEL_API_KEY`
-  aren't configured yet. Re-run the script with them set; it then runs `parent_reflection` 10× on it.
+- **Muse Spark Open is ~1.6× slower than Spark 1.3 at `minimal`** (5.8 s against 3.7 s p50 for
+  the reflection) and reasons far more at default (up to ~3,800 tokens). One reflection praised
+  the child in the second person ("Wah Munni, … tumhara idea") although the reader is the parent:
+  a prompt point for s10b's `parent_reflection.md.j2`, seen on both models' outputs to check in evals.
 - The Responses API wasn't tried: Chat Completions met the bar, so there was nothing to compare
   against.
 
@@ -119,8 +136,13 @@ careers; the longest field in any reply was 138 characters, inside every `max_le
   `TIMEOUT_ROUTE_S` 4 fits the router at `minimal` (not at default). `TIMEOUT_GENERATE_S` 12 fits.
 - **S4:** the worker's concurrency trades throughput for per-call latency; measure again in the
   S16 smoke test before raising it.
-- **s10b:** `ParentReflection` with its length limits works as designed on Muse Spark 1.3.
-  Muse Spark Open still needs this check once Baseten is set up.
+- **s10b / C9:** `ParentReflection` with its length limits works on both Muse Spark 1.3 and Muse
+  Spark Open, so the C9 plan (reflection on Spark Open, falling back to Spark 1.3) holds with the
+  same adapter. Run Spark Open at `minimal` too: 5.8 s p50 / 7.7 s p95 fits `TIMEOUT_GENERATE_S` 12
+  on its own, **but not with a fallback after a late failure** (7.7 s + Spark 1.3's 4.5 s p95 > 12 s).
+  s10b needs a shorter cap on the Spark Open attempt (e.g. 7 s) so the fallback fits; that is a
+  setting for the owner to approve with S5. S5's adapter must ignore
+  `reasoning_content` (never shown, stored or logged: it can quote the parent's message).
 - **Teacher exposure (Day 8 stretch):** the bridge is ~5.6 s at `minimal`; acceptable for a
   teacher planning tomorrow's class, but if the 4 s bar stands, split it into two calls or
   trim the schema then.
