@@ -190,3 +190,61 @@ class Mode(StrEnum):
     MENTOR = "mentor"
     ROADMAP = "roadmap"
     JOURNEY = "journey"
+
+
+class Role(StrEnum):
+    """Who the user is (s08). The MVP offers PARENT and TEACHER; STUDENT is Phase 2."""
+
+    STUDENT = "student"
+    TEACHER = "teacher"
+    PARENT = "parent"
+
+
+class ConsentEventKind(StrEnum):
+    GRANTED = "granted"
+    GUARDIAN_CONFIRMED = "guardian_confirmed"
+    CHILD_PROFILE_CONSENT = "child_profile_consent"
+    CHILD_TALK_CONSENT = "child_talk_consent"
+    REVOKED = "revoked"  # reserved (s08 Q3): withdrawing consent is a deletion
+    DELETION_REQUESTED = "deletion_requested"
+
+
+class LearnerRelation(StrEnum):
+    """How the user relates to the learner."""
+
+    SELF = "self"  # a student's own learner
+    PARENT = "parent"  # a parent's child
+
+
+class CopyKey(StrEnum):
+    """Fixed onboarding copy (s08 §4.8; text in app/constants/onboarding_copy.py). Not persisted."""
+
+    INTRO_CONSENT = "intro_consent"
+    INTRO_CONSENT_WITH_QUESTION = "intro_consent_with_question"
+    CONSENT_DECLINED = "consent_declined"
+    ASK_ROLE = "ask_role"
+    STUDENT_COMING_SOON = "student_coming_soon"
+    ASK_GUARDIAN = "ask_guardian"
+    GUARDIAN_NEEDED = "guardian_needed"
+    ASK_GRADE_STUDENT = "ask_grade_student"
+    ASK_SUBJECT_TEACHER = "ask_subject_teacher"
+    ASK_GRADE_TEACHER = "ask_grade_teacher"
+    ASK_DISTRICT = "ask_district"
+    INVALID_GRADE = "invalid_grade"
+    ASK_CHILD = "ask_child"
+    CHILD_INVALID_AGE = "child_invalid_age"
+    CHILD_NICKNAME_TOO_LONG = "child_nickname_too_long"
+    MAX_CHILDREN = "max_children"
+    QUESTION_NOTED = "question_noted"
+    NOT_UNDERSTOOD = "not_understood"
+    PROFILE_DONE = "profile_done"
+    PROFILE_DONE_TEACHER = "profile_done_teacher"
+    PROFILE_DONE_PARENT = "profile_done_parent"
+    ASK_CHILD_TALK = "ask_child_talk"
+    CHILD_TALK_ENABLED = "child_talk_enabled"
+    CHILD_TALK_OFF = "child_talk_off"
+    TEACHER_WAITING = "teacher_waiting"
+    LANGUAGE_CHANGED = "language_changed"
+    CONFIRM_DELETE = "confirm_delete"
+    DELETE_CANCELLED = "delete_cancelled"
+    DATA_DELETED = "data_deleted"

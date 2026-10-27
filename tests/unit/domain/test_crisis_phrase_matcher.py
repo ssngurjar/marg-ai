@@ -8,6 +8,7 @@ from app.constants.crisis_lexicon import CRISIS_LEXICON
 from app.domain.enums import SafetyCategory
 from app.domain.models.safety import CrisisLexicon
 from app.domain.rules.crisis_phrase_matcher import CrisisPhraseMatcher
+from app.domain.rules.phrase_finder import PhraseFinder
 
 pytestmark = pytest.mark.unit
 
@@ -97,14 +98,14 @@ def test_every_lexicon_phrase_survives_normalisation() -> None:
         *CRISIS_LEXICON.abuse_harms,
     )
     for phrase in every_phrase:
-        assert CrisisPhraseMatcher.normalise(phrase), phrase
+        assert PhraseFinder.normalise(phrase), phrase
 
 
 @given(text=st.text(max_size=200))
 @example(text="ख़ुदकुशी नहीं!!")
 def test_normalising_is_idempotent(text: str) -> None:
-    once = CrisisPhraseMatcher.normalise(text)
-    assert CrisisPhraseMatcher.normalise(once) == once
+    once = PhraseFinder.normalise(text)
+    assert PhraseFinder.normalise(once) == once
 
 
 @given(

@@ -55,6 +55,8 @@ class Settings(DatabaseSettings):
     whatsapp_app_secret: SecretStr
     whatsapp_verify_token: SecretStr
     whatsapp_phone_number_id: str = Field(min_length=1)
+    # The business's public number, digits only: the teacher invite's wa.me link (s08). Public.
+    whatsapp_display_number: str = Field(pattern=r"^\d{10,15}$")
     webhook_max_body_bytes: int = Field(default=5_000_000, gt=0)
     timeout_whatsapp_s: float = Field(default=5.0, gt=0)
 
@@ -70,6 +72,7 @@ class Settings(DatabaseSettings):
     shutdown_grace_s: float = Field(default=20.0, ge=0)
     retention_turn_text_days: int = Field(default=90, ge=1)
     retention_raw_payload_days: int = Field(default=7, ge=1)
+    purge_sweep_after_s: int = Field(default=600, ge=60)  # s08 §4.10: purge even if undelivered
 
     # Added in S5 for the model, prompts and the safety core (contracts §7)
     model_api_base_url: HttpUrl

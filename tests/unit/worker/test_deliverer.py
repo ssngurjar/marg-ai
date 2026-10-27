@@ -18,6 +18,7 @@ from app.worker.reply_deliverer import DeliveryDeps, DeliverySettings, ReplyDeli
 from tests.fakes.clock import FixedClock
 from tests.fakes.sender import FakeSender
 from tests.fakes.sleeper import FakeSleeper
+from tests.fakes.user_repository import MemoryUserRepository
 from tests.support.app_factory import make_identity
 
 pytestmark = pytest.mark.unit
@@ -106,7 +107,12 @@ def deliverer(outbox: MemoryOutbox, sender: FakeSender, clock: FixedClock) -> Re
     )
     return ReplyDeliverer(
         DeliveryDeps(
-            outbox=outbox, senders=senders, identity=make_identity(), retry=retry, clock=clock
+            outbox=outbox,
+            users=MemoryUserRepository(),
+            senders=senders,
+            identity=make_identity(),
+            retry=retry,
+            clock=clock,
         ),
         DeliverySettings(max_attempts=5, part_budget=timedelta(seconds=25)),
     )

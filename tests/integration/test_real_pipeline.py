@@ -16,7 +16,9 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.channels.whatsapp.payloads import WebhookBody
 from app.channels.whatsapp.webhook_parser import WhatsAppWebhookParser
+from app.constants.onboarding_copy import COPY_VERSION
 from app.core.errors import ProviderUnavailable
+from app.core.types import JsonValue
 from app.domain.enums import Channel, SafetyCategory
 from app.domain.models.base import UserHash
 from app.providers.http import RetryPolicy, RetryTiming
@@ -82,6 +84,7 @@ def wire(
         {
             "parent_answer": FakeLanguageModel([HINGLISH_ANSWER]),
             "minor_policy": FakeLanguageModel([policy]),
+            "profile_extraction": EXTRACTION,
         }
     )
     orchestrator = build_orchestrator(settings, language_model, classifier, clock)
@@ -100,13 +103,31 @@ def wire(
     return Pipeline(dispatcher, InboxRepository(sessions), sender)
 
 
-async def ask(pipeline: Pipeline, question: str) -> None:
+EXTRACTION = FakeLanguageModel(
+    [
+        {
+            "role": None, "grade": None, "subject": None, "district": None, "child_age": None,
+            "child_nickname": None, "language": None, "question": None,
+        }
+    ]
+)  # fmt: skip
+"""Shared so a test can see whether onboarding needed the model at all."""
+USER_HASH = UserHash(make_identity().user_hash("whatsapp", wa.FAKE_WA_ID))
+EVERY_USER_TABLE = (
+    "users WHERE user_hash = :h",
+    "inbox_messages WHERE user_hash = :h",
+    "turns WHERE user_hash = :h",
+    "outbox_messages WHERE user_hash = :h",
+    "consent_events WHERE user_hash = :h",
+    "learners WHERE owner_user_hash = :h",
+    "turn_steps WHERE turn_id IN (SELECT id FROM turns WHERE user_hash = :h)",
+)
+
+
+async def send(pipeline: Pipeline, payload: dict[str, JsonValue]) -> None:
     identity = make_identity()
     parsed = WhatsAppWebhookParser.parse(
-        WebhookBody.model_validate(wa.webhook([wa.text_message(question)])),
-        TEST_PHONE_NUMBER_ID,
-        identity,
-        NOW,
+        WebhookBody.model_validate(wa.webhook([payload])), TEST_PHONE_NUMBER_ID, identity, NOW
     )
     records = [
         InboundRecord(
@@ -125,6 +146,38 @@ async def ask(pipeline: Pipeline, question: str) -> None:
     await pipeline.dispatcher.wait_until_idle()
 
 
+async def ask(pipeline: Pipeline, question: str, *, message_id: str = "wamid.Q1") -> None:
+    await send(pipeline, wa.text_message(question, message_id=message_id))
+
+
+async def onboarded_parent(engine: AsyncEngine) -> None:
+    """The user the journey tests talk to: consented, a parent, with one child."""
+    async with engine.begin() as connection:
+        await connection.execute(
+            text(
+                "INSERT INTO users (user_hash, channel, address_ciphertext, state, role, "
+                "consented_at) VALUES (:h, 'whatsapp', :address, 'active', 'parent', now())"
+            ),
+            {"h": USER_HASH, "address": make_identity().encrypt_address(USER_HASH, wa.FAKE_WA_ID)},
+        )
+        await connection.execute(
+            text(
+                "INSERT INTO learners (id, owner_user_hash, relation, nickname, birth_year) "
+                "VALUES (gen_random_uuid(), :h, 'parent', 'Munni', 2021)"
+            ),
+            {"h": USER_HASH},
+        )
+
+
+async def count(engine: AsyncEngine, table_and_filter: str) -> int:
+    async with engine.connect() as connection:
+        result = await connection.execute(
+            text(f"SELECT count(*) FROM {table_and_filter}"),  # noqa: S608  # fixed table names
+            {"h": USER_HASH},
+        )
+        return int(result.scalar_one())
+
+
 async def rows(engine: AsyncEngine, sql: str) -> Sequence[tuple[object, ...]]:
     async with engine.connect() as connection:
         return [tuple(row) for row in (await connection.execute(text(sql))).all()]
@@ -133,6 +186,7 @@ async def rows(engine: AsyncEngine, sql: str) -> Sequence[tuple[object, ...]]:
 async def test_a_parents_question_is_answered_and_every_step_is_recorded(
     engine: AsyncEngine,
 ) -> None:
+    await onboarded_parent(engine)
     pipeline = wire(engine, FakeSafetyClassifier())
     await ask(pipeline, QUESTION)
     sent = [delivered.part.text or "" for delivered in pipeline.sender.sent]
@@ -153,6 +207,7 @@ async def test_safety_down_sends_the_holding_reply_and_records_the_failure(
     engine: AsyncEngine,
 ) -> None:
     down = FakeSafetyClassifier(error=ProviderUnavailable("503", provider="llama_guard"))
+    await onboarded_parent(engine)
     pipeline = wire(engine, down)
     await ask(pipeline, QUESTION)
     sent = " ".join(delivered.part.text or "" for delivered in pipeline.sender.sent)
@@ -167,6 +222,7 @@ async def test_a_crisis_gets_the_helpline_and_its_text_is_not_kept(engine: Async
     def self_harm(request: SafetyRequest) -> list[SafetyCategory]:
         return [SafetyCategory.SELF_HARM] if request.speaker == "user" else []
 
+    await onboarded_parent(engine)
     pipeline = wire(engine, FakeSafetyClassifier(flag=self_harm))
     await ask(pipeline, "main thak gayi hoon, sab khatam karna chahti hoon")
     sent = " ".join(delivered.part.text or "" for delivered in pipeline.sender.sent)
@@ -178,6 +234,7 @@ async def test_a_crisis_gets_the_helpline_and_its_text_is_not_kept(engine: Async
 async def test_a_disclosure_only_the_policy_check_sees_gets_the_child_helpline(
     engine: AsyncEngine,
 ) -> None:
+    await onboarded_parent(engine)
     pipeline = wire(engine, FakeSafetyClassifier(), policy=policy_answer(abuse=True))
     await ask(pipeline, "Ghar pe koi mujhe pareshan karta hai, kisi ko mat batana bolta hai")
     sent = " ".join(delivered.part.text or "" for delivered in pipeline.sender.sent)
@@ -187,3 +244,67 @@ async def test_a_disclosure_only_the_policy_check_sees_gets_the_child_helpline(
     assert await rows(
         engine, "SELECT decision, provider FROM turn_steps WHERE step = 'safety_in'"
     ) == [("crisis", "llama_guard+meta_model_api")]
+
+
+# --- onboarding and delete-my-data, end to end (s08 §10) -------------------------------------
+
+
+async def test_a_new_parent_is_onboarded_with_consent_recorded_and_one_child(
+    engine: AsyncEngine,
+) -> None:
+    pipeline = wire(engine, FakeSafetyClassifier())
+    await ask(pipeline, "Hello", message_id="wamid.O1")
+    await send(pipeline, wa.button_reply("onb:consent:yes", "Haan, theek hai"))
+    await send(
+        pipeline,
+        wa.message(
+            "interactive",
+            {
+                "interactive": {
+                    "type": "button_reply",
+                    "button_reply": {"id": "onb:role:parent", "title": "Main parent hoon"},
+                }
+            },
+            message_id="wamid.O3",
+        ),
+    )
+    await ask(pipeline, "beti, Munni, 5 saal", message_id="wamid.O4")
+    assert await rows(
+        engine, "SELECT state, role, language, consented_at IS NOT NULL FROM users"
+    ) == [("active", "parent", "hinglish", True)]
+    assert await rows(engine, "SELECT relation, nickname, birth_year FROM learners") == [
+        ("parent", "Munni", NOW.year - 5)
+    ]
+    assert await rows(engine, "SELECT kind, prompt_version FROM consent_events ORDER BY id") == [
+        ("granted", COPY_VERSION),
+        ("child_profile_consent", COPY_VERSION),
+    ]
+    assert len(pipeline.sender.sent) == 4
+
+
+async def test_delete_my_data_purges_every_table_after_the_reply_and_hi_starts_fresh(
+    engine: AsyncEngine,
+) -> None:
+    await onboarded_parent(engine)
+    pipeline = wire(engine, FakeSafetyClassifier())
+    await ask(pipeline, QUESTION, message_id="wamid.D0")
+    await ask(pipeline, "mera data hatao", message_id="wamid.D1")
+    await send(
+        pipeline,
+        wa.message(
+            "interactive",
+            {
+                "interactive": {
+                    "type": "button_reply",
+                    "button_reply": {"id": "onb:delete:yes", "title": "Haan, delete karo"},
+                }
+            },
+            message_id="wamid.D2",
+        ),
+    )
+    last_reply = pipeline.sender.sent[-1].part.text or ""
+    assert "delete ho gaya" in last_reply
+    for table in EVERY_USER_TABLE:
+        assert await count(engine, table) == 0, table
+    await ask(pipeline, "Hi", message_id="wamid.D3")
+    assert await rows(engine, "SELECT state FROM users") == [("awaiting_consent",)]

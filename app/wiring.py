@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 from functools import partial
 from typing import Final
+from urllib.parse import quote
 from uuid import uuid4
 
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
@@ -22,6 +23,7 @@ from app.core.clock import Clock, SystemClock
 from app.core.config import Settings
 from app.core.user_identity import UserIdentity
 from app.domain.enums import Channel
+from app.layers.onboarding_layer import PROFILE_EXTRACTION, OnboardingLayer
 from app.layers.parent_question_layer import PARENT_ANSWER, ParentQuestionLayer
 from app.pipeline.fixed_reply_service import FixedReplyService
 from app.pipeline.orchestrator import Orchestrator, OrchestratorSettings, PipelineSteps
@@ -41,14 +43,16 @@ from app.store.repositories.inbox_repository import InboxRepository
 from app.store.repositories.outbox_repository import OutboxRepository
 from app.store.repositories.turn_repository import TurnRepository
 from app.store.repositories.turn_step_repository import TurnStepRepository
+from app.store.repositories.user_repository import UserRepository
 from app.worker.database_step_recorder import DatabaseStepRecorder
 from app.worker.reply_deliverer import DeliveryDeps, DeliverySettings, ReplyDeliverer
 from app.worker.turn_dispatcher import DispatcherDeps, DispatcherSettings, TurnDispatcher
 from app.worker.turn_processor import TurnDeps, TurnProcessor, TurnSettings
 
 DISPATCHER_ERROR_BACKOFF = timedelta(seconds=5)
-PROMPT_SPECS: Final = (PARENT_ANSWER, MINOR_POLICY)
+PROMPT_SPECS: Final = (PARENT_ANSWER, MINOR_POLICY, PROFILE_EXTRACTION)
 """Every prompt the app renders; the registry refuses a template without a spec."""
+INVITE_GREETING: Final = "Namaste Marg"
 
 
 @dataclass(frozen=True, slots=True)
@@ -141,6 +145,7 @@ def check_startup(settings: Settings) -> None:
     ModelPricing.require_allowed_for_user_content(settings.model_text, "MODEL_TEXT")
     ModelPricing.price_of(settings.safety_model)
     FixedReplyService.check_all_languages()
+    OnboardingLayer.check_copy()
 
 
 def build_orchestrator(
@@ -168,6 +173,9 @@ def build_orchestrator(
                 ),
             ),
             parent_questions=ParentQuestionLayer(language_model, registry),
+            onboarding=OnboardingLayer(
+                language_model, registry, invite_link=teacher_invite_link(settings)
+            ),
             clock=clock,
         ),
         OrchestratorSettings(
@@ -177,6 +185,11 @@ def build_orchestrator(
             safety_out_timeout=timedelta(seconds=settings.timeout_safety_out_s),
         ),
     )
+
+
+def teacher_invite_link(settings: Settings) -> str:
+    """The link a teacher forwards to parents: opens a chat with Marg, "Namaste" typed in."""
+    return f"https://wa.me/{settings.whatsapp_display_number}?text={quote(INVITE_GREETING)}"
 
 
 @dataclass(frozen=True, slots=True)
@@ -213,9 +226,11 @@ def build_turn_dispatcher(
             recent_exchanges=settings.recent_exchanges,
         ),
     )
+    users = UserRepository(session_factory)
     deliverer = ReplyDeliverer(
         DeliveryDeps(
             outbox=engine_parts.outbox,
+            users=users,
             senders=engine_parts.senders,
             identity=engine_parts.identity,
             retry=engine_parts.retry,
@@ -232,6 +247,7 @@ def build_turn_dispatcher(
             deliverer=deliverer,
             turns=turns,
             outbox=engine_parts.outbox,
+            users=users,
             clock=engine_parts.clock,
         ),
         DispatcherSettings(
@@ -240,6 +256,7 @@ def build_turn_dispatcher(
             shutdown_grace=timedelta(seconds=settings.shutdown_grace_s),
             retain_turn_text=timedelta(days=settings.retention_turn_text_days),
             retain_raw_payload=timedelta(days=settings.retention_raw_payload_days),
+            purge_sweep_after=timedelta(seconds=settings.purge_sweep_after_s),
             error_backoff=DISPATCHER_ERROR_BACKOFF,
         ),
     )

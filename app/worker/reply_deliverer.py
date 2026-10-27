@@ -23,6 +23,7 @@ from app.domain.rules.delivery_planner import DeliveryPlanner
 from app.providers.http import RetryPolicy
 from app.providers.ports import ChannelAddress, ChannelSender
 from app.store.repositories.outbox_repository import OutboxRepository, OutboxRow
+from app.store.repositories.user_repository import UserRepository
 
 ERROR_TEXT_LIMIT: Final = 200
 
@@ -38,6 +39,7 @@ class DeliverySettings:
 @dataclass(frozen=True, slots=True)
 class DeliveryDeps:
     outbox: OutboxRepository
+    users: UserRepository
     senders: Mapping[Channel, ChannelSender]
     identity: UserIdentity
     retry: RetryPolicy
@@ -47,6 +49,7 @@ class DeliveryDeps:
 class ReplyDeliverer:
     def __init__(self, deps: DeliveryDeps, settings: DeliverySettings) -> None:
         self._outbox = deps.outbox
+        self._users = deps.users
         self._senders = deps.senders
         self._identity = deps.identity
         self._retry = deps.retry
@@ -54,11 +57,17 @@ class ReplyDeliverer:
         self._settings = settings
 
     async def deliver_turn(self, turn_id: TurnId) -> int:
-        """Send this turn's due parts in order until one has to wait. Returns how many were sent."""
+        """Send this turn's due parts in order until one has to wait. Returns how many were sent.
+
+        If the user asked for their data to be deleted in this turn and no part is left to send,
+        they are purged now (s08 §4.10): the confirmation went out first.
+        """
         sent = 0
         while (row := await self._outbox.claim_next_part(turn_id)) is not None:
             if await self._send(row):
                 sent += 1
+        if await self._users.purge_if_delivered(turn_id):
+            logger.info("user_purged", turn_id=str(turn_id))
         return sent
 
     async def _send(self, row: OutboxRow) -> bool:

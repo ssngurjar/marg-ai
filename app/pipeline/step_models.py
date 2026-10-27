@@ -1,6 +1,6 @@
 """What a turn and its steps produce (contracts §2.3). Data only.
 
-`TurnOutcome` grows in stages: S8 adds `writes`, S13 and S12 add `post_turn`.
+`TurnOutcome` grows in stages: S8 added `writes`; S13 and S12 add `post_turn`.
 """
 
 from typing import Literal
@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict
 
 from app.domain.enums import FailureKind, FixedReplyKind, Language, Route, StepName, StepOutcome
 from app.domain.models.base import TurnId
+from app.domain.models.writes import TurnWrite
 from app.pipeline.reply_parts_builder import ReplyDelivery
 
 
@@ -41,3 +42,4 @@ class TurnOutcome(StepModel):
     reply_register: Language
     prompt_versions: dict[str, str]  # prompt id → version, for every prompt used
     first_failure: StepFailure | None
+    writes: list[TurnWrite]  # applied in the finalize transaction, in this order (s08)

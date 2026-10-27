@@ -1,16 +1,16 @@
 """process_user_turn (s04 §4.4 to §4.9) against an in-memory turn store."""
 
 import asyncio
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
 
-from app.core.errors import ProviderUnavailable
+from app.core.errors import InvalidProfileValue, LeaseLost, ProviderUnavailable
 from app.domain.enums import (
     Channel,
-    ConversationState,
     FailureKind,
     FixedReplyKind,
     InboxStatus,
@@ -21,7 +21,8 @@ from app.domain.enums import (
 )
 from app.domain.models.base import TurnId, UserHash
 from app.domain.models.message import InboundMessage
-from app.domain.models.turn import QueuedMessage, TurnContext, UserProfile
+from app.domain.models.turn import QueuedMessage, TurnContext
+from app.domain.models.writes import TurnWrite
 from app.domain.rules.turn_batcher import TurnBatcher
 from app.pipeline.reply_parts_builder import ReplyDelivery
 from app.pipeline.step_models import StepFailure
@@ -39,6 +40,7 @@ from tests.fakes.domain_policy import rules_only_policy
 from tests.fakes.orchestrator import FakeOrchestrator, ScriptedReply
 from tests.fakes.safety_classifier import FakeSafetyClassifier
 from tests.fakes.sender import FakeSender
+from tests.support.turn_context import user_profile
 
 pytestmark = pytest.mark.unit
 
@@ -68,8 +70,11 @@ class Abandoned:
 class MemoryTurnStore(TurnRepository):
     """Hands out one scripted batch, then records what the processor does with it."""
 
-    def __init__(self, batch: list[QueuedMessage]) -> None:
+    def __init__(
+        self, batch: list[QueuedMessage], *, finalize_error: Exception | None = None
+    ) -> None:
         self.batch = batch
+        self.finalize_error = finalize_error
         self.finalized: list[Finalized] = []
         self.abandoned: list[Abandoned] = []
         self.turn_id = TurnId(uuid4())
@@ -86,20 +91,22 @@ class MemoryTurnStore(TurnRepository):
     async def load_context(self, started: StartedTurn, recent_exchanges: int) -> TurnContext:
         return TurnContext(
             turn_id=started.turn_id,
-            profile=UserProfile(
-                user_hash=started.user_hash,
-                channel=Channel.WHATSAPP,
-                state=ConversationState.ACTIVE,
-                last_inbound_at=NOW,
-            ),
+            profile=user_profile(user_hash=started.user_hash),
+            learners=[],
             messages=[queued.message for queued in started.queued],
             recent_exchanges=[],
             is_session_start=True,
         )
 
     async def finalize(
-        self, started: StartedTurn, finished: FinishedTurn, delivery: ReplyDelivery | None
+        self,
+        started: StartedTurn,
+        finished: FinishedTurn,
+        delivery: ReplyDelivery | None,
+        writes: Sequence[TurnWrite] = (),
     ) -> FinalizeResult:
+        if self.finalize_error is not None:
+            raise self.finalize_error
         self.finalized.append(Finalized(finished, delivery))
         return FinalizeResult(
             parts_enqueued=len(delivery.parts) if delivery else 0, more_pending=False
@@ -258,3 +265,24 @@ async def test_shutdown_mid_turn_requeues_without_counting_an_attempt() -> None:
         await task
     assert store.abandoned == [Abandoned(count_attempt=False, retry_after=timedelta(0))]
     assert store.finalized == []
+
+
+async def test_a_lost_lease_puts_the_messages_back_without_counting_an_attempt() -> None:
+    store = MemoryTurnStore(
+        [QueuedMessage(1, message(1), 0)],
+        finalize_error=LeaseLost("user is no longer in state awaiting_consent"),
+    )
+    await processor(store, FakeOrchestrator(), FakeSender(FixedClock(NOW))).process_user_turn(USER)
+    assert store.finalized == []
+    assert store.abandoned == [Abandoned(count_attempt=False, retry_after=timedelta(0))]
+
+
+async def test_a_refused_write_is_a_bug_retried_with_backoff() -> None:
+    store = MemoryTurnStore(
+        [QueuedMessage(1, message(1), 1)],
+        finalize_error=InvalidProfileValue("an owner may have at most 3 learners"),
+    )
+    await processor(store, FakeOrchestrator(), FakeSender(FixedClock(NOW))).process_user_turn(USER)
+    [abandoned] = store.abandoned
+    assert abandoned.count_attempt is True
+    assert abandoned.retry_after > timedelta(0)

@@ -69,4 +69,5 @@ class FakeOrchestrator:
             reply_register=safe.reply_register,
             prompt_versions={"fake": "1"},
             first_failure=reply.first_failure,
+            writes=[],
         )

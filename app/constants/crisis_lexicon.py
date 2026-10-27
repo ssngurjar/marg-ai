@@ -4,7 +4,7 @@ Recall first, except that siblings and cousins are left out of the people list: 
 chhote ko maarta hai" is an everyday parenting question, and the Muse Spark check still sees it.
 Every phrase is reviewed by the owner (and ideally a counsellor or teacher, s07 Q2)
 before it ships; add each miss found in testing. crisis-004 ("exam ka bahut tension hai") must
-never match. Spellings are matched after CrisisPhraseMatcher.normalise, so case, punctuation,
+never match. Spellings are matched after PhraseFinder.normalise, so case, punctuation,
 nukta and nasal marks don't matter; Roman spelling variants are listed explicitly.
 
 v1, written 2026-10-27: pending the owner's review.

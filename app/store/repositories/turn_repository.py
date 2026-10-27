@@ -4,9 +4,10 @@ Exception E1 (mvp-scope §4.1): one process with one lock per user, so there are
 public method is one transaction. The only SQL for turns and the inbox's processing columns.
 """
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from typing import assert_never
 from uuid import uuid4
 
 from sqlalchemy import Row, and_, func, select, update
@@ -22,6 +23,7 @@ from app.domain.enums import (
     InboxStatus,
     Language,
     MessageKind,
+    Role,
     Route,
     StepName,
     TurnStatus,
@@ -29,10 +31,19 @@ from app.domain.enums import (
 from app.domain.models.base import TurnId, UserHash
 from app.domain.models.message import InboundMessage, MediaRef
 from app.domain.models.turn import Exchange, QueuedMessage, TurnContext, UserProfile
+from app.domain.models.writes import (
+    ChildTalkConsent,
+    LearnerUpsert,
+    MarkPurgeAfterDelivery,
+    ProfileChange,
+    TurnWrite,
+)
 from app.domain.rules.session_rules import SessionRules
 from app.domain.rules.turn_batcher import TurnBatcher
 from app.pipeline.reply_parts_builder import ReplyDelivery
+from app.store.repositories.learner_repository import LearnerRepository
 from app.store.repositories.outbox_repository import OutboxRepository
+from app.store.repositories.user_repository import UserRepository
 from app.store.tables import inbox_messages, turns, users
 
 RETENTION_BATCH = 1000
@@ -108,6 +119,7 @@ class TurnRepository:
         try:
             async with self._session_factory() as session:
                 profile = await _load_profile(session, started.user_hash)
+                user_learners = await LearnerRepository.list_for(session, started.user_hash)
                 exchanges = await _recent_exchanges(session, started.user_hash, recent_exchanges)
                 previous_started_at = await _previous_turn_start(session, started)
         except (SQLAlchemyError, OSError) as exc:
@@ -116,6 +128,7 @@ class TurnRepository:
         return TurnContext(
             turn_id=started.turn_id,
             profile=profile,
+            learners=user_learners,
             messages=messages,
             recent_exchanges=exchanges,
             is_session_start=SessionRules.is_session_start(
@@ -124,17 +137,25 @@ class TurnRepository:
         )
 
     async def finalize(
-        self, started: StartedTurn, finished: FinishedTurn, delivery: ReplyDelivery | None
+        self,
+        started: StartedTurn,
+        finished: FinishedTurn,
+        delivery: ReplyDelivery | None,
+        writes: Sequence[TurnWrite] = (),
     ) -> FinalizeResult:
-        """Queue the reply, complete the turn and close its messages, all or nothing (s04 §4.7).
+        """Apply the turn's writes, queue the reply, complete the turn and close its messages,
+        all or nothing (s04 §4.7, contracts §2.4).
 
-        `delivery` is None only for a stale turn, which answers nothing.
+        `delivery` is None only for a stale turn, which answers nothing. Raises LeaseLost (and
+        commits nothing) when a profile change finds the user in another state.
         """
         user_text = (
             None if finished.fixed_reply_kind is FixedReplyKind.CRISIS else finished.user_text
         )
         try:
             async with self._session_factory() as session, session.begin():
+                for write in writes:
+                    await _apply(session, started, write)
                 parts = 0
                 if delivery is not None:
                     parts = await OutboxRepository.enqueue(
@@ -348,16 +369,37 @@ def _queued_message(row: Row[tuple[object, ...]]) -> QueuedMessage:
     )
 
 
+async def _apply(session: AsyncSession, started: StartedTurn, write: TurnWrite) -> None:
+    """One write, in list order, inside the finalize transaction."""
+    match write:
+        case ProfileChange():
+            await UserRepository.apply_profile_change(session, started.user_hash, write)
+        case LearnerUpsert():
+            await LearnerRepository.upsert(session, started.user_hash, write)
+        case ChildTalkConsent():
+            await LearnerRepository.set_child_talk(session, started.user_hash, write)
+        case MarkPurgeAfterDelivery():
+            await UserRepository.mark_purge_after(session, started.user_hash, started.turn_id)
+        case _:
+            assert_never(write)
+
+
 async def _load_profile(session: AsyncSession, user_hash: UserHash) -> UserProfile:
-    query = select(users.c.channel, users.c.state, users.c.last_inbound_at).where(
-        users.c.user_hash == user_hash
-    )
+    query = select(users).where(users.c.user_hash == user_hash)
     row = (await session.execute(query)).one()
     return UserProfile(
         user_hash=user_hash,
         channel=Channel(row.channel),
         state=ConversationState(row.state),
+        role=Role(row.role) if row.role else None,
+        grade=row.grade,
+        subject=row.subject,
+        district=row.district,
+        language=Language(row.language) if row.language else None,
+        guardian_confirmed=row.guardian_confirmed,
+        consented_at=row.consented_at,
         last_inbound_at=row.last_inbound_at,
+        pending_question=row.pending_question,
     )
 
 

@@ -814,6 +814,7 @@ timeouts; secrets in error messages; personal data in log keys, messages and tra
 
 | Date | Change | Why | Approved |
 |---|---|---|---|
+| 2026-10-27 | `layers` may import `constants` (reviewed copy and catalogues; constants import only domain and core, so no cycle) | S8's onboarding layer needs its copy; S10b's journey layer its catalogue | owner |
 | 2026-10-26 | Ruff ignores `N818`, keeping the contracts.md exception names | N818 conflicted with the contract names | owner |
 | 2026-10-26 | Ruff excludes `*.md` | Ruff formats code blocks inside Markdown and rewrapped the design docs | implementation detail, reported to owner |
 | 2026-10-26 | `ReadinessProbe` is a small dataclass (`name`, `critical`, `check`), in `app/api/readiness.py` | A timed-out probe must still report its name; also avoids a circular import between `deps` and `health` | implementation detail, reported to owner |

@@ -34,6 +34,7 @@ def make_settings(
         whatsapp_app_secret=SecretStr(APP_SIGNING_KEY_FOR_TESTS),
         whatsapp_verify_token=SecretStr(HANDSHAKE_WORD_FOR_TESTS),
         whatsapp_phone_number_id=TEST_PHONE_NUMBER_ID,
+        whatsapp_display_number="15550000000",
         model_api_base_url=HttpUrl("https://api.meta.ai/v1"),
         model_api_key=SecretStr("test-model-key"),
         safety_base_url=HttpUrl("https://guard.example/v1"),

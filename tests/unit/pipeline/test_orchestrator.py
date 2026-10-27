@@ -6,14 +6,21 @@ a reviewed fixed text.
 """
 
 import itertools
+from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import datetime, timedelta
 from enum import StrEnum
 
 import pytest
 
-from app.core.errors import ProviderError, ProviderTimeout, ProviderUnavailable
+from app.core.errors import (
+    InvalidTransition,
+    ProviderError,
+    ProviderTimeout,
+    ProviderUnavailable,
+)
 from app.domain.enums import (
+    ConversationState,
     FailureKind,
     FixedReplyKind,
     Language,
@@ -24,7 +31,9 @@ from app.domain.enums import (
     StepName,
     StepOutcome,
 )
+from app.domain.models.message import InboundMessage
 from app.domain.models.turn import TurnContext
+from app.layers.onboarding_layer import OnboardingLayer, OnboardingResult
 from app.layers.parent_question_layer import ParentQuestionLayer
 from app.pipeline.null_turn_observer import NullTurnObserver
 from app.pipeline.orchestrator import Orchestrator, OrchestratorSettings, PipelineSteps
@@ -45,6 +54,7 @@ from tests.support.turn_context import (
     media_message,
     text_message,
     turn_context,
+    user_profile,
 )
 
 pytestmark = pytest.mark.unit
@@ -53,6 +63,7 @@ QUESTION = "Beta ko rang kaise sikhayein?"
 GENERATED = str(HINGLISH_ANSWER["answer"])
 GUARD_DOWN = ProviderUnavailable("503", provider="llama_guard")
 MODEL_DOWN = ProviderUnavailable("503", provider="meta_model_api")
+INVITE_LINK = "https://wa.me/15550000000?text=Namaste%20Marg"
 IN_FLIGHT = 0.01  # a classifier this slow lets generation start before the verdict
 SETTINGS = OrchestratorSettings(
     turn_budget=timedelta(seconds=20),
@@ -84,6 +95,7 @@ def orchestrator_for(
         PipelineSteps(
             gate=SafetyGate(classifier, policy),
             parent_questions=ParentQuestionLayer(llm, shipped_registry()),
+            onboarding=OnboardingLayer(llm, shipped_registry(), invite_link=INVITE_LINK),
             clock=FixedClock(NOW),
         ),
         settings,
@@ -494,3 +506,87 @@ async def test_the_safety_in_row_records_both_checks_cost() -> None:
     usage = result.recorder.steps[1].usage
     assert usage is not None
     assert usage.provider == "llama_guard+meta_model_api"
+
+
+# --- onboarding and deletion turns (s08) -----------------------------------------------------
+
+
+def new_user(*messages: InboundMessage) -> TurnContext:
+    profile = user_profile(state=ConversationState.NEW, role=None, consented=False)
+    return turn_context(*messages, profile=profile)
+
+
+async def test_a_new_users_hello_is_safety_checked_then_gets_the_consent_intro() -> None:
+    result = await run(new_user(text_message("Hello")))
+    assert result.outcome.route is Route.ONBOARDING
+    assert result.outcome.fixed_reply_kind is FixedReplyKind.ONBOARDING
+    assert result.classifier.speakers() == ["user"]
+    assert [write.kind for write in result.outcome.writes] == ["profile_change"]
+    assert result.recorder.outcomes() == [
+        (StepName.ROUTE, StepOutcome.OK),
+        (StepName.SAFETY_IN, StepOutcome.OK),
+        (StepName.GENERATE, StepOutcome.OK),
+        (StepName.TRANSLATE, StepOutcome.SKIPPED),
+    ]
+
+
+async def test_a_button_press_needs_no_safety_call() -> None:
+    profile = user_profile(state=ConversationState.AWAITING_CONSENT, role=None, consented=False)
+    result = await run(turn_context(button_reply("onb:consent:yes"), profile=profile))
+    assert result.classifier.requests == []
+    assert result.outcome.writes
+
+
+async def test_a_crisis_during_onboarding_gets_the_helpline_and_changes_nothing() -> None:
+    result = await run(new_user(text_message("Result kharab aaya, ab jeene ka mann nahi karta")))
+    assert result.outcome.route is Route.CRISIS
+    assert result.outcome.writes == []
+
+
+async def test_safety_down_during_onboarding_holds_and_changes_nothing() -> None:
+    down = FakeSafetyClassifier(error=GUARD_DOWN)
+    result = await run(new_user(text_message("Hello")), classifier=down)
+    assert result.outcome.fixed_reply_kind is FixedReplyKind.HOLDING
+    assert result.outcome.writes == []
+
+
+async def test_a_deletion_request_from_an_active_parent_asks_to_confirm() -> None:
+    result = await run(asking("mera data hatao"))
+    assert result.outcome.route is Route.DATA_DELETION
+    assert [button.id for part in result.outcome.delivery.parts for button in part.buttons] == [
+        "onb:delete:yes",
+        "onb:delete:no",
+    ]
+
+
+class BrokenOnboarding(OnboardingLayer):
+    """An onboarding layer with a bug: the interpreter produced an event the state refuses."""
+
+    async def handle(
+        self, ctx: TurnContext, user_text: str, interactive_ids: Sequence[str], now: datetime
+    ) -> OnboardingResult:
+        raise InvalidTransition("ConsentGiven is not allowed in active")
+
+
+async def test_an_onboarding_bug_answers_try_again_later_with_no_writes() -> None:
+    llm = FakeLanguageModel([HINGLISH_ANSWER])
+    orchestrator = Orchestrator(
+        PipelineSteps(
+            gate=SafetyGate(FakeSafetyClassifier(), scripted_policy()[0]),
+            parent_questions=ParentQuestionLayer(llm, shipped_registry()),
+            onboarding=BrokenOnboarding(llm, shipped_registry(), invite_link=INVITE_LINK),
+            clock=FixedClock(NOW),
+        ),
+        SETTINGS,
+    )
+    recorder = MemoryStepRecorder()
+    outcome = await orchestrator.run_turn(
+        new_user(text_message("Hello")), recorder, NullTurnObserver()
+    )
+    assert outcome.fixed_reply_kind is FixedReplyKind.TRY_AGAIN_LATER
+    assert outcome.writes == []
+    assert outcome.first_failure is not None
+    assert (outcome.first_failure.step, outcome.first_failure.detail) == (
+        StepName.GENERATE,
+        "InvalidTransition",
+    )

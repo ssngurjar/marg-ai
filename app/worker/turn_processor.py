@@ -12,7 +12,7 @@ from datetime import timedelta
 from typing import Final
 
 from app.core.clock import Clock
-from app.core.errors import ChannelError, ProviderError
+from app.core.errors import ChannelError, DomainError, LeaseLost, ProviderError
 from app.core.logging import get_logger
 from app.domain.enums import Channel, FixedReplyKind, FixedReplyVariant, InboxStatus
 from app.domain.models.base import TurnId, UserHash
@@ -105,7 +105,21 @@ class TurnProcessor:
                 exc_info=exc,
             )
             return
-        await self._store.finalize(started, _finished(outcome), outcome.delivery)
+        try:
+            await self._store.finalize(
+                started, _finished(outcome), outcome.delivery, outcome.writes
+            )
+        except LeaseLost:
+            # The user moved on (another turn changed their state): nothing was committed, and
+            # the messages are answered again from the new state. Not the message's fault.
+            await self._store.abandon(started, count_attempt=False, retry_after=timedelta(0))
+            logger.warning("turn_lease_lost", turn_id=str(started.turn_id))
+        except DomainError as exc:  # a write the state machine should have refused: a bug
+            attempts = max(queued.attempts for queued in started.queued)
+            await self._store.abandon(
+                started, count_attempt=True, retry_after=TurnBatcher.retry_delay(attempts)
+            )
+            logger.exception("turn_write_refused", turn_id=str(started.turn_id), exc_info=exc)
 
     async def _acknowledge(self, started: StartedTurn) -> None:
         """Blue ticks and "typing…" for the newest message. Best effort: never stops the turn."""

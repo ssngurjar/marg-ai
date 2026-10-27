@@ -328,7 +328,8 @@ app/domain/     pure models, state machine, activities, trajectory math, text ru
 app/providers/  adapters behind ports in providers/ports.py. The ONLY place an SDK is imported.
 app/channels/   the ONLY place that knows a WhatsApp (or web) payload shape.
 app/store/      the ONLY place SQL lives.
-app/constants/  reviewed copy (fixed replies) and external-API limits. Imports domain and core only.
+app/constants/  reviewed copy (fixed and onboarding replies, crisis words) and external-API limits.
+                Imports domain and core only; layers, pipeline and safety may read it.
 ```
 
 - `domain/` importing anything from `app/` other than `core.errors` and `core.types` is a bug.

@@ -8,6 +8,9 @@
     D. safety_out           the generated reply is sealed only if Llama Guard allows it
     E. parts                ReplyPartsBuilder → TurnOutcome
 
+Onboarding and deletion turns (s08) run safety_in, then the onboarding layer, whose reply is
+reviewed fixed copy (sealed without a classifier call) and whose writes ride on the outcome.
+
 Every turn ends with a reply. A provider failure becomes a fixed reply (HOLDING when a safety
 check fails: fail closed); only a programming error raises, which the worker treats as a crashed
 turn. Every step is recorded; a recording failure is logged and never takes the reply down.
@@ -20,7 +23,7 @@ from datetime import datetime, timedelta
 from typing import ClassVar, Final, Literal
 
 from app.core.clock import Clock
-from app.core.errors import ProviderError, SafetyUnavailable, StoreError
+from app.core.errors import DomainError, ProviderError, SafetyUnavailable, StoreError
 from app.core.logging import get_logger
 from app.domain.enums import (
     FixedReplyKind,
@@ -37,6 +40,7 @@ from app.domain.models.turn import TurnContext
 from app.domain.models.usage import StepUsage
 from app.domain.rules.register_detector import RegisterDetector
 from app.layers.layer_result import LayerResult
+from app.layers.onboarding_layer import OnboardingLayer, OnboardingResult
 from app.layers.parent_question_layer import ParentQuestionLayer
 from app.pipeline.failure_policy import FailurePolicy
 from app.pipeline.fixed_reply_service import FixedReplyService
@@ -66,6 +70,7 @@ class OrchestratorSettings:
 class PipelineSteps:
     gate: SafetyGate
     parent_questions: ParentQuestionLayer
+    onboarding: OnboardingLayer
     clock: Clock
 
 
@@ -124,7 +129,11 @@ class _Turn:
 
     async def run(self) -> TurnOutcome:
         interactive_ids, has_unsupported = self._read_messages()
-        self.register = RegisterDetector.detect(self.user_text) or FALLBACK_REGISTER
+        self.register = (
+            RegisterDetector.detect(self.user_text)
+            or self.ctx.profile.language
+            or FALLBACK_REGISTER
+        )
         if self.user_text:
             await self._safely(self.recorder.set_turn_text(self.ctx.turn_id, self.user_text))
         if not self.user_text and not interactive_ids and has_unsupported:
@@ -134,7 +143,7 @@ class _Turn:
                 )
             )
         routed_at = self.steps.clock.now()
-        decision = TurnRouter.decide(self.user_text, interactive_ids)
+        decision = TurnRouter.decide(self.ctx.profile, self.user_text, interactive_ids)
         await self._record(_StepRecord(StepName.ROUTE, routed_at, decision, None, decision.reason))
         await self._safely(self.recorder.set_turn_route(self.ctx.turn_id, decision.route))
         if decision.route is Route.REPEAT_PLEASE:
@@ -143,7 +152,71 @@ class _Turn:
                     FixedReplyKind.REPEAT_PLEASE, FixedReplyVariant.DEFAULT, decision.route
                 )
             )
+        if decision.route in {Route.ONBOARDING, Route.DATA_DELETION}:
+            return await self._onboarding(decision.route, interactive_ids)
         return await self._journey()
+
+    async def _onboarding(self, route: Route, interactive_ids: list[str]) -> TurnOutcome:
+        """safety_in on what the user typed (button ids are ours), then the onboarding layer."""
+        started = self.steps.clock.now()
+        if self.user_text:
+            try:
+                input_check = await self._bounded(
+                    self.steps.gate.check_input(self.user_text), self.settings.safety_in_timeout
+                )
+            except (SafetyUnavailable, TimeoutError) as error:
+                return await self._failed(StepName.SAFETY_IN, started, error)
+            await self._record(self._input_record(started, input_check))
+            if input_check.verdict.decision is not SafetyDecision.ALLOW:
+                return self._fixed(self._refusal_for(input_check))
+        started = self.steps.clock.now()
+        try:
+            result = await self._bounded(
+                self.steps.onboarding.handle(
+                    self.ctx, self.user_text, interactive_ids, self.steps.clock.now()
+                ),
+                self.settings.generate_timeout,
+            )
+        except (DomainError, TimeoutError) as error:
+            return await self._failed(StepName.GENERATE, started, error)
+        self.prompt_versions = dict(result.prompt_versions)
+        await self._record(
+            _StepRecord(
+                StepName.GENERATE,
+                started,
+                result.reply,
+                StepUsage.total(result.usages),
+                result.degraded_reason,
+                outcome=result.outcome,
+            )
+        )
+        await self._record_skipped(StepName.TRANSLATE, "fixed onboarding copy")
+        return self._onboarding_outcome(route, result)
+
+    def _onboarding_outcome(self, route: Route, result: OnboardingResult) -> TurnOutcome:
+        """Onboarding copy is reviewed fixed text: sealed without a classifier call (s07 §4.2)."""
+        reply = result.reply
+        kind = reply.fixed_kind or FixedReplyKind.ONBOARDING
+        localised = LocalisedReply(
+            text=reply.body,
+            spoken_text=reply.spoken_text or reply.body,
+            reply_register=reply.body_language,
+            citations=reply.citations,
+            buttons=reply.buttons,
+        )
+        safe = self.steps.gate.clear_fixed(localised, kind)
+        return TurnOutcome(
+            turn_id=self.ctx.turn_id,
+            route=route,
+            delivery=ReplyPartsBuilder.build(safe, audio_blob_id=None),
+            fixed_reply_kind=kind,
+            user_text=self.user_text or None,
+            reply_text=safe.text,
+            reply_register=safe.reply_register,
+            prompt_versions=self.prompt_versions,
+            first_failure=self.first_failure,
+            writes=list(result.writes),
+        )
 
     async def _journey(self) -> TurnOutcome:
         started = self.steps.clock.now()
@@ -219,6 +292,7 @@ class _Turn:
             reply_register=safe.reply_register,
             prompt_versions=self.prompt_versions,
             first_failure=self.first_failure,
+            writes=[],
         )
 
     # --- turn pieces -------------------------------------------------------------------------
@@ -286,6 +360,7 @@ class _Turn:
             reply_register=safe.reply_register,
             prompt_versions=self.prompt_versions,
             first_failure=self.first_failure,
+            writes=[],
         )
 
     async def _bounded[ResultT](self, work: Awaitable[ResultT], step_timeout: timedelta) -> ResultT:

@@ -19,6 +19,7 @@ from app.core.logging import get_logger
 from app.domain.models.base import TurnId, UserHash
 from app.store.repositories.outbox_repository import OutboxRepository
 from app.store.repositories.turn_repository import TurnRepository
+from app.store.repositories.user_repository import UserRepository
 from app.worker.reply_deliverer import ReplyDeliverer
 from app.worker.turn_processor import TurnProcessor
 
@@ -32,6 +33,7 @@ class DispatcherSettings:
     shutdown_grace: timedelta  # SHUTDOWN_GRACE_S
     retain_turn_text: timedelta  # RETENTION_TURN_TEXT_DAYS
     retain_raw_payload: timedelta  # RETENTION_RAW_PAYLOAD_DAYS
+    purge_sweep_after: timedelta  # PURGE_SWEEP_AFTER_S
     error_backoff: timedelta  # wait after a database error before trying the user again
 
 
@@ -41,6 +43,7 @@ class DispatcherDeps:
     deliverer: ReplyDeliverer
     turns: TurnRepository
     outbox: OutboxRepository
+    users: UserRepository
     clock: Clock
 
 
@@ -50,6 +53,7 @@ class TurnDispatcher:
         self._deliverer = deps.deliverer
         self._turns = deps.turns
         self._outbox = deps.outbox
+        self._users = deps.users
         self._clock = deps.clock
         self._settings = settings
         self._user_tasks: dict[UserHash, asyncio.Task[None]] = {}
@@ -184,6 +188,9 @@ class TurnDispatcher:
         )
         if cleared:
             logger.info("retention_cleared", rows=cleared)
+        purged = await self._users.sweep_purges(self._settings.purge_sweep_after)
+        if purged:
+            logger.info("purge_sweep", users=purged)
 
     async def _deliver_due_parts(self) -> None:
         turn_ids: list[TurnId] = await self._outbox.turns_with_due_parts()

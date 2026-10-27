@@ -47,6 +47,7 @@ line of the module's docstring.
 | `crisis_replies.py` | `Helpline`, `CrisisText` | Crisis replies and the helplines they give (s07 §4.6). Reviewed text, never generated. |
 | `fixed_replies.py` | `FixedText`, `FixedTextKey` | Fixed replies: reviewed copy keyed by (kind, variant, language) (contracts §6). |
 | `model_prices.py` | `ModelPrice` | Model prices per million tokens, for cost accounting (s05 §4.1, s07 §4.3). |
+| `onboarding_copy.py` | `CopyEntry` | Onboarding copy: fixed, reviewed text in Hinglish, Hindi and English (s08 §4.8). |
 | `whatsapp.py` | — | WhatsApp Cloud API limits and error codes (s03 §4.9, §4.10). |
 
 ## `core`
@@ -65,28 +66,34 @@ line of the module's docstring.
 
 | Module | Classes | What it does |
 |---|---|---|
-| `enums.py` | `Channel`, `MessageKind`, `ConversationState`, `InboxStatus`, `OutboxStatus`, `PartKind`, `Language`, `Route`, `StepName`, `StepOutcome`, `FailureKind`, `TurnStatus`, `SafetyDecision`, `SafetyCategory`, `FixedReplyKind`, `FixedReplyVariant`, `Mode` | Closed sets of values shared across the app (contracts.md §1). |
+| `enums.py` | `Channel`, `MessageKind`, `ConversationState`, `InboxStatus`, `OutboxStatus`, `PartKind`, `Language`, `Route`, `StepName`, `StepOutcome`, `FailureKind`, `TurnStatus`, `SafetyDecision`, `SafetyCategory`, `FixedReplyKind`, `FixedReplyVariant`, `Mode`, `Role`, `ConsentEventKind`, `LearnerRelation`, `CopyKey` | Closed sets of values shared across the app (contracts.md §1). |
 
 ## `domain/models`
 
 | Module | Classes | What it does |
 |---|---|---|
 | `base.py` | `DomainModel` | Identifiers and the base every domain model shares (contracts.md §2.1). |
+| `conversation.py` | `ProfileUpdate`, `FirstContact`, `ConsentGiven`, `ConsentDeclined`, `RoleChosen`, `RoleUnavailable`, `GuardianConfirmed`, `GuardianDeclined`, `ProfileAnswered`, `ChildAnswered`, `ChildInvalid`, `AddChild`, `ChildTalkAnswered`, `TeacherAsked`, `LanguageSwitched`, `QuestionNoted`, `Unrecognised`, `DeletionRequested`, `DeletionConfirmed`, `DeletionCancelled`, `SendCopy`, `RecordConsent`, `UpsertLearner`, `SetChildTalk`, `PurgeAfterDelivery`, `HandoffPendingQuestion`, `HandoffFirstKhoj`, `Transition` | The onboarding conversation's events and effects (s08 §4.2). Pure data. |
 | `delivery.py` | `PartState` | Where an outbound part stands in its delivery (s04 §4.10). |
+| `learner.py` | `Learner` | Learners: the child or student whose journey Marg.ai follows (contracts §2.2, data-model). |
 | `message.py` | `MediaRef`, `InboundMessage`, `AudioClip`, `ImageClip` | What users send us: messages and the media they carry (contracts.md §2.1). |
 | `reply.py` | `ReplyButton`, `TemplateRef`, `OutboundPart`, `Citation`, `LocalisedReply`, `CanonicalReply` | What we send back (contracts.md §2.6): reply content and the outbound parts that carry it. |
 | `routing.py` | `RouteDecision` | Where a turn goes (contracts §2.5). |
 | `safety.py` | `SafetyVerdict`, `CrisisLexicon` | A safety check's result (contracts.md §2.5). Produced by s07's gate; read by the trace. |
 | `turn.py` | `UserProfile`, `Exchange`, `TurnContext`, `QueuedMessage` | A turn and what it knows about the user (contracts.md §2.2; s04 §4.4, §4.5). |
 | `usage.py` | `StepUsage` | What a provider call cost (contracts §2.3). Attached to every turn_steps row. |
+| `writes.py` | `ProfileChange`, `LearnerUpsert`, `MarkPurgeAfterDelivery`, `ChildTalkConsent` | State changes that commit with the reply (contracts §2.4). |
 
 ## `domain/rules`
 
 | Module | Classes | What it does |
 |---|---|---|
+| `conversation_machine.py` | `ConversationMachine` | ConversationMachine: the onboarding state machine (s08 §4.1 to §4.3). Pure and deterministic. |
 | `crisis_phrase_matcher.py` | `CrisisPhraseMatcher` | CrisisPhraseMatcher: the crisis rules that need no provider (s07 §4.5 rule 1, §4.6). Pure. |
 | `delivery_planner.py` | `DeliveryPlanner` | DeliveryPlanner: part order and status changes (s03 §4.8, s04 §4.10). Pure. |
 | `message_splitter.py` | `MessageSplitter` | MessageSplitter: a reply cut into channel-sized messages (s05 §4.7). Pure. |
+| `onboarding_answer_parser.py` | `Found`, `GradeParse`, `ChildAgeParse`, `NicknameParse`, `OnboardingAnswerParser` | OnboardingAnswerParser: what an onboarding answer says, without a model (s08 §4.4 step 4). Pure. |
+| `phrase_finder.py` | `PhraseFinder` | PhraseFinder: whole-phrase matching on normalised text, for keyword rules (s07, s08). Pure. |
 | `register_detector.py` | `RegisterDetector` | RegisterDetector: which language and script a message is in (s09's detect_register). Pure. |
 | `session_rules.py` | `SessionRules` | SessionRules: the only definition of a session (contracts §2.2). Pure. |
 | `turn_batcher.py` | `TurnBatcher` | TurnBatcher: which pending messages a turn takes, and when it gives up (s04 §4.4, §4.9). Pure. |
@@ -96,6 +103,7 @@ line of the module's docstring.
 | Module | Classes | What it does |
 |---|---|---|
 | `layer_result.py` | `LayerResult` | LayerResult: what every layer's generate step returns (s12 §4, s05 §4.4a). |
+| `onboarding_layer.py` | `ProfileExtraction`, `FirstKhojHandoff`, `PendingQuestionHandoff`, `OnboardingResult`, `OnboardingLayer` | OnboardingLayer: a message during onboarding → a state-machine event → fixed copy and writes |
 | `parent_question_layer.py` | `ParentAnswer`, `ParentQuestionLayer` | ParentQuestionLayer: a parent's question answered warmly and practically (s10b §4.9, flow D). |
 
 ## `pipeline`
@@ -109,7 +117,7 @@ line of the module's docstring.
 | `reply_parts_builder.py` | `ReplyDelivery`, `ReplyPartsBuilder` | ReplyPartsBuilder: a sealed reply into ordered outbound parts (s05 §4.7, s07 §4.2). |
 | `step_models.py` | `StepModel`, `StepFailure`, `StepSuccess`, `TurnOutcome` | What a turn and its steps produce (contracts §2.3). Data only. |
 | `turn_protocols.py` | `StepRecorder`, `TurnObserver` | The two hooks every step reports through (contracts §3): StepRecorder and TurnObserver. |
-| `turn_router.py` | `TurnRouter` | TurnRouter: which layer handles a turn (s05 §4.4; MVP rules, mvp-scope §4.3). |
+| `turn_router.py` | `TurnRouter` | TurnRouter: which layer handles a turn (s05 §4.4; s08 §4.6; MVP rules, mvp-scope §4.3). |
 
 ## `prompts`
 
@@ -159,9 +167,11 @@ line of the module's docstring.
 | Module | Classes | What it does |
 |---|---|---|
 | `inbox_repository.py` | `InboundRecord`, `SaveResult`, `LatestInbound`, `InboxRepository` | Storing inbound WhatsApp messages (s03 §4.5, §4.6). The only SQL for users and the inbox. |
+| `learner_repository.py` | `LearnerRepository` | Learners: a parent's children or a student's own learner (s08 §4.11, data-model `learners`). |
 | `outbox_repository.py` | `OutboxRow`, `OutboxRepository` | OutboxRepository: queued reply parts and their delivery (s04 §4.7, §4.10; s03 §4.8). |
 | `turn_repository.py` | `StartedTurn`, `FinishedTurn`, `FinalizeResult`, `TurnRepository` | Turns: claiming a user's pending messages, loading the context, finalizing (s04 §4.4 to §4.7). |
 | `turn_step_repository.py` | `StepRow`, `TurnStepRepository` | turn_steps rows and the turn columns written while a turn runs (s04 §4.6). |
+| `user_repository.py` | `UserRepository` | Users: onboarding changes, consent records and delete-my-data (s08 §4.9 to §4.11). |
 
 ## `worker`
 

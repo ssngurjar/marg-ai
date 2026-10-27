@@ -284,6 +284,7 @@ stretch (S10) first, then SAM photos (C7), then the khoj card (C6). The hard lin
 
 | Date | Change | Why | Approved |
 |---|---|---|---|
+| 2026-10-27 | Build order after S5: S8 onboarding → S10b core (so a parent's onboarding ends in the first khoj) → child talk (C13), ahead of S6/S7's remaining work; voice waits for the samples | Owner, at the S8 design review | owner |
 | 2026-10-26 | C11 curiosity moment, C12 gentle exposure, C13 direct child talk, C14 nothing dropped | Owner: Marg.ai mentors the child too | owner |
 | 2026-10-26 | C9 Muse Spark Open, C10 code start and 9-day schedule | Participant Guide (bonus prizes, building period) | owner |
 | 2026-10-26 | C6 khoj card, C7 activity photos, C8 TTS licence check | Official Rules: Meta tooling 25%, licences must be followed | owner |

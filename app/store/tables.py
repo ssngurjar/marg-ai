@@ -7,6 +7,7 @@ from enum import StrEnum
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     CheckConstraint,
     Column,
     DateTime,
@@ -28,14 +29,17 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID
 
 from app.domain.enums import (
     Channel,
+    ConsentEventKind,
     ConversationState,
     FailureKind,
     FixedReplyKind,
     InboxStatus,
     Language,
+    LearnerRelation,
     MessageKind,
     OutboxStatus,
     PartKind,
+    Role,
     Route,
     SafetyDecision,
     StepName,
@@ -66,12 +70,69 @@ users = Table(
     Column("channel", Text, nullable=False),
     Column("address_ciphertext", LargeBinary, nullable=True),
     Column("state", Text, nullable=False, server_default=ConversationState.NEW.value),
+    Column("role", Text, nullable=True),  # S8
+    Column("grade", SmallInteger, nullable=True),
+    Column("subject", Text, nullable=True),
+    Column("district", Text, nullable=True),
+    Column("language", Text, nullable=True),
+    Column("guardian_confirmed", Boolean, nullable=False, server_default=text("false")),
+    Column("consented_at", DateTime(timezone=True), nullable=True),
+    Column("pending_question", Text, nullable=True),  # personal data; cleared on handoff
+    Column("purge_after_turn_id", UUID(as_uuid=True), nullable=True),
     Column("last_inbound_at", DateTime(timezone=True), nullable=True),
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
     Column("updated_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
     CheckConstraint("user_hash ~ '^[0-9a-f]{64}$'", name="user_hash_is_hex64"),
+    CheckConstraint("grade BETWEEN 1 AND 12", name="grade_range"),
     allowed_values("channel", Channel),
     allowed_values("state", ConversationState),
+    allowed_values("role", Role),
+    allowed_values("language", Language),
+    Index(
+        None,
+        "purge_after_turn_id",
+        postgresql_where=text("purge_after_turn_id IS NOT NULL"),
+    ),
+)
+
+consent_events = Table(
+    "consent_events",
+    metadata,
+    Column("id", BigInteger, Identity(always=True), primary_key=True),
+    Column("user_hash", Text, ForeignKey("users.user_hash", ondelete="CASCADE"), nullable=False),
+    Column("kind", Text, nullable=False),
+    Column("prompt_version", Text, nullable=False),  # COPY_VERSION of the consent text shown
+    Column("recorded_at", DateTime(timezone=True), nullable=False),
+    Index(None, "user_hash"),
+    allowed_values("kind", ConsentEventKind),
+)
+
+learners = Table(
+    "learners",
+    metadata,
+    Column("id", UUID(as_uuid=True), primary_key=True),
+    Column(
+        "owner_user_hash",
+        Text,
+        ForeignKey("users.user_hash", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    Column("relation", Text, nullable=False),
+    Column("nickname", Text, nullable=True),  # ≤ 20 chars; never a full name
+    Column("birth_year", SmallInteger, nullable=False),
+    Column("child_talk_consented_at", DateTime(timezone=True), nullable=True),  # C13
+    Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    Column("updated_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    CheckConstraint("birth_year BETWEEN 2000 AND 2100", name="birth_year_sanity"),
+    CheckConstraint("char_length(nickname) <= 20", name="nickname_length"),
+    allowed_values("relation", LearnerRelation),
+    Index(None, "owner_user_hash"),
+    Index(
+        "uq_learners_one_self_per_owner",
+        "owner_user_hash",
+        unique=True,
+        postgresql_where=text("relation = 'self'"),
+    ),
 )
 
 inbox_messages = Table(

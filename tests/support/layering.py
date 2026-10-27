@@ -14,8 +14,9 @@ ANYTHING_EXCEPT_API = "*-api"
 
 ALLOWED_INTERNAL_IMPORTS: dict[str, frozenset[str]] = {
     "domain": frozenset({"core.errors", "core.types"}),
+    # constants: reviewed copy and catalogues (owner, 2026-10-27: S8 onboarding copy)
     "layers": frozenset(
-        {"domain", "providers.ports", "prompts", "rag", "core.errors", "core.types"}
+        {"domain", "providers.ports", "prompts", "rag", "constants", "core.errors", "core.types"}
     ),
     "pipeline": frozenset(
         {"domain", "layers", "providers.ports", "safety", "store", "telemetry", "core", "constants"}

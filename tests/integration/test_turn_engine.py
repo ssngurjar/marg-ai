@@ -41,6 +41,7 @@ from app.store.repositories.inbox_repository import InboundRecord, InboxReposito
 from app.store.repositories.outbox_repository import OutboxRepository
 from app.store.repositories.turn_repository import TurnRepository
 from app.store.repositories.turn_step_repository import TurnStepRepository
+from app.store.repositories.user_repository import UserRepository
 from app.worker.database_step_recorder import DatabaseStepRecorder
 from app.worker.reply_deliverer import DeliveryDeps, DeliverySettings, ReplyDeliverer
 from app.worker.turn_dispatcher import DispatcherDeps, DispatcherSettings, TurnDispatcher
@@ -119,6 +120,7 @@ def build(
     deliverer = ReplyDeliverer(
         DeliveryDeps(
             outbox=outbox,
+            users=UserRepository(sessions),
             senders=senders,
             identity=make_identity(),
             retry=RetryPolicy(
@@ -133,7 +135,12 @@ def build(
     )
     dispatcher = TurnDispatcher(
         DispatcherDeps(
-            processor=processor, deliverer=deliverer, turns=turns, outbox=outbox, clock=clock
+            processor=processor,
+            deliverer=deliverer,
+            turns=turns,
+            outbox=outbox,
+            users=UserRepository(sessions),
+            clock=clock,
         ),
         DispatcherSettings(
             debounce=timedelta(milliseconds=50),
@@ -141,6 +148,7 @@ def build(
             shutdown_grace=timedelta(seconds=1),
             retain_turn_text=timedelta(days=90),
             retain_raw_payload=timedelta(days=7),
+            purge_sweep_after=timedelta(seconds=600),
             error_backoff=timedelta(seconds=1),
         ),
     )
