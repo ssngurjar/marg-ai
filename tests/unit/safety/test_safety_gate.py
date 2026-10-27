@@ -22,6 +22,7 @@ from app.domain.enums import (
     SafetyDecision,
     Speaker,
 )
+from app.domain.models.message import ImageClip
 from app.domain.models.reply import LocalisedReply
 from app.providers.ports import SafetyRequest
 from app.safety.domain_policy import DomainPolicy, HarmKind
@@ -495,3 +496,51 @@ async def test_a_kind_reply_to_a_child_passes() -> None:
         kind, QUESTION, speaker=Speaker.LEARNER
     )
     assert check.safe_reply is not None
+
+
+# --- khoj cards (C6): caption and image, no backup ------------------------------------------------
+
+CARD_IMAGE = ImageClip(data=b"\x89PNG\r\n\x1a\nfake", mime_type="image/png")
+CAPTION = REPLY.model_copy(update={"text": "Munni ne parchhai ka raaz khoja!"})
+
+
+async def test_an_allowed_card_is_sealed_after_llama_guard_saw_caption_and_image() -> None:
+    classifier = FakeSafetyClassifier()
+    check = await gate_with(classifier).check_card(CAPTION, CARD_IMAGE)
+    assert check.safe_reply is not None
+    assert check.safe_reply.text == CAPTION.text
+    [request] = classifier.requests
+    assert request.image == CARD_IMAGE
+    assert request.text == CAPTION.text
+
+
+async def test_a_flagged_card_is_not_sealed() -> None:
+    flag_all = FakeSafetyClassifier(flag=lambda _request: [SafetyCategory.VIOLENT_CRIMES])
+    check = await gate_with(flag_all).check_card(CAPTION, CARD_IMAGE)
+    assert check.safe_reply is None
+    assert check.verdict.decision is SafetyDecision.BLOCK
+
+
+@pytest.mark.parametrize("error", GUARD_FAILURES, ids=lambda error: type(error).__name__)
+async def test_llama_guard_down_means_no_card_there_is_no_backup_for_images(
+    error: ProviderError,
+) -> None:
+    with pytest.raises(SafetyUnavailable, match="llama_guard is down for a khoj card"):
+        await gate_with(FakeSafetyClassifier(error=error)).check_card(CAPTION, CARD_IMAGE)
+
+
+@pytest.mark.parametrize(
+    ("caption", "category"),
+    [
+        ("Yeh hamara secret hai!", SafetyCategory.CHILD_MANIPULATION),
+        ("Munni talab ke paas gayi!", SafetyCategory.CHILD_PHYSICAL_HAZARD),
+    ],
+)
+async def test_a_caption_breaking_a_rule_is_blocked_before_any_call(
+    caption: str, category: SafetyCategory
+) -> None:
+    classifier = FakeSafetyClassifier()
+    bad = REPLY.model_copy(update={"text": caption})
+    check = await gate_with(classifier).check_card(bad, CARD_IMAGE)
+    assert check.verdict.categories == [category]
+    assert classifier.requests == []

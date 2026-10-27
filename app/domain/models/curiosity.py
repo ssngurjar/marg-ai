@@ -1,10 +1,11 @@
 """What a child engaged with, for the young-learner trajectory (s13 §4.4). Never a label."""
 
-from typing import Literal
+from typing import Annotated, Literal
+from uuid import UUID
 
 from pydantic import Field
 
-from app.domain.enums import CuriosityDomain
+from app.domain.enums import CuriosityDomain, Language
 from app.domain.models.base import DomainModel, TurnId
 from app.domain.models.learner import LearnerId
 
@@ -27,6 +28,7 @@ class CuriositySource(DomainModel):
     kind: CuriositySourceKind
     hint_domains: list[CuriosityDomain]  # the activity's own domains, when there is one
     activity_title: str | None
+    activity_id: str | None = None  # the catalogue activity, for a khoj card's scene
 
 
 class ExtractSignals(DomainModel):
@@ -42,4 +44,21 @@ class ExtractSignals(DomainModel):
     child_age: int | None  # None when the child's birth year isn't known
 
 
-type PostTurnTask = ExtractSignals  # S12 adds UpdateMemory; s10b MakeKhojCard
+class MakeKhojCard(DomainModel):
+    """Post-turn task (s10b §4.13, C6): an illustrated card of the child's discovery, after the
+    reflection is delivered. Made only if the same turn's signals show engagement of 2 or more,
+    and at most once per child per day."""
+
+    kind: Literal["make_khoj_card"] = "make_khoj_card"
+    turn_id: TurnId
+    learner_id: LearnerId
+    learner_activity_id: UUID
+    activity_id: str
+    activity_title: str
+    domains: list[CuriosityDomain]
+    child_nickname: str | None
+    summary: str  # the reflection's neutral summary of what the child did
+    reply_register: Language
+
+
+type PostTurnTask = Annotated[ExtractSignals | MakeKhojCard, Field(discriminator="kind")]

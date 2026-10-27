@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from typing import Final
 from uuid import UUID
 
-from app.constants.whatsapp import MAX_INTERACTIVE_BODY_CHARS
+from app.constants.whatsapp import MAX_CAPTION_CHARS, MAX_INTERACTIVE_BODY_CHARS
 from app.domain.enums import FixedReplyKind, PartKind
 from app.domain.models.reply import OutboundPart, ReplyButton, TemplateRef
 from app.domain.rules.message_splitter import MessageSplitter
@@ -100,6 +100,25 @@ class ReplyPartsBuilder:
         contents = [_Content(PartKind.TEXT, piece, (), None) for piece in [*leading, *middle]]
         contents.append(_Content(PartKind.INTERACTIVE, buttons_body, buttons, None))
         return contents
+
+    @staticmethod
+    def card(reply: SafeReply, image_blob_id: UUID) -> ReplyDelivery:
+        """A khoj card (s10b §4.13): exactly one IMAGE part, the sealed caption as its text."""
+        return ReplyPartsBuilder._sealed([ReplyPartsBuilder._image_part(reply, image_blob_id)])
+
+    @staticmethod
+    def _image_part(reply: SafeReply, image_blob_id: UUID) -> OutboundPart:
+        if len(reply.text) > MAX_CAPTION_CHARS:
+            raise ValueError(f"an image caption is at most {MAX_CAPTION_CHARS} characters")
+        return OutboundPart(
+            part_no=0,
+            kind=PartKind.IMAGE,
+            text=reply.text,
+            audio_blob_id=None,
+            image_blob_id=image_blob_id,
+            buttons=[],
+            template=None,
+        )
 
     @staticmethod
     def _template_part(template: TemplateRef) -> OutboundPart:

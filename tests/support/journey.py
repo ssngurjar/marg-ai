@@ -115,6 +115,11 @@ NOT_A_CHILD_QUESTION: dict[str, object] = {
     "spoken_text": "",
 }
 
+CARD_HEADLINE = "Munni ne parchhai ka raaz khoja!"
+CARD_TEXT: dict[str, object] = {
+    "headline": CARD_HEADLINE,
+    "line": "Dekha ki parchhai din bhar ghoomti hai.",
+}
 CURIOSITY_SIGNALS: dict[str, object] = {
     "domains": ["earth_sky"],
     "engagement": 2,

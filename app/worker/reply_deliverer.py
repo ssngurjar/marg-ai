@@ -19,10 +19,10 @@ from app.core.logging import get_logger
 from app.core.user_identity import UserIdentity
 from app.domain.enums import Channel, PartKind
 from app.domain.models.base import TurnId
-from app.domain.models.message import AudioClip
+from app.domain.models.message import AudioClip, ImageClip
 from app.domain.rules.delivery_planner import DeliveryPlanner
 from app.providers.http import RetryPolicy
-from app.providers.ports import ChannelAddress, ChannelSender, ReplyAudioStore
+from app.providers.ports import ChannelAddress, ChannelSender, ReplyAudioStore, ReplyImageStore
 from app.store.repositories.outbox_repository import OutboxRepository, OutboxRow
 from app.store.repositories.user_repository import UserRepository
 
@@ -46,11 +46,13 @@ class DeliveryDeps:
     retry: RetryPolicy
     clock: Clock
     audio: ReplyAudioStore  # reply voice notes (s06 §4.8)
+    images: ReplyImageStore  # khoj cards (s10b §4.13)
 
 
 @dataclass(frozen=True, slots=True)
 class _PartMedia:
-    audio: AudioClip | None
+    audio: AudioClip | None = None
+    image: ImageClip | None = None
 
 
 class ReplyDeliverer:
@@ -62,6 +64,7 @@ class ReplyDeliverer:
         self._retry = deps.retry
         self._clock = deps.clock
         self._audio = deps.audio
+        self._images = deps.images
         self._settings = settings
 
     async def deliver_turn(self, turn_id: TurnId) -> int:
@@ -97,7 +100,8 @@ class ReplyDeliverer:
         deadline = self._clock.now() + self._settings.part_budget
         try:
             receipt = await self._retry.run(
-                lambda: sender.send(row.part, recipient, audio=media.audio), deadline=deadline
+                lambda: sender.send(row.part, recipient, audio=media.audio, image=media.image),
+                deadline=deadline,
             )
         except ProviderError as exc:
             await self._handle_provider_error(row, exc)
@@ -109,11 +113,14 @@ class ReplyDeliverer:
         """The media the part carries; None (and the part failed) when it can't be loaded. A
         StoreError propagates, as it does from the outbox's own calls."""
         if row.part.kind is PartKind.IMAGE:
-            # Khoj cards arrive with S10b; until then ReplyPartsBuilder.build never makes these.
-            await self._fail(row, "media_not_loadable")
-            return None
+            image_id = row.part.image_blob_id  # None once the blob was deleted (SET NULL)
+            image = await self._images.load_image(image_id) if image_id is not None else None
+            if image is None:
+                await self._fail(row, "media_expired")
+                return None
+            return _PartMedia(image=image)
         if row.part.kind is not PartKind.AUDIO:
-            return _PartMedia(audio=None)
+            return _PartMedia()
         blob_id = row.part.audio_blob_id  # None once the blob was deleted (SET NULL)
         audio = await self._audio.load_audio(blob_id) if blob_id is not None else None
         if audio is None:

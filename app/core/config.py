@@ -124,6 +124,12 @@ class Settings(DatabaseSettings):
     nudge_template_name_hinglish: str = Field(default="marg_daily_khoj_hinglish", min_length=1)
     nudge_daily_limit: int = Field(default=200, ge=0)  # below the 250/day unverified cap
 
+    # Added in S10b for khoj cards (C6): Muse Image after a good report (spike F: GO at low)
+    khoj_card_enabled: bool = True
+    model_image: str = Field(default="muse-image-1.0", min_length=1)
+    image_reasoning_strength: Literal["low", "high"] = "low"
+    timeout_make_card_s: float = Field(default=30.0, gt=0)
+
     # Added in S10b for child talk (C13; contracts §7)
     child_talk_enabled: bool = True
     child_session_max_turns: int = Field(default=6, ge=1)

@@ -44,6 +44,7 @@ from app.domain.enums import (
     SafetyDecision,
     Speaker,
 )
+from app.domain.models.message import ImageClip
 from app.domain.models.reply import Citation, LocalisedReply, ReplyButton
 from app.domain.models.safety import SafetyVerdict
 from app.domain.models.usage import StepUsage
@@ -251,6 +252,42 @@ class SafetyGate:
             _seal=_SEAL,
         )
         return checked.result(safe_reply=safe)
+
+    async def check_card(self, caption: LocalisedReply, image: ImageClip) -> OutputCheck:
+        """A khoj card (s10b §4.13, C6): the caption gets the rules every reply gets (d8, and d7
+        with nothing declared), then Llama Guard sees the caption with the image. A card is
+        optional, so there's no backup: if Llama Guard is down or flags anything, nothing is
+        sealed and no card goes out (fail closed)."""
+        rule = SafetyGate._child_rule(caption.text, Speaker.GUIDE)
+        hazards = ChildHazardMatcher.undeclared(caption.text, CHILD_HAZARD_WORDS, ())
+        if rule is not None or hazards:
+            category = rule or SafetyCategory.CHILD_PHYSICAL_HAZARD
+            verdict = SafetyVerdict(
+                decision=SafetyDecision.BLOCK, categories=[category], source="domain_policy"
+            )
+            return OutputCheck(verdict=verdict, safe_reply=None, usage=None)
+        request = SafetyRequest(
+            speaker="assistant", text=caption.text, prior_user_text=None, image=image
+        )
+        guard = await self._guard(request)
+        if guard is None:
+            raise SafetyUnavailable("llama_guard is down for a khoj card; no backup for images")
+        categories = list(guard.verdict.categories)
+        decision = SafetyDecision.BLOCK if categories else SafetyDecision.ALLOW
+        verdict = SafetyVerdict(decision=decision, categories=categories, source="llama_guard")
+        if decision is not SafetyDecision.ALLOW:
+            return OutputCheck(verdict=verdict, safe_reply=None, usage=guard.usage)
+        safe = SafeReply(
+            text=caption.text,
+            spoken_text=caption.spoken_text,
+            reply_register=caption.reply_register,
+            citations=(),
+            buttons=(),
+            verdict=verdict,
+            fixed_kind=None,
+            _seal=_SEAL,
+        )
+        return OutputCheck(verdict=verdict, safe_reply=safe, usage=guard.usage)
 
     @staticmethod
     def _child_rule(classified_text: str, speaker: Speaker) -> SafetyCategory | None:

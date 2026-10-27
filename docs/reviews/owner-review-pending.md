@@ -176,6 +176,23 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
 - [ ] The young-learner trajectory (sessions, breadth, engagement slope, question rate) is
   computed and tested; it's shown on the admin dashboard built with the web demo (item 6).
 
+## 2h. Khoj card, C6 (from 2026-10-27)
+
+- [ ] **Look at a live card**: one was made on 2026-10-27 (shadow-time): a textless Madhubani /
+  Warli-style triptych of a tree's shadow at morning, noon and evening, with the caption "Munni ne
+  parchhai ka raaz khoja! / Din mein parchhai hilti rahi, raat ko kahan gayi, Munni ne poocha!"
+  (18 s to make, about $0.01).
+- [ ] **Card style and the 10 activity scenes**, `app/constants/khoj_card_style.py` (v1, from
+  spike F). Ideally look at one card per activity before the demo.
+- [ ] **Caption prompt**, `app/prompts/khoj_card_text.md.j2` (v1.0.0).
+- [ ] **When a card is sent:** only after a report with engagement 2 or more, at most one per
+  child per day, only while the parent's 24-hour window is open. Safety: if Llama Guard is down
+  or flags it, no card (there's no backup check for images).
+- [ ] **Spike F decisions** (section 4): images at `low` strength and `KHOJ_CARD_ENABLED=true`
+  are what's built; tick them there if you agree.
+- [ ] **Phone test:** report a khoj with a detailed answer ("Munni ne kaha… aur poocha…") and
+  wait for the card after the reflection; forward it to someone.
+
 ## 3. Decisions log entries marked "pending owner review"
 
 - [ ] `docs/design/s05-llm-orchestrator.md`, 2026-10-27 (S5 build choices).

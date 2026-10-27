@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from app.api.readiness import ReadinessProbe
 from app.audio.audio_transcoder import AudioTranscoder
+from app.audio.ffmpeg_runner import FfmpegRunner
 from app.channels.whatsapp.whatsapp_media_fetcher import MediaFetchConfig, WhatsAppMediaFetcher
 from app.channels.whatsapp.whatsapp_sender import WhatsAppConfig, WhatsAppSender
 from app.core.clock import Clock, SystemClock
@@ -36,6 +37,7 @@ from app.layers.journey_layer import (
     JourneyLayer,
     JourneySettings,
 )
+from app.layers.khoj_card_maker import KHOJ_CARD_TEXT, KhojCardMaker
 from app.layers.onboarding_layer import PROFILE_EXTRACTION, OnboardingLayer
 from app.layers.parent_question_layer import PARENT_ANSWER, ParentQuestionLayer
 from app.pipeline.fixed_reply_service import FixedReplyService
@@ -47,6 +49,8 @@ from app.pipeline.orchestrator import (
 )
 from app.prompts.prompt_registry import PromptRegistry, PromptSettings
 from app.providers.http import AsyncioSleeper, RetryPolicy, RetryTiming
+from app.providers.image.image_compressor import ImageCompressor
+from app.providers.image.muse_image_generator import ImageModelConfig, MuseImageGenerator
 from app.providers.llm.fallback_language_model import FallbackLanguageModel, FallbackRoute
 from app.providers.llm.meta_model_api_language_model import (
     MetaModelApiLanguageModel,
@@ -63,6 +67,7 @@ from app.store.db import create_engine, create_session_factory, ping
 from app.store.repositories.child_session_repository import ChildSessionRepository
 from app.store.repositories.curiosity_signal_repository import CuriositySignalRepository
 from app.store.repositories.inbox_repository import InboxRepository
+from app.store.repositories.khoj_card_repository import KhojCardRepository
 from app.store.repositories.media_blob_repository import MediaBlobRepository
 from app.store.repositories.nudge_repository import NudgeRepository
 from app.store.repositories.outbox_repository import OutboxRepository
@@ -71,8 +76,9 @@ from app.store.repositories.turn_step_repository import TurnStepRepository
 from app.store.repositories.user_repository import UserRepository
 from app.telemetry.curiosity_signal_extractor import CURIOSITY_EXTRACT, CuriositySignalExtractor
 from app.worker.database_step_recorder import DatabaseStepRecorder
+from app.worker.khoj_card_sender import CardDeps, KhojCardSender
 from app.worker.nudge_sender import NudgeSender, NudgeSettings, nudge_templates
-from app.worker.post_turn_runner import PostTurnRunner
+from app.worker.post_turn_runner import PostTurnDeps, PostTurnRunner
 from app.worker.reply_deliverer import DeliveryDeps, DeliverySettings, ReplyDeliverer
 from app.worker.turn_dispatcher import DispatcherDeps, DispatcherSettings, TurnDispatcher
 from app.worker.turn_processor import TurnDeps, TurnProcessor, TurnSettings
@@ -88,6 +94,7 @@ PROMPT_SPECS: Final = (
     CURIOSITY_MOMENT,
     CHILD_TALK,
     CURIOSITY_EXTRACT,
+    KHOJ_CARD_TEXT,
 )
 """Every prompt the app renders; the registry refuses a template without a spec."""
 INVITE_GREETING: Final = "Namaste Marg"
@@ -107,6 +114,7 @@ class Container:
     language_models: tuple[MetaModelApiLanguageModel, ...]  # Spark and Muse Spark Open
     safety_classifier: LlamaGuardClassifier
     voice_adapters: "VoiceAdapters"
+    image_generator: MuseImageGenerator
     turn_dispatcher: TurnDispatcher
 
 
@@ -185,6 +193,18 @@ def build_container(settings: Settings) -> Container:
         clock=clock,
     )
     voice_adapters = build_voice_adapters(settings, session_factory, retry, clock)
+    image_generator = MuseImageGenerator(
+        config=ImageModelConfig(
+            base_url=str(settings.model_api_base_url),
+            api_key=settings.model_api_key,
+            model=settings.model_image,
+            reasoning_strength=settings.image_reasoning_strength,
+            timeout_s=settings.timeout_make_card_s,
+        ),
+        retry=retry,
+        clock=clock,
+        compressor=ImageCompressor(FfmpegRunner(timeout_s=settings.transcode_timeout_s)),
+    )
     inbox = InboxRepository(session_factory)
     outbox = OutboxRepository(session_factory)
     dispatcher = build_turn_dispatcher(
@@ -206,6 +226,11 @@ def build_container(settings: Settings) -> Container:
             outbox=outbox,
             media=voice_adapters.media,
             signals=CuriositySignalExtractor(language_model, prompt_registry(settings)),
+            cards=(
+                KhojCardMaker(spark, image_generator, prompt_registry(settings))
+                if settings.khoj_card_enabled
+                else None
+            ),
         ),
     )
     return Container(
@@ -227,6 +252,7 @@ def build_container(settings: Settings) -> Container:
         language_models=(spark, open_model),
         safety_classifier=safety_classifier,
         voice_adapters=voice_adapters,
+        image_generator=image_generator,
         turn_dispatcher=dispatcher,
     )
 
@@ -389,6 +415,7 @@ class EngineParts:
     outbox: OutboxRepository
     media: MediaBlobRepository
     signals: CuriositySignalExtractor
+    cards: KhojCardMaker | None  # None while KHOJ_CARD_ENABLED is false
 
 
 def build_turn_dispatcher(
@@ -417,6 +444,7 @@ def build_turn_dispatcher(
         ),
     )
     users = UserRepository(session_factory)
+    signals = CuriositySignalRepository(session_factory)
     deliverer = ReplyDeliverer(
         DeliveryDeps(
             outbox=engine_parts.outbox,
@@ -426,6 +454,7 @@ def build_turn_dispatcher(
             retry=engine_parts.retry,
             clock=engine_parts.clock,
             audio=engine_parts.media,
+            images=engine_parts.media,
         ),
         DeliverySettings(
             max_attempts=settings.outbox_max_attempts,
@@ -443,11 +472,28 @@ def build_turn_dispatcher(
             media=engine_parts.media,
             child_sessions=ChildSessionRepository(session_factory),
             post_turn=PostTurnRunner(
-                engine_parts.signals,
-                CuriositySignalRepository(session_factory),
-                DatabaseStepRecorder(TurnStepRepository(session_factory)),
-                engine_parts.clock,
-                timeout=timedelta(seconds=settings.timeout_generate_s),
+                PostTurnDeps(
+                    extractor=engine_parts.signals,
+                    signals=signals,
+                    recorder=DatabaseStepRecorder(TurnStepRepository(session_factory)),
+                    clock=engine_parts.clock,
+                    timeout=timedelta(seconds=settings.timeout_make_card_s),
+                    cards=(
+                        KhojCardSender(
+                            CardDeps(
+                                maker=engine_parts.cards,
+                                gate=engine_parts.orchestrator.steps.gate,
+                                cards=KhojCardRepository(session_factory),
+                                signals=signals,
+                                deliverer=deliverer,
+                                clock=engine_parts.clock,
+                            ),
+                            worker_id,
+                        )
+                        if engine_parts.cards is not None
+                        else None
+                    ),
+                )
             ),
             nudges=(
                 NudgeSender(
@@ -489,4 +535,5 @@ async def close_container(container: Container) -> None:
     await container.voice_adapters.fetcher.aclose()
     await container.voice_adapters.transcriber.aclose()
     await container.voice_adapters.synthesizer.aclose()
+    await container.image_generator.aclose()
     await container.engine.dispose()

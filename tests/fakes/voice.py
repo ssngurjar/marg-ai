@@ -13,7 +13,7 @@ from app.audio.audio_transcoder import VOICE_NOTE_MIME
 from app.core.errors import MargError
 from app.domain.enums import Language
 from app.domain.models.base import UserHash
-from app.domain.models.message import AudioClip, MediaRef, Transcript
+from app.domain.models.message import AudioClip, ImageClip, MediaRef, Transcript
 from app.domain.models.usage import StepUsage
 from app.domain.models.voice import VoiceLimits
 from app.domain.rules.register_detector import RegisterDetector
@@ -140,6 +140,7 @@ class MemoryReplyAudioStore:
     error: MargError | None = None
     saved: dict[UUID, AudioClip] = field(default_factory=dict)
     owners: dict[UUID, UserHash] = field(default_factory=dict)
+    images: dict[UUID, ImageClip] = field(default_factory=dict)  # khoj cards, for the deliverer
 
     async def save(self, user_hash: UserHash, clip: AudioClip) -> UUID:
         if self.error is not None:
@@ -151,6 +152,9 @@ class MemoryReplyAudioStore:
 
     async def load_audio(self, blob_id: UUID) -> AudioClip | None:
         return self.saved.get(blob_id)
+
+    async def load_image(self, blob_id: UUID) -> ImageClip | None:
+        return self.images.get(blob_id)
 
 
 @dataclass

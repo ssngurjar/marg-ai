@@ -33,6 +33,7 @@ from app.domain.enums import (
     StepName,
     StepOutcome,
 )
+from app.domain.models.curiosity import ExtractSignals, MakeKhojCard
 from app.domain.models.message import InboundMessage
 from app.domain.models.turn import TurnContext
 from app.domain.models.writes import ActivityOffered, LearnerUpsert
@@ -780,11 +781,17 @@ async def test_a_report_back_is_marked_for_curiosity_extraction_after_the_reply(
         open_activity=offer(FIRST_ACTIVITY, MUNNI_CHILD),
     )
     result = await run(ctx, llm=FakeLanguageModel([REFLECTION]))
-    [task] = result.outcome.post_turn
-    assert task.learner_id == MUNNI_CHILD.id
-    assert task.source.kind == "parent_report"
-    assert task.user_text == "Munni ne kaha parchhai ghoomti hai"
-    assert task.child_age == 5
+    signals, card = result.outcome.post_turn
+    assert isinstance(signals, ExtractSignals)
+    assert signals.learner_id == MUNNI_CHILD.id
+    assert signals.source.kind == "parent_report"
+    assert signals.user_text == "Munni ne kaha parchhai ghoomti hai"
+    assert signals.child_age == 5
+    # then a khoj card, which the runner makes only if the signals show engagement >= 2
+    assert isinstance(card, MakeKhojCard)
+    assert card.activity_id == FIRST_ACTIVITY.id
+    assert card.child_nickname == "Munni"
+    assert card.summary == REFLECTION["summary_for_record"]
 
 
 async def test_a_parent_question_has_nothing_to_extract() -> None:

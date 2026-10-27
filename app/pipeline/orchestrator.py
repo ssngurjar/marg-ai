@@ -44,6 +44,7 @@ from app.core.errors import (
 )
 from app.core.logging import get_logger
 from app.domain.enums import (
+    ActivityStatus,
     AudioVerdict,
     ChildSessionEndReason,
     FailureKind,
@@ -57,14 +58,20 @@ from app.domain.enums import (
     StepName,
     StepOutcome,
 )
-from app.domain.models.curiosity import ExtractSignals, PostTurnTask
+from app.domain.models.curiosity import (
+    CuriositySource,
+    ExtractSignals,
+    MakeKhojCard,
+    PostTurnTask,
+)
+from app.domain.models.learner import Learner
 from app.domain.models.message import InboundMessage
 from app.domain.models.reply import CanonicalReply, LocalisedReply
 from app.domain.models.safety import SafetyVerdict
 from app.domain.models.turn import TurnContext
 from app.domain.models.usage import StepUsage
 from app.domain.models.voice import VoiceLimits
-from app.domain.models.writes import ChildSessionEnd, TurnWrite
+from app.domain.models.writes import ActivityReported, ChildSessionEnd, TurnWrite
 from app.domain.rules.audio_analyser import AudioAnalyser
 from app.domain.rules.filler_detector import FillerDetector
 from app.domain.rules.register_detector import RegisterDetector
@@ -509,7 +516,7 @@ class _Turn:
             if learner
             else None
         )
-        return [
+        tasks: list[PostTurnTask] = [
             ExtractSignals(
                 turn_id=self.ctx.turn_id,
                 learner_id=source.learner_id,
@@ -518,6 +525,38 @@ class _Turn:
                 child_age=age,
             )
         ]
+        card = self._card_for(layer_result, source, learner)
+        if card is not None:
+            tasks.append(card)  # after the signals: the card needs their engagement
+        return tasks
+
+    def _card_for(
+        self, layer_result: LayerResult, source: CuriositySource, learner: Learner | None
+    ) -> MakeKhojCard | None:
+        """A khoj card for a reported activity with a summary (s10b §4.13)."""
+        report = next(
+            (
+                write
+                for write in layer_result.writes
+                if isinstance(write, ActivityReported)
+                and write.status is ActivityStatus.DONE
+                and write.summary
+            ),
+            None,
+        )
+        if report is None or report.summary is None or source.activity_id is None:
+            return None
+        return MakeKhojCard(
+            turn_id=self.ctx.turn_id,
+            learner_id=source.learner_id,
+            learner_activity_id=report.learner_activity_id,
+            activity_id=source.activity_id,
+            activity_title=source.activity_title or "",
+            domains=list(source.hint_domains),
+            child_nickname=learner.nickname if learner else None,
+            summary=report.summary,
+            reply_register=self.register,
+        )
 
     async def _checked(self, layer_result: LayerResult) -> "_Sent | TurnOutcome | None":
         """safety_out on the layer's reply; if it's blocked and the layer has reviewed text to

@@ -22,6 +22,7 @@ from app.core.errors import ProviderUnavailable
 from app.core.types import JsonValue
 from app.domain.enums import Channel, PartKind, SafetyCategory
 from app.domain.models.base import UserHash
+from app.layers.khoj_card_maker import KhojCardMaker
 from app.providers.http import RetryPolicy, RetryTiming
 from app.providers.ports import ChannelSender, SafetyRequest
 from app.store.db import create_engine, create_session_factory
@@ -33,6 +34,7 @@ from app.wiring import EngineParts, OrchestratorPorts, build_orchestrator, build
 from app.worker.turn_dispatcher import TurnDispatcher
 from tests.fakes.clock import FixedClock
 from tests.fakes.domain_policy import CLEAR, REPLY_CLEAR, policy_answer
+from tests.fakes.image import TINY_PNG, FakeImageGenerator
 from tests.fakes.language_model import (
     FakeLanguageModel,
     PromptRoutedLanguageModel,
@@ -46,6 +48,8 @@ from tests.support import whatsapp_payloads as wa
 from tests.support.app_factory import TEST_PHONE_NUMBER_ID, make_identity, make_settings
 from tests.support.child_talk import CHILD_ANSWER, CHILD_REPLY
 from tests.support.journey import (
+    CARD_HEADLINE,
+    CARD_TEXT,
     CURIOSITY_SIGNALS,
     REFLECTION,
     REFLECTION_PRAISE,
@@ -109,6 +113,7 @@ def wire(
             "parent_reflection": FakeLanguageModel([REFLECTION]),
             "child_talk": FakeLanguageModel([CHILD_REPLY]),
             "curiosity_extract": FakeLanguageModel([CURIOSITY_SIGNALS]),
+            "khoj_card_text": FakeLanguageModel([CARD_TEXT]),
         }
     )
     media = MediaBlobRepository(sessions)  # the real table: voice notes stored and loaded
@@ -128,6 +133,7 @@ def wire(
             outbox=OutboxRepository(sessions),
             media=media,
             signals=CuriositySignalExtractor(language_model, shipped_registry()),
+            cards=KhojCardMaker(language_model, FakeImageGenerator(), shipped_registry()),
         ),
     )
     return Pipeline(dispatcher, InboxRepository(sessions), sender)
@@ -354,8 +360,20 @@ async def test_a_new_parent_is_onboarded_with_consent_recorded_and_one_child(
     await ask(
         pipeline, "Munni ne kaha parchhai suraj ki wajah se ghoomti hai", message_id="wamid.O5"
     )
-    reflection = pipeline.sender.sent[-1].part.text or ""
+    reflection = pipeline.sender.sent[-2].part.text or ""
     assert REFLECTION_PRAISE in reflection
+    # after the reflection, an engaged report (2) gets an illustrated card (C6)
+    card = pipeline.sender.sent[-1]
+    assert card.part.kind is PartKind.IMAGE
+    assert (card.part.text or "").startswith(CARD_HEADLINE)
+    assert card.image is not None
+    assert card.image.data == TINY_PNG
+    assert await rows(
+        engine,
+        "SELECT la.card_blob_id = mb.id, mb.purpose, mb.expires_at - mb.created_at "
+        "FROM learner_activities la JOIN media_blobs mb ON mb.id = la.card_blob_id",
+    ) == [(True, "khoj_card", timedelta(days=7))]
+    assert await rows(engine, "SELECT count(*) FROM turns WHERE route = 'khoj_card'") == [(1,)]
     # after the reply: what the child engaged with (s13), once, for this child
     assert await rows(
         engine,

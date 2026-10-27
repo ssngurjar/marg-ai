@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.core.errors import StoreError
 from app.core.logging import get_logger
 from app.domain.enums import ActivityStatus, CuriosityDomain
+from app.domain.models.base import TurnId
 from app.domain.models.curiosity import CuriositySignals, ExtractSignals
 from app.domain.models.learner import LearnerId
 from app.domain.rules.curiosity_trajectory import (
@@ -54,6 +55,18 @@ class CuriositySignalRepository:
         except (SQLAlchemyError, OSError) as exc:
             raise StoreError(f"could not save curiosity signals: {type(exc).__name__}") from exc
         return True
+
+    async def engagement_for(self, turn_id: TurnId) -> int | None:
+        """The engagement recorded for a turn, or None when nothing was extracted."""
+        statement = select(curiosity_signals.c.engagement).where(
+            curiosity_signals.c.turn_id == turn_id
+        )
+        try:
+            async with self._session_factory() as session:
+                engagement: int | None = (await session.execute(statement)).scalar_one_or_none()
+        except (SQLAlchemyError, OSError) as exc:
+            raise StoreError(f"could not read signals: {type(exc).__name__}") from exc
+        return engagement
 
     async def trajectory_for(self, learner_id: LearnerId) -> YoungLearnerTrajectory:
         """The child's curiosity over time (s13 §4.5): every signal, with when its turn began,

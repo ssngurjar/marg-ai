@@ -306,6 +306,8 @@ learner_activities = Table(
     ),
     Column("status", Text, nullable=False),
     Column("child_response_summary", Text, nullable=True),  # ≤ 200 chars; cleared by retention
+    # the khoj card made for this report, if any (C6); kept 7 days with its media_blobs row
+    Column("card_blob_id", UUID(as_uuid=True), ForeignKey("media_blobs.id", ondelete="SET NULL")),
     Column("offered_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
     Column("reported_at", DateTime(timezone=True), nullable=True),
     CheckConstraint("char_length(child_response_summary) <= 200", name="summary_length"),

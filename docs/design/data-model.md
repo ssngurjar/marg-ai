@@ -373,3 +373,4 @@ upgrade → downgrade → upgrade against `docker-compose.test.yml`.
 | 2026-10-25 | Dropped the proposed `classrooms` table and `users.classroom_id` | Classroom codes trimmed; teachers see district aggregates | owner |
 | 2026-10-27 | `s10b_child_sessions`: the partial unique index is on `user_hash` (one open session per account), not `learner_id` | One phone, one child talking at a time | pending owner review |
 | 2026-10-27 | `s13_curiosity_signals`: adds `source` (parent_report, child_words, relayed_question) so child-talk and relayed questions can be told apart from reports | S13 build | pending owner review |
+| 2026-10-27 | `s10b_khoj_cards`: `learner_activities.card_blob_id` (FK media_blobs SET NULL); card images kept 7 days | S10b build | pending owner review |

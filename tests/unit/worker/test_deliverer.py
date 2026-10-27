@@ -11,12 +11,14 @@ import pytest
 from app.core.errors import ProviderError, ProviderRejected, ProviderUnavailable
 from app.domain.enums import Channel, PartKind
 from app.domain.models.base import TurnId, UserHash
+from app.domain.models.message import ImageClip
 from app.domain.models.reply import OutboundPart, TemplateRef
 from app.providers.http import RetryPolicy, RetryTiming
 from app.providers.ports import ChannelSender
 from app.store.repositories.outbox_repository import OutboxRepository, OutboxRow
 from app.worker.reply_deliverer import DeliveryDeps, DeliverySettings, ReplyDeliverer
 from tests.fakes.clock import FixedClock
+from tests.fakes.image import TINY_PNG
 from tests.fakes.sender import FakeSender
 from tests.fakes.sleeper import FakeSleeper
 from tests.fakes.user_repository import MemoryUserRepository
@@ -24,6 +26,8 @@ from tests.fakes.voice import VOICE_NOTE, MemoryReplyAudioStore
 from tests.support.app_factory import make_identity
 
 pytestmark = pytest.mark.unit
+
+CARD = ImageClip(data=TINY_PNG, mime_type="image/png")
 
 NOW = datetime(2026, 10, 27, 9, 0, tzinfo=UTC)
 USER = UserHash("c" * 64)
@@ -121,6 +125,7 @@ def deliverer(
             retry=retry,
             clock=clock,
             audio=audio or MemoryReplyAudioStore(),
+            images=audio or MemoryReplyAudioStore(),
         ),
         DeliverySettings(max_attempts=5, part_budget=timedelta(seconds=25)),
     )
@@ -199,13 +204,27 @@ async def test_an_address_that_will_not_decrypt_fails_the_part() -> None:
     assert outbox.marks == [Mark(100, "failed", "InvalidAddressCiphertext")]
 
 
-async def test_image_parts_fail_until_khoj_cards_exist() -> None:
+async def test_a_khoj_card_is_sent_with_its_stored_image() -> None:
+    clock = FixedClock(NOW)
+    sender = FakeSender(clock)
+    store = MemoryReplyAudioStore()
+    card_row = row(0, kind=PartKind.IMAGE)
+    card_row = dataclasses.replace(
+        card_row, part=card_row.part.model_copy(update={"image_blob_id": uuid4()})
+    )
+    assert card_row.part.image_blob_id is not None
+    store.images[card_row.part.image_blob_id] = CARD
+    assert await deliverer(MemoryOutbox([card_row]), sender, clock, store).deliver_turn(TURN) == 1
+    assert sender.sent[0].image == CARD
+
+
+async def test_an_expired_card_is_failed_not_sent() -> None:
     clock = FixedClock(NOW)
     sender = FakeSender(clock)
     outbox = MemoryOutbox([row(0, kind=PartKind.IMAGE)])
     await deliverer(outbox, sender, clock).deliver_turn(TURN)
     assert sender.calls == 0
-    assert outbox.marks == [Mark(100, "failed", "media_not_loadable")]
+    assert outbox.marks == [Mark(100, "failed", "media_expired")]
 
 
 async def test_a_voice_reply_is_sent_with_its_stored_clip() -> None:

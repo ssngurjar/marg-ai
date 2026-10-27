@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.core.errors import MediaTooLarge, StoreError
 from app.domain.enums import MediaPurpose
 from app.domain.models.base import UserHash
-from app.domain.models.message import AudioClip
+from app.domain.models.message import AudioClip, ImageClip
 from app.store.tables import MEDIA_BLOB_MAX_BYTES, media_blobs
 
 
@@ -63,6 +63,20 @@ class MediaBlobRepository:
         if row is None:
             return None
         return AudioClip(data=row.data, mime_type=row.mime_type, duration_ms=None)
+
+    async def load_image(self, blob_id: UUID) -> ImageClip | None:
+        """A khoj card's image, or None when it has expired and been deleted."""
+        statement = select(media_blobs.c.data, media_blobs.c.mime_type).where(
+            media_blobs.c.id == blob_id, media_blobs.c.expires_at > func.now()
+        )
+        try:
+            async with self._session_factory() as session:
+                row = (await session.execute(statement)).first()
+        except (SQLAlchemyError, OSError) as exc:
+            raise StoreError(f"could not load media: {type(exc).__name__}") from exc
+        if row is None:
+            return None
+        return ImageClip(data=row.data, mime_type=row.mime_type)
 
     async def delete_expired(self) -> int:
         statement = delete(media_blobs).where(media_blobs.c.expires_at <= func.now())

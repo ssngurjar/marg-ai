@@ -1,5 +1,6 @@
 """LlamaGuardClassifier against a scripted OpenAI-compatible host (s07 §4.3)."""
 
+import base64
 import random
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
@@ -133,17 +134,29 @@ async def test_a_reply_check_without_the_question_is_a_programming_error(
     assert harness.endpoint.call_count == 0
 
 
-async def test_an_image_is_refused_before_any_call(harness_for: HarnessFactory) -> None:
+async def test_an_image_goes_with_its_caption_in_one_user_turn(
+    harness_for: HarnessFactory,
+) -> None:
+    """Spike B: the host takes an image only together with a text part (alone it returns 500)."""
     harness = harness_for(guard_answer("safe"))
-    with_image = SafetyRequest(
-        speaker="user",
-        text="",
+    card = SafetyRequest(
+        speaker="assistant",
+        text="Munni ne parchhai ka raaz khoja!",
         prior_user_text=None,
-        image=ImageClip(data=b"\xff\xd8", mime_type="image/jpeg"),
+        image=ImageClip(data=b"\x89PNG\r\n\x1a\nfake", mime_type="image/png"),
     )
-    with pytest.raises(ProviderRejected, match="image safety checks aren't enabled yet"):
-        await harness.classifier.classify(with_image)
-    assert harness.endpoint.call_count == 0
+    verdict, _ = await harness.classifier.classify(card)
+    assert verdict.decision is SafetyDecision.ALLOW
+    encoded = base64.b64encode(b"\x89PNG\r\n\x1a\nfake").decode("ascii")
+    assert harness.endpoint.bodies[0]["messages"] == [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "Munni ne parchhai ka raaz khoja!"},
+                {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{encoded}"}},
+            ],
+        }
+    ]
 
 
 @pytest.mark.parametrize("answer", ["probably safe", "I cannot help", "unsafe", "unsafe\nS99"])

@@ -126,6 +126,19 @@ class Synthesizer(Protocol):
     async def synthesize(self, text: str, language: Language) -> tuple[AudioClip, StepUsage]: ...
 
 
+class ImageGenerator(Protocol):
+    """Muse Image: a picture from a text prompt (s10b khoj card, C6). The prompt is the fixed
+    style template plus a scene; never a child's name or a parent's words."""
+
+    async def generate(self, prompt: str) -> tuple[ImageClip, StepUsage]: ...
+
+
+class ReplyImageStore(Protocol):
+    """Khoj card images, for the deliverer (s10b §4.13)."""
+
+    async def load_image(self, blob_id: UUID) -> ImageClip | None: ...
+
+
 class AudioConverter(Protocol):
     """Any voice note → the 16 kHz mono WAV speech-to-text takes (s06 §4.3)."""
 

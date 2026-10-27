@@ -120,6 +120,7 @@ def sender_for(
             ),
             clock=clock,
             audio=MemoryReplyAudioStore(),
+            images=MemoryReplyAudioStore(),
         ),
         DeliverySettings(max_attempts=5, part_budget=timedelta(seconds=25)),
     )

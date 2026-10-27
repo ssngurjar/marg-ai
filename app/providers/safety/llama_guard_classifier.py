@@ -6,6 +6,7 @@ decision here is only "flagged or not": the safety gate maps categories to ALLOW
 separately for input and output (s07 §4.4).
 """
 
+import base64
 from dataclasses import dataclass
 from datetime import timedelta
 
@@ -15,7 +16,7 @@ from openai.types.chat.chat_completion_message_param import ChatCompletionMessag
 from pydantic import SecretStr
 
 from app.core.clock import Clock
-from app.core.errors import ProviderRejected, ProviderResponseInvalid
+from app.core.errors import ProviderResponseInvalid
 from app.domain.enums import SafetyDecision
 from app.domain.models.safety import SafetyVerdict
 from app.domain.models.usage import StepUsage
@@ -63,10 +64,6 @@ class LlamaGuardClassifier:
         await self._client.close()
 
     async def classify(self, request: SafetyRequest) -> tuple[SafetyVerdict, StepUsage]:
-        if request.image is not None:
-            # Image checks (khoj cards, activity photos) arrive with S10b, after spike B confirms
-            # the host's image input shape. Until then nothing sends an image here.
-            raise ProviderRejected("image safety checks aren't enabled yet", provider=PROVIDER)
         messages = self._messages(request)
         deadline = self._clock.now() + timedelta(seconds=self._timeout_s)
         completion = await self._retry.run(lambda: self._complete(messages), deadline=deadline)
@@ -76,6 +73,24 @@ class LlamaGuardClassifier:
         return verdict, self._usage(completion)
 
     def _messages(self, request: SafetyRequest) -> list[ChatCompletionMessageParam]:
+        if request.image is not None:
+            # Spike B: the host takes an image only together with a text part, in a user turn
+            # (an image alone returns 500). The text is the caption that goes with it.
+            encoded = base64.b64encode(request.image.data).decode("ascii")
+            return [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": request.text},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:{request.image.mime_type};base64,{encoded}"
+                            },
+                        },
+                    ],
+                }
+            ]
         if request.speaker == "user":
             return [{"role": "user", "content": request.text}]
         if request.prior_user_text is None:

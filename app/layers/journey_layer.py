@@ -423,6 +423,7 @@ class JourneyLayer:
                 kind="parent_report",
                 hint_domains=list(activity.domains),
                 activity_title=activity.title,
+                activity_id=activity.id,
             ),
         )
 

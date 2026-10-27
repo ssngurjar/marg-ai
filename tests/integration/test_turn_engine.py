@@ -47,7 +47,7 @@ from app.store.repositories.turn_step_repository import TurnStepRepository
 from app.store.repositories.user_repository import UserRepository
 from app.telemetry.curiosity_signal_extractor import CuriositySignalExtractor
 from app.worker.database_step_recorder import DatabaseStepRecorder
-from app.worker.post_turn_runner import PostTurnRunner
+from app.worker.post_turn_runner import PostTurnDeps, PostTurnRunner
 from app.worker.reply_deliverer import DeliveryDeps, DeliverySettings, ReplyDeliverer
 from app.worker.turn_dispatcher import DispatcherDeps, DispatcherSettings, TurnDispatcher
 from app.worker.turn_processor import TurnDeps, TurnProcessor, TurnSettings
@@ -139,6 +139,7 @@ def build(
             ),
             clock=clock,
             audio=MediaBlobRepository(sessions),
+            images=MediaBlobRepository(sessions),
         ),
         DeliverySettings(max_attempts=5, part_budget=timedelta(seconds=25)),
     )
@@ -153,13 +154,16 @@ def build(
             media=MediaBlobRepository(sessions),
             child_sessions=ChildSessionRepository(sessions),
             post_turn=PostTurnRunner(
-                CuriositySignalExtractor(
-                    FakeLanguageModel([CURIOSITY_SIGNALS]), shipped_registry()
-                ),
-                CuriositySignalRepository(sessions),
-                DatabaseStepRecorder(TurnStepRepository(sessions)),
-                clock,
-                timeout=timedelta(seconds=5),
+                PostTurnDeps(
+                    extractor=CuriositySignalExtractor(
+                        FakeLanguageModel([CURIOSITY_SIGNALS]), shipped_registry()
+                    ),
+                    signals=CuriositySignalRepository(sessions),
+                    recorder=DatabaseStepRecorder(TurnStepRepository(sessions)),
+                    clock=clock,
+                    timeout=timedelta(seconds=5),
+                    cards=None,
+                )
             ),
             nudges=None,
         ),

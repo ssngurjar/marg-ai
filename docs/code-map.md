@@ -24,6 +24,7 @@ line of the module's docstring.
 | Module | Classes | What it does |
 |---|---|---|
 | `audio_transcoder.py` | `AudioTranscoder` | AudioTranscoder: ffmpeg conversions for speech-to-text and voice notes (s06 §4.3). |
+| `ffmpeg_runner.py` | `FfmpegRunner` | FfmpegRunner: one ffmpeg run, as an argument list (never a shell), stdin to stdout, inside a |
 | `tts_text_preparer.py` | `TtsText`, `TtsTextPreparer` | TtsTextPreparer: the deterministic gate between `spoken_text` and the synthesizer (s06 §4.6). |
 
 ## `channels/whatsapp`
@@ -59,6 +60,7 @@ line of the module's docstring.
 | `fixed_replies.py` | `FixedText`, `FixedTextKey` | Fixed replies: reviewed copy keyed by (kind, variant, language) (contracts §6). |
 | `journey_copy.py` | — | Fixed journey text (s10b §4.7, §4.10): the supervision line, body labels, buttons, and the |
 | `journey_words.py` | — | Words a personalised khoj or reflection may not use (s10b §4.7, §4.8): careers and exams for a |
+| `khoj_card_style.py` | — | What a khoj card looks like (s10b §4.13, C6): the fixed style and a scene per activity. |
 | `model_prices.py` | `ModelPrice` | Model prices per million tokens, for cost accounting (s05 §4.1, s07 §4.3). |
 | `onboarding_copy.py` | `CopyEntry` | Onboarding copy: fixed, reviewed text in Hinglish, Hindi and English (s08 §4.8). |
 | `stt_keywords.py` | — | Speech-to-text hints: words Muse Voice Transcribe might mishear (s06 §4.5). Reviewed copy. |
@@ -90,7 +92,7 @@ line of the module's docstring.
 | `base.py` | `DomainModel` | Identifiers and the base every domain model shares (contracts.md §2.1). |
 | `child_session.py` | `ChildSession` | A child talking to Marg.ai directly on the parent's phone (s10b §4.16, C13). |
 | `conversation.py` | `ProfileUpdate`, `FirstContact`, `ConsentGiven`, `ConsentDeclined`, `RoleChosen`, `RoleUnavailable`, `GuardianConfirmed`, `GuardianDeclined`, `ProfileAnswered`, `ChildAnswered`, `ChildInvalid`, `AddChild`, `ChildTalkAnswered`, `TeacherAsked`, `LanguageSwitched`, `QuestionNoted`, `Unrecognised`, `DeletionRequested`, `DeletionConfirmed`, `DeletionCancelled`, `SendCopy`, `RecordConsent`, `UpsertLearner`, `SetChildTalk`, `PurgeAfterDelivery`, `HandoffPendingQuestion`, `HandoffFirstKhoj`, `Transition` | The onboarding conversation's events and effects (s08 §4.2). Pure data. |
-| `curiosity.py` | `CuriositySignals`, `CuriositySource`, `ExtractSignals` | What a child engaged with, for the young-learner trajectory (s13 §4.4). Never a label. |
+| `curiosity.py` | `CuriositySignals`, `CuriositySource`, `ExtractSignals`, `MakeKhojCard` | What a child engaged with, for the young-learner trajectory (s13 §4.4). Never a label. |
 | `delivery.py` | `PartState` | Where an outbound part stands in its delivery (s04 §4.10). |
 | `learner.py` | `Learner` | Learners: the child or student whose journey Marg.ai follows (contracts §2.2, data-model). |
 | `message.py` | `MediaRef`, `InboundMessage`, `AudioClip`, `ImageClip`, `Transcript` | What users send us: messages and the media they carry (contracts.md §2.1). |
@@ -136,6 +138,7 @@ line of the module's docstring.
 | `child_talk_layer.py` | `ChildReply`, `ChildTalkLayer` | ChildTalkLayer: a child talks to Marg.ai directly, with the parent's consent (s10b §4.16, C13). |
 | `curiosity_moment_layer.py` | `CuriosityMoment`, `NotAChildQuestion`, `CuriosityMomentLayer` | CuriosityMomentLayer: the child's own question, answered through the parent (s10b §4.15, C11). |
 | `journey_layer.py` | `ActivityPersonalisation`, `ParentReflection`, `JourneySettings`, `JourneyLayer` | JourneyLayer: "Aaj ki Khoj" for parents of children aged 3-8 (s10b §4.4 to §4.9). |
+| `khoj_card_maker.py` | `KhojCardText`, `CardRequest`, `KhojCard`, `KhojCardMaker` | KhojCardMaker: an illustrated card of a child's discovery (s10b §4.13, C6). |
 | `layer_result.py` | `LayerResult` | LayerResult: what every layer's generate step returns (s12 §4, s05 §4.4a). |
 | `onboarding_layer.py` | `ProfileExtraction`, `FirstKhojHandoff`, `PendingQuestionHandoff`, `OnboardingResult`, `OnboardingLayer` | OnboardingLayer: a message during onboarding → a state-machine event → fixed copy and writes |
 | `parent_question_layer.py` | `ParentAnswer`, `ParentQuestionLayer` | ParentQuestionLayer: a parent's question answered warmly and practically (s10b §4.9, flow D). |
@@ -165,7 +168,14 @@ line of the module's docstring.
 |---|---|---|
 | `http.py` | `Sleeper`, `AsyncioSleeper`, `RetryTiming`, `RetryPolicy` | The one retry policy every external call uses (contracts §5, s05 §4.2). |
 | `openai_error_mapper.py` | `OpenAiErrorMapper` | OpenAiErrorMapper: an openai SDK exception → our ProviderError (s05 §4.1, contracts §4). |
-| `ports.py` | `ChannelAddress`, `DeliveryReceipt`, `ChannelSender`, `RenderedPrompt`, `GenerationRequest`, `GenerationResult`, `LanguageModel`, `SafetyRequest`, `SafetyClassifier`, `TranscriptionHints`, `Transcriber`, `Synthesizer`, `AudioConverter`, `MediaFetcher`, `ReplyAudioStore` | Protocols the pipeline and layers depend on (contracts.md §3). |
+| `ports.py` | `ChannelAddress`, `DeliveryReceipt`, `ChannelSender`, `RenderedPrompt`, `GenerationRequest`, `GenerationResult`, `LanguageModel`, `SafetyRequest`, `SafetyClassifier`, `TranscriptionHints`, `Transcriber`, `Synthesizer`, `ImageGenerator`, `ReplyImageStore`, `AudioConverter`, `MediaFetcher`, `ReplyAudioStore` | Protocols the pipeline and layers depend on (contracts.md §3). |
+
+## `providers/image`
+
+| Module | Classes | What it does |
+|---|---|---|
+| `image_compressor.py` | `ImageCompressor` | ImageCompressor: a khoj card small enough to keep and send (s10b §4.13). |
+| `muse_image_generator.py` | `ImageModelConfig`, `MuseImageGenerator` | MuseImageGenerator: khoj card illustrations from Muse Image (s10b §4.13, spike F). |
 
 ## `providers/llm`
 
@@ -212,6 +222,7 @@ line of the module's docstring.
 | `curiosity_signal_repository.py` | `CuriositySignalRepository` | Curiosity signals: what a child engaged with on a journey turn (s13 §4.4, data-model). |
 | `inbox_repository.py` | `InboundRecord`, `SaveResult`, `LatestInbound`, `InboxRepository` | Storing inbound WhatsApp messages (s03 §4.5, §4.6). The only SQL for users and the inbox. |
 | `journey_repository.py` | `JourneyRepository` | The khoj offered to each child and how it went (s10b §5, data-model `learner_activities`). |
+| `khoj_card_repository.py` | `QueuedCard`, `KhojCardRepository` | Khoj cards: the image, its link to the report, and the KHOJ_CARD turn that sends it |
 | `learner_repository.py` | `LearnerRepository` | Learners: a parent's children or a student's own learner (s08 §4.11, data-model `learners`). |
 | `media_blob_repository.py` | `MediaBlobRepository` | MediaBlobRepository: reply audio kept until the sender uploads it (s06 §4.7, §4.8). |
 | `nudge_repository.py` | `NudgeBatch`, `NudgeResult`, `NudgeRepository` | Daily khoj messages: who opted in, and the NUDGE turns that send them (s10b §4.11). |
@@ -231,8 +242,9 @@ line of the module's docstring.
 | Module | Classes | What it does |
 |---|---|---|
 | `database_step_recorder.py` | `DatabaseStepRecorder` | The production StepRecorder (contracts §3): pipeline step results → turn_steps rows. |
+| `khoj_card_sender.py` | `CardOutcome`, `CardDeps`, `KhojCardSender` | KhojCardSender: after a good report, an illustrated card of the child's discovery |
 | `nudge_sender.py` | `NudgeSettings`, `NudgeSender` | NudgeSender: the daily khoj message, sent from the maintenance pass (s10b §4.11). |
-| `post_turn_runner.py` | `PostTurnRunner` | PostTurnRunner: work after the reply is sent, off its critical path (s04 §4.16, s13 §4.2). |
+| `post_turn_runner.py` | `PostTurnDeps`, `PostTurnRunner` | PostTurnRunner: work after the reply is sent, off its critical path (s04 §4.16, s13 §4.2). |
 | `reply_deliverer.py` | `DeliverySettings`, `DeliveryDeps`, `ReplyDeliverer` | Sending a turn's queued parts, in order, with retries (s04 §4.10; E1: sent directly). |
 | `turn_dispatcher.py` | `DispatcherSettings`, `DispatcherDeps`, `TurnDispatcher` | The in-process turn dispatcher (exception E1, mvp-scope §4.1). |
 | `turn_processor.py` | `TurnSettings`, `TurnDeps`, `TurnProcessor` | One turn for one user, start to finish (s04 §4.4 to §4.9; contracts §3 `process_user_turn`). |
