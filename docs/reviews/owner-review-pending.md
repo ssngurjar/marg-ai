@@ -89,6 +89,26 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
   `marg_daily_khoj_hinglish` in en; text in the chat of 2026-10-27) and note the category Meta
   gives them.
 
+## 2d. S6 voice (from 2026-10-27)
+
+- [ ] **Fixed copy**, `app/constants/fixed_replies.py`: "please repeat" no longer says "write it"
+  (v2, it now answers voice notes too); the new "too long" reply, in three languages.
+- [ ] **Hinglish fixed replies are spoken from the Hindi text** of the same reply (the Hindi
+  voice reads only Devanagari). Listen to a few, e.g. the crisis reply, before the demo.
+- [ ] **Speech-to-text hint words**, `app/constants/stt_keywords.py` (v1): Marg, khoj, aaj ki
+  khoj, doosri khoj, anganwadi, ASHA didi. Add words parents use that it mishears.
+- [ ] **Filler sounds**, `app/domain/rules/filler_detector.py`: a voice note of only "umm",
+  "hmm", "अं"… gets "please repeat". Short real answers ("haan", "nahi", "accha") are never
+  filler.
+- [ ] **Safety on spoken text** (S6): safety_out now classifies the spoken text along with the
+  text when they differ (the voice note reads the spoken text). Llama Guard sees a little more
+  per reply; a harm only in the spoken text now blocks the reply.
+- [ ] **Phone test**: send a voice note in Hinglish and in Hindi; check the transcript in the
+  reply, the voice reply's sound, and a silent or 1-second note ("please repeat").
+- [ ] **Voice for the demo**: rent a GPU for Indic Parler-TTS, run marg-ai-tts there with
+  `TTS_ENGINE=indic_parler`, and point `SIDECAR_BASE_URL` at it. MMS-TTS (CC-BY-NC) is for local
+  testing only and must not be in the submission.
+
 ## 3. Decisions log entries marked "pending owner review"
 
 - [ ] `docs/design/s05-llm-orchestrator.md`, 2026-10-27 (S5 build choices).

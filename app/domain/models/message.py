@@ -6,7 +6,7 @@ from uuid import UUID
 
 from pydantic import model_validator
 
-from app.domain.enums import Channel, MessageKind
+from app.domain.enums import Channel, Language, MessageKind
 from app.domain.models.base import DomainModel, UserHash
 
 
@@ -48,3 +48,13 @@ class ImageClip(DomainModel):
 
     data: bytes
     mime_type: str  # "image/jpeg", "image/png", "image/webp"
+
+
+class Transcript(DomainModel):
+    """What a voice note said (contracts §2.1). Muse Voice Transcribe returns no language or
+    confidence: the language comes from RegisterDetector, and confidence is None."""
+
+    text: str
+    language: Language | None
+    confidence: float | None
+    audio_duration_ms: int

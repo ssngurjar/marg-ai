@@ -47,3 +47,6 @@ MODEL_PRICES: Final[dict[str, ModelPrice]] = {
         Decimal("0.18"), Decimal("0.18"), Decimal("0.18"), allowed_for_user_content=True
     ),
 }
+
+# Muse Voice Transcribe: $0.18 per hour of audio, billed in whole seconds (plan.md §0, s06 §4.5).
+STT_PRICE_PER_HOUR: Final[dict[str, Decimal]] = {"muse-voice-transcribe-1.0": Decimal("0.18")}

@@ -28,7 +28,8 @@ def test_readyz_against_real_postgres(database_url: str) -> None:
         response = client.get("/readyz")
     assert response.status_code == 200
     assert response.json()["checks"] == [
-        {"name": "database", "ok": True, "detail": None, "critical": True}
+        {"name": "database", "ok": True, "detail": None, "critical": True},
+        {"name": "ffmpeg", "ok": True, "detail": None, "critical": False},  # voice (s06)
     ]
 
 

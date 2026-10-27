@@ -78,7 +78,11 @@ class MediaUnsupported(MediaError):
 
 
 class TranscodeFailed(MediaError):
-    """ffmpeg failed or timed out."""
+    """ffmpeg couldn't read or write the audio."""
+
+
+class TranscodeTimeout(TranscodeFailed):
+    """ffmpeg ran past its time limit and was killed."""
 
 
 class TtsTextInvalid(MediaError):

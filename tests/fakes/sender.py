@@ -15,6 +15,7 @@ from tests.fakes.clock import FixedClock
 class SentPart:
     part: OutboundPart
     address: str
+    audio: AudioClip | None = None
 
 
 class FakeSender:
@@ -46,7 +47,7 @@ class FakeSender:
         error = self._fail_with(part, self.calls) if self._fail_with else None
         if error is not None:
             raise error
-        self.sent.append(SentPart(part, recipient.address.get_secret_value()))
+        self.sent.append(SentPart(part, recipient.address.get_secret_value(), audio))
         return DeliveryReceipt(
             provider_message_id=f"wamid.FAKE{len(self.sent)}", sent_at=self._clock.now()
         )

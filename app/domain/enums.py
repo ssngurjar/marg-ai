@@ -47,6 +47,23 @@ class OutboxStatus(StrEnum):
     FAILED = "failed"
 
 
+class AudioVerdict(StrEnum):
+    """Whether a voice note is worth transcribing (s06 §4.4)."""
+
+    OK = "ok"
+    TOO_SHORT = "too_short"
+    SILENT = "silent"
+    TOO_LONG = "too_long"
+
+
+class MediaPurpose(StrEnum):
+    """Why a media_blobs row exists; each purpose has its own expiry (data-model `media_blobs`)."""
+
+    INBOUND_AUDIO = "inbound_audio"
+    REPLY_AUDIO = "reply_audio"
+    KHOJ_CARD = "khoj_card"
+
+
 class PartKind(StrEnum):
     TEXT = "text"
     AUDIO = "audio"

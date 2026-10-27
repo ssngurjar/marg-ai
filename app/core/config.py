@@ -10,7 +10,7 @@ from pydantic import Field, HttpUrl, SecretStr, ValidationError, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.core.errors import ConfigError
-from app.core.types import ReasoningEffort
+from app.core.types import ReasoningEffort, TtsEngine
 
 ASYNCPG_SCHEME = "postgresql+asyncpg://"
 
@@ -83,10 +83,9 @@ class Settings(DatabaseSettings):
     open_model_base_url: HttpUrl
     open_model_api_key: SecretStr
     open_model: str = Field(min_length=1)
-    timeout_open_model_s: float = Field(default=7.0, gt=0)  # then fall back (owner, 2026-10-27)
-    activity_repeat_days: int = Field(
-        default=30, ge=1
-    )  # s10b §4.6  # spike E: 2-4 s, no quality loss
+    # then fall back to Spark 1.3 (owner, 2026-10-27); spike E: 2-4 s, no quality loss
+    timeout_open_model_s: float = Field(default=7.0, gt=0)
+    activity_repeat_days: int = Field(default=30, ge=1)  # s10b §4.6
     safety_base_url: HttpUrl
     safety_api_key: SecretStr
     safety_model: str = Field(min_length=1)
@@ -101,7 +100,24 @@ class Settings(DatabaseSettings):
     # 6 s: Llama Guard (≤ 1.5 s), then the Muse Spark backup reply check when it's down (~2.5 s)
     timeout_safety_out_s: float = Field(default=6.0, gt=0)
 
-    @field_validator("model_api_key", "safety_api_key", "open_model_api_key")
+    # Added in S6 for voice (s06 §7). TTS_ENGINE picks the voice server's model: mms on the Mac
+    # for testing, indic_parler on a GPU for the demo and final tests (owner, 2026-10-27).
+    model_stt: str = Field(default="muse-voice-transcribe-1.0", min_length=1)
+    tts_engine: TtsEngine = "mms"
+    sidecar_base_url: HttpUrl
+    sidecar_token: SecretStr
+    timeout_fetch_media_s: float = Field(default=5.0, gt=0)
+    timeout_transcribe_s: float = Field(default=10.0, gt=0)
+    timeout_synthesize_s: float = Field(default=8.0, gt=0)
+    max_inbound_audio_bytes: int = Field(default=5_242_880, gt=0)
+    min_voice_note_ms: int = Field(default=700, ge=0)
+    min_voiced_ms: int = Field(default=300, ge=0)
+    max_voice_note_seconds: int = Field(default=180, gt=0)
+    transcode_timeout_s: float = Field(default=5.0, gt=0)
+    stt_max_keywords: int = Field(default=100, ge=0)
+    reply_audio_for_text_input: bool = False
+
+    @field_validator("model_api_key", "safety_api_key", "open_model_api_key", "sidecar_token")
     @classmethod
     def _require_a_key(cls, key: SecretStr) -> SecretStr:
         if not key.get_secret_value().strip():

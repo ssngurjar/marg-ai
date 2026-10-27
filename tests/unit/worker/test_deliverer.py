@@ -1,5 +1,6 @@
 """ReplyDeliverer (s04 §4.10): order, the 24-hour window, retries and permanent failures."""
 
+import dataclasses
 import random
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -19,6 +20,7 @@ from tests.fakes.clock import FixedClock
 from tests.fakes.sender import FakeSender
 from tests.fakes.sleeper import FakeSleeper
 from tests.fakes.user_repository import MemoryUserRepository
+from tests.fakes.voice import VOICE_NOTE, MemoryReplyAudioStore
 from tests.support.app_factory import make_identity
 
 pytestmark = pytest.mark.unit
@@ -97,7 +99,12 @@ def row(
     )
 
 
-def deliverer(outbox: MemoryOutbox, sender: FakeSender, clock: FixedClock) -> ReplyDeliverer:
+def deliverer(
+    outbox: MemoryOutbox,
+    sender: FakeSender,
+    clock: FixedClock,
+    audio: MemoryReplyAudioStore | None = None,
+) -> ReplyDeliverer:
     senders: dict[Channel, ChannelSender] = {Channel.WHATSAPP: sender}
     retry = RetryPolicy(
         timing=RetryTiming(attempts=1),  # the outbox's own retries are what's under test
@@ -113,6 +120,7 @@ def deliverer(outbox: MemoryOutbox, sender: FakeSender, clock: FixedClock) -> Re
             identity=make_identity(),
             retry=retry,
             clock=clock,
+            audio=audio or MemoryReplyAudioStore(),
         ),
         DeliverySettings(max_attempts=5, part_budget=timedelta(seconds=25)),
     )
@@ -191,14 +199,42 @@ async def test_an_address_that_will_not_decrypt_fails_the_part() -> None:
     assert outbox.marks == [Mark(100, "failed", "InvalidAddressCiphertext")]
 
 
-@pytest.mark.parametrize("kind", [PartKind.AUDIO, PartKind.IMAGE])
-async def test_media_parts_fail_until_media_storage_exists(kind: PartKind) -> None:
+async def test_image_parts_fail_until_khoj_cards_exist() -> None:
     clock = FixedClock(NOW)
     sender = FakeSender(clock)
-    outbox = MemoryOutbox([row(0, kind=kind)])
+    outbox = MemoryOutbox([row(0, kind=PartKind.IMAGE)])
     await deliverer(outbox, sender, clock).deliver_turn(TURN)
     assert sender.calls == 0
     assert outbox.marks == [Mark(100, "failed", "media_not_loadable")]
+
+
+async def test_a_voice_reply_is_sent_with_its_stored_clip() -> None:
+    clock = FixedClock(NOW)
+    sender = FakeSender(clock)
+    store = MemoryReplyAudioStore()
+    audio_row = row(0, kind=PartKind.AUDIO)
+    assert audio_row.part.audio_blob_id is not None
+    store.saved[audio_row.part.audio_blob_id] = VOICE_NOTE
+    outbox = MemoryOutbox([audio_row, row(1)])
+    assert await deliverer(outbox, sender, clock, store).deliver_turn(TURN) == 2
+    assert [sent.audio for sent in sender.sent] == [VOICE_NOTE, None]
+
+
+async def test_an_expired_voice_reply_is_failed_and_the_text_after_it_still_goes() -> None:
+    clock = FixedClock(NOW)
+    sender = FakeSender(clock)
+    deleted = row(0, kind=PartKind.AUDIO)
+    unlinked = row(1, kind=PartKind.AUDIO)
+    unlinked = dataclasses.replace(
+        unlinked, part=unlinked.part.model_copy(update={"audio_blob_id": None})
+    )  # the blob was deleted and the foreign key set it NULL
+    outbox = MemoryOutbox([deleted, unlinked, row(2)])
+    assert await deliverer(outbox, sender, clock).deliver_turn(TURN) == 1
+    assert outbox.marks[:2] == [
+        Mark(100, "failed", "media_expired"),
+        Mark(101, "failed", "media_expired"),
+    ]
+    assert [sent.part.part_no for sent in sender.sent] == [2]
 
 
 async def test_logs_never_contain_the_number(capsys: pytest.CaptureFixture[str]) -> None:

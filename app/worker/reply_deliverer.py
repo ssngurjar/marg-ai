@@ -19,9 +19,10 @@ from app.core.logging import get_logger
 from app.core.user_identity import UserIdentity
 from app.domain.enums import Channel, PartKind
 from app.domain.models.base import TurnId
+from app.domain.models.message import AudioClip
 from app.domain.rules.delivery_planner import DeliveryPlanner
 from app.providers.http import RetryPolicy
-from app.providers.ports import ChannelAddress, ChannelSender
+from app.providers.ports import ChannelAddress, ChannelSender, ReplyAudioStore
 from app.store.repositories.outbox_repository import OutboxRepository, OutboxRow
 from app.store.repositories.user_repository import UserRepository
 
@@ -44,6 +45,12 @@ class DeliveryDeps:
     identity: UserIdentity
     retry: RetryPolicy
     clock: Clock
+    audio: ReplyAudioStore  # reply voice notes (s06 §4.8)
+
+
+@dataclass(frozen=True, slots=True)
+class _PartMedia:
+    audio: AudioClip | None
 
 
 class ReplyDeliverer:
@@ -54,6 +61,7 @@ class ReplyDeliverer:
         self._identity = deps.identity
         self._retry = deps.retry
         self._clock = deps.clock
+        self._audio = deps.audio
         self._settings = settings
 
     async def deliver_turn(self, turn_id: TurnId) -> int:
@@ -78,10 +86,8 @@ class ReplyDeliverer:
         if self._window_closed(row):
             await self._fail(row, "window_closed")
             return False
-        if row.part.kind in {PartKind.AUDIO, PartKind.IMAGE}:
-            # Media bytes live in media_blobs, which S6 (audio) and S10b (cards) add along with
-            # loading them here. Until then ReplyPartsBuilder.build never produces these parts.
-            await self._fail(row, "media_not_loadable")
+        media = await self._media_for(row)
+        if media is None:
             return False
         try:
             recipient = self._recipient(row)
@@ -91,13 +97,29 @@ class ReplyDeliverer:
         deadline = self._clock.now() + self._settings.part_budget
         try:
             receipt = await self._retry.run(
-                lambda: sender.send(row.part, recipient), deadline=deadline
+                lambda: sender.send(row.part, recipient, audio=media.audio), deadline=deadline
             )
         except ProviderError as exc:
             await self._handle_provider_error(row, exc)
             return False
         await self._outbox.mark_sent(row.outbox_id, receipt.provider_message_id, receipt.sent_at)
         return True
+
+    async def _media_for(self, row: OutboxRow) -> "_PartMedia | None":
+        """The media the part carries; None (and the part failed) when it can't be loaded. A
+        StoreError propagates, as it does from the outbox's own calls."""
+        if row.part.kind is PartKind.IMAGE:
+            # Khoj cards arrive with S10b; until then ReplyPartsBuilder.build never makes these.
+            await self._fail(row, "media_not_loadable")
+            return None
+        if row.part.kind is not PartKind.AUDIO:
+            return _PartMedia(audio=None)
+        blob_id = row.part.audio_blob_id  # None once the blob was deleted (SET NULL)
+        audio = await self._audio.load_audio(blob_id) if blob_id is not None else None
+        if audio is None:
+            await self._fail(row, "media_expired")
+            return None
+        return _PartMedia(audio=audio)
 
     def _window_closed(self, row: OutboxRow) -> bool:
         if row.channel is not Channel.WHATSAPP or row.part.kind is PartKind.TEMPLATE:

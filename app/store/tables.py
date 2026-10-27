@@ -37,6 +37,7 @@ from app.domain.enums import (
     InboxStatus,
     Language,
     LearnerRelation,
+    MediaPurpose,
     MessageKind,
     OutboxStatus,
     PartKind,
@@ -225,6 +226,25 @@ turn_steps = Table(
     allowed_values("decision", SafetyDecision),
 )
 
+MEDIA_BLOB_MAX_BYTES = 2_097_152  # data-model `media_blobs`: 2 MB
+
+media_blobs = Table(
+    "media_blobs",
+    metadata,
+    Column("id", UUID(as_uuid=True), primary_key=True),
+    Column("user_hash", Text, ForeignKey("users.user_hash", ondelete="CASCADE"), nullable=False),
+    Column("purpose", Text, nullable=False),
+    Column("mime_type", Text, nullable=False),
+    Column("data", LargeBinary, nullable=False),
+    Column("size_bytes", Integer, nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    Column("expires_at", DateTime(timezone=True), nullable=False),
+    CheckConstraint(f"size_bytes <= {MEDIA_BLOB_MAX_BYTES}", name="size_cap"),
+    CheckConstraint("size_bytes = octet_length(data)", name="size_matches"),
+    allowed_values("purpose", MediaPurpose),
+    Index(None, "expires_at"),
+)
+
 outbox_messages = Table(
     "outbox_messages",
     metadata,
@@ -237,9 +257,9 @@ outbox_messages = Table(
     Column("channel", Text, nullable=False),
     Column("kind", Text, nullable=False),
     Column("text", Text, nullable=True),
-    # media_blobs arrives with S6, which adds the foreign keys on these two
-    Column("audio_blob_id", UUID(as_uuid=True), nullable=True),
-    Column("image_blob_id", UUID(as_uuid=True), nullable=True),
+    # An expired blob leaves the part without its media; the deliverer fails it (s06 §4.8)
+    Column("audio_blob_id", UUID(as_uuid=True), ForeignKey("media_blobs.id", ondelete="SET NULL")),
+    Column("image_blob_id", UUID(as_uuid=True), ForeignKey("media_blobs.id", ondelete="SET NULL")),
     Column("buttons", JSONB, nullable=False, server_default=text("'[]'::jsonb")),
     Column("template", JSONB, nullable=True),
     Column("status", Text, nullable=False, server_default=OutboxStatus.PENDING.value),

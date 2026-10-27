@@ -17,6 +17,7 @@ from app.core.clock import Clock
 from app.core.errors import StoreError
 from app.core.logging import get_logger
 from app.domain.models.base import TurnId, UserHash
+from app.store.repositories.media_blob_repository import MediaBlobRepository
 from app.store.repositories.outbox_repository import OutboxRepository
 from app.store.repositories.turn_repository import TurnRepository
 from app.store.repositories.user_repository import UserRepository
@@ -45,6 +46,7 @@ class DispatcherDeps:
     outbox: OutboxRepository
     users: UserRepository
     clock: Clock
+    media: MediaBlobRepository  # expired reply audio is deleted by the maintenance pass
 
 
 class TurnDispatcher:
@@ -54,6 +56,7 @@ class TurnDispatcher:
         self._turns = deps.turns
         self._outbox = deps.outbox
         self._users = deps.users
+        self._media = deps.media
         self._clock = deps.clock
         self._settings = settings
         self._user_tasks: dict[UserHash, asyncio.Task[None]] = {}
@@ -191,6 +194,9 @@ class TurnDispatcher:
         purged = await self._users.sweep_purges(self._settings.purge_sweep_after)
         if purged:
             logger.info("purge_sweep", users=purged)
+        expired_media = await self._media.delete_expired()
+        if expired_media:
+            logger.info("media_expired", blobs=expired_media)
 
     async def _deliver_due_parts(self) -> None:
         turn_ids: list[TurnId] = await self._outbox.turns_with_due_parts()

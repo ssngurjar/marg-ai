@@ -37,7 +37,9 @@ def text_message(
     return message("text", {"text": {"body": body}}, message_id=message_id)
 
 
-def voice_note(media_id: str = "MEDIA1", *, voice: bool = True) -> dict[str, JsonValue]:
+def voice_note(
+    media_id: str = "MEDIA1", *, voice: bool = True, message_id: str = "wamid.TEST1"
+) -> dict[str, JsonValue]:
     audio: dict[str, JsonValue] = {
         "id": media_id,
         "mime_type": "audio/ogg; codecs=opus",
@@ -45,7 +47,7 @@ def voice_note(media_id: str = "MEDIA1", *, voice: bool = True) -> dict[str, Jso
         "voice": voice,
         "url": "https://lookaside.example/media",
     }
-    return message("audio", {"audio": audio})
+    return message("audio", {"audio": audio}, message_id=message_id)
 
 
 def image_message(caption: str | None = "Munni ke patte") -> dict[str, JsonValue]:

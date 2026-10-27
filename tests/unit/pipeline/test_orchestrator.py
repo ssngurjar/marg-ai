@@ -5,6 +5,7 @@ when safety_in allowed the message AND safety_out allowed the reply. Every other
 a reviewed fixed text.
 """
 
+import dataclasses
 import itertools
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -56,6 +57,7 @@ from tests.fakes.domain_policy import (
 from tests.fakes.language_model import FakeLanguageModel, ScriptedOutput
 from tests.fakes.safety_classifier import FakeSafetyClassifier, Speaker
 from tests.fakes.step_recorder import MemoryStepRecorder
+from tests.fakes.voice import FakeTranscriber, FakeVoice
 from tests.support.journey import (
     PERSONALISED_INTRO,
     REFLECTION,
@@ -88,6 +90,9 @@ SETTINGS = OrchestratorSettings(
     safety_in_timeout=timedelta(seconds=3),
     generate_timeout=timedelta(seconds=12),
     safety_out_timeout=timedelta(seconds=3),
+    fetch_media_timeout=timedelta(seconds=5),
+    transcribe_timeout=timedelta(seconds=10),
+    synthesize_timeout=timedelta(seconds=8),
 )
 
 
@@ -97,6 +102,7 @@ class Run:
     llm: FakeLanguageModel
     classifier: FakeSafetyClassifier
     recorder: MemoryStepRecorder
+    voice: FakeVoice
 
     @property
     def delivered(self) -> str:
@@ -124,32 +130,38 @@ def orchestrator_for(
     llm: FakeLanguageModel,
     policy: DomainPolicy,
     settings: OrchestratorSettings,
+    voice: FakeVoice,
 ) -> Orchestrator:
     return Orchestrator(
         PipelineSteps(
             gate=SafetyGate(classifier, policy),
             journey=journey_for(llm),
             onboarding=OnboardingLayer(llm, shipped_registry(), invite_link=INVITE_LINK),
+            voice=voice.steps(),
             clock=FixedClock(NOW),
         ),
         settings,
     )
 
 
-async def run(
+async def run(  # noqa: PLR0913  # one keyword per fake a test can replace
     ctx: TurnContext,
     *,
     classifier: FakeSafetyClassifier | None = None,
     llm: FakeLanguageModel | None = None,
     policy: DomainPolicy | None = None,
     settings: OrchestratorSettings = SETTINGS,
+    voice: FakeVoice | None = None,
 ) -> Run:
     classifier = classifier or FakeSafetyClassifier()
     llm = llm or FakeLanguageModel([HINGLISH_ANSWER])
+    voice = voice or FakeVoice()
     recorder = MemoryStepRecorder()
-    orchestrator = orchestrator_for(classifier, llm, policy or scripted_policy()[0], settings)
+    orchestrator = orchestrator_for(
+        classifier, llm, policy or scripted_policy()[0], settings, voice
+    )
     outcome = await orchestrator.run_turn(ctx, recorder, NullTurnObserver())
-    return Run(outcome, llm, classifier, recorder)
+    return Run(outcome, llm, classifier, recorder, voice)
 
 
 def flagging(
@@ -194,14 +206,16 @@ async def test_every_step_is_recorded_in_order() -> None:
     assert result.recorder.turn_route is Route.JOURNEY
 
 
-async def test_the_reply_is_checked_in_the_context_of_the_question() -> None:
+async def test_the_reply_and_what_will_be_spoken_are_checked_in_context() -> None:
     result = await run(asking())
-    assert result.classifier.requests == [
-        SafetyRequest(speaker="user", text=QUESTION, prior_user_text=None),
-        SafetyRequest(
-            speaker="assistant", text=result.outcome.reply_text, prior_user_text=QUESTION
-        ),
-    ]
+    [_, reply_check] = result.classifier.requests
+    assert result.classifier.requests[0] == SafetyRequest(
+        speaker="user", text=QUESTION, prior_user_text=None
+    )
+    assert reply_check.speaker == "assistant"
+    assert reply_check.prior_user_text == QUESTION
+    assert reply_check.text.startswith(result.outcome.reply_text)
+    assert reply_check.text.endswith(str(HINGLISH_ANSWER["spoken_text"]))
 
 
 async def test_several_text_messages_are_answered_as_one_question() -> None:
@@ -313,12 +327,7 @@ async def test_safety_in_unavailable_fails_closed_with_the_holding_reply() -> No
 
 
 async def test_safety_in_too_slow_fails_closed_as_a_timeout() -> None:
-    quick = OrchestratorSettings(
-        turn_budget=timedelta(seconds=20),
-        safety_in_timeout=timedelta(milliseconds=20),
-        generate_timeout=timedelta(seconds=12),
-        safety_out_timeout=timedelta(seconds=3),
-    )
+    quick = dataclasses.replace(SETTINGS, safety_in_timeout=timedelta(milliseconds=20))
     result = await run(asking(), classifier=FakeSafetyClassifier(delay_s=5), settings=quick)
     assert result.outcome.fixed_reply_kind is FixedReplyKind.HOLDING
     assert result.outcome.first_failure is not None
@@ -344,12 +353,7 @@ async def test_a_generation_failure_asks_the_parent_to_try_again_later(
 
 
 async def test_generation_too_slow_is_a_timeout() -> None:
-    quick = OrchestratorSettings(
-        turn_budget=timedelta(seconds=20),
-        safety_in_timeout=timedelta(seconds=3),
-        generate_timeout=timedelta(milliseconds=20),
-        safety_out_timeout=timedelta(seconds=3),
-    )
+    quick = dataclasses.replace(SETTINGS, generate_timeout=timedelta(milliseconds=20))
     llm = FakeLanguageModel([HINGLISH_ANSWER], delay_s=5)
     result = await run(asking(), llm=llm, settings=quick)
     assert result.outcome.fixed_reply_kind is FixedReplyKind.TRY_AGAIN_LATER
@@ -381,12 +385,7 @@ async def test_safety_out_unavailable_fails_closed_and_sends_nothing_generated()
 
 
 async def test_an_exhausted_turn_budget_fails_closed_without_calling_anyone() -> None:
-    no_time = OrchestratorSettings(
-        turn_budget=Orchestrator.DELIVERY_RESERVE,
-        safety_in_timeout=timedelta(seconds=3),
-        generate_timeout=timedelta(seconds=12),
-        safety_out_timeout=timedelta(seconds=3),
-    )
+    no_time = dataclasses.replace(SETTINGS, turn_budget=Orchestrator.DELIVERY_RESERVE)
     result = await run(asking(), settings=no_time)
     assert result.outcome.fixed_reply_kind is FixedReplyKind.HOLDING
     assert result.classifier.requests == []
@@ -396,7 +395,11 @@ async def test_an_exhausted_turn_budget_fails_closed_without_calling_anyone() ->
 async def test_a_down_database_never_takes_the_reply_down() -> None:
     down_database = MemoryStepRecorder(fail=True)
     orchestrator = orchestrator_for(
-        FakeSafetyClassifier(), FakeLanguageModel([HINGLISH_ANSWER]), scripted_policy()[0], SETTINGS
+        FakeSafetyClassifier(),
+        FakeLanguageModel([HINGLISH_ANSWER]),
+        scripted_policy()[0],
+        SETTINGS,
+        FakeVoice(),
     )
     outcome = await orchestrator.run_turn(asking(), down_database, NullTurnObserver())
     assert GENERATED in "\n".join(part.text or "" for part in outcome.delivery.parts)
@@ -426,7 +429,6 @@ async def test_blank_messages_and_buttons_ask_the_parent_to_repeat(ctx: TurnCont
 @pytest.mark.parametrize(
     ("kind", "mime_type"),
     [
-        (MessageKind.AUDIO, "audio/ogg"),
         (MessageKind.IMAGE, "image/jpeg"),
         (MessageKind.UNSUPPORTED, "video/mp4"),
     ],
@@ -441,10 +443,13 @@ async def test_media_alone_gets_the_unsupported_media_reply(
     assert result.llm.prompts == []
 
 
-async def test_text_sent_with_a_voice_note_is_still_answered() -> None:
+async def test_a_voice_note_and_text_are_answered_together_in_the_order_sent() -> None:
     ctx = turn_context(media_message(MessageKind.AUDIO, "audio/ogg"), text_message(QUESTION))
-    result = await run(ctx)
+    result = await run(
+        ctx, voice=FakeVoice(transcriber=FakeTranscriber(["Mera beta 4 saal ka hai."]))
+    )
     assert GENERATED in result.delivered
+    assert result.outcome.user_text == f"Mera beta 4 saal ka hai.\n{QUESTION}"
 
 
 # --- the safety ordering matrix -------------------------------------------------------------------
@@ -649,6 +654,7 @@ async def test_an_onboarding_bug_answers_try_again_later_with_no_writes() -> Non
             gate=SafetyGate(FakeSafetyClassifier(), scripted_policy()[0]),
             journey=journey_for(llm),
             onboarding=BrokenOnboarding(llm, shipped_registry(), invite_link=INVITE_LINK),
+            voice=FakeVoice().steps(),
             clock=FixedClock(NOW),
         ),
         SETTINGS,

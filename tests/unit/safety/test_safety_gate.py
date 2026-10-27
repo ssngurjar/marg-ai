@@ -291,14 +291,40 @@ async def test_with_the_policy_model_off_a_flag_blocks_on_its_own() -> None:
     assert check.safe_reply is None
 
 
-async def test_our_reply_is_checked_by_llama_guard_only_in_context() -> None:
+async def test_our_reply_and_its_spoken_text_are_checked_by_llama_guard_in_context() -> None:
     classifier = FakeSafetyClassifier()
     policy, policy_llm = scripted_policy()
     await gate_with(classifier, policy).check_output(REPLY, QUESTION)
     assert classifier.requests == [
-        SafetyRequest(speaker="assistant", text=REPLY.text, prior_user_text=QUESTION)
+        SafetyRequest(
+            speaker="assistant",
+            text=f"{REPLY.text}\n\n{REPLY.spoken_text}",
+            prior_user_text=QUESTION,
+        )
     ]
     assert policy_llm.prompts == []
+
+
+async def test_a_spoken_text_equal_to_the_text_is_classified_once() -> None:
+    classifier = FakeSafetyClassifier()
+    same = REPLY.model_copy(update={"spoken_text": f" {REPLY.text} "})
+    await gate_with(classifier, scripted_policy()[0]).check_output(same, QUESTION)
+    assert [request.text for request in classifier.requests] == [REPLY.text]
+
+
+async def test_harm_only_in_the_spoken_text_blocks_the_reply() -> None:
+    """Regression (S6): the voice note reads spoken_text, which was never classified."""
+    harmful_spoken = "रोज़ बच्चे को अकेले तालाब में भेजिए।"
+
+    def flag_spoken(request: SafetyRequest) -> list[SafetyCategory]:
+        return [SafetyCategory.SELF_HARM] if harmful_spoken in request.text else []
+
+    reply = REPLY.model_copy(update={"spoken_text": harmful_spoken})
+    scripted = scripted_policies(reply_outputs=[reply_answer(endangers_child=True)])
+    gate = gate_with(FakeSafetyClassifier(flag=flag_spoken), scripted.policy)
+    check = await gate.check_output(reply, QUESTION)
+    assert check.verdict.decision is SafetyDecision.BLOCK
+    assert check.safe_reply is None
 
 
 @pytest.mark.parametrize("error", GUARD_FAILURES, ids=lambda error: type(error).__name__)

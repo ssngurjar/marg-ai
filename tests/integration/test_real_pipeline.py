@@ -4,6 +4,7 @@ Only the providers are fakes (no live calls); the safety gate, layer, prompt reg
 store and dispatcher are the ones `build_container` wires.
 """
 
+import dataclasses
 import os
 import random
 from collections.abc import AsyncIterator, Sequence
@@ -19,14 +20,15 @@ from app.channels.whatsapp.webhook_parser import WhatsAppWebhookParser
 from app.constants.onboarding_copy import COPY_VERSION
 from app.core.errors import ProviderUnavailable
 from app.core.types import JsonValue
-from app.domain.enums import Channel, SafetyCategory
+from app.domain.enums import Channel, PartKind, SafetyCategory
 from app.domain.models.base import UserHash
 from app.providers.http import RetryPolicy, RetryTiming
 from app.providers.ports import ChannelSender, SafetyRequest
 from app.store.db import create_engine, create_session_factory
 from app.store.repositories.inbox_repository import InboundRecord, InboxRepository
+from app.store.repositories.media_blob_repository import MediaBlobRepository
 from app.store.repositories.outbox_repository import OutboxRepository
-from app.wiring import EngineParts, build_orchestrator, build_turn_dispatcher
+from app.wiring import EngineParts, OrchestratorPorts, build_orchestrator, build_turn_dispatcher
 from app.worker.turn_dispatcher import TurnDispatcher
 from tests.fakes.clock import FixedClock
 from tests.fakes.domain_policy import CLEAR, REPLY_CLEAR, policy_answer
@@ -38,6 +40,7 @@ from tests.fakes.language_model import (
 from tests.fakes.safety_classifier import FakeSafetyClassifier
 from tests.fakes.sender import FakeSender
 from tests.fakes.sleeper import FakeSleeper
+from tests.fakes.voice import VOICE_NOTE, FakeTranscriber, FakeVoice
 from tests.support import whatsapp_payloads as wa
 from tests.support.app_factory import TEST_PHONE_NUMBER_ID, make_identity, make_settings
 from tests.support.journey import (
@@ -79,6 +82,7 @@ def wire(
     classifier: FakeSafetyClassifier,
     policy: ScriptedOutput = CLEAR,
     reply_policy: ScriptedOutput = REPLY_CLEAR,
+    voice: FakeVoice | None = None,
 ) -> Pipeline:
     settings = make_settings().model_copy(update={"turn_debounce_ms": 0})
     sessions = create_session_factory(engine)
@@ -101,7 +105,11 @@ def wire(
             "parent_reflection": FakeLanguageModel([REFLECTION]),
         }
     )
-    orchestrator = build_orchestrator(settings, language_model, classifier, clock)
+    media = MediaBlobRepository(sessions)  # the real table: voice notes stored and loaded
+    voice_steps = dataclasses.replace((voice or FakeVoice()).steps(), audio_store=media)
+    orchestrator = build_orchestrator(
+        settings, OrchestratorPorts(language_model, classifier, voice_steps), clock
+    )
     dispatcher = build_turn_dispatcher(
         settings=settings,
         session_factory=sessions,
@@ -112,6 +120,7 @@ def wire(
             senders=senders,
             orchestrator=orchestrator,
             outbox=OutboxRepository(sessions),
+            media=media,
         ),
     )
     return Pipeline(dispatcher, InboxRepository(sessions), sender)
@@ -134,8 +143,13 @@ EVERY_USER_TABLE = (
     "outbox_messages WHERE user_hash = :h",
     "consent_events WHERE user_hash = :h",
     "learners WHERE owner_user_hash = :h",
+    "media_blobs WHERE user_hash = :h",
     "turn_steps WHERE turn_id IN (SELECT id FROM turns WHERE user_hash = :h)",
 )
+
+
+def heard(*transcripts: str) -> FakeVoice:
+    return FakeVoice(transcriber=FakeTranscriber(list(transcripts)))
 
 
 async def send(pipeline: Pipeline, payload: dict[str, JsonValue]) -> None:
@@ -328,8 +342,9 @@ async def test_delete_my_data_purges_every_table_after_the_reply_and_hi_starts_f
     engine: AsyncEngine,
 ) -> None:
     await onboarded_parent(engine)
-    pipeline = wire(engine, FakeSafetyClassifier())
-    await ask(pipeline, QUESTION, message_id="wamid.D0")
+    pipeline = wire(engine, FakeSafetyClassifier(), voice=heard(QUESTION))
+    await send(pipeline, wa.voice_note(message_id="wamid.D0"))  # leaves a stored voice reply
+    assert await count(engine, "media_blobs WHERE user_hash = :h") == 1
     await ask(pipeline, "mera data hatao", message_id="wamid.D1")
     await send(
         pipeline,
@@ -350,3 +365,29 @@ async def test_delete_my_data_purges_every_table_after_the_reply_and_hi_starts_f
         assert await count(engine, table) == 0, table
     await ask(pipeline, "Hi", message_id="wamid.D3")
     assert await rows(engine, "SELECT state FROM users") == [("awaiting_consent",)]
+
+
+# --- voice, end to end (s06) --------------------------------------------------------------------
+
+
+async def test_a_voice_question_gets_a_stored_voice_reply_sent_with_its_text(
+    engine: AsyncEngine,
+) -> None:
+    await onboarded_parent(engine)
+    voice = heard(QUESTION)
+    pipeline = wire(engine, FakeSafetyClassifier(), voice=voice)
+    await send(pipeline, wa.voice_note(message_id="wamid.V1"))
+    [audio_part] = [sent for sent in pipeline.sender.sent if sent.audio is not None]
+    assert audio_part.part.kind is PartKind.AUDIO
+    assert audio_part.audio == VOICE_NOTE.model_copy(update={"duration_ms": None})
+    assert any(GENERATED in (sent.part.text or "") for sent in pipeline.sender.sent)
+    assert await rows(
+        engine,
+        "SELECT purpose, mime_type, size_bytes, "
+        "expires_at - created_at = interval '24 hours' FROM media_blobs",
+    ) == [("reply_audio", VOICE_NOTE.mime_type, len(VOICE_NOTE.data), True)]
+    assert await rows(engine, "SELECT user_text FROM turns") == [(QUESTION,)]
+    steps = await rows(engine, "SELECT step, outcome FROM turn_steps ORDER BY id")
+    assert steps[:2] == [("fetch_media", "ok"), ("transcribe", "ok")]
+    assert steps[-1] == ("synthesize", "ok")
+    assert voice.fetcher.refs[0].provider_media_id == "MEDIA1"

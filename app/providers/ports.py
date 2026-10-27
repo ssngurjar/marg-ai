@@ -7,12 +7,14 @@ The `Clock` protocol lives in app/core/clock.py (core infrastructure, importable
 from collections.abc import Callable
 from datetime import datetime
 from typing import Literal, Protocol
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, SecretStr
 
 from app.core.types import ReasoningEffort
-from app.domain.enums import Channel
-from app.domain.models.message import AudioClip, ImageClip
+from app.domain.enums import Channel, Language
+from app.domain.models.base import UserHash
+from app.domain.models.message import AudioClip, ImageClip, MediaRef, Transcript
 from app.domain.models.reply import OutboundPart
 from app.domain.models.safety import SafetyVerdict
 from app.domain.models.usage import StepUsage
@@ -103,3 +105,44 @@ class SafetyRequest(BaseModel):
 
 class SafetyClassifier(Protocol):
     async def classify(self, request: SafetyRequest) -> tuple[SafetyVerdict, StepUsage]: ...
+
+
+class TranscriptionHints(BaseModel):
+    """What the recogniser should expect (s06 §4.5): languages and names it might mishear."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    expected_languages: list[Language]
+    keywords: list[str]  # exam, scheme and activity words it might mishear
+
+
+class Transcriber(Protocol):
+    async def transcribe(
+        self, clip: AudioClip, hints: TranscriptionHints
+    ) -> tuple[Transcript, StepUsage]: ...
+
+
+class Synthesizer(Protocol):
+    async def synthesize(self, text: str, language: Language) -> tuple[AudioClip, StepUsage]: ...
+
+
+class AudioConverter(Protocol):
+    """Any voice note → the 16 kHz mono WAV speech-to-text takes (s06 §4.3)."""
+
+    async def to_stt_wav(self, clip: AudioClip) -> AudioClip: ...
+
+
+class MediaFetcher(Protocol):
+    """A user's media, downloaded for this turn only: never stored (s06 §4.8)."""
+
+    async def fetch(self, ref: MediaRef) -> AudioClip: ...
+
+
+class ReplyAudioStore(Protocol):
+    """Reply audio, saved after safety_out passes, for the sender to upload (s06 §4.7)."""
+
+    async def save(self, user_hash: UserHash, clip: AudioClip) -> UUID: ...
+
+    async def load_audio(self, blob_id: UUID) -> AudioClip | None:
+        """The saved clip, or None once it has expired (the deliverer's side)."""
+        ...

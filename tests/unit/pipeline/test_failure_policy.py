@@ -4,6 +4,8 @@ import pytest
 
 from app.core.errors import (
     ConfigError,
+    MediaTooLarge,
+    MediaUnsupported,
     ProviderError,
     ProviderRateLimited,
     ProviderRejected,
@@ -11,6 +13,9 @@ from app.core.errors import (
     ProviderTimeout,
     ProviderUnavailable,
     SafetyUnavailable,
+    TranscodeFailed,
+    TranscodeTimeout,
+    TtsTextInvalid,
 )
 from app.domain.enums import FailureKind, FixedReplyKind, StepName
 from app.pipeline.failure_policy import FailurePolicy
@@ -31,6 +36,11 @@ P = "meta_model_api"
         (ProviderResponseInvalid("bad", provider=P), FailureKind.INVALID_RESPONSE),
         (ProviderRejected("400", provider=P), FailureKind.INTERNAL),
         (ConfigError("bad prompt"), FailureKind.INTERNAL),
+        (MediaTooLarge("9 MB"), FailureKind.UNSUPPORTED_INPUT),
+        (MediaUnsupported("no media"), FailureKind.UNSUPPORTED_INPUT),
+        (TranscodeFailed("ffmpeg exited 1"), FailureKind.UNSUPPORTED_INPUT),
+        (TranscodeTimeout("ffmpeg timed out"), FailureKind.TIMEOUT),
+        (TtsTextInvalid("latin letters"), FailureKind.INVALID_RESPONSE),
     ],
 )
 def test_each_error_is_recorded_as_its_kind(error: BaseException, kind: FailureKind) -> None:
@@ -71,3 +81,20 @@ def test_unlisted_provider_error_subclass_is_internal() -> None:
     assert FailurePolicy.kind_of(ProviderError("x", provider=P, retryable=False)) is (
         FailureKind.INTERNAL
     )
+
+
+@pytest.mark.parametrize(
+    ("error", "reply"),
+    [
+        (MediaTooLarge("9 MB"), FixedReplyKind.UNSUPPORTED_MEDIA),
+        (MediaUnsupported("no media"), FixedReplyKind.UNSUPPORTED_MEDIA),
+        (TranscodeFailed("ffmpeg exited 1"), FixedReplyKind.UNSUPPORTED_MEDIA),
+        (TranscodeTimeout("ffmpeg timed out"), FixedReplyKind.REPEAT_PLEASE),
+        (ProviderUnavailable("u", provider=P), FixedReplyKind.REPEAT_PLEASE),
+        (TimeoutError(), FixedReplyKind.REPEAT_PLEASE),
+    ],
+)
+def test_a_voice_note_we_cant_read_is_unsupported_and_anything_else_asks_again(
+    error: BaseException, reply: FixedReplyKind
+) -> None:
+    assert FailurePolicy.reply_for_voice_note(error) is reply

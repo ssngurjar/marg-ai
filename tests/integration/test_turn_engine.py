@@ -38,6 +38,7 @@ from app.providers.ports import ChannelSender
 from app.safety.safety_gate import SafetyGate
 from app.store.db import create_engine, create_session_factory
 from app.store.repositories.inbox_repository import InboundRecord, InboxRepository
+from app.store.repositories.media_blob_repository import MediaBlobRepository
 from app.store.repositories.outbox_repository import OutboxRepository
 from app.store.repositories.turn_repository import TurnRepository
 from app.store.repositories.turn_step_repository import TurnStepRepository
@@ -130,6 +131,7 @@ def build(
                 rng=random.Random(5),  # noqa: S311  # deterministic jitter for tests
             ),
             clock=clock,
+            audio=MediaBlobRepository(sessions),
         ),
         DeliverySettings(max_attempts=5, part_budget=timedelta(seconds=25)),
     )
@@ -141,6 +143,7 @@ def build(
             outbox=outbox,
             users=UserRepository(sessions),
             clock=clock,
+            media=MediaBlobRepository(sessions),
         ),
         DispatcherSettings(
             debounce=timedelta(milliseconds=50),

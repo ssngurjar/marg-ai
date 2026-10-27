@@ -6,6 +6,7 @@ from uuid import uuid4
 
 import pytest
 
+from app.audio.tts_text_preparer import TtsTextPreparer
 from app.constants import fixed_replies
 from app.constants.whatsapp import MAX_INTERACTIVE_BODY_CHARS
 from app.core.errors import ConfigError
@@ -214,3 +215,20 @@ def test_a_missing_language_fails_the_startup_check(monkeypatch: pytest.MonkeyPa
     monkeypatch.setattr(fixed_replies, "FIXED_TEXTS", without_hindi)
     with pytest.raises(ConfigError, match="try_again_later/default/hindi"):
         FixedReplyService.check_all_languages()
+
+
+@pytest.mark.parametrize("key", sorted(fixed_replies.FIXED_TEXTS, key=str), ids=str)
+def test_every_fixed_reply_can_be_spoken_by_its_voice(key: fixed_replies.FixedTextKey) -> None:
+    """A voice turn speaks fixed replies too (s06 §4.7); Hinglish is spoken from the Hindi."""
+    fixed = fixed_replies.FIXED_TEXTS[key]
+    prepared = TtsTextPreparer.prepare(fixed.spoken_text, key.language)
+    assert prepared.sentences
+
+
+def test_hinglish_fixed_replies_are_spoken_from_the_reviewed_hindi() -> None:
+    for key, fixed in fixed_replies.FIXED_TEXTS.items():
+        if key.language is Language.HINGLISH:
+            hindi = fixed_replies.FIXED_TEXTS[
+                fixed_replies.FixedTextKey(key.kind, key.variant, Language.HINDI)
+            ]
+            assert fixed.spoken_text == hindi.spoken_text, key

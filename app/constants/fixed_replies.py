@@ -45,7 +45,9 @@ _HINGLISH = Language.HINGLISH
 _HINDI = Language.HINDI
 _ENGLISH = Language.ENGLISH
 
-# (kind, variant) → {language: text}. Spoken text is the same as the text for these.
+# (kind, variant) → {language: text}. Spoken text is the same as the text, except Hinglish:
+# the Hindi voice reads only Devanagari, so a Hinglish reply is spoken from the reviewed Hindi
+# text of the same reply (s06 §4.6; owner, 2026-10-27).
 _PLAIN_TEXTS: Final[dict[tuple[FixedReplyKind, FixedReplyVariant], dict[Language, str]]] = {
     (_K.TRY_AGAIN_LATER, _V.DEFAULT): {
         _HINGLISH: _TRY_AGAIN_LATER_HINGLISH,
@@ -61,9 +63,20 @@ _PLAIN_TEXTS: Final[dict[tuple[FixedReplyKind, FixedReplyVariant], dict[Language
         _ENGLISH: "I'm having trouble right now. Please send your message again in a few minutes.",
     },
     (_K.REPEAT_PLEASE, _V.DEFAULT): {
-        _HINGLISH: "Aapka message samajh nahi aaya. Kya aap ek baar phir se likh kar bhejenge?",
-        _HINDI: "आपका संदेश समझ नहीं आया। क्या आप एक बार फिर से लिखकर भेजेंगे?",
+        # v2 (S6): no longer says "write it", so it fits a voice note that wasn't understood
+        _HINGLISH: "Aapka message samajh nahi aaya. Kya aap ek baar phir se bhejenge?",
+        _HINDI: "आपका संदेश समझ नहीं आया। क्या आप एक बार फिर से भेजेंगे?",
         _ENGLISH: "I couldn't understand that. Could you send it again?",
+    },
+    (_K.TOO_LONG, _V.DEFAULT): {
+        _HINGLISH: (
+            "Aapka voice message bahut lamba hai. Kripya chhota message bhejiye, ya apni baat do"
+            " hisson mein bhejiye."
+        ),
+        _HINDI: "आपका वॉइस मैसेज बहुत लंबा है। कृपया छोटा मैसेज भेजिए, या अपनी बात दो हिस्सों में भेजिए।",
+        _ENGLISH: (
+            "Your voice message is too long. Please send a shorter one, or split it into two."
+        ),
     },
     (_K.UNSUPPORTED_MEDIA, _V.DEFAULT): {
         _HINGLISH: "Is tarah ka message abhi samajh nahi paate. Kripya apni baat likh kar bhejiye.",
@@ -119,16 +132,30 @@ _PLAIN_TEXTS: Final[dict[tuple[FixedReplyKind, FixedReplyVariant], dict[Language
     },
 }
 
-FIXED_TEXTS: Final[dict[FixedTextKey, FixedText]] = {
-    **{
-        FixedTextKey(kind, variant, language): FixedText(text, text, version="1")
-        for (kind, variant), texts in _PLAIN_TEXTS.items()
-        for language, text in texts.items()
-    },
-    **{
-        FixedTextKey(_K.CRISIS, variant, language): FixedText(
-            crisis.text, crisis.spoken_text, version=CRISIS_VERSION
-        )
-        for (variant, language), crisis in CRISIS_TEXTS.items()
-    },
-}
+_VERSIONS: Final[dict[FixedReplyKind, str]] = {_K.REPEAT_PLEASE: "2"}  # all others "1"
+
+
+def _spoken_language(language: Language) -> Language:
+    return _HINDI if language is _HINGLISH else language
+
+
+def _plain_texts() -> dict[FixedTextKey, FixedText]:
+    built: dict[FixedTextKey, FixedText] = {}
+    for (kind, variant), texts in _PLAIN_TEXTS.items():
+        version = _VERSIONS.get(kind, "1")
+        for language, text in texts.items():
+            spoken = texts[_spoken_language(language)]
+            built[FixedTextKey(kind, variant, language)] = FixedText(text, spoken, version)
+    return built
+
+
+def _crisis_texts() -> dict[FixedTextKey, FixedText]:
+    built: dict[FixedTextKey, FixedText] = {}
+    for (variant, language), crisis in CRISIS_TEXTS.items():
+        spoken = CRISIS_TEXTS[(variant, _spoken_language(language))].spoken_text
+        key = FixedTextKey(_K.CRISIS, variant, language)
+        built[key] = FixedText(crisis.text, spoken, version=CRISIS_VERSION)
+    return built
+
+
+FIXED_TEXTS: Final[dict[FixedTextKey, FixedText]] = {**_plain_texts(), **_crisis_texts()}

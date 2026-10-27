@@ -19,6 +19,13 @@ line of the module's docstring.
 | `health.py` | `HealthResponse`, `ReadinessResponse` | Liveness and readiness endpoints. |
 | `whatsapp_webhook.py` | — | The WhatsApp webhook routes (s03 §4.1). Thin: verify, then hand off to the ingestor. |
 
+## `audio`
+
+| Module | Classes | What it does |
+|---|---|---|
+| `audio_transcoder.py` | `AudioTranscoder` | AudioTranscoder: ffmpeg conversions for speech-to-text and voice notes (s06 §4.3). |
+| `tts_text_preparer.py` | `TtsText`, `TtsTextPreparer` | TtsTextPreparer: the deterministic gate between `spoken_text` and the synthesizer (s06 §4.6). |
+
 ## `channels/whatsapp`
 
 | Module | Classes | What it does |
@@ -29,6 +36,7 @@ line of the module's docstring.
 | `payloads.py` | `ExternalModel`, `WaMetadata`, `WaContactProfile`, `WaContact`, `WaText`, `WaAudio`, `WaImage`, `WaButtonReply`, `WaListReply`, `WaInteractive`, `WaButton`, `WaContext`, `WaErrorData`, `WaError`, `WaMessage`, `WaStatus`, `WaMessageEnvelope`, `WaValue`, `WaMessagesChange`, `WaOtherChange`, `WaEntry`, `WebhookBody`, `GraphSentMessage`, `GraphSendResponse`, `GraphMediaUploadResponse`, `GraphErrorDetail`, `GraphErrorEnvelope` | Typed models of WhatsApp Cloud API webhooks and Graph API responses (s03 §5.2). |
 | `webhook_parser.py` | `WhatsAppWebhookParser` | WhatsAppWebhookParser: a verified webhook into typed messages and statuses (s03 §4.4). |
 | `webhook_signature.py` | `WebhookSignatureVerifier` | WebhookSignatureVerifier: is this request really from Meta? (s03 §4.2, §4.3). |
+| `whatsapp_media_fetcher.py` | `MediaFetchConfig`, `WhatsAppMediaFetcher` | WhatsAppMediaFetcher: a user's voice note, downloaded for this turn only (s06 §4.2). |
 | `whatsapp_sender.py` | `WhatsAppConfig`, `WhatsAppSender` | WhatsAppSender: sending parts to WhatsApp through the Graph API (s03 §4.9, §4.10). |
 
 ## `app`
@@ -37,7 +45,7 @@ line of the module's docstring.
 |---|---|---|
 | `cli.py` | — | `marg` ops commands. Run as `.venv/bin/python -m app.cli <group> <command>`. |
 | `main.py` | — | App factory, used by `uvicorn app.main:create_app --factory` and by tests. |
-| `wiring.py` | `Container`, `EngineParts` | Composition root: the only module that builds concrete adapters. |
+| `wiring.py` | `Container`, `OrchestratorPorts`, `VoiceAdapters`, `EngineParts` | Composition root: the only module that builds concrete adapters. |
 
 ## `constants`
 
@@ -51,6 +59,7 @@ line of the module's docstring.
 | `journey_words.py` | — | Words a personalised khoj or reflection may not use (s10b §4.7, §4.8): careers and exams for a |
 | `model_prices.py` | `ModelPrice` | Model prices per million tokens, for cost accounting (s05 §4.1, s07 §4.3). |
 | `onboarding_copy.py` | `CopyEntry` | Onboarding copy: fixed, reviewed text in Hinglish, Hindi and English (s08 §4.8). |
+| `stt_keywords.py` | — | Speech-to-text hints: words Muse Voice Transcribe might mishear (s06 §4.5). Reviewed copy. |
 | `whatsapp.py` | — | WhatsApp Cloud API limits and error codes (s03 §4.9, §4.10). |
 
 ## `core`
@@ -59,7 +68,7 @@ line of the module's docstring.
 |---|---|---|
 | `clock.py` | `Clock`, `SystemClock` | Time. The only place that reads the system clock; everything else gets a `Clock` injected. |
 | `config.py` | `DatabaseSettings`, `Settings` | Typed settings, read once at startup (contracts.md §7). |
-| `errors.py` | `MargError`, `ConfigError`, `ProviderError`, `ProviderTimeout`, `ProviderRateLimited`, `ProviderUnavailable`, `ProviderRejected`, `ProviderResponseInvalid`, `SafetyUnavailable`, `MediaError`, `MediaTooLarge`, `MediaUnsupported`, `TranscodeFailed`, `TtsTextInvalid`, `ChannelError`, `SignatureInvalid`, `PayloadInvalid`, `InvalidAddressCiphertext`, `DeliveryFailed`, `DomainError`, `InvalidTransition`, `InvalidProfileValue`, `StoreError`, `LeaseLost`, `NotFound`, `CorpusValidationError`, `GoldenCaseInvalid`, `LinkInvalid`, `BudgetExceeded`, `RateLimited` | Every exception raised by Marg.ai code (contracts.md §4). |
+| `errors.py` | `MargError`, `ConfigError`, `ProviderError`, `ProviderTimeout`, `ProviderRateLimited`, `ProviderUnavailable`, `ProviderRejected`, `ProviderResponseInvalid`, `SafetyUnavailable`, `MediaError`, `MediaTooLarge`, `MediaUnsupported`, `TranscodeFailed`, `TranscodeTimeout`, `TtsTextInvalid`, `ChannelError`, `SignatureInvalid`, `PayloadInvalid`, `InvalidAddressCiphertext`, `DeliveryFailed`, `DomainError`, `InvalidTransition`, `InvalidProfileValue`, `StoreError`, `LeaseLost`, `NotFound`, `CorpusValidationError`, `GoldenCaseInvalid`, `LinkInvalid`, `BudgetExceeded`, `RateLimited` | Every exception raised by Marg.ai code (contracts.md §4). |
 | `logging.py` | — | Structured JSON logging with personal-data redaction (CLAUDE.md §11). |
 | `strict_json_schema.py` | `StrictJsonSchema` | StrictJsonSchema: a Pydantic model as the strict JSON schema the Model API accepts (s05 §4.1). |
 | `types.py` | — | Shared type aliases with no domain meaning of their own. |
@@ -69,7 +78,7 @@ line of the module's docstring.
 
 | Module | Classes | What it does |
 |---|---|---|
-| `enums.py` | `Channel`, `MessageKind`, `ConversationState`, `InboxStatus`, `OutboxStatus`, `PartKind`, `Language`, `Route`, `StepName`, `StepOutcome`, `FailureKind`, `TurnStatus`, `SafetyDecision`, `SafetyCategory`, `FixedReplyKind`, `FixedReplyVariant`, `Mode`, `Role`, `ConsentEventKind`, `LearnerRelation`, `CopyKey`, `CuriosityDomain`, `ActivityStatus`, `AgeBand` | Closed sets of values shared across the app (contracts.md §1). |
+| `enums.py` | `Channel`, `MessageKind`, `ConversationState`, `InboxStatus`, `OutboxStatus`, `AudioVerdict`, `MediaPurpose`, `PartKind`, `Language`, `Route`, `StepName`, `StepOutcome`, `FailureKind`, `TurnStatus`, `SafetyDecision`, `SafetyCategory`, `FixedReplyKind`, `FixedReplyVariant`, `Mode`, `Role`, `ConsentEventKind`, `LearnerRelation`, `CopyKey`, `CuriosityDomain`, `ActivityStatus`, `AgeBand` | Closed sets of values shared across the app (contracts.md §1). |
 
 ## `domain/models`
 
@@ -80,12 +89,13 @@ line of the module's docstring.
 | `conversation.py` | `ProfileUpdate`, `FirstContact`, `ConsentGiven`, `ConsentDeclined`, `RoleChosen`, `RoleUnavailable`, `GuardianConfirmed`, `GuardianDeclined`, `ProfileAnswered`, `ChildAnswered`, `ChildInvalid`, `AddChild`, `ChildTalkAnswered`, `TeacherAsked`, `LanguageSwitched`, `QuestionNoted`, `Unrecognised`, `DeletionRequested`, `DeletionConfirmed`, `DeletionCancelled`, `SendCopy`, `RecordConsent`, `UpsertLearner`, `SetChildTalk`, `PurgeAfterDelivery`, `HandoffPendingQuestion`, `HandoffFirstKhoj`, `Transition` | The onboarding conversation's events and effects (s08 §4.2). Pure data. |
 | `delivery.py` | `PartState` | Where an outbound part stands in its delivery (s04 §4.10). |
 | `learner.py` | `Learner` | Learners: the child or student whose journey Marg.ai follows (contracts §2.2, data-model). |
-| `message.py` | `MediaRef`, `InboundMessage`, `AudioClip`, `ImageClip` | What users send us: messages and the media they carry (contracts.md §2.1). |
+| `message.py` | `MediaRef`, `InboundMessage`, `AudioClip`, `ImageClip`, `Transcript` | What users send us: messages and the media they carry (contracts.md §2.1). |
 | `reply.py` | `ReplyButton`, `TemplateRef`, `OutboundPart`, `Citation`, `LocalisedReply`, `CanonicalReply` | What we send back (contracts.md §2.6): reply content and the outbound parts that carry it. |
 | `routing.py` | `RouteDecision` | Where a turn goes (contracts §2.5). |
 | `safety.py` | `SafetyVerdict`, `CrisisLexicon` | A safety check's result (contracts.md §2.5). Produced by s07's gate; read by the trace. |
 | `turn.py` | `UserProfile`, `Exchange`, `TurnContext`, `QueuedMessage` | A turn and what it knows about the user (contracts.md §2.2; s04 §4.4, §4.5). |
 | `usage.py` | `StepUsage` | What a provider call cost (contracts §2.3). Attached to every turn_steps row. |
+| `voice.py` | `AudioStats`, `VoiceLimits` | What a voice note measures, and the limits it's checked against (s06 §4.4). |
 | `writes.py` | `ProfileChange`, `LearnerUpsert`, `MarkPurgeAfterDelivery`, `ChildTalkConsent`, `ActivityOffered`, `ActivityReported` | State changes that commit with the reply (contracts §2.4). |
 
 ## `domain/rules`
@@ -94,10 +104,12 @@ line of the module's docstring.
 |---|---|---|
 | `activity_chooser.py` | `ActivityChooser` | ActivityChooser: which khoj today, deterministically (s10b §4.6). Pure. |
 | `activity_validator.py` | `ActivityValidator` | ActivityValidator: a catalogue entry is safe to serve, or the app refuses to start (s10b §4.3). |
+| `audio_analyser.py` | `AudioAnalyser` | AudioAnalyser: is a voice note worth transcribing? (s06 §4.4). Pure, standard library only. |
 | `child_hazard_matcher.py` | `ChildHazardMatcher` | ChildHazardMatcher: which physical hazards a text mentions (d7, s10b §4.10). Pure. |
 | `conversation_machine.py` | `ConversationMachine` | ConversationMachine: the onboarding state machine (s08 §4.1 to §4.3). Pure and deterministic. |
 | `crisis_phrase_matcher.py` | `CrisisPhraseMatcher` | CrisisPhraseMatcher: the crisis rules that need no provider (s07 §4.5 rule 1, §4.6). Pure. |
 | `delivery_planner.py` | `DeliveryPlanner` | DeliveryPlanner: part order and status changes (s03 §4.8, s04 §4.10). Pure. |
+| `filler_detector.py` | `FillerDetector` | FillerDetector: a transcript of only "umm" or "hmm" is nothing said (s06 §8, CLAUDE.md §4). Pure. |
 | `learner_chooser.py` | `RecentOffer`, `LearnerChooser` | LearnerChooser: which of a parent's children this turn is about (s10b §4.2). Pure. |
 | `message_splitter.py` | `MessageSplitter` | MessageSplitter: a reply cut into channel-sized messages (s05 §4.7). Pure. |
 | `onboarding_answer_parser.py` | `Found`, `GradeParse`, `ChildAgeParse`, `NicknameParse`, `OnboardingAnswerParser` | OnboardingAnswerParser: what an onboarding answer says, without a model (s08 §4.4 step 4). Pure. |
@@ -124,7 +136,7 @@ line of the module's docstring.
 | `failure_policy.py` | `FailurePolicy` | FailurePolicy: what a failed step becomes (s05 §4.5 "StepFailure → reply"; contracts §4). |
 | `fixed_reply_service.py` | `FixedReplyService` | FixedReplyService: the fixed reply for a kind, in the user's language (contracts §6). |
 | `null_turn_observer.py` | `NullTurnObserver` | The turn pipeline's entry point (s05 §4.5). |
-| `orchestrator.py` | `OrchestratorSettings`, `PipelineSteps`, `Orchestrator` | Orchestrator: one turn from the user's messages to a sealed reply (s05 §4.5, mvp-scope §4.2). |
+| `orchestrator.py` | `OrchestratorSettings`, `VoiceSteps`, `PipelineSteps`, `Orchestrator` | Orchestrator: one turn from the user's messages to a sealed reply (s05 §4.5, mvp-scope §4.2). |
 | `reply_parts_builder.py` | `ReplyDelivery`, `ReplyPartsBuilder` | ReplyPartsBuilder: a sealed reply into ordered outbound parts (s05 §4.7, s07 §4.2). |
 | `step_models.py` | `StepModel`, `StepFailure`, `StepSuccess`, `TurnOutcome` | What a turn and its steps produce (contracts §2.3). Data only. |
 | `turn_protocols.py` | `StepRecorder`, `TurnObserver` | The two hooks every step reports through (contracts §3): StepRecorder and TurnObserver. |
@@ -142,7 +154,7 @@ line of the module's docstring.
 |---|---|---|
 | `http.py` | `Sleeper`, `AsyncioSleeper`, `RetryTiming`, `RetryPolicy` | The one retry policy every external call uses (contracts §5, s05 §4.2). |
 | `openai_error_mapper.py` | `OpenAiErrorMapper` | OpenAiErrorMapper: an openai SDK exception → our ProviderError (s05 §4.1, contracts §4). |
-| `ports.py` | `ChannelAddress`, `DeliveryReceipt`, `ChannelSender`, `RenderedPrompt`, `GenerationRequest`, `GenerationResult`, `LanguageModel`, `SafetyRequest`, `SafetyClassifier` | Protocols the pipeline and layers depend on (contracts.md §3). |
+| `ports.py` | `ChannelAddress`, `DeliveryReceipt`, `ChannelSender`, `RenderedPrompt`, `GenerationRequest`, `GenerationResult`, `LanguageModel`, `SafetyRequest`, `SafetyClassifier`, `TranscriptionHints`, `Transcriber`, `Synthesizer`, `AudioConverter`, `MediaFetcher`, `ReplyAudioStore` | Protocols the pipeline and layers depend on (contracts.md §3). |
 
 ## `providers/llm`
 
@@ -158,6 +170,13 @@ line of the module's docstring.
 |---|---|---|
 | `llama_guard_classifier.py` | `SafetyHostConfig`, `LlamaGuardClassifier` | LlamaGuardClassifier: Llama Guard 4 on an OpenAI-compatible host (s07 §4.3, contracts §3). |
 | `llama_guard_output_parser.py` | `LlamaGuardOutputParser` | LlamaGuardOutputParser: Llama Guard 4's answer read strictly (s07 §4.3). Pure. |
+
+## `providers/speech`
+
+| Module | Classes | What it does |
+|---|---|---|
+| `muse_voice_transcriber.py` | `TranscriberConfig`, `MuseVoiceTranscriber` | MuseVoiceTranscriber: a voice note's words, from Muse Voice Transcribe (s06 §4.5). |
+| `sidecar_synthesizer.py` | `SidecarConfig`, `SidecarSynthesizer` | SidecarSynthesizer: a reply's spoken text as a WhatsApp voice note (s06 §4.7). |
 
 ## `safety`
 
@@ -181,6 +200,7 @@ line of the module's docstring.
 | `inbox_repository.py` | `InboundRecord`, `SaveResult`, `LatestInbound`, `InboxRepository` | Storing inbound WhatsApp messages (s03 §4.5, §4.6). The only SQL for users and the inbox. |
 | `journey_repository.py` | `JourneyRepository` | The khoj offered to each child and how it went (s10b §5, data-model `learner_activities`). |
 | `learner_repository.py` | `LearnerRepository` | Learners: a parent's children or a student's own learner (s08 §4.11, data-model `learners`). |
+| `media_blob_repository.py` | `MediaBlobRepository` | MediaBlobRepository: reply audio kept until the sender uploads it (s06 §4.7, §4.8). |
 | `outbox_repository.py` | `OutboxRow`, `OutboxRepository` | OutboxRepository: queued reply parts and their delivery (s04 §4.7, §4.10; s03 §4.8). |
 | `turn_repository.py` | `StartedTurn`, `FinishedTurn`, `FinalizeResult`, `TurnRepository` | Turns: claiming a user's pending messages, loading the context, finalizing (s04 §4.4 to §4.7). |
 | `turn_step_repository.py` | `StepRow`, `TurnStepRepository` | turn_steps rows and the turn columns written while a turn runs (s04 §4.6). |

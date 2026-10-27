@@ -186,7 +186,10 @@ class SafetyGate:
         `hazard_rule` (journey replies, s10b §4.10): the hazards the offered activity declares.
         Any other physical hazard for a young child in the reply blocks it before any provider
         call (d7). Raises SafetyUnavailable when Llama Guard and the backup check both fail.
+        The spoken text becomes the voice note, so when it differs from the text, both are
+        classified together: nothing is spoken that wasn't checked (CLAUDE.md §11, S6).
         """
+        classified_text = SafetyGate.text_to_classify(reply)
         if hazard_rule is not None:
             undeclared = ChildHazardMatcher.undeclared(
                 f"{reply.text} {reply.spoken_text}", CHILD_HAZARD_WORDS, hazard_rule
@@ -198,17 +201,21 @@ class SafetyGate:
                     source="domain_policy",
                 )
                 return OutputCheck(verdict=verdict, safe_reply=None, usage=None)
-        request = SafetyRequest(speaker="assistant", text=reply.text, prior_user_text=user_text)
+        request = SafetyRequest(
+            speaker="assistant", text=classified_text, prior_user_text=user_text
+        )
         guard = await self._guard(request)
         overruled: tuple[SafetyCategory, ...] = ()
         source: Literal["llama_guard", "domain_policy"] = "llama_guard"
         if guard is None:
-            findings = await self._reply_findings(reply.text, user_text)
+            findings = await self._reply_findings(classified_text, user_text)
             categories = sorted(findings.categories)
             usage = findings.usage
             source = "domain_policy"
         elif guard.verdict.categories and self._policy.model_enabled:
-            categories, usage, overruled = await self._second_opinion(guard, reply, user_text)
+            categories, usage, overruled = await self._second_opinion(
+                guard, classified_text, user_text
+            )
             if overruled:
                 source = "domain_policy"
         else:
@@ -231,13 +238,20 @@ class SafetyGate:
         )
         return checked.result(safe_reply=safe)
 
+    @staticmethod
+    def text_to_classify(reply: LocalisedReply) -> str:
+        """The text, and the spoken text after it when the two differ."""
+        if reply.spoken_text.strip() == reply.text.strip():
+            return reply.text
+        return f"{reply.text}\n\n{reply.spoken_text}"
+
     async def _second_opinion(
-        self, guard: _GuardAnswer, reply: LocalisedReply, user_text: str
+        self, guard: _GuardAnswer, classified_text: str, user_text: str
     ) -> tuple[list[SafetyCategory], StepUsage, tuple[SafetyCategory, ...]]:
         """Categories to decide on, the usage of both calls, and any Llama Guard codes cleared."""
         flagged = list(guard.verdict.categories)
         try:
-            findings = await self._reply_findings(reply.text, user_text)
+            findings = await self._reply_findings(classified_text, user_text)
         except SafetyUnavailable as exc:
             logger.warning("second_opinion_failed", error=type(exc.__cause__).__name__)
             return flagged, guard.usage, ()

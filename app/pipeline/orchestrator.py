@@ -1,12 +1,16 @@
 """Orchestrator: one turn from the user's messages to a sealed reply (s05 §4.5, mvp-scope §4.2).
 
-    A. user text            text messages joined; audio and images aren't understood before S6/S10b
+    A. user text            text and transcribed voice notes, in the order sent (S6: fetch,
+                            convert, check for silence and length, transcribe); images aren't
+                            understood before S10b
     B. route ‖ safety_in ‖ generate
                             generation starts with the safety check, and its result is used ONLY
                             if safety_in returns ALLOW; otherwise it's cancelled, unread (C3a)
     C. translate            SKIPPED: the layer wrote in the user's register (C3c)
     D. safety_out           the generated reply is sealed only if Llama Guard allows it
     E. parts                ReplyPartsBuilder → TurnOutcome
+    F. synthesize           when the user spoke: the sealed reply's spoken text (checked by
+                            safety_out with the text) as a voice note; on failure, text only
 
 Onboarding and deletion turns (s08) run safety_in, then the onboarding layer, whose reply is
 reviewed fixed copy (sealed without a classifier call) and whose writes ride on the outcome.
@@ -22,10 +26,20 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import ClassVar, Final, Literal
 
+from app.constants.stt_keywords import STT_KEYWORDS
 from app.core.clock import Clock
-from app.core.errors import DomainError, ProviderError, SafetyUnavailable, StoreError
+from app.core.errors import (
+    DomainError,
+    MediaError,
+    MediaUnsupported,
+    ProviderError,
+    SafetyUnavailable,
+    StoreError,
+)
 from app.core.logging import get_logger
 from app.domain.enums import (
+    AudioVerdict,
+    FailureKind,
     FixedReplyKind,
     FixedReplyVariant,
     Language,
@@ -35,21 +49,33 @@ from app.domain.enums import (
     StepName,
     StepOutcome,
 )
+from app.domain.models.message import InboundMessage
 from app.domain.models.reply import CanonicalReply, LocalisedReply
 from app.domain.models.safety import SafetyVerdict
 from app.domain.models.turn import TurnContext
 from app.domain.models.usage import StepUsage
+from app.domain.models.voice import VoiceLimits
 from app.domain.models.writes import TurnWrite
+from app.domain.rules.audio_analyser import AudioAnalyser
+from app.domain.rules.filler_detector import FillerDetector
 from app.domain.rules.register_detector import RegisterDetector
 from app.layers.journey_layer import JourneyLayer
 from app.layers.layer_result import LayerResult
 from app.layers.onboarding_layer import FirstKhojHandoff, OnboardingLayer, OnboardingResult
 from app.pipeline.failure_policy import FailurePolicy
 from app.pipeline.fixed_reply_service import FixedReplyService
-from app.pipeline.reply_parts_builder import ReplyPartsBuilder
+from app.pipeline.reply_parts_builder import ReplyDelivery, ReplyPartsBuilder
 from app.pipeline.step_models import StepFailure, StepSuccess, TurnOutcome
 from app.pipeline.turn_protocols import StepRecorder, TurnObserver
 from app.pipeline.turn_router import TurnRouter
+from app.providers.ports import (
+    AudioConverter,
+    MediaFetcher,
+    ReplyAudioStore,
+    Synthesizer,
+    Transcriber,
+    TranscriptionHints,
+)
 from app.safety.safety_gate import InputCheck, OutputCheck, SafeReply, SafetyGate
 
 FALLBACK_REGISTER: Final = Language.HINGLISH
@@ -66,6 +92,22 @@ class OrchestratorSettings:
     safety_in_timeout: timedelta
     generate_timeout: timedelta
     safety_out_timeout: timedelta
+    fetch_media_timeout: timedelta  # TIMEOUT_FETCH_MEDIA_S: the download and the conversion
+    transcribe_timeout: timedelta
+    synthesize_timeout: timedelta
+
+
+@dataclass(frozen=True, slots=True)
+class VoiceSteps:
+    """What voice notes in and voice replies out need (s06)."""
+
+    fetcher: MediaFetcher
+    converter: AudioConverter
+    transcriber: Transcriber
+    synthesizer: Synthesizer
+    audio_store: ReplyAudioStore
+    limits: VoiceLimits
+    reply_audio_for_text_input: bool  # REPLY_AUDIO_FOR_TEXT_INPUT (C9)
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,6 +115,7 @@ class PipelineSteps:
     gate: SafetyGate
     journey: JourneyLayer
     onboarding: OnboardingLayer
+    voice: VoiceSteps
     clock: Clock
 
 
@@ -89,6 +132,14 @@ class _Sent:
 
     safe: SafeReply
     writes: tuple[TurnWrite, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class _Sealed:
+    """The reply the turn's delivery was built from, kept so its audio can be added."""
+
+    safe: SafeReply
+    preamble: SafeReply | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -135,10 +186,19 @@ class _Turn:
         self.first_failure: StepFailure | None = None
         self.prompt_versions: dict[str, str] = {}
         self.user_text = ""
-        self.register = FALLBACK_REGISTER
+        self.register = self.ctx.profile.language or FALLBACK_REGISTER
+        self.voice_turn = False  # the user sent at least one voice note
+        self.sealed: _Sealed | None = None
 
     async def run(self) -> TurnOutcome:
-        interactive_ids, has_unsupported = self._read_messages()
+        outcome = await self._answer()
+        return await self._with_voice(outcome)
+
+    async def _answer(self) -> TurnOutcome:
+        read = await self._read_messages()
+        if isinstance(read, TurnOutcome):
+            return read
+        interactive_ids, has_unsupported = read
         self.register = (
             RegisterDetector.detect(self.user_text)
             or self.ctx.profile.language
@@ -211,11 +271,11 @@ class _Turn:
         kind = reply.fixed_kind or FixedReplyKind.ONBOARDING
         safe = self.steps.gate.clear_fixed(_localised(reply), kind)
         writes: list[TurnWrite] = list(result.writes)
-        delivery = ReplyPartsBuilder.build(safe, audio_blob_id=None)
+        delivery = self._delivery(safe)
         if isinstance(result.handoff, FirstKhojHandoff):
             khoj = await self._first_khoj(result.handoff, safe.reply_register)
             if khoj is not None:
-                delivery = ReplyPartsBuilder.build(khoj.safe, audio_blob_id=None, preamble=safe)
+                delivery = self._delivery(khoj.safe, preamble=safe)
                 writes.extend(khoj.writes)
         return TurnOutcome(
             turn_id=self.ctx.turn_id,
@@ -325,7 +385,7 @@ class _Turn:
         return TurnOutcome(
             turn_id=self.ctx.turn_id,
             route=Route.JOURNEY,
-            delivery=ReplyPartsBuilder.build(checked.safe, audio_blob_id=None),
+            delivery=self._delivery(checked.safe),
             fixed_reply_kind=None,
             user_text=self.user_text or None,
             reply_text=checked.safe.text,
@@ -359,20 +419,135 @@ class _Turn:
 
     # --- turn pieces -------------------------------------------------------------------------
 
-    def _read_messages(self) -> tuple[list[str], bool]:
-        """Sets the combined user text; returns interactive ids and whether media was sent."""
-        texts: list[str] = []
+    async def _read_messages(self) -> "tuple[list[str], bool] | TurnOutcome":
+        """Sets the combined user text: typed text and transcribed voice notes, in the order
+        sent. Returns the interactive ids and whether an unsupported message came, or the fixed
+        reply when a voice note couldn't be heard."""
+        pieces: list[str] = []
         interactive_ids: list[str] = []
         has_unsupported = False
         for message in self.ctx.messages:
             if message.kind is MessageKind.TEXT and message.text and message.text.strip():
-                texts.append(message.text.strip())
+                pieces.append(message.text.strip())
             elif message.kind is MessageKind.INTERACTIVE and message.interactive_reply_id:
                 interactive_ids.append(message.interactive_reply_id)
-            elif message.kind is not MessageKind.TEXT:  # AUDIO before S6, IMAGE before S10b
+            elif message.kind is MessageKind.AUDIO:
+                self.voice_turn = True
+                heard = await self._hear(message)
+                if isinstance(heard, TurnOutcome):
+                    return heard
+                pieces.append(heard)
+            elif message.kind is not MessageKind.TEXT:  # IMAGE before S10b's photos
                 has_unsupported = True
-        self.user_text = "\n".join(texts)
+        self.user_text = "\n".join(pieces)
         return interactive_ids, has_unsupported
+
+    # --- voice (s06) ----------------------------------------------------------------------------
+
+    async def _hear(self, message: InboundMessage) -> "str | TurnOutcome":
+        """A voice note's words, or the fixed reply for why it couldn't be heard (s06 §8)."""
+        voice = self.steps.voice
+        started = self.steps.clock.now()
+        if message.media is None:
+            return await self._not_heard(
+                StepName.FETCH_MEDIA, started, MediaUnsupported("audio message without media")
+            )
+        try:
+            clip = await self._bounded(
+                voice.fetcher.fetch(message.media), self.settings.fetch_media_timeout
+            )
+            wav = await self._bounded(
+                voice.converter.to_stt_wav(clip), self.settings.fetch_media_timeout
+            )
+        except (ProviderError, MediaError, TimeoutError) as error:
+            return await self._not_heard(StepName.FETCH_MEDIA, started, error)
+        stats = AudioAnalyser.analyse_wav(wav.data)
+        measured = f"duration_ms={stats.duration_ms} voiced_ms={stats.voiced_ms}"
+        await self._record(_StepRecord(StepName.FETCH_MEDIA, started, None, None, measured))
+        started = self.steps.clock.now()
+        verdict = AudioAnalyser.verdict(stats, voice.limits)
+        if verdict is not AudioVerdict.OK:
+            return await self._refused_voice_note(started, verdict)
+        try:
+            transcript, usage = await self._bounded(
+                voice.transcriber.transcribe(wav, self._hints()),
+                self.settings.transcribe_timeout,
+            )
+        except (ProviderError, TimeoutError) as error:
+            return await self._not_heard(StepName.TRANSCRIBE, started, error)
+        if FillerDetector.is_only_filler(transcript.text):
+            nothing = StepFailure(
+                step=StepName.TRANSCRIBE,
+                kind=FailureKind.EMPTY_INPUT,
+                detail="nothing_said",
+                retryable=False,
+            )
+            await self._record_failed_step(started, nothing, "fallback=repeat_please", usage)
+            return self._fixed(self._voice_reply(FixedReplyKind.REPEAT_PLEASE))
+        language = transcript.language.value if transcript.language else "unknown"
+        await self._record(
+            _StepRecord(StepName.TRANSCRIBE, started, transcript, usage, f"language={language}")
+        )
+        return transcript.text
+
+    def _hints(self) -> TranscriptionHints:
+        expected = [self.ctx.profile.language or FALLBACK_REGISTER]
+        return TranscriptionHints(expected_languages=expected, keywords=list(STT_KEYWORDS))
+
+    async def _not_heard(
+        self, step: StepName, started: datetime, error: BaseException
+    ) -> TurnOutcome:
+        kind = FailurePolicy.reply_for_voice_note(error)
+        await self._record_failure(step, started, error, f"fallback={kind.value}")
+        return self._fixed(self._voice_reply(kind))
+
+    async def _refused_voice_note(self, started: datetime, verdict: AudioVerdict) -> TurnOutcome:
+        """Too short, silent or too long: answered without a speech-to-text call."""
+        too_long = verdict is AudioVerdict.TOO_LONG
+        kind = FixedReplyKind.TOO_LONG if too_long else FixedReplyKind.REPEAT_PLEASE
+        failure = StepFailure(
+            step=StepName.TRANSCRIBE,
+            kind=FailureKind.UNSUPPORTED_INPUT if too_long else FailureKind.EMPTY_INPUT,
+            detail=verdict.value,
+            retryable=False,
+        )
+        await self._record_failed_step(started, failure, f"fallback={kind.value}", None)
+        return self._fixed(self._voice_reply(kind))
+
+    @staticmethod
+    def _voice_reply(kind: FixedReplyKind) -> _FixedChoice:
+        return _FixedChoice(kind, FixedReplyVariant.DEFAULT, Route.REPEAT_PLEASE)
+
+    async def _with_voice(self, outcome: TurnOutcome) -> TurnOutcome:
+        """The sealed reply as a voice note too, when the user spoke (or REPLY_AUDIO_FOR_TEXT_
+        INPUT). Its spoken text passed safety_out with the text. Any failure leaves the reply
+        as text only (DEGRADED, s06 §8)."""
+        voice = self.steps.voice
+        if self.sealed is None or not (self.voice_turn or voice.reply_audio_for_text_input):
+            return outcome
+        safe = self.sealed.safe
+        started = self.steps.clock.now()
+        try:
+            clip, usage = await self._bounded(
+                voice.synthesizer.synthesize(safe.spoken_text, safe.reply_register),
+                self.settings.synthesize_timeout,
+            )
+            blob_id = await voice.audio_store.save(self.ctx.profile.user_hash, clip)
+        except (ProviderError, MediaError, StoreError, TimeoutError) as error:
+            await self._record_failure(StepName.SYNTHESIZE, started, error, "text_only")
+            return outcome.model_copy(update={"first_failure": self.first_failure})
+        await self._record(
+            _StepRecord(StepName.SYNTHESIZE, started, None, usage, f"voice={safe.reply_register}")
+        )
+        delivery = ReplyPartsBuilder.build(
+            safe, audio_blob_id=blob_id, preamble=self.sealed.preamble
+        )
+        return outcome.model_copy(update={"delivery": delivery})
+
+    def _delivery(self, safe: SafeReply, preamble: SafeReply | None = None) -> ReplyDelivery:
+        """Text parts for `safe`; the reply is remembered so its voice note can be added."""
+        self.sealed = _Sealed(safe, preamble)
+        return ReplyPartsBuilder.build(safe, audio_blob_id=None, preamble=preamble)
 
     @staticmethod
     def _refusal_for(check: InputCheck) -> _FixedChoice:
@@ -396,22 +571,29 @@ class _Turn:
             detail=type(error).__name__,  # never the message: it can quote generated text
             retryable=FailurePolicy.is_retryable(error),
         )
+        await self._record_failed_step(started, failure, detail, None)
+
+    async def _record_failed_step(
+        self, started: datetime, failure: StepFailure, detail: str, usage: StepUsage | None
+    ) -> None:
+        """`usage`: a call that was made and billed before the step failed (an empty
+        transcript is still paid for)."""
         if self.first_failure is None:
             self.first_failure = failure
         duration_ms = self._elapsed_ms(started)
         await self._safely(
             self.recorder.record(
                 turn_id=self.ctx.turn_id,
-                step=step,
+                step=failure.step,
                 outcome=StepOutcome.FAILED,
                 started_at=started,
                 duration_ms=duration_ms,
-                usage=None,
+                usage=usage,
                 failure=failure,
                 detail=detail,
             )
         )
-        await self.observer.on_step(self.ctx.turn_id, step, failure, None, duration_ms)
+        await self.observer.on_step(self.ctx.turn_id, failure.step, failure, usage, duration_ms)
 
     def _fixed(self, choice: _FixedChoice) -> TurnOutcome:
         """A reviewed fixed text, sealed without a classifier call (s07 §4.2)."""
@@ -420,7 +602,7 @@ class _Turn:
         return TurnOutcome(
             turn_id=self.ctx.turn_id,
             route=choice.route,
-            delivery=ReplyPartsBuilder.build(safe, audio_blob_id=None),
+            delivery=self._delivery(safe),
             fixed_reply_kind=choice.kind,
             user_text=self.user_text or None,
             reply_text=safe.text,

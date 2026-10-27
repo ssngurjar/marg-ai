@@ -18,11 +18,14 @@ from uuid import uuid4
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from app.api.readiness import ReadinessProbe
+from app.audio.audio_transcoder import AudioTranscoder
+from app.channels.whatsapp.whatsapp_media_fetcher import MediaFetchConfig, WhatsAppMediaFetcher
 from app.channels.whatsapp.whatsapp_sender import WhatsAppConfig, WhatsAppSender
 from app.core.clock import Clock, SystemClock
 from app.core.config import Settings
 from app.core.user_identity import UserIdentity
 from app.domain.enums import Channel
+from app.domain.models.voice import VoiceLimits
 from app.layers.activity_catalogue import ActivityCatalogue, CatalogueActivitySource
 from app.layers.journey_layer import (
     ACTIVITY_PERSONALISE,
@@ -33,7 +36,12 @@ from app.layers.journey_layer import (
 from app.layers.onboarding_layer import PROFILE_EXTRACTION, OnboardingLayer
 from app.layers.parent_question_layer import PARENT_ANSWER, ParentQuestionLayer
 from app.pipeline.fixed_reply_service import FixedReplyService
-from app.pipeline.orchestrator import Orchestrator, OrchestratorSettings, PipelineSteps
+from app.pipeline.orchestrator import (
+    Orchestrator,
+    OrchestratorSettings,
+    PipelineSteps,
+    VoiceSteps,
+)
 from app.prompts.prompt_registry import PromptRegistry, PromptSettings
 from app.providers.http import AsyncioSleeper, RetryPolicy, RetryTiming
 from app.providers.llm.fallback_language_model import FallbackLanguageModel, FallbackRoute
@@ -44,10 +52,13 @@ from app.providers.llm.meta_model_api_language_model import (
 from app.providers.llm.model_pricing import ModelPricing
 from app.providers.ports import ChannelSender, LanguageModel, SafetyClassifier
 from app.providers.safety.llama_guard_classifier import LlamaGuardClassifier, SafetyHostConfig
+from app.providers.speech.muse_voice_transcriber import MuseVoiceTranscriber, TranscriberConfig
+from app.providers.speech.sidecar_synthesizer import SidecarConfig, SidecarSynthesizer
 from app.safety.domain_policy import MINOR_POLICY, REPLY_POLICY, DomainPolicy, PolicyModel
 from app.safety.safety_gate import SafetyGate
 from app.store.db import create_engine, create_session_factory, ping
 from app.store.repositories.inbox_repository import InboxRepository
+from app.store.repositories.media_blob_repository import MediaBlobRepository
 from app.store.repositories.outbox_repository import OutboxRepository
 from app.store.repositories.turn_repository import TurnRepository
 from app.store.repositories.turn_step_repository import TurnStepRepository
@@ -83,7 +94,26 @@ class Container:
     outbox_repository: OutboxRepository
     language_models: tuple[MetaModelApiLanguageModel, ...]  # Spark and Muse Spark Open
     safety_classifier: LlamaGuardClassifier
+    voice_adapters: "VoiceAdapters"
     turn_dispatcher: TurnDispatcher
+
+
+@dataclass(frozen=True, slots=True)
+class OrchestratorPorts:
+    language_model: LanguageModel
+    safety_classifier: SafetyClassifier
+    voice: VoiceSteps
+
+
+@dataclass(frozen=True, slots=True)
+class VoiceAdapters:
+    """The concrete voice adapters, kept so they can be closed on shutdown."""
+
+    fetcher: WhatsAppMediaFetcher
+    transcoder: AudioTranscoder
+    transcriber: MuseVoiceTranscriber
+    synthesizer: SidecarSynthesizer
+    media: MediaBlobRepository
 
 
 def build_container(settings: Settings) -> Container:
@@ -142,6 +172,7 @@ def build_container(settings: Settings) -> Container:
         retry=retry,
         clock=clock,
     )
+    voice_adapters = build_voice_adapters(settings, session_factory, retry, clock)
     inbox = InboxRepository(session_factory)
     outbox = OutboxRepository(session_factory)
     dispatcher = build_turn_dispatcher(
@@ -153,9 +184,15 @@ def build_container(settings: Settings) -> Container:
             retry=retry,
             senders={Channel.WHATSAPP: whatsapp_sender},
             orchestrator=build_orchestrator(
-                settings, language_model, safety_classifier, clock, catalogue=catalogue
+                settings,
+                OrchestratorPorts(
+                    language_model, safety_classifier, voice_steps(settings, voice_adapters)
+                ),
+                clock,
+                catalogue=catalogue,
             ),
             outbox=outbox,
+            media=voice_adapters.media,
         ),
     )
     return Container(
@@ -165,6 +202,10 @@ def build_container(settings: Settings) -> Container:
         session_factory=session_factory,
         readiness_probes=(
             ReadinessProbe(name="database", critical=True, check=partial(ping, engine)),
+            # Voice degrades to text when these fail, so they don't take the app out of service
+            ReadinessProbe(
+                name="ffmpeg", critical=False, check=voice_adapters.transcoder.check_encoders
+            ),
         ),
         identity=identity,
         whatsapp_sender=whatsapp_sender,
@@ -172,7 +213,70 @@ def build_container(settings: Settings) -> Container:
         outbox_repository=outbox,
         language_models=(spark, open_model),
         safety_classifier=safety_classifier,
+        voice_adapters=voice_adapters,
         turn_dispatcher=dispatcher,
+    )
+
+
+def build_voice_adapters(
+    settings: Settings,
+    session_factory: async_sessionmaker[AsyncSession],
+    retry: RetryPolicy,
+    clock: Clock,
+) -> VoiceAdapters:
+    """Voice notes in (WhatsApp download, ffmpeg, Muse Voice Transcribe) and out (the voice
+    server running TTS_ENGINE, ffmpeg). s06."""
+    transcoder = AudioTranscoder(timeout_s=settings.transcode_timeout_s)
+    return VoiceAdapters(
+        fetcher=WhatsAppMediaFetcher(
+            config=MediaFetchConfig(
+                graph_base_url=str(settings.whatsapp_graph_base_url),
+                access_token=settings.whatsapp_access_token,
+                timeout_s=settings.timeout_fetch_media_s,
+                max_bytes=settings.max_inbound_audio_bytes,
+            ),
+            retry=retry,
+            clock=clock,
+        ),
+        transcoder=transcoder,
+        transcriber=MuseVoiceTranscriber(
+            config=TranscriberConfig(
+                base_url=str(settings.model_api_base_url),
+                api_key=settings.model_api_key,
+                model=settings.model_stt,
+                timeout_s=settings.timeout_transcribe_s,
+            ),
+            retry=retry,
+            clock=clock,
+        ),
+        synthesizer=SidecarSynthesizer(
+            config=SidecarConfig(
+                base_url=str(settings.sidecar_base_url),
+                token=settings.sidecar_token,
+                engine=settings.tts_engine,
+                timeout_s=settings.timeout_synthesize_s,
+            ),
+            transcoder=transcoder,
+            retry=retry,
+            clock=clock,
+        ),
+        media=MediaBlobRepository(session_factory),
+    )
+
+
+def voice_steps(settings: Settings, adapters: VoiceAdapters) -> VoiceSteps:
+    return VoiceSteps(
+        fetcher=adapters.fetcher,
+        converter=adapters.transcoder,
+        transcriber=adapters.transcriber,
+        synthesizer=adapters.synthesizer,
+        audio_store=adapters.media,
+        limits=VoiceLimits(
+            min_duration_ms=settings.min_voice_note_ms,
+            min_voiced_ms=settings.min_voiced_ms,
+            max_duration_ms=settings.max_voice_note_seconds * 1000,
+        ),
+        reply_audio_for_text_input=settings.reply_audio_for_text_input,
     )
 
 
@@ -187,12 +291,12 @@ def check_startup(settings: Settings) -> None:
 
 def build_orchestrator(
     settings: Settings,
-    language_model: LanguageModel,
-    safety_classifier: SafetyClassifier,
+    ports: OrchestratorPorts,
     clock: Clock,
     *,
     catalogue: ActivityCatalogue | None = None,
 ) -> Orchestrator:
+    language_model = ports.language_model
     registry = PromptRegistry(
         specs=PROMPT_SPECS,
         settings=PromptSettings(
@@ -204,7 +308,7 @@ def build_orchestrator(
     return Orchestrator(
         PipelineSteps(
             gate=SafetyGate(
-                safety_classifier,
+                ports.safety_classifier,
                 DomainPolicy(
                     model=PolicyModel(language_model, registry)
                     if settings.safety_policy_model_enabled
@@ -222,6 +326,7 @@ def build_orchestrator(
             onboarding=OnboardingLayer(
                 language_model, registry, invite_link=teacher_invite_link(settings)
             ),
+            voice=ports.voice,
             clock=clock,
         ),
         OrchestratorSettings(
@@ -229,6 +334,9 @@ def build_orchestrator(
             safety_in_timeout=timedelta(seconds=settings.timeout_safety_in_s),
             generate_timeout=timedelta(seconds=settings.timeout_generate_s),
             safety_out_timeout=timedelta(seconds=settings.timeout_safety_out_s),
+            fetch_media_timeout=timedelta(seconds=settings.timeout_fetch_media_s),
+            transcribe_timeout=timedelta(seconds=settings.timeout_transcribe_s),
+            synthesize_timeout=timedelta(seconds=settings.timeout_synthesize_s),
         ),
     )
 
@@ -246,6 +354,7 @@ class EngineParts:
     senders: dict[Channel, ChannelSender]
     orchestrator: Orchestrator
     outbox: OutboxRepository
+    media: MediaBlobRepository
 
 
 def build_turn_dispatcher(
@@ -281,6 +390,7 @@ def build_turn_dispatcher(
             identity=engine_parts.identity,
             retry=engine_parts.retry,
             clock=engine_parts.clock,
+            audio=engine_parts.media,
         ),
         DeliverySettings(
             max_attempts=settings.outbox_max_attempts,
@@ -295,6 +405,7 @@ def build_turn_dispatcher(
             outbox=engine_parts.outbox,
             users=users,
             clock=engine_parts.clock,
+            media=engine_parts.media,
         ),
         DispatcherSettings(
             debounce=timedelta(milliseconds=settings.turn_debounce_ms),
@@ -314,4 +425,7 @@ async def close_container(container: Container) -> None:
     for language_model in container.language_models:
         await language_model.aclose()
     await container.safety_classifier.aclose()
+    await container.voice_adapters.fetcher.aclose()
+    await container.voice_adapters.transcriber.aclose()
+    await container.voice_adapters.synthesizer.aclose()
     await container.engine.dispose()
