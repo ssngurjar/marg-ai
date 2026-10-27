@@ -53,6 +53,7 @@ from app.constants.journey_words import CAREER_WORDS, LABEL_WORDS
 from app.core.errors import ProviderError
 from app.domain.enums import ActivityStatus, AgeBand, Language, StepOutcome
 from app.domain.models.activity import Activity, OfferedActivity, PastActivity
+from app.domain.models.curiosity import CuriositySource, CuriositySourceKind
 from app.domain.models.learner import Learner
 from app.domain.models.reply import CanonicalReply, ReplyButton
 from app.domain.models.turn import TurnContext
@@ -186,7 +187,7 @@ class JourneyLayer:
                 ctx.active_learner, user_text, register, now.date()
             )
             if not isinstance(moment, NotAChildQuestion):
-                return moment
+                return _with_curiosity(moment, ctx.active_learner, "relayed_question")
             not_the_childs = moment
         result = await self._parent_questions.answer(ctx, user_text, register)
         if not_the_childs is None:
@@ -417,6 +418,12 @@ class JourneyLayer:
             degraded_reason=None,
             writes=[_done(open_activity, summary=reflection.summary_for_record)],
             hazard_rule=frozenset(activity.hazards),
+            curiosity=CuriositySource(
+                learner_id=learner.id,
+                kind="parent_report",
+                hint_domains=list(activity.domains),
+                activity_title=activity.title,
+            ),
         )
 
     @staticmethod
@@ -544,6 +551,16 @@ def _fixed(body: str, register: Language, buttons: Sequence[ReplyButton]) -> Lay
         degraded_reason=None,
         hazard_rule=frozenset(),
     )
+
+
+def _with_curiosity(
+    result: LayerResult, learner: Learner | None, kind: CuriositySourceKind
+) -> LayerResult:
+    """Mark the turn for curiosity extraction (s13 §4.2), when we know which child it's about."""
+    if learner is None:
+        return result
+    source = CuriositySource(learner_id=learner.id, kind=kind, hint_domains=[], activity_title=None)
+    return result.model_copy(update={"curiosity": source})
 
 
 def _kid_buttons(learner: Learner, register: Language) -> tuple[ReplyButton, ...]:

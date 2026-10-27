@@ -38,24 +38,30 @@ from app.providers.ports import ChannelSender
 from app.safety.safety_gate import SafetyGate
 from app.store.db import create_engine, create_session_factory
 from app.store.repositories.child_session_repository import ChildSessionRepository
+from app.store.repositories.curiosity_signal_repository import CuriositySignalRepository
 from app.store.repositories.inbox_repository import InboundRecord, InboxRepository
 from app.store.repositories.media_blob_repository import MediaBlobRepository
 from app.store.repositories.outbox_repository import OutboxRepository
 from app.store.repositories.turn_repository import TurnRepository
 from app.store.repositories.turn_step_repository import TurnStepRepository
 from app.store.repositories.user_repository import UserRepository
+from app.telemetry.curiosity_signal_extractor import CuriositySignalExtractor
 from app.worker.database_step_recorder import DatabaseStepRecorder
+from app.worker.post_turn_runner import PostTurnRunner
 from app.worker.reply_deliverer import DeliveryDeps, DeliverySettings, ReplyDeliverer
 from app.worker.turn_dispatcher import DispatcherDeps, DispatcherSettings, TurnDispatcher
 from app.worker.turn_processor import TurnDeps, TurnProcessor, TurnSettings
 from tests.fakes.clock import FixedClock
 from tests.fakes.domain_policy import rules_only_policy
+from tests.fakes.language_model import FakeLanguageModel
 from tests.fakes.orchestrator import FakeOrchestrator, ScriptedReply
 from tests.fakes.safety_classifier import FakeSafetyClassifier
 from tests.fakes.sender import FakeSender
 from tests.fakes.sleeper import FakeSleeper
 from tests.support import whatsapp_payloads as wa
 from tests.support.app_factory import TEST_PHONE_NUMBER_ID, make_identity, make_settings
+from tests.support.journey import CURIOSITY_SIGNALS
+from tests.support.prompts import shipped_registry
 
 pytestmark = pytest.mark.integration
 
@@ -146,6 +152,15 @@ def build(
             clock=clock,
             media=MediaBlobRepository(sessions),
             child_sessions=ChildSessionRepository(sessions),
+            post_turn=PostTurnRunner(
+                CuriositySignalExtractor(
+                    FakeLanguageModel([CURIOSITY_SIGNALS]), shipped_registry()
+                ),
+                CuriositySignalRepository(sessions),
+                DatabaseStepRecorder(TurnStepRepository(sessions)),
+                clock,
+                timeout=timedelta(seconds=5),
+            ),
             nudges=None,
         ),
         DispatcherSettings(

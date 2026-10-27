@@ -357,3 +357,34 @@ nudge_subscriptions = Table(
     ),
     Index("ix_nudge_subscriptions_next_due_at", "next_due_at", postgresql_where=text("enabled")),
 )
+
+curiosity_signals = Table(
+    "curiosity_signals",
+    metadata,
+    Column("id", BigInteger, Identity(always=True), primary_key=True),
+    Column(
+        "turn_id",
+        UUID(as_uuid=True),
+        ForeignKey("turns.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+    ),
+    Column(
+        "learner_id",
+        UUID(as_uuid=True),
+        ForeignKey("learners.id", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    Column("source", Text, nullable=False),  # parent_report, child_words, relayed_question
+    Column("domains", ARRAY(Text), nullable=False),  # CuriosityDomain values, at most 3
+    Column("engagement", SmallInteger, nullable=False),
+    Column("child_asked_question", Boolean, nullable=False),
+    Column("prompt_version", Text, nullable=False),
+    Column("extracted_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    CheckConstraint("engagement BETWEEN 0 AND 3", name="engagement_range"),
+    CheckConstraint("cardinality(domains) <= 3", name="at_most_three_domains"),
+    CheckConstraint(
+        "source IN ('parent_report', 'child_words', 'relayed_question')", name="source_valid"
+    ),
+    Index(None, "learner_id"),
+)

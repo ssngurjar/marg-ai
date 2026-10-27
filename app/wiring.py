@@ -61,6 +61,7 @@ from app.safety.domain_policy import MINOR_POLICY, REPLY_POLICY, DomainPolicy, P
 from app.safety.safety_gate import SafetyGate
 from app.store.db import create_engine, create_session_factory, ping
 from app.store.repositories.child_session_repository import ChildSessionRepository
+from app.store.repositories.curiosity_signal_repository import CuriositySignalRepository
 from app.store.repositories.inbox_repository import InboxRepository
 from app.store.repositories.media_blob_repository import MediaBlobRepository
 from app.store.repositories.nudge_repository import NudgeRepository
@@ -68,8 +69,10 @@ from app.store.repositories.outbox_repository import OutboxRepository
 from app.store.repositories.turn_repository import TurnRepository
 from app.store.repositories.turn_step_repository import TurnStepRepository
 from app.store.repositories.user_repository import UserRepository
+from app.telemetry.curiosity_signal_extractor import CURIOSITY_EXTRACT, CuriositySignalExtractor
 from app.worker.database_step_recorder import DatabaseStepRecorder
 from app.worker.nudge_sender import NudgeSender, NudgeSettings, nudge_templates
+from app.worker.post_turn_runner import PostTurnRunner
 from app.worker.reply_deliverer import DeliveryDeps, DeliverySettings, ReplyDeliverer
 from app.worker.turn_dispatcher import DispatcherDeps, DispatcherSettings, TurnDispatcher
 from app.worker.turn_processor import TurnDeps, TurnProcessor, TurnSettings
@@ -84,6 +87,7 @@ PROMPT_SPECS: Final = (
     PARENT_REFLECTION,
     CURIOSITY_MOMENT,
     CHILD_TALK,
+    CURIOSITY_EXTRACT,
 )
 """Every prompt the app renders; the registry refuses a template without a spec."""
 INVITE_GREETING: Final = "Namaste Marg"
@@ -201,6 +205,7 @@ def build_container(settings: Settings) -> Container:
             ),
             outbox=outbox,
             media=voice_adapters.media,
+            signals=CuriositySignalExtractor(language_model, prompt_registry(settings)),
         ),
     )
     return Container(
@@ -305,14 +310,7 @@ def build_orchestrator(
     catalogue: ActivityCatalogue | None = None,
 ) -> Orchestrator:
     language_model = ports.language_model
-    registry = PromptRegistry(
-        specs=PROMPT_SPECS,
-        settings=PromptSettings(
-            models={"MODEL_TEXT": settings.model_text, "OPEN_MODEL": settings.open_model},
-            reasoning_effort=settings.model_reasoning_effort,
-            user_slot_max_chars=settings.user_slot_max_chars,
-        ),
-    )
+    registry = prompt_registry(settings)
     return Orchestrator(
         PipelineSteps(
             gate=SafetyGate(
@@ -357,6 +355,17 @@ def build_orchestrator(
     )
 
 
+def prompt_registry(settings: Settings) -> PromptRegistry:
+    return PromptRegistry(
+        specs=PROMPT_SPECS,
+        settings=PromptSettings(
+            models={"MODEL_TEXT": settings.model_text, "OPEN_MODEL": settings.open_model},
+            reasoning_effort=settings.model_reasoning_effort,
+            user_slot_max_chars=settings.user_slot_max_chars,
+        ),
+    )
+
+
 def child_session_limits(settings: Settings) -> ChildSessionLimits:
     return ChildSessionLimits(
         max_turns=settings.child_session_max_turns,
@@ -379,6 +388,7 @@ class EngineParts:
     orchestrator: Orchestrator
     outbox: OutboxRepository
     media: MediaBlobRepository
+    signals: CuriositySignalExtractor
 
 
 def build_turn_dispatcher(
@@ -432,6 +442,13 @@ def build_turn_dispatcher(
             clock=engine_parts.clock,
             media=engine_parts.media,
             child_sessions=ChildSessionRepository(session_factory),
+            post_turn=PostTurnRunner(
+                engine_parts.signals,
+                CuriositySignalRepository(session_factory),
+                DatabaseStepRecorder(TurnStepRepository(session_factory)),
+                engine_parts.clock,
+                timeout=timedelta(seconds=settings.timeout_generate_s),
+            ),
             nudges=(
                 NudgeSender(
                     NudgeRepository(session_factory),

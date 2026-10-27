@@ -90,6 +90,7 @@ line of the module's docstring.
 | `base.py` | `DomainModel` | Identifiers and the base every domain model shares (contracts.md §2.1). |
 | `child_session.py` | `ChildSession` | A child talking to Marg.ai directly on the parent's phone (s10b §4.16, C13). |
 | `conversation.py` | `ProfileUpdate`, `FirstContact`, `ConsentGiven`, `ConsentDeclined`, `RoleChosen`, `RoleUnavailable`, `GuardianConfirmed`, `GuardianDeclined`, `ProfileAnswered`, `ChildAnswered`, `ChildInvalid`, `AddChild`, `ChildTalkAnswered`, `TeacherAsked`, `LanguageSwitched`, `QuestionNoted`, `Unrecognised`, `DeletionRequested`, `DeletionConfirmed`, `DeletionCancelled`, `SendCopy`, `RecordConsent`, `UpsertLearner`, `SetChildTalk`, `PurgeAfterDelivery`, `HandoffPendingQuestion`, `HandoffFirstKhoj`, `Transition` | The onboarding conversation's events and effects (s08 §4.2). Pure data. |
+| `curiosity.py` | `CuriositySignals`, `CuriositySource`, `ExtractSignals` | What a child engaged with, for the young-learner trajectory (s13 §4.4). Never a label. |
 | `delivery.py` | `PartState` | Where an outbound part stands in its delivery (s04 §4.10). |
 | `learner.py` | `Learner` | Learners: the child or student whose journey Marg.ai follows (contracts §2.2, data-model). |
 | `message.py` | `MediaRef`, `InboundMessage`, `AudioClip`, `ImageClip`, `Transcript` | What users send us: messages and the media they carry (contracts.md §2.1). |
@@ -114,6 +115,7 @@ line of the module's docstring.
 | `child_session_rules.py` | `ChildSessionLimits`, `ChildSessionRules` | ChildSessionRules: when a child's own conversation starts, ends, and may start again |
 | `conversation_machine.py` | `ConversationMachine` | ConversationMachine: the onboarding state machine (s08 §4.1 to §4.3). Pure and deterministic. |
 | `crisis_phrase_matcher.py` | `CrisisPhraseMatcher` | CrisisPhraseMatcher: the crisis rules that need no provider (s07 §4.5 rule 1, §4.6). Pure. |
+| `curiosity_trajectory.py` | `CuriosityPoint`, `YoungLearnerTrajectory`, `CuriosityTrajectory` | CuriosityTrajectory: how a young child's curiosity grows over sessions (s13 §4.5). Pure. |
 | `delivery_planner.py` | `DeliveryPlanner` | DeliveryPlanner: part order and status changes (s03 §4.8, s04 §4.10). Pure. |
 | `filler_detector.py` | `FillerDetector` | FillerDetector: a transcript of only "umm" or "hmm" is nothing said (s06 §8, CLAUDE.md §4). Pure. |
 | `learner_chooser.py` | `RecentOffer`, `LearnerChooser` | LearnerChooser: which of a parent's children this turn is about (s10b §4.2). Pure. |
@@ -207,6 +209,7 @@ line of the module's docstring.
 | Module | Classes | What it does |
 |---|---|---|
 | `child_session_repository.py` | `ChildSessionRepository` | Child sessions: a child talking to Marg.ai directly (s10b §4.16, data-model `child_sessions`). |
+| `curiosity_signal_repository.py` | `CuriositySignalRepository` | Curiosity signals: what a child engaged with on a journey turn (s13 §4.4, data-model). |
 | `inbox_repository.py` | `InboundRecord`, `SaveResult`, `LatestInbound`, `InboxRepository` | Storing inbound WhatsApp messages (s03 §4.5, §4.6). The only SQL for users and the inbox. |
 | `journey_repository.py` | `JourneyRepository` | The khoj offered to each child and how it went (s10b §5, data-model `learner_activities`). |
 | `learner_repository.py` | `LearnerRepository` | Learners: a parent's children or a student's own learner (s08 §4.11, data-model `learners`). |
@@ -217,12 +220,19 @@ line of the module's docstring.
 | `turn_step_repository.py` | `StepRow`, `TurnStepRepository` | turn_steps rows and the turn columns written while a turn runs (s04 §4.6). |
 | `user_repository.py` | `UserRepository` | Users: onboarding changes, consent records and delete-my-data (s08 §4.9 to §4.11). |
 
+## `telemetry`
+
+| Module | Classes | What it does |
+|---|---|---|
+| `curiosity_signal_extractor.py` | `CuriosityExtraction`, `ExtractedSignals`, `CuriositySignalExtractor` | CuriositySignalExtractor: what a child engaged with, from a parent's report or the child's |
+
 ## `worker`
 
 | Module | Classes | What it does |
 |---|---|---|
 | `database_step_recorder.py` | `DatabaseStepRecorder` | The production StepRecorder (contracts §3): pipeline step results → turn_steps rows. |
 | `nudge_sender.py` | `NudgeSettings`, `NudgeSender` | NudgeSender: the daily khoj message, sent from the maintenance pass (s10b §4.11). |
+| `post_turn_runner.py` | `PostTurnRunner` | PostTurnRunner: work after the reply is sent, off its critical path (s04 §4.16, s13 §4.2). |
 | `reply_deliverer.py` | `DeliverySettings`, `DeliveryDeps`, `ReplyDeliverer` | Sending a turn's queued parts, in order, with retries (s04 §4.10; E1: sent directly). |
 | `turn_dispatcher.py` | `DispatcherSettings`, `DispatcherDeps`, `TurnDispatcher` | The in-process turn dispatcher (exception E1, mvp-scope §4.1). |
 | `turn_processor.py` | `TurnSettings`, `TurnDeps`, `TurnProcessor` | One turn for one user, start to finish (s04 §4.4 to §4.9; contracts §3 `process_user_turn`). |

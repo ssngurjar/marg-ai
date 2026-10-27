@@ -5,10 +5,11 @@
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.domain.enums import FailureKind, FixedReplyKind, Language, Route, StepName, StepOutcome
 from app.domain.models.base import TurnId
+from app.domain.models.curiosity import PostTurnTask
 from app.domain.models.writes import TurnWrite
 from app.pipeline.reply_parts_builder import ReplyDelivery
 
@@ -43,3 +44,4 @@ class TurnOutcome(StepModel):
     prompt_versions: dict[str, str]  # prompt id → version, for every prompt used
     first_failure: StepFailure | None
     writes: list[TurnWrite]  # applied in the finalize transaction, in this order (s08)
+    post_turn: list[PostTurnTask] = Field(default_factory=list)  # after delivery (s13)

@@ -16,6 +16,7 @@ from app.core.errors import ChannelError, DomainError, LeaseLost, ProviderError
 from app.core.logging import get_logger
 from app.domain.enums import Channel, FixedReplyKind, FixedReplyVariant, InboxStatus
 from app.domain.models.base import TurnId, UserHash
+from app.domain.models.curiosity import PostTurnTask
 from app.domain.models.turn import TurnContext
 from app.domain.rules.turn_batcher import TurnBatcher
 from app.pipeline.fixed_reply_service import FixedReplyService
@@ -62,6 +63,7 @@ class TurnProcessor:
         self._senders = deps.senders
         self._clock = deps.clock
         self._settings = settings
+        self._post_turn: dict[TurnId, list[PostTurnTask]] = {}
 
     async def process_user_turn(
         self, user_hash: UserHash, observer: TurnObserver = PRODUCTION_OBSERVER
@@ -109,6 +111,8 @@ class TurnProcessor:
             await self._store.finalize(
                 started, _finished(outcome), outcome.delivery, outcome.writes
             )
+            if outcome.post_turn:
+                self._post_turn[started.turn_id] = list(outcome.post_turn)
         except LeaseLost:
             # The user moved on (another turn changed their state): nothing was committed, and
             # the messages are answered again from the new state. Not the message's fault.
@@ -120,6 +124,10 @@ class TurnProcessor:
                 started, count_attempt=True, retry_after=TurnBatcher.retry_delay(attempts)
             )
             logger.exception("turn_write_refused", turn_id=str(started.turn_id), exc_info=exc)
+
+    def take_post_turn(self, turn_id: TurnId) -> list[PostTurnTask]:
+        """The turn's post-turn tasks, once: the dispatcher runs them after delivery."""
+        return self._post_turn.pop(turn_id, [])
 
     async def _acknowledge(self, started: StartedTurn) -> None:
         """Blue ticks and "typing…" for the newest message. Best effort: never stops the turn."""

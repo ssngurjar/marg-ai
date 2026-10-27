@@ -768,3 +768,37 @@ async def test_if_the_first_khoj_cant_be_checked_onboarding_still_completes() ->
     assert result.outcome.fixed_reply_kind is FixedReplyKind.ONBOARDING
     assert [write.kind for write in result.outcome.writes] == ["profile_change", "learner_upsert"]
     assert PERSONALISED_INTRO not in result.delivered
+
+
+# --- curiosity signals after the reply (s13 §4.2) ------------------------------------------------
+
+
+async def test_a_report_back_is_marked_for_curiosity_extraction_after_the_reply() -> None:
+    ctx = turn_context(
+        text_message("Munni ne kaha parchhai ghoomti hai"),
+        learners=[MUNNI_CHILD],
+        open_activity=offer(FIRST_ACTIVITY, MUNNI_CHILD),
+    )
+    result = await run(ctx, llm=FakeLanguageModel([REFLECTION]))
+    [task] = result.outcome.post_turn
+    assert task.learner_id == MUNNI_CHILD.id
+    assert task.source.kind == "parent_report"
+    assert task.user_text == "Munni ne kaha parchhai ghoomti hai"
+    assert task.child_age == 5
+
+
+async def test_a_parent_question_has_nothing_to_extract() -> None:
+    result = await run(asking())
+    assert result.outcome.post_turn == []
+
+
+async def test_a_blocked_report_is_not_extracted() -> None:
+    ctx = turn_context(
+        text_message("Munni ne kaha parchhai ghoomti hai"),
+        learners=[MUNNI_CHILD],
+        open_activity=offer(FIRST_ACTIVITY, MUNNI_CHILD),
+    )
+    result = await run(
+        ctx, llm=FakeLanguageModel([REFLECTION]), classifier=flagging(user=[SafetyCategory.HATE])
+    )
+    assert result.outcome.post_turn == []

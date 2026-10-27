@@ -114,3 +114,9 @@ NOT_A_CHILD_QUESTION: dict[str, object] = {
     "who_explores_this": "",
     "spoken_text": "",
 }
+
+CURIOSITY_SIGNALS: dict[str, object] = {
+    "domains": ["earth_sky"],
+    "engagement": 2,
+    "child_asked_question": False,
+}

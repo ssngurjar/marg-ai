@@ -46,6 +46,7 @@ from app.constants.onboarding_copy import CHILD_TALK_YES
 from app.core.errors import ProviderResponseInvalid
 from app.domain.enums import ChildSessionEndReason, CuriosityDomain, Language, StepOutcome
 from app.domain.models.child_session import ChildSession
+from app.domain.models.curiosity import CuriositySource
 from app.domain.models.learner import Learner
 from app.domain.models.reply import CanonicalReply, ReplyButton
 from app.domain.models.turn import TurnContext
@@ -167,8 +168,12 @@ class ChildTalkLayer:
     ) -> LayerResult:
         answer = await self._answer(learner, user_text, now, register)
         counted = ChildTalkTurn(session_id=session.id, topic=answer.topic)
+        source = CuriositySource(
+            learner_id=learner.id, kind="child_words", hint_domains=[], activity_title=None
+        )
         if not ChildSessionRules.is_last_turn(session, self._limits):
             return LayerResult(
+                curiosity=source if answer.degraded_reason is None else None,
                 reply=answer.text,
                 usages=answer.usages,
                 prompt_versions=answer.prompt_versions,
@@ -193,6 +198,7 @@ class ChildTalkLayer:
                 "usages": answer.usages,
                 "prompt_versions": answer.prompt_versions,
                 "writes": [counted, *goodbye.writes],
+                "curiosity": source if answer.degraded_reason is None else None,
             }
         )
 

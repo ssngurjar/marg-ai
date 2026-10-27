@@ -167,11 +167,20 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
   two questions by voice, say "bye"; check the goodbye and the summary. Also try "mera data
   hatao" inside the session (nothing should change).
 
+## 2g. Curiosity signals, S13 (from 2026-10-27)
+
+- [ ] **Prompt** `app/prompts/curiosity_extract.md.j2` (v1.0.0, Muse Spark Open). Live check
+  2026-10-27 (synthetic reports): "kuch nahi kaha" → 0; "bola suraj" → 1; an engaged answer →
+  2; a new idea of the child's own → 3 with "asked"; all six on Open in 1.5-3.2 s. It records
+  domains and engagement only, never a label.
+- [ ] The young-learner trajectory (sessions, breadth, engagement slope, question rate) is
+  computed and tested; it's shown on the admin dashboard built with the web demo (item 6).
+
 ## 3. Decisions log entries marked "pending owner review"
 
 - [ ] `docs/design/s05-llm-orchestrator.md`, 2026-10-27 (S5 build choices).
 - [ ] `docs/design/s06-voice.md`, `s07-safety.md`, `contracts.md`, 2026-10-27 (S6 build, spoken text checked).
-- [ ] `docs/design/s10b-parent-journey.md`, 2026-10-27 (curiosity moment and child talk build choices); `contracts.md` and `data-model.md` (child talk).
+- [ ] `docs/design/s10b-parent-journey.md`, 2026-10-27 (curiosity moment, child talk, nudges); `s13-telemetry.md` (signals); `contracts.md` and `data-model.md` (child talk, nudges, signals).
 - [ ] `docs/design/s07-safety.md`, 2026-10-27 (crisis copy pulled forward; safety host).
 - [ ] `docs/design/contracts.md`, 2026-10-27 (S5 ports, `SaveResult`, `MODEL_REASONING_EFFORT`).
 - [ ] `docs/design/contracts.md`, 2026-10-25 (`TurnObserver.on_step` result, `GoldenLearner`,

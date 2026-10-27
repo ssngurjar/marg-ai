@@ -23,6 +23,7 @@ from app.store.repositories.outbox_repository import OutboxRepository
 from app.store.repositories.turn_repository import TurnRepository
 from app.store.repositories.user_repository import UserRepository
 from app.worker.nudge_sender import NudgeSender
+from app.worker.post_turn_runner import PostTurnRunner
 from app.worker.reply_deliverer import ReplyDeliverer
 from app.worker.turn_processor import TurnProcessor
 
@@ -52,6 +53,7 @@ class DispatcherDeps:
     media: MediaBlobRepository  # expired reply audio is deleted by the maintenance pass
     child_sessions: ChildSessionRepository  # sessions a child left mid-way are closed
     nudges: NudgeSender | None  # the daily khoj message; None while NUDGES_ENABLED is false
+    post_turn: PostTurnRunner  # curiosity signals, after the reply is delivered
 
 
 class TurnDispatcher:
@@ -64,6 +66,8 @@ class TurnDispatcher:
         self._media = deps.media
         self._child_sessions = deps.child_sessions
         self._nudges = deps.nudges
+        self._post_turn_runner = deps.post_turn
+        self._post_turn_jobs: set[asyncio.Task[None]] = set()
         self._clock = deps.clock
         self._settings = settings
         self._user_tasks: dict[UserHash, asyncio.Task[None]] = {}
@@ -118,9 +122,12 @@ class TurnDispatcher:
             del self._user_tasks[user_hash]
 
     async def wait_until_idle(self) -> None:
-        """Wait until no user has a turn running or waiting (tests and orderly shutdown)."""
-        while self._user_tasks:
-            await asyncio.gather(*self._user_tasks.values(), return_exceptions=True)
+        """Wait until no user has a turn running or waiting, and post-turn work is done (tests
+        and orderly shutdown)."""
+        while self._user_tasks or self._post_turn_jobs:
+            await asyncio.gather(
+                *self._user_tasks.values(), *self._post_turn_jobs, return_exceptions=True
+            )
 
     async def stop(self) -> None:
         """Stop taking work; let running turns finish within the grace period, then cancel them
@@ -129,7 +136,7 @@ class TurnDispatcher:
         if self._maintenance is not None:
             self._maintenance.cancel()
             await asyncio.gather(self._maintenance, return_exceptions=True)
-        running = list(self._user_tasks.values())
+        running = [*self._user_tasks.values(), *self._post_turn_jobs]
         if not running:
             return
         _, still_running = await asyncio.wait(
@@ -150,6 +157,7 @@ class TurnDispatcher:
                 turn_id = await self._processor.process_user_turn(user_hash)
                 if turn_id is not None:
                     await self._deliverer.deliver_turn(turn_id)
+                    self._start_post_turn(turn_id)
                     continue
                 wait = await self._wait_for_next_pending(user_hash)
             except StoreError as exc:
@@ -173,6 +181,16 @@ class TurnDispatcher:
             await asyncio.wait_for(woken.wait(), timeout=wait.total_seconds())
         except TimeoutError:
             return
+
+    def _start_post_turn(self, turn_id: TurnId) -> None:
+        """Signals and other after-the-reply work, in the background: the user's next message
+        doesn't wait for it. Shutdown waits for what's running (stop)."""
+        tasks = self._processor.take_post_turn(turn_id)
+        if not tasks:
+            return
+        job = asyncio.create_task(self._post_turn_runner.run(tasks), name="post-turn")
+        self._post_turn_jobs.add(job)
+        job.add_done_callback(self._post_turn_jobs.discard)
 
     async def _maintain(self) -> None:
         interval = self._settings.maintenance_interval.total_seconds()

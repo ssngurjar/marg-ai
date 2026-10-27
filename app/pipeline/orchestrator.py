@@ -57,6 +57,7 @@ from app.domain.enums import (
     StepName,
     StepOutcome,
 )
+from app.domain.models.curiosity import ExtractSignals, PostTurnTask
 from app.domain.models.message import InboundMessage
 from app.domain.models.reply import CanonicalReply, LocalisedReply
 from app.domain.models.safety import SafetyVerdict
@@ -67,6 +68,7 @@ from app.domain.models.writes import ChildSessionEnd, TurnWrite
 from app.domain.rules.audio_analyser import AudioAnalyser
 from app.domain.rules.filler_detector import FillerDetector
 from app.domain.rules.register_detector import RegisterDetector
+from app.domain.rules.stage_rules import StageRules
 from app.layers.child_talk_layer import ChildTalkLayer
 from app.layers.journey_layer import JourneyLayer
 from app.layers.layer_result import LayerResult
@@ -490,7 +492,32 @@ class _Turn:
             prompt_versions=self.prompt_versions,
             first_failure=self.first_failure,
             writes=list(checked.writes),
+            post_turn=self._signals_for(layer_result),
         )
+
+    def _signals_for(self, layer_result: LayerResult) -> list[PostTurnTask]:
+        """Curiosity extraction after the reply (s13 §4.2): only for a generated reply that was
+        sent, about a known child, with words to judge."""
+        source = layer_result.curiosity
+        if source is None or not self.user_text.strip():
+            return []
+        learner = next(
+            (known for known in self.ctx.learners if known.id == source.learner_id), None
+        )
+        age = (
+            StageRules.age_on(learner.birth_year, self.steps.clock.now().date())
+            if learner
+            else None
+        )
+        return [
+            ExtractSignals(
+                turn_id=self.ctx.turn_id,
+                learner_id=source.learner_id,
+                user_text=self.user_text,
+                source=source,
+                child_age=age,
+            )
+        ]
 
     async def _checked(self, layer_result: LayerResult) -> "_Sent | TurnOutcome | None":
         """safety_out on the layer's reply; if it's blocked and the layer has reviewed text to

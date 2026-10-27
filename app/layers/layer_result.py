@@ -11,6 +11,7 @@ from pydantic import Field
 
 from app.domain.enums import StepOutcome
 from app.domain.models.base import DomainModel
+from app.domain.models.curiosity import CuriositySource
 from app.domain.models.reply import CanonicalReply
 from app.domain.models.usage import StepUsage
 from app.domain.models.writes import TurnWrite
@@ -25,3 +26,5 @@ class LayerResult(DomainModel):
     writes: list[TurnWrite] = Field(default_factory=list)
     fallback_reply: CanonicalReply | None = None  # reviewed text, if the generated reply is blocked
     hazard_rule: frozenset[str] | None = None  # declared hazards the d7 rule allows
+    # S13: this turn says something about a child's curiosity; extracted after the reply
+    curiosity: CuriositySource | None = None

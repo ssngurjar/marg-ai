@@ -28,6 +28,7 @@ from app.store.db import create_engine, create_session_factory
 from app.store.repositories.inbox_repository import InboundRecord, InboxRepository
 from app.store.repositories.media_blob_repository import MediaBlobRepository
 from app.store.repositories.outbox_repository import OutboxRepository
+from app.telemetry.curiosity_signal_extractor import CuriositySignalExtractor
 from app.wiring import EngineParts, OrchestratorPorts, build_orchestrator, build_turn_dispatcher
 from app.worker.turn_dispatcher import TurnDispatcher
 from tests.fakes.clock import FixedClock
@@ -45,12 +46,14 @@ from tests.support import whatsapp_payloads as wa
 from tests.support.app_factory import TEST_PHONE_NUMBER_ID, make_identity, make_settings
 from tests.support.child_talk import CHILD_ANSWER, CHILD_REPLY
 from tests.support.journey import (
+    CURIOSITY_SIGNALS,
     REFLECTION,
     REFLECTION_PRAISE,
     first_choice,
     personalisation_for,
 )
 from tests.support.parent_answers import HINGLISH_ANSWER
+from tests.support.prompts import shipped_registry
 
 pytestmark = pytest.mark.integration
 
@@ -105,6 +108,7 @@ def wire(
             "activity_personalise": FakeLanguageModel([personalisation_for(first_choice())]),
             "parent_reflection": FakeLanguageModel([REFLECTION]),
             "child_talk": FakeLanguageModel([CHILD_REPLY]),
+            "curiosity_extract": FakeLanguageModel([CURIOSITY_SIGNALS]),
         }
     )
     media = MediaBlobRepository(sessions)  # the real table: voice notes stored and loaded
@@ -123,6 +127,7 @@ def wire(
             orchestrator=orchestrator,
             outbox=OutboxRepository(sessions),
             media=media,
+            signals=CuriositySignalExtractor(language_model, shipped_registry()),
         ),
     )
     return Pipeline(dispatcher, InboxRepository(sessions), sender)
@@ -148,6 +153,7 @@ EVERY_USER_TABLE = (
     "media_blobs WHERE user_hash = :h",
     "child_sessions WHERE user_hash = :h",
     "nudge_subscriptions WHERE user_hash = :h",
+    "curiosity_signals WHERE learner_id IN (SELECT id FROM learners WHERE owner_user_hash = :h)",
     "turn_steps WHERE turn_id IN (SELECT id FROM turns WHERE user_hash = :h)",
 )
 
@@ -350,6 +356,14 @@ async def test_a_new_parent_is_onboarded_with_consent_recorded_and_one_child(
     )
     reflection = pipeline.sender.sent[-1].part.text or ""
     assert REFLECTION_PRAISE in reflection
+    # after the reply: what the child engaged with (s13), once, for this child
+    assert await rows(
+        engine,
+        "SELECT source, domains, engagement, child_asked_question FROM curiosity_signals",
+    ) == [("parent_report", ["earth_sky"], 2, False)]
+    assert await rows(
+        engine, "SELECT outcome, detail FROM turn_steps WHERE step = 'extract_signals'"
+    ) == [("ok", "source=parent_report engagement=2 asked=false")]
     assert await rows(engine, "SELECT status, child_response_summary FROM learner_activities") == [
         ("done", str(REFLECTION["summary_for_record"]))
     ]
@@ -429,6 +443,7 @@ async def test_a_child_talks_answers_are_counted_and_bye_sends_the_parents_summa
     assert await rows(engine, "SELECT turns_count, topics FROM child_sessions") == [
         (1, ["earth_sky"])
     ]
+    assert await rows(engine, "SELECT source FROM curiosity_signals") == [("child_words",)]
     await ask(pipeline, "bye", message_id="wamid.K3")
     goodbye = pipeline.sender.sent[-1].part.text or ""
     assert "Mummy-Papa ke liye" in goodbye
