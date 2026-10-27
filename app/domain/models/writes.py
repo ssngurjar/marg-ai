@@ -7,10 +7,18 @@ what they change.
 
 from datetime import datetime
 from typing import Annotated, Literal
+from uuid import UUID
 
 from pydantic import Field
 
-from app.domain.enums import ConsentEventKind, ConversationState, Language, LearnerRelation, Role
+from app.domain.enums import (
+    ActivityStatus,
+    ConsentEventKind,
+    ConversationState,
+    Language,
+    LearnerRelation,
+    Role,
+)
 from app.domain.models.base import DomainModel
 from app.domain.models.learner import LearnerId
 
@@ -59,7 +67,32 @@ class ChildTalkConsent(DomainModel):
     granted: bool
 
 
+class ActivityOffered(DomainModel):
+    """s10b: an activity was sent for a learner. The id is chosen by the layer, so a later write
+    in the same turn could refer to it."""
+
+    kind: Literal["activity_offered"] = "activity_offered"
+    learner_activity_id: UUID
+    learner_id: LearnerId
+    activity_id: str
+    activity_version: int
+
+
+class ActivityReported(DomainModel):
+    """s10b: the parent reported back (DONE, with a neutral ≤ 200-char summary) or skipped it."""
+
+    kind: Literal["activity_reported"] = "activity_reported"
+    learner_activity_id: UUID
+    status: ActivityStatus
+    summary: str | None = Field(max_length=200)
+
+
 type TurnWrite = Annotated[
-    ProfileChange | LearnerUpsert | MarkPurgeAfterDelivery | ChildTalkConsent,
+    ProfileChange
+    | LearnerUpsert
+    | MarkPurgeAfterDelivery
+    | ChildTalkConsent
+    | ActivityOffered
+    | ActivityReported,
     Field(discriminator="kind"),
 ]

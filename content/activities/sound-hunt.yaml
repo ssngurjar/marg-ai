@@ -1,0 +1,28 @@
+id: sound-hunt
+version: 1
+status: enabled
+age_min: 3
+age_max: 8
+domains: [art_music, nature_living]
+setting: home
+season: any
+duration_minutes: 5
+materials: [spoon, steel plate, steel glass]
+title: "Awaazon ki khoj"
+steps:
+  - "Sit with your child and both close your eyes for one minute."
+  - "Take turns saying every sound you can hear: birds, people, animals, wind."
+  - "Open your eyes. Tap a spoon gently on a steel plate, then on a steel glass."
+  - "Make a short beat, like tap-tap-pause-tap, and ask your child to copy it."
+  - "Let your child make a beat for you to copy."
+questions_to_ask:
+  - "Which sound was the farthest away? How do you know?"
+  - "Why does the plate sound different from the glass?"
+  - "Can you make a beat that sounds like rain?"
+listen_for: "How many sounds your child notices, and whether they can copy and change a beat."
+parent_tips:
+  - "Listening carefully is the start of both music and learning to read."
+hazards: []
+safety_notes: []
+reviewed_by_role: "owner"
+reviewed_on: 2026-10-27

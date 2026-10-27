@@ -15,6 +15,7 @@ from app.domain.models.turn import UserProfile
 from app.domain.rules.onboarding_answer_parser import OnboardingAnswerParser
 
 ONBOARDING_BUTTON_PREFIX: Final = "onb:"
+JOURNEY_BUTTON_PREFIX: Final = "jrn:"
 
 
 class TurnRouter:
@@ -28,6 +29,10 @@ class TurnRouter:
             return _to(Route.ONBOARDING, f"state {profile.state.value}")
         if any(button.startswith(ONBOARDING_BUTTON_PREFIX) for button in interactive_ids):
             return _to(Route.ONBOARDING, "onboarding button")
+        if profile.role is Role.PARENT and any(
+            button.startswith(JOURNEY_BUTTON_PREFIX) for button in interactive_ids
+        ):
+            return _to(Route.JOURNEY, "journey button")
         if interactive_ids:
             # No other button prefix is routed yet; ids are never passed to a model (s05 rule 13).
             return _to(Route.REPEAT_PLEASE, "unknown interactive id")

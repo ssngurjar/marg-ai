@@ -7,7 +7,7 @@ public method is one transaction. The only SQL for turns and the inbox's process
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import assert_never
+from typing import ClassVar, assert_never
 from uuid import uuid4
 
 from sqlalchemy import Row, and_, func, select, update
@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.errors import StoreError
 from app.domain.enums import (
+    ActivityStatus,
     Channel,
     ConversationState,
     FailureKind,
@@ -28,23 +29,29 @@ from app.domain.enums import (
     StepName,
     TurnStatus,
 )
+from app.domain.models.activity import OfferRecord
 from app.domain.models.base import TurnId, UserHash
+from app.domain.models.learner import Learner
 from app.domain.models.message import InboundMessage, MediaRef
 from app.domain.models.turn import Exchange, QueuedMessage, TurnContext, UserProfile
 from app.domain.models.writes import (
+    ActivityOffered,
+    ActivityReported,
     ChildTalkConsent,
     LearnerUpsert,
     MarkPurgeAfterDelivery,
     ProfileChange,
     TurnWrite,
 )
+from app.domain.rules.learner_chooser import LearnerChooser, RecentOffer
 from app.domain.rules.session_rules import SessionRules
 from app.domain.rules.turn_batcher import TurnBatcher
 from app.pipeline.reply_parts_builder import ReplyDelivery
+from app.store.repositories.journey_repository import JourneyRepository
 from app.store.repositories.learner_repository import LearnerRepository
 from app.store.repositories.outbox_repository import OutboxRepository
 from app.store.repositories.user_repository import UserRepository
-from app.store.tables import inbox_messages, turns, users
+from app.store.tables import inbox_messages, learner_activities, turns, users
 
 RETENTION_BATCH = 1000
 
@@ -120,15 +127,23 @@ class TurnRepository:
             async with self._session_factory() as session:
                 profile = await _load_profile(session, started.user_hash)
                 user_learners = await LearnerRepository.list_for(session, started.user_hash)
+                newest = started.queued[-1].message.received_at
+                records = await JourneyRepository.recent_for(
+                    session, [learner.id for learner in user_learners], newest
+                )
                 exchanges = await _recent_exchanges(session, started.user_hash, recent_exchanges)
                 previous_started_at = await _previous_turn_start(session, started)
         except (SQLAlchemyError, OSError) as exc:
             raise StoreError(f"could not load the turn context: {type(exc).__name__}") from exc
         messages = [queued.message for queued in started.queued]
+        journey = _JourneyFocus.of(user_learners, messages, records)
         return TurnContext(
             turn_id=started.turn_id,
             profile=profile,
             learners=user_learners,
+            active_learner=journey.active_learner,
+            open_activity=journey.open_activity,
+            activity_history=journey.history,
             messages=messages,
             recent_exchanges=exchanges,
             is_session_start=SessionRules.is_session_start(
@@ -320,6 +335,23 @@ class TurnRepository:
                     .returning(inbox_messages.c.id)
                 )
                 cleared += len(result.all())
+                expired_summaries = (
+                    select(learner_activities.c.id)
+                    .where(
+                        and_(
+                            learner_activities.c.child_response_summary.is_not(None),
+                            learner_activities.c.reported_at < turn_text_before,
+                        )
+                    )
+                    .limit(RETENTION_BATCH)
+                )
+                result = await session.execute(
+                    update(learner_activities)
+                    .where(learner_activities.c.id.in_(expired_summaries))
+                    .values(child_response_summary=None)
+                    .returning(learner_activities.c.id)
+                )
+                cleared += len(result.all())
         except (SQLAlchemyError, OSError) as exc:
             raise StoreError(f"could not clear expired text: {type(exc).__name__}") from exc
         return cleared
@@ -380,6 +412,10 @@ async def _apply(session: AsyncSession, started: StartedTurn, write: TurnWrite) 
             await LearnerRepository.set_child_talk(session, started.user_hash, write)
         case MarkPurgeAfterDelivery():
             await UserRepository.mark_purge_after(session, started.user_hash, started.turn_id)
+        case ActivityOffered():
+            await JourneyRepository.record_offer(session, started.user_hash, started.turn_id, write)
+        case ActivityReported():
+            await JourneyRepository.record_report(session, started.user_hash, write)
         case _:
             assert_never(write)
 
@@ -479,3 +515,53 @@ def _datetime(value: object) -> datetime:
 
 def _optional_datetime(value: object) -> datetime | None:
     return None if value is None else _datetime(value)
+
+
+@dataclass(frozen=True, slots=True)
+class _JourneyFocus:
+    """Which child this turn is about, their open activity and history (s10b §4.2)."""
+
+    active_learner: Learner | None
+    open_activity: OfferRecord | None
+    history: list[OfferRecord]
+
+    OPEN_FOR: ClassVar[timedelta] = timedelta(hours=48)
+
+    @staticmethod
+    def of(
+        learners: Sequence[Learner],
+        messages: Sequence[InboundMessage],
+        records: Sequence[OfferRecord],
+    ) -> "_JourneyFocus":
+        now = messages[-1].received_at
+        text = " ".join(
+            message.text or "" for message in messages if message.kind is MessageKind.TEXT
+        )
+        offers = [
+            RecentOffer(record.learner_id, record.offered_at)
+            for record in records
+            if record.status is ActivityStatus.OFFERED
+        ]
+        active = LearnerChooser.choose(learners, _button_learner(messages), text, offers, now)
+        if active is None:
+            return _JourneyFocus(None, None, [])
+        history = [record for record in records if record.learner_id == active.id]
+        open_activity = next(
+            (
+                record
+                for record in history
+                if record.status is ActivityStatus.OFFERED
+                and now - record.offered_at <= _JourneyFocus.OPEN_FOR
+            ),
+            None,
+        )
+        return _JourneyFocus(active, open_activity, history)
+
+
+def _button_learner(messages: Sequence[InboundMessage]) -> str | None:
+    """The learner id a `jrn:today:<id>` button carries, if the newest button has one."""
+    for message in reversed(messages):
+        reply_id = message.interactive_reply_id
+        if reply_id and reply_id.startswith("jrn:today:"):
+            return reply_id.removeprefix("jrn:today:")
+    return None

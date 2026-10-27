@@ -28,6 +28,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 
 from app.domain.enums import (
+    ActivityStatus,
     Channel,
     ConsentEventKind,
     ConversationState,
@@ -261,4 +262,31 @@ outbox_messages = Table(
     allowed_values("channel", Channel),
     allowed_values("kind", PartKind),
     allowed_values("status", OutboxStatus),
+)
+
+learner_activities = Table(
+    "learner_activities",
+    metadata,
+    Column("id", UUID(as_uuid=True), primary_key=True),
+    Column(
+        "learner_id",
+        UUID(as_uuid=True),
+        ForeignKey("learners.id", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    Column("activity_id", Text, nullable=False),  # catalogue slug
+    Column("activity_version", Integer, nullable=False),  # catalogue version when offered
+    Column(
+        "offered_turn_id",
+        UUID(as_uuid=True),
+        ForeignKey("turns.id", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    Column("status", Text, nullable=False),
+    Column("child_response_summary", Text, nullable=True),  # ≤ 200 chars; cleared by retention
+    Column("offered_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    Column("reported_at", DateTime(timezone=True), nullable=True),
+    CheckConstraint("char_length(child_response_summary) <= 200", name="summary_length"),
+    allowed_values("status", ActivityStatus),
+    Index("ix_learner_activities_learner_id_offered_at", "learner_id", text("offered_at DESC")),
 )

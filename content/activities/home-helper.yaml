@@ -1,0 +1,27 @@
+id: home-helper
+version: 1
+status: enabled
+age_min: 3
+age_max: 8
+domains: [everyday_work, people_feelings]
+setting: home
+season: any
+duration_minutes: 10
+materials: [clothes]
+title: "Ghar ka chhota madadgaar"
+steps:
+  - "When you fold dry clothes, ask your child to help you."
+  - "Ask your child to find the clothes that belong to each person in the family."
+  - "Make one pile for each person, and count the clothes in each pile."
+  - "Talk about the work each person in the family does every day."
+questions_to_ask:
+  - "Whose pile is the biggest? Why do you think so?"
+  - "What work does each person in our family do?"
+  - "What work would you like to do to help at home?"
+listen_for: "Sorting and counting, and how your child describes other people's work."
+parent_tips:
+  - "Small jobs at home make children feel capable. Thank them for helping."
+hazards: []
+safety_notes: []
+reviewed_by_role: "owner"
+reviewed_on: 2026-10-27

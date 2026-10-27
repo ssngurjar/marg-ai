@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 from app.domain.enums import Channel, ConversationState, Language, MessageKind, Role
+from app.domain.models.activity import OfferRecord
 from app.domain.models.base import TurnId, UserHash
 from app.domain.models.learner import Learner
 from app.domain.models.message import InboundMessage, MediaRef
@@ -58,11 +59,18 @@ def turn_context(
     *messages: InboundMessage,
     profile: UserProfile | None = None,
     learners: list[Learner] | None = None,
+    open_activity: OfferRecord | None = None,
+    activity_history: list[OfferRecord] | None = None,
 ) -> TurnContext:
+    """The only child is the active one, as LearnerChooser decides when there's one."""
+    children = learners or []
     return TurnContext(
         turn_id=TurnId(uuid4()),
         profile=profile or user_profile(),
-        learners=learners or [],
+        learners=children,
+        active_learner=children[0] if len(children) == 1 else None,
+        open_activity=open_activity,
+        activity_history=activity_history or [],
         messages=list(messages),
         recent_exchanges=[],
         is_session_start=True,

@@ -20,7 +20,7 @@ def layer_with(llm: FakeLanguageModel, max_chars: int = 4000) -> ParentQuestionL
     registry = PromptRegistry(
         specs=PROMPT_SPECS,
         settings=PromptSettings(
-            models={"MODEL_TEXT": "muse-spark-1.3"},
+            models={"MODEL_TEXT": "muse-spark-1.3", "OPEN_MODEL": "meta-models/muse-spark-open"},
             reasoning_effort="minimal",
             user_slot_max_chars=max_chars,
         ),

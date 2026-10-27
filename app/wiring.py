@@ -23,12 +23,20 @@ from app.core.clock import Clock, SystemClock
 from app.core.config import Settings
 from app.core.user_identity import UserIdentity
 from app.domain.enums import Channel
+from app.layers.activity_catalogue import ActivityCatalogue, CatalogueActivitySource
+from app.layers.journey_layer import (
+    ACTIVITY_PERSONALISE,
+    PARENT_REFLECTION,
+    JourneyLayer,
+    JourneySettings,
+)
 from app.layers.onboarding_layer import PROFILE_EXTRACTION, OnboardingLayer
 from app.layers.parent_question_layer import PARENT_ANSWER, ParentQuestionLayer
 from app.pipeline.fixed_reply_service import FixedReplyService
 from app.pipeline.orchestrator import Orchestrator, OrchestratorSettings, PipelineSteps
 from app.prompts.prompt_registry import PromptRegistry, PromptSettings
 from app.providers.http import AsyncioSleeper, RetryPolicy, RetryTiming
+from app.providers.llm.fallback_language_model import FallbackLanguageModel, FallbackRoute
 from app.providers.llm.meta_model_api_language_model import (
     MetaModelApiLanguageModel,
     ModelApiConfig,
@@ -50,7 +58,14 @@ from app.worker.turn_dispatcher import DispatcherDeps, DispatcherSettings, TurnD
 from app.worker.turn_processor import TurnDeps, TurnProcessor, TurnSettings
 
 DISPATCHER_ERROR_BACKOFF = timedelta(seconds=5)
-PROMPT_SPECS: Final = (PARENT_ANSWER, MINOR_POLICY, REPLY_POLICY, PROFILE_EXTRACTION)
+PROMPT_SPECS: Final = (
+    PARENT_ANSWER,
+    MINOR_POLICY,
+    REPLY_POLICY,
+    PROFILE_EXTRACTION,
+    ACTIVITY_PERSONALISE,
+    PARENT_REFLECTION,
+)
 """Every prompt the app renders; the registry refuses a template without a spec."""
 INVITE_GREETING: Final = "Namaste Marg"
 
@@ -66,13 +81,14 @@ class Container:
     whatsapp_sender: WhatsAppSender
     inbox_repository: InboxRepository
     outbox_repository: OutboxRepository
-    language_model: MetaModelApiLanguageModel
+    language_models: tuple[MetaModelApiLanguageModel, ...]  # Spark and Muse Spark Open
     safety_classifier: LlamaGuardClassifier
     turn_dispatcher: TurnDispatcher
 
 
 def build_container(settings: Settings) -> Container:
     check_startup(settings)
+    catalogue = ActivityCatalogue.load()  # refuses to start on an invalid activity
     engine = create_engine(settings)
     session_factory = create_session_factory(engine)
     clock = SystemClock()
@@ -89,7 +105,7 @@ def build_container(settings: Settings) -> Container:
         ),
         clock=clock,
     )
-    language_model = MetaModelApiLanguageModel(
+    spark = MetaModelApiLanguageModel(
         config=ModelApiConfig(
             base_url=str(settings.model_api_base_url),
             api_key=settings.model_api_key,
@@ -97,6 +113,24 @@ def build_container(settings: Settings) -> Container:
         ),
         retry=retry,
         clock=clock,
+    )
+    open_model = MetaModelApiLanguageModel(
+        config=ModelApiConfig(
+            base_url=str(settings.open_model_base_url),
+            api_key=settings.open_model_api_key,
+            timeout_s=settings.timeout_open_model_s,
+        ),
+        retry=retry,
+        clock=clock,
+    )
+    language_model = FallbackLanguageModel(
+        open_model,
+        spark,
+        FallbackRoute(
+            primary_model=settings.open_model,
+            fallback_model=settings.model_text,
+            primary_timeout=timedelta(seconds=settings.timeout_open_model_s),
+        ),
     )
     safety_classifier = LlamaGuardClassifier(
         config=SafetyHostConfig(
@@ -118,7 +152,9 @@ def build_container(settings: Settings) -> Container:
             identity=identity,
             retry=retry,
             senders={Channel.WHATSAPP: whatsapp_sender},
-            orchestrator=build_orchestrator(settings, language_model, safety_classifier, clock),
+            orchestrator=build_orchestrator(
+                settings, language_model, safety_classifier, clock, catalogue=catalogue
+            ),
             outbox=outbox,
         ),
     )
@@ -134,7 +170,7 @@ def build_container(settings: Settings) -> Container:
         whatsapp_sender=whatsapp_sender,
         inbox_repository=inbox,
         outbox_repository=outbox,
-        language_model=language_model,
+        language_models=(spark, open_model),
         safety_classifier=safety_classifier,
         turn_dispatcher=dispatcher,
     )
@@ -143,6 +179,7 @@ def build_container(settings: Settings) -> Container:
 def check_startup(settings: Settings) -> None:
     """Fail the deploy, not a turn: raises ConfigError naming what's wrong."""
     ModelPricing.require_allowed_for_user_content(settings.model_text, "MODEL_TEXT")
+    ModelPricing.require_allowed_for_user_content(settings.open_model, "OPEN_MODEL")
     ModelPricing.price_of(settings.safety_model)
     FixedReplyService.check_all_languages()
     OnboardingLayer.check_copy()
@@ -153,11 +190,13 @@ def build_orchestrator(
     language_model: LanguageModel,
     safety_classifier: SafetyClassifier,
     clock: Clock,
+    *,
+    catalogue: ActivityCatalogue | None = None,
 ) -> Orchestrator:
     registry = PromptRegistry(
         specs=PROMPT_SPECS,
         settings=PromptSettings(
-            models={"MODEL_TEXT": settings.model_text},
+            models={"MODEL_TEXT": settings.model_text, "OPEN_MODEL": settings.open_model},
             reasoning_effort=settings.model_reasoning_effort,
             user_slot_max_chars=settings.user_slot_max_chars,
         ),
@@ -173,7 +212,13 @@ def build_orchestrator(
                 ),
                 guard_timeout=timedelta(seconds=settings.timeout_guard_s),
             ),
-            parent_questions=ParentQuestionLayer(language_model, registry),
+            journey=JourneyLayer(
+                language_model,
+                registry,
+                CatalogueActivitySource(catalogue or ActivityCatalogue.load()),
+                ParentQuestionLayer(language_model, registry),
+                JourneySettings(repeat_window=timedelta(days=settings.activity_repeat_days)),
+            ),
             onboarding=OnboardingLayer(
                 language_model, registry, invite_link=teacher_invite_link(settings)
             ),
@@ -266,6 +311,7 @@ def build_turn_dispatcher(
 async def close_container(container: Container) -> None:
     """Release what the container opened: HTTP connections and the database pool."""
     await container.whatsapp_sender.aclose()
-    await container.language_model.aclose()
+    for language_model in container.language_models:
+        await language_model.aclose()
     await container.safety_classifier.aclose()
     await container.engine.dispose()

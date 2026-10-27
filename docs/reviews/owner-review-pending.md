@@ -69,6 +69,26 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
 - [ ] Known limit: if a user taps two onboarding buttons faster than one turn, only the last
   counts (the first is asked again).
 
+## 2c. S10b parent journey (from 2026-10-27)
+
+- [ ] **The 10 launch activities**, `content/activities/*.yaml`: enabled on 2026-10-27 as
+  "reviewed by: owner" so building could start. Still to do: a real read by the owner, then a
+  village review by a parent and an anganwadi worker or teacher; any change bumps `version`.
+- [ ] **Journey copy**, `app/constants/journey_copy.py`: the supervision line, the "Poochiye /
+  Dhyan dijiye" labels, the khoj buttons, "which child?", "coming soon for this age", the
+  reflection fallback. Three languages.
+- [ ] **Prompts**: `activity_personalise.md.j2` (v1.0.2) and `parent_reflection.md.j2` (v1.0.0).
+  Live check 2026-10-27: personalisation fine in all three languages (3.5-4.1 s); reflections on
+  Muse Spark Open were specific and warm, including for a child who refused (4-6 s).
+- [ ] **Word lists**: child hazards (`app/constants/child_hazards.py`, the d7 rule) and words a
+  khoj or reflection may not use (`journey_words.py`: careers, exams, labels for a child).
+- [ ] Known behaviour to accept or change: the d7 rule also runs on parent answers, so an answer
+  that warns about a road or fire ("keep her away from the road") is blocked and replaced with
+  the generic redirect.
+- [ ] **Submit the nudge templates** in WhatsApp Manager (`marg_daily_khoj` in hi + en,
+  `marg_daily_khoj_hinglish` in en; text in the chat of 2026-10-27) and note the category Meta
+  gives them.
+
 ## 3. Decisions log entries marked "pending owner review"
 
 - [ ] `docs/design/s05-llm-orchestrator.md`, 2026-10-27 (S5 build choices).
@@ -91,8 +111,6 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
 
 ## 5. Housekeeping
 
-- [ ] **Push `main`** after this review: S5 (×3) and S8 are committed locally only
-  (`c9e1c39`, `eed566f`, `2074499`, `141fefd`, plus the plan tick). CI runs on push.
-- [ ] Muse commits its uncommitted spike files: `docs/spikes/structured-output.md`,
-  `scripts/spikes/structured_output_eval.py`, `scripts/spikes/image_eval.py`.
+- [x] Pushed `main` on 2026-10-27 (S5, S8, the safety backup, Muse's spike E/F); CI green.
+- [x] Muse committed its spike E/F files (`5ec4490`).
 - [ ] If hackathon time allows: the Aspirational engine slice (s11/s12).

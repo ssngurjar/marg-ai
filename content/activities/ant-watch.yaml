@@ -1,0 +1,27 @@
+id: ant-watch
+version: 1
+status: enabled
+age_min: 4
+age_max: 8
+domains: [nature_living]
+setting: courtyard
+season: any
+duration_minutes: 10
+materials: [rice grains]
+title: "Cheentiyon ki duniya"
+steps:
+  - "Find a line of ants on the ground in the courtyard with your child."
+  - "Sit a little away from them and watch quietly, without touching."
+  - "Put two or three rice grains near the line and wait."
+  - "Watch together what the ants do with the grains."
+questions_to_ask:
+  - "Where do you think the ants are taking the grains?"
+  - "How do the ants know where to go?"
+  - "What would you like to ask an ant if you could?"
+listen_for: "Careful noticing, like ants carrying things, meeting each other, or walking in a line."
+parent_tips:
+  - "Watching quietly for a long time is a skill. Praise your child's patience."
+hazards: []
+safety_notes: []
+reviewed_by_role: "owner"
+reviewed_on: 2026-10-27

@@ -28,6 +28,7 @@ class FakeLanguageModel:
     def __init__(self, outputs: Sequence[ScriptedOutput], delay_s: float = 0.0) -> None:
         self.outputs = list(outputs)
         self.prompts: list[RenderedPrompt] = []
+        self.models: list[str] = []  # the model id each request asked for
         self.cancelled = False
         self._delay_s = delay_s
 
@@ -35,6 +36,7 @@ class FakeLanguageModel:
         self, request: GenerationRequest[OutputT]
     ) -> GenerationResult[OutputT]:
         self.prompts.append(request.prompt)
+        self.models.append(request.model)
         try:
             if self._delay_s:
                 await asyncio.sleep(self._delay_s)

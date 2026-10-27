@@ -35,21 +35,22 @@ from app.domain.enums import (
     StepName,
     StepOutcome,
 )
-from app.domain.models.reply import LocalisedReply
+from app.domain.models.reply import CanonicalReply, LocalisedReply
 from app.domain.models.safety import SafetyVerdict
 from app.domain.models.turn import TurnContext
 from app.domain.models.usage import StepUsage
+from app.domain.models.writes import TurnWrite
 from app.domain.rules.register_detector import RegisterDetector
+from app.layers.journey_layer import JourneyLayer
 from app.layers.layer_result import LayerResult
-from app.layers.onboarding_layer import OnboardingLayer, OnboardingResult
-from app.layers.parent_question_layer import ParentQuestionLayer
+from app.layers.onboarding_layer import FirstKhojHandoff, OnboardingLayer, OnboardingResult
 from app.pipeline.failure_policy import FailurePolicy
 from app.pipeline.fixed_reply_service import FixedReplyService
 from app.pipeline.reply_parts_builder import ReplyPartsBuilder
 from app.pipeline.step_models import StepFailure, StepSuccess, TurnOutcome
 from app.pipeline.turn_protocols import StepRecorder, TurnObserver
 from app.pipeline.turn_router import TurnRouter
-from app.safety.safety_gate import InputCheck, OutputCheck, SafetyGate
+from app.safety.safety_gate import InputCheck, OutputCheck, SafeReply, SafetyGate
 
 FALLBACK_REGISTER: Final = Language.HINGLISH
 """Until onboarding records a language (S8), a message with no letters is answered in Hinglish."""
@@ -70,7 +71,7 @@ class OrchestratorSettings:
 @dataclass(frozen=True, slots=True)
 class PipelineSteps:
     gate: SafetyGate
-    parent_questions: ParentQuestionLayer
+    journey: JourneyLayer
     onboarding: OnboardingLayer
     clock: Clock
 
@@ -80,6 +81,14 @@ class _FixedChoice:
     kind: FixedReplyKind
     variant: FixedReplyVariant
     route: Route
+
+
+@dataclass(frozen=True, slots=True)
+class _Sent:
+    """A reply that passed safety_out, and the writes that go with it."""
+
+    safe: SafeReply
+    writes: tuple[TurnWrite, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -155,7 +164,7 @@ class _Turn:
             )
         if decision.route in {Route.ONBOARDING, Route.DATA_DELETION}:
             return await self._onboarding(decision.route, interactive_ids)
-        return await self._journey()
+        return await self._journey(interactive_ids)
 
     async def _onboarding(self, route: Route, interactive_ids: list[str]) -> TurnOutcome:
         """safety_in on what the user typed (button ids are ours), then the onboarding layer."""
@@ -192,47 +201,85 @@ class _Turn:
             )
         )
         await self._record_skipped(StepName.TRANSLATE, "fixed onboarding copy")
-        return self._onboarding_outcome(route, result)
+        return await self._onboarding_outcome(route, result)
 
-    def _onboarding_outcome(self, route: Route, result: OnboardingResult) -> TurnOutcome:
-        """Onboarding copy is reviewed fixed text: sealed without a classifier call (s07 §4.2)."""
+    async def _onboarding_outcome(self, route: Route, result: OnboardingResult) -> TurnOutcome:
+        """Onboarding copy is reviewed fixed text: sealed without a classifier call (s07 §4.2).
+        A parent's first child gets the first khoj in the same turn (s08 §4.7); if that fails,
+        onboarding still completes and the parent can ask for it."""
         reply = result.reply
         kind = reply.fixed_kind or FixedReplyKind.ONBOARDING
-        localised = LocalisedReply(
-            text=reply.body,
-            spoken_text=reply.spoken_text or reply.body,
-            reply_register=reply.body_language,
-            citations=reply.citations,
-            buttons=reply.buttons,
-        )
-        safe = self.steps.gate.clear_fixed(localised, kind)
+        safe = self.steps.gate.clear_fixed(_localised(reply), kind)
+        writes: list[TurnWrite] = list(result.writes)
+        delivery = ReplyPartsBuilder.build(safe, audio_blob_id=None)
+        if isinstance(result.handoff, FirstKhojHandoff):
+            khoj = await self._first_khoj(result.handoff, safe.reply_register)
+            if khoj is not None:
+                delivery = ReplyPartsBuilder.build(khoj.safe, audio_blob_id=None, preamble=safe)
+                writes.extend(khoj.writes)
         return TurnOutcome(
             turn_id=self.ctx.turn_id,
             route=route,
-            delivery=ReplyPartsBuilder.build(safe, audio_blob_id=None),
+            delivery=delivery,
             fixed_reply_kind=kind,
             user_text=self.user_text or None,
             reply_text=safe.text,
             reply_register=safe.reply_register,
             prompt_versions=self.prompt_versions,
             first_failure=self.first_failure,
-            writes=list(result.writes),
+            writes=writes,
         )
 
-    async def _journey(self) -> TurnOutcome:
+    async def _first_khoj(self, handoff: FirstKhojHandoff, register: Language) -> "_Sent | None":
+        learner = handoff.learner
+        ctx = self.ctx.model_copy(
+            update={
+                "learners": [*self.ctx.learners, learner],
+                "active_learner": learner,
+                "open_activity": None,
+                "activity_history": [],
+            }
+        )
         started = self.steps.clock.now()
-        generation = asyncio.create_task(self._generate())
         try:
-            input_check = await self._bounded(
-                self.steps.gate.check_input(self.user_text), self.settings.safety_in_timeout
+            layer_result = await self._bounded(
+                self.steps.journey.first_khoj(ctx, learner, self.steps.clock.now(), register),
+                self.settings.generate_timeout,
             )
-        except (SafetyUnavailable, TimeoutError) as error:
-            await self._discard(generation)
-            return await self._failed(StepName.SAFETY_IN, started, error)
-        await self._record(self._input_record(started, input_check))
-        if input_check.verdict.decision is not SafetyDecision.ALLOW:
-            await self._discard(generation)
-            return self._fixed(self._refusal_for(input_check))
+        except (ProviderError, DomainError, TimeoutError) as error:
+            await self._record_failure(StepName.GENERATE, started, error, "first_khoj")
+            return None
+        self.prompt_versions.update(layer_result.prompt_versions)
+        await self._record(
+            _StepRecord(
+                StepName.GENERATE,
+                started,
+                layer_result,
+                StepUsage.total(layer_result.usages),
+                layer_result.degraded_reason or "first_khoj",
+                outcome=layer_result.outcome,
+            )
+        )
+        checked = await self._checked(layer_result)
+        if not isinstance(checked, _Sent):
+            return None
+        return checked
+
+    async def _journey(self, interactive_ids: list[str]) -> TurnOutcome:
+        started = self.steps.clock.now()
+        generation = asyncio.create_task(self._generate(interactive_ids))
+        if self.user_text:  # a button press carries our own id, nothing typed to check
+            try:
+                input_check = await self._bounded(
+                    self.steps.gate.check_input(self.user_text), self.settings.safety_in_timeout
+                )
+            except (SafetyUnavailable, TimeoutError) as error:
+                await self._discard(generation)
+                return await self._failed(StepName.SAFETY_IN, started, error)
+            await self._record(self._input_record(started, input_check))
+            if input_check.verdict.decision is not SafetyDecision.ALLOW:
+                await self._discard(generation)
+                return self._fixed(self._refusal_for(input_check))
         try:
             layer_result = await generation
         except (ProviderError, TimeoutError) as error:
@@ -251,50 +298,64 @@ class _Turn:
         await self._record_skipped(StepName.TRANSLATE, "direct localisation (C3c)")
         return await self._check_and_seal(layer_result)
 
-    async def _generate(self) -> LayerResult:
+    async def _generate(self, interactive_ids: list[str]) -> LayerResult:
         """The layer call is made inside the task, so a task cancelled before it starts leaves
         no un-awaited coroutine behind."""
         return await self._bounded(
-            self.steps.parent_questions.answer(self.ctx, self.user_text, self.register),
+            self.steps.journey.handle(
+                self.ctx,
+                self.user_text,
+                interactive_ids,
+                self.steps.clock.now(),
+                self.register,
+            ),
             self.settings.generate_timeout,
         )
 
     async def _check_and_seal(self, layer_result: LayerResult) -> TurnOutcome:
-        reply = layer_result.reply
-        localised = LocalisedReply(
-            text=reply.body,
-            spoken_text=reply.spoken_text or reply.body,
-            reply_register=reply.body_language,
-            citations=reply.citations,
-            buttons=reply.buttons,
-        )
-        started = self.steps.clock.now()
-        try:
-            output_check = await self._bounded(
-                self.steps.gate.check_output(localised, self.user_text),
-                self.settings.safety_out_timeout,
-            )
-        except (SafetyUnavailable, TimeoutError) as error:
-            return await self._failed(StepName.SAFETY_OUT, started, error)
-        await self._record(self._output_record(started, output_check))
-        if output_check.safe_reply is None:
-            # Our own reply was flagged: a fixed redirect, and nothing generated goes out.
+        checked = await self._checked(layer_result)
+        if isinstance(checked, TurnOutcome):
+            return checked
+        if checked is None:
+            # Our own reply was flagged: a fixed redirect, nothing generated goes out, and
+            # nothing the reply would have recorded is written.
             return self._fixed(
                 _FixedChoice(FixedReplyKind.REFUSE, FixedReplyVariant.GENERIC, Route.JOURNEY)
             )
-        safe = output_check.safe_reply
         return TurnOutcome(
             turn_id=self.ctx.turn_id,
             route=Route.JOURNEY,
-            delivery=ReplyPartsBuilder.build(safe, audio_blob_id=None),
+            delivery=ReplyPartsBuilder.build(checked.safe, audio_blob_id=None),
             fixed_reply_kind=None,
-            user_text=self.user_text,
-            reply_text=safe.text,
-            reply_register=safe.reply_register,
+            user_text=self.user_text or None,
+            reply_text=checked.safe.text,
+            reply_register=checked.safe.reply_register,
             prompt_versions=self.prompt_versions,
             first_failure=self.first_failure,
-            writes=[],
+            writes=list(checked.writes),
         )
+
+    async def _checked(self, layer_result: LayerResult) -> "_Sent | TurnOutcome | None":
+        """safety_out on the layer's reply; if it's blocked and the layer has reviewed text to
+        fall back on (s10b §4.10), that is checked instead. A safety failure is the HOLDING
+        outcome; None means nothing may be sent."""
+        for reply in (layer_result.reply, layer_result.fallback_reply):
+            if reply is None:
+                continue
+            started = self.steps.clock.now()
+            try:
+                output_check = await self._bounded(
+                    self.steps.gate.check_output(
+                        _localised(reply), self.user_text, hazard_rule=layer_result.hazard_rule
+                    ),
+                    self.settings.safety_out_timeout,
+                )
+            except (SafetyUnavailable, TimeoutError) as error:
+                return await self._failed(StepName.SAFETY_OUT, started, error)
+            await self._record(self._output_record(started, output_check))
+            if output_check.safe_reply is not None:
+                return _Sent(output_check.safe_reply, tuple(layer_result.writes))
+        return None
 
     # --- turn pieces -------------------------------------------------------------------------
 
@@ -322,6 +383,13 @@ class _Turn:
 
     async def _failed(self, step: StepName, started: datetime, error: BaseException) -> TurnOutcome:
         """Record the failure and answer with the step's fallback (s05 §4.5 table)."""
+        fallback = FailurePolicy.reply_for(step)
+        await self._record_failure(step, started, error, f"fallback={fallback.value}")
+        return self._fixed(_FixedChoice(fallback, FixedReplyVariant.DEFAULT, Route.JOURNEY))
+
+    async def _record_failure(
+        self, step: StepName, started: datetime, error: BaseException, detail: str
+    ) -> None:
         failure = StepFailure(
             step=step,
             kind=FailurePolicy.kind_of(error),
@@ -331,7 +399,6 @@ class _Turn:
         if self.first_failure is None:
             self.first_failure = failure
         duration_ms = self._elapsed_ms(started)
-        fallback = FailurePolicy.reply_for(step)
         await self._safely(
             self.recorder.record(
                 turn_id=self.ctx.turn_id,
@@ -341,11 +408,10 @@ class _Turn:
                 duration_ms=duration_ms,
                 usage=None,
                 failure=failure,
-                detail=f"fallback={fallback.value}",
+                detail=detail,
             )
         )
         await self.observer.on_step(self.ctx.turn_id, step, failure, None, duration_ms)
-        return self._fixed(_FixedChoice(fallback, FixedReplyVariant.DEFAULT, Route.JOURNEY))
 
     def _fixed(self, choice: _FixedChoice) -> TurnOutcome:
         """A reviewed fixed text, sealed without a classifier call (s07 §4.2)."""
@@ -455,3 +521,13 @@ def _verdict_detail(verdict: SafetyVerdict, *, guard_down: bool) -> str:
     if guard_down:
         detail = f"{detail} guard=down"
     return detail
+
+
+def _localised(reply: CanonicalReply) -> LocalisedReply:
+    return LocalisedReply(
+        text=reply.body,
+        spoken_text=reply.spoken_text or reply.body,
+        reply_register=reply.body_language,
+        citations=reply.citations,
+        buttons=reply.buttons,
+    )

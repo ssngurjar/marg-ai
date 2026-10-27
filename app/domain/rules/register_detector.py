@@ -16,6 +16,8 @@ class RegisterDetector:
     DEVANAGARI_SHARE_FOR_HINDI: ClassVar[float] = 0.5
     """Hindi when at least this share of the letters are Devanagari (exam names stay Roman)."""
     HINGLISH_MARKERS_NEEDED: ClassVar[int] = 1
+    DEVANAGARI_AT_LEAST: ClassVar[float] = 0.6  # Hindi text: Roman exam names are fine
+    DEVANAGARI_AT_MOST: ClassVar[float] = 0.05  # Roman text: a stray Devanagari word is fine
 
     _DEVANAGARI_LETTER: ClassVar[re.Pattern[str]] = re.compile("[ऀ-ॿ]")
     _ROMAN_LETTER: ClassVar[re.Pattern[str]] = re.compile("[A-Za-z]")
@@ -54,3 +56,23 @@ class RegisterDetector:
         if devanagari + roman == 0:
             return None
         return devanagari / (devanagari + roman)
+
+    @staticmethod
+    def script_problems(written: str, spoken: str, register: Language) -> list[str]:
+        """Fixed-vocabulary problems for a repair turn: is the text, and the spoken text, in the
+        register's script? Hindi text is Devanagari; Hinglish and English text is Roman; spoken
+        text is Devanagari for Hindi and Hinglish (the Hindi voice), Roman for English."""
+        problems: list[str] = []
+        written_share = RegisterDetector.devanagari_share(written) or 0.0
+        spoken_share = RegisterDetector.devanagari_share(spoken) or 0.0
+        wants_devanagari_text = register is Language.HINDI
+        wants_devanagari_speech = register in {Language.HINDI, Language.HINGLISH}
+        if wants_devanagari_text and written_share < RegisterDetector.DEVANAGARI_AT_LEAST:
+            problems.append("text: expected Devanagari script")
+        if not wants_devanagari_text and written_share > RegisterDetector.DEVANAGARI_AT_MOST:
+            problems.append("text: expected Roman script")
+        if wants_devanagari_speech and spoken_share < RegisterDetector.DEVANAGARI_AT_LEAST:
+            problems.append("spoken_text: expected Devanagari script")
+        if not wants_devanagari_speech and spoken_share > RegisterDetector.DEVANAGARI_AT_MOST:
+            problems.append("spoken_text: expected English in Roman script")
+        return problems

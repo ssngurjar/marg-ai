@@ -45,8 +45,6 @@ class ParentQuestionLayer:
         Language.HINGLISH: "Write spoken_text in Hindi, in Devanagari script.",
         Language.ENGLISH: "Write spoken_text in English.",
     }
-    DEVANAGARI_AT_LEAST: ClassVar[float] = 0.6  # Hindi text: Roman exam names are fine
-    DEVANAGARI_AT_MOST: ClassVar[float] = 0.05  # Roman text: a stray Devanagari word is fine
 
     def __init__(self, llm: LanguageModel, registry: PromptRegistry) -> None:
         self._llm = llm
@@ -88,17 +86,12 @@ class ParentQuestionLayer:
     def script_problems(answer: ParentAnswer, register: Language) -> list[str]:
         """Fixed-vocabulary problems for the repair turn: is each field in the right script?"""
         problems: list[str] = []
-        written = f"{answer.answer} {answer.try_this}"
-        written_share = RegisterDetector.devanagari_share(written) or 0.0
-        spoken_share = RegisterDetector.devanagari_share(answer.spoken_text) or 0.0
-        wants_devanagari_text = register is Language.HINDI
-        wants_devanagari_speech = register in {Language.HINDI, Language.HINGLISH}
-        if wants_devanagari_text and written_share < ParentQuestionLayer.DEVANAGARI_AT_LEAST:
-            problems.append("answer, try_this: expected Devanagari script")
-        if not wants_devanagari_text and written_share > ParentQuestionLayer.DEVANAGARI_AT_MOST:
-            problems.append("answer, try_this: expected Roman script")
-        if wants_devanagari_speech and spoken_share < ParentQuestionLayer.DEVANAGARI_AT_LEAST:
-            problems.append("spoken_text: expected Devanagari script")
-        if not wants_devanagari_speech and spoken_share > ParentQuestionLayer.DEVANAGARI_AT_MOST:
-            problems.append("spoken_text: expected English in Roman script")
+        for problem in RegisterDetector.script_problems(
+            f"{answer.answer} {answer.try_this}", answer.spoken_text, register
+        ):
+            # This layer's prompt names the fields, so the repair message does too.
+            if problem.startswith("text:"):
+                problems.append("answer, try_this:" + problem.removeprefix("text:"))
+            else:
+                problems.append(problem)
         return problems

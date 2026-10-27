@@ -1,0 +1,13 @@
+# Hazards an activity may declare (s10b §4.3, §4.10). A declared hazard needs a safety note, and
+# the d7 rule allows its words only on the activity that declares it. The launch catalogue
+# declares none.
+hazards:
+  - water_body
+  - fire
+  - sharp_tool
+  - electricity
+  - road
+  - height
+  - wild_animal
+  - unknown_plant
+  - medicine

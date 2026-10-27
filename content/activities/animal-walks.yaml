@@ -1,0 +1,27 @@
+id: animal-walks
+version: 1
+status: enabled
+age_min: 3
+age_max: 7
+domains: [movement_body, numbers_patterns]
+setting: courtyard
+season: any
+duration_minutes: 5
+materials: []
+title: "Jaanwar ki chaal"
+steps:
+  - "Find a flat, open space in the courtyard with your child."
+  - "Take turns walking like an animal: slow like a cow, hopping like a frog, waddling like a duck."
+  - "Ask your child to choose an animal and show you how it moves."
+  - "Count together: how many frog jumps does it take to cross the courtyard?"
+questions_to_ask:
+  - "Which animal was the fastest to copy? Which was the slowest?"
+  - "Why do you think a frog jumps and a cow walks?"
+  - "How many frog jumps will it take to come back?"
+listen_for: "How your child moves, what they notice about animals, and their counting."
+parent_tips:
+  - "Play that moves the body also helps a child think and settle."
+hazards: []
+safety_notes: []
+reviewed_by_role: "owner"
+reviewed_on: 2026-10-27

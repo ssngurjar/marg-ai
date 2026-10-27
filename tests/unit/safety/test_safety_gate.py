@@ -273,6 +273,7 @@ async def test_a_flag_the_second_opinion_clears_is_sent_and_recorded() -> None:
     assert check.overruled == (C.NON_VIOLENT_CRIMES,)
     assert check.verdict.categories == []
     assert check.verdict.source == "domain_policy"
+    assert check.usage is not None
     assert check.usage.provider == "llama_guard+meta_model_api"
 
 
@@ -383,3 +384,48 @@ async def test_a_confirmed_harm_keeps_only_what_llama_guard_and_the_policy_flagg
     policy, _ = scripted_policy([policy_answer(harm="crime")])
     check = await gate_with(flagging(C.NON_VIOLENT_CRIMES, C.HATE), policy).check_input("x")
     assert set(check.verdict.categories) == {C.NON_VIOLENT_CRIMES, C.HATE}
+
+
+# --- d7: physical hazards for a young child on journey replies (s10b §4.10) ---------------------
+
+
+def reply_saying(text: str) -> LocalisedReply:
+    return REPLY.model_copy(update={"text": text})
+
+
+async def test_an_undeclared_hazard_blocks_the_reply_before_any_provider_call() -> None:
+    classifier = FakeSafetyClassifier()
+    scripted = scripted_policies()
+    gate = gate_with(classifier, scripted.policy)
+    check = await gate.check_output(
+        reply_saying("Bachche ko talab ke paas le jaiye."), QUESTION, hazard_rule=frozenset()
+    )
+    assert check.safe_reply is None
+    assert check.verdict.categories == [C.CHILD_PHYSICAL_HAZARD]
+    assert check.usage is None
+    assert classifier.requests == []
+    assert scripted.reply_llm.prompts == []
+
+
+async def test_a_declared_hazard_passes_the_rule() -> None:
+    check = await gate_with(FakeSafetyClassifier()).check_output(
+        reply_saying("Talab dekhiye, haath pakad kar."),
+        QUESTION,
+        hazard_rule=frozenset({"water_body"}),
+    )
+    assert check.safe_reply is not None
+
+
+async def test_the_rule_reads_the_spoken_text_too() -> None:
+    spoken_hazard = REPLY.model_copy(update={"spoken_text": "बच्चे को आग के पास ले जाइए।"})
+    check = await gate_with(FakeSafetyClassifier()).check_output(
+        spoken_hazard, QUESTION, hazard_rule=frozenset()
+    )
+    assert check.safe_reply is None
+
+
+async def test_without_a_hazard_rule_the_d7_check_doesnt_run() -> None:
+    check = await gate_with(FakeSafetyClassifier()).check_output(
+        reply_saying("Sadak paar karte waqt haath pakdiye."), QUESTION
+    )
+    assert check.safe_reply is not None

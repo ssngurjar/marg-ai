@@ -43,9 +43,12 @@ line of the module's docstring.
 
 | Module | Classes | What it does |
 |---|---|---|
+| `child_hazards.py` | — | The d7 child-hazard words (s10b §4.10, s07 §4.5), per hazard on content/activities/_hazards.yaml. |
 | `crisis_lexicon.py` | — | Crisis phrase lists (s07 §4.5 rule 1): the check that works when every provider is down. |
 | `crisis_replies.py` | `Helpline`, `CrisisText` | Crisis replies and the helplines they give (s07 §4.6). Reviewed text, never generated. |
 | `fixed_replies.py` | `FixedText`, `FixedTextKey` | Fixed replies: reviewed copy keyed by (kind, variant, language) (contracts §6). |
+| `journey_copy.py` | — | Fixed journey text (s10b §4.7, §4.10): the supervision line, body labels, buttons, and the |
+| `journey_words.py` | — | Words a personalised khoj or reflection may not use (s10b §4.7, §4.8): careers and exams for a |
 | `model_prices.py` | `ModelPrice` | Model prices per million tokens, for cost accounting (s05 §4.1, s07 §4.3). |
 | `onboarding_copy.py` | `CopyEntry` | Onboarding copy: fixed, reviewed text in Hinglish, Hindi and English (s08 §4.8). |
 | `whatsapp.py` | — | WhatsApp Cloud API limits and error codes (s03 §4.9, §4.10). |
@@ -66,12 +69,13 @@ line of the module's docstring.
 
 | Module | Classes | What it does |
 |---|---|---|
-| `enums.py` | `Channel`, `MessageKind`, `ConversationState`, `InboxStatus`, `OutboxStatus`, `PartKind`, `Language`, `Route`, `StepName`, `StepOutcome`, `FailureKind`, `TurnStatus`, `SafetyDecision`, `SafetyCategory`, `FixedReplyKind`, `FixedReplyVariant`, `Mode`, `Role`, `ConsentEventKind`, `LearnerRelation`, `CopyKey` | Closed sets of values shared across the app (contracts.md §1). |
+| `enums.py` | `Channel`, `MessageKind`, `ConversationState`, `InboxStatus`, `OutboxStatus`, `PartKind`, `Language`, `Route`, `StepName`, `StepOutcome`, `FailureKind`, `TurnStatus`, `SafetyDecision`, `SafetyCategory`, `FixedReplyKind`, `FixedReplyVariant`, `Mode`, `Role`, `ConsentEventKind`, `LearnerRelation`, `CopyKey`, `CuriosityDomain`, `ActivityStatus`, `AgeBand` | Closed sets of values shared across the app (contracts.md §1). |
 
 ## `domain/models`
 
 | Module | Classes | What it does |
 |---|---|---|
+| `activity.py` | `Activity`, `OfferRecord`, `PastActivity`, `OfferedActivity` | Activities: reviewed catalogue entries and what was offered to a learner (s10b §4.3, §5). |
 | `base.py` | `DomainModel` | Identifiers and the base every domain model shares (contracts.md §2.1). |
 | `conversation.py` | `ProfileUpdate`, `FirstContact`, `ConsentGiven`, `ConsentDeclined`, `RoleChosen`, `RoleUnavailable`, `GuardianConfirmed`, `GuardianDeclined`, `ProfileAnswered`, `ChildAnswered`, `ChildInvalid`, `AddChild`, `ChildTalkAnswered`, `TeacherAsked`, `LanguageSwitched`, `QuestionNoted`, `Unrecognised`, `DeletionRequested`, `DeletionConfirmed`, `DeletionCancelled`, `SendCopy`, `RecordConsent`, `UpsertLearner`, `SetChildTalk`, `PurgeAfterDelivery`, `HandoffPendingQuestion`, `HandoffFirstKhoj`, `Transition` | The onboarding conversation's events and effects (s08 §4.2). Pure data. |
 | `delivery.py` | `PartState` | Where an outbound part stands in its delivery (s04 §4.10). |
@@ -82,26 +86,33 @@ line of the module's docstring.
 | `safety.py` | `SafetyVerdict`, `CrisisLexicon` | A safety check's result (contracts.md §2.5). Produced by s07's gate; read by the trace. |
 | `turn.py` | `UserProfile`, `Exchange`, `TurnContext`, `QueuedMessage` | A turn and what it knows about the user (contracts.md §2.2; s04 §4.4, §4.5). |
 | `usage.py` | `StepUsage` | What a provider call cost (contracts §2.3). Attached to every turn_steps row. |
-| `writes.py` | `ProfileChange`, `LearnerUpsert`, `MarkPurgeAfterDelivery`, `ChildTalkConsent` | State changes that commit with the reply (contracts §2.4). |
+| `writes.py` | `ProfileChange`, `LearnerUpsert`, `MarkPurgeAfterDelivery`, `ChildTalkConsent`, `ActivityOffered`, `ActivityReported` | State changes that commit with the reply (contracts §2.4). |
 
 ## `domain/rules`
 
 | Module | Classes | What it does |
 |---|---|---|
+| `activity_chooser.py` | `ActivityChooser` | ActivityChooser: which khoj today, deterministically (s10b §4.6). Pure. |
+| `activity_validator.py` | `ActivityValidator` | ActivityValidator: a catalogue entry is safe to serve, or the app refuses to start (s10b §4.3). |
+| `child_hazard_matcher.py` | `ChildHazardMatcher` | ChildHazardMatcher: which physical hazards a text mentions (d7, s10b §4.10). Pure. |
 | `conversation_machine.py` | `ConversationMachine` | ConversationMachine: the onboarding state machine (s08 §4.1 to §4.3). Pure and deterministic. |
 | `crisis_phrase_matcher.py` | `CrisisPhraseMatcher` | CrisisPhraseMatcher: the crisis rules that need no provider (s07 §4.5 rule 1, §4.6). Pure. |
 | `delivery_planner.py` | `DeliveryPlanner` | DeliveryPlanner: part order and status changes (s03 §4.8, s04 §4.10). Pure. |
+| `learner_chooser.py` | `RecentOffer`, `LearnerChooser` | LearnerChooser: which of a parent's children this turn is about (s10b §4.2). Pure. |
 | `message_splitter.py` | `MessageSplitter` | MessageSplitter: a reply cut into channel-sized messages (s05 §4.7). Pure. |
 | `onboarding_answer_parser.py` | `Found`, `GradeParse`, `ChildAgeParse`, `NicknameParse`, `OnboardingAnswerParser` | OnboardingAnswerParser: what an onboarding answer says, without a model (s08 §4.4 step 4). Pure. |
 | `phrase_finder.py` | `PhraseFinder` | PhraseFinder: whole-phrase matching on normalised text, for keyword rules (s07, s08). Pure. |
 | `register_detector.py` | `RegisterDetector` | RegisterDetector: which language and script a message is in (s09's detect_register). Pure. |
 | `session_rules.py` | `SessionRules` | SessionRules: the only definition of a session (contracts §2.2). Pure. |
+| `stage_rules.py` | `StageRules` | StageRules: a learner's age and NEP stage from their birth year (s10b §4.2). Pure. |
 | `turn_batcher.py` | `TurnBatcher` | TurnBatcher: which pending messages a turn takes, and when it gives up (s04 §4.4, §4.9). Pure. |
 
 ## `layers`
 
 | Module | Classes | What it does |
 |---|---|---|
+| `activity_catalogue.py` | `ActivityCatalogue`, `CatalogueActivitySource` | ActivityCatalogue: the reviewed khoj catalogue, loaded and checked at startup (s10b §4.3). |
+| `journey_layer.py` | `ActivityPersonalisation`, `ParentReflection`, `JourneySettings`, `JourneyLayer` | JourneyLayer: "Aaj ki Khoj" for parents of children aged 3-8 (s10b §4.4 to §4.9). |
 | `layer_result.py` | `LayerResult` | LayerResult: what every layer's generate step returns (s12 §4, s05 §4.4a). |
 | `onboarding_layer.py` | `ProfileExtraction`, `FirstKhojHandoff`, `PendingQuestionHandoff`, `OnboardingResult`, `OnboardingLayer` | OnboardingLayer: a message during onboarding → a state-machine event → fixed copy and writes |
 | `parent_question_layer.py` | `ParentAnswer`, `ParentQuestionLayer` | ParentQuestionLayer: a parent's question answered warmly and practically (s10b §4.9, flow D). |
@@ -137,6 +148,7 @@ line of the module's docstring.
 
 | Module | Classes | What it does |
 |---|---|---|
+| `fallback_language_model.py` | `FallbackRoute`, `FallbackLanguageModel` | FallbackLanguageModel: Muse Spark Open first for some prompts, Muse Spark 1.3 if it fails |
 | `meta_model_api_language_model.py` | `ModelApiConfig`, `MetaModelApiLanguageModel` | MetaModelApiLanguageModel: Muse Spark through Chat Completions, strict JSON (s05 §4.1, ADR 0007). |
 | `model_pricing.py` | `ModelPricing` | ModelPricing: what a call cost, and which models may see user content (s05 §4.1). |
 
@@ -167,6 +179,7 @@ line of the module's docstring.
 | Module | Classes | What it does |
 |---|---|---|
 | `inbox_repository.py` | `InboundRecord`, `SaveResult`, `LatestInbound`, `InboxRepository` | Storing inbound WhatsApp messages (s03 §4.5, §4.6). The only SQL for users and the inbox. |
+| `journey_repository.py` | `JourneyRepository` | The khoj offered to each child and how it went (s10b §5, data-model `learner_activities`). |
 | `learner_repository.py` | `LearnerRepository` | Learners: a parent's children or a student's own learner (s08 §4.11, data-model `learners`). |
 | `outbox_repository.py` | `OutboxRow`, `OutboxRepository` | OutboxRepository: queued reply parts and their delivery (s04 §4.7, §4.10; s03 §4.8). |
 | `turn_repository.py` | `StartedTurn`, `FinishedTurn`, `FinalizeResult`, `TurnRepository` | Turns: claiming a user's pending messages, loading the context, finalizing (s04 §4.4 to §4.7). |

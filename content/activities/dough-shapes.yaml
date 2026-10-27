@@ -1,0 +1,28 @@
+id: dough-shapes
+version: 2
+status: enabled
+age_min: 3
+age_max: 6
+domains: [numbers_patterns, making_building]
+setting: kitchen
+season: any
+duration_minutes: 10
+materials: [flour dough, steel plate]
+title: "Aate ke aakar"
+steps:
+  - "While you make dough for rotis, give your child a small piece of the dough on a steel plate."
+  - "Ask your child to make a ball, then flatten it into a circle."
+  - "Ask them to roll a long thin rope of dough and bend it into a triangle or a square."
+  - "Make a few shapes yourself and ask your child to copy them."
+  - "Count the corners of each shape together."
+questions_to_ask:
+  - "How many corners does the triangle have? And the square?"
+  - "What can you make with two circles?"
+  - "Which shape was the hardest to make? Why?"
+listen_for: "Your child naming shapes, counting corners, or inventing a new shape of their own."
+parent_tips:
+  - "Everyday work like cooking is full of learning. Talk while you work together."
+hazards: []
+safety_notes: []
+reviewed_by_role: "owner"
+reviewed_on: 2026-10-27

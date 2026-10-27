@@ -1,0 +1,28 @@
+id: sink-or-float
+version: 1
+status: enabled
+age_min: 3
+age_max: 8
+domains: [making_building, earth_sky]
+setting: home
+season: any
+duration_minutes: 10
+materials: [bowl, water in a bowl, stones, leaves, spoon, bottle caps, twigs]
+title: "Doobega ya tairega?"
+steps:
+  - "Put some water in a bowl and keep it on the floor between you and your child."
+  - "Collect a few small things: a stone, a leaf, a spoon, a bottle cap, a twig."
+  - "Before dropping each one in, ask your child: will it sink or float?"
+  - "Let your child drop it in gently and watch what happens."
+  - "Make two piles together: things that sank and things that floated."
+questions_to_ask:
+  - "Why do you think the stone sank and the leaf floated?"
+  - "Was there anything that surprised you?"
+  - "What else at home do you think will float?"
+listen_for: "Guesses before each drop, and any reason your child gives, like heavy, light, big or flat."
+parent_tips:
+  - "Ask for a guess first. Guessing, then checking, is how scientists learn."
+hazards: []
+safety_notes: []
+reviewed_by_role: "owner"
+reviewed_on: 2026-10-27

@@ -1,0 +1,27 @@
+id: stone-tower
+version: 1
+status: enabled
+age_min: 3
+age_max: 8
+domains: [making_building, numbers_patterns]
+setting: courtyard
+season: any
+duration_minutes: 10
+materials: [stones]
+title: "Pattharon ka minar"
+steps:
+  - "Collect flat stones of different sizes with your child."
+  - "Ask your child to build a tower by putting stones on top of each other."
+  - "Count how many stones stay up before the tower falls."
+  - "Try again, and ask your child to change something to make it taller."
+questions_to_ask:
+  - "Why do you think the tower fell?"
+  - "Which stones are best at the bottom? Why?"
+  - "How tall can we make it next time?"
+listen_for: "Your child testing ideas, like big stones at the bottom, and trying again after a fall."
+parent_tips:
+  - "When the tower falls, smile and ask 'what will you try now?'. Trying again matters most."
+hazards: []
+safety_notes: []
+reviewed_by_role: "owner"
+reviewed_on: 2026-10-27

@@ -1,0 +1,29 @@
+id: leaf-families
+version: 1
+status: enabled
+age_min: 3
+age_max: 8
+domains: [nature_living, numbers_patterns]
+setting: courtyard
+season: any
+duration_minutes: 10
+materials: [leaves]
+title: "Patton ka parivaar"
+steps:
+  - "Walk around the courtyard or lane with your child and pick up fallen leaves together."
+  - "Collect at least five leaves that look different from each other."
+  - "Lay them on the ground and ask your child to put leaves that look alike together."
+  - "Ask your child to put the leaves in a line from the smallest to the biggest."
+  - "Count the leaves in each group together."
+questions_to_ask:
+  - "Why did you put these leaves together?"
+  - "Which leaf is your favourite? What do you notice about it?"
+  - "Can you find a leaf that doesn't belong in any group?"
+listen_for: "The reason your child gives for each group: colour, size, shape or edges all count."
+parent_tips:
+  - "There is no wrong way to sort. Ask your child to tell you their rule."
+  - "Counting things you can touch helps small children understand numbers."
+hazards: []
+safety_notes: []
+reviewed_by_role: "owner"
+reviewed_on: 2026-10-27

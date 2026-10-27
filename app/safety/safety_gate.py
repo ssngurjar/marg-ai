@@ -28,6 +28,7 @@ from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import ClassVar, Final, Literal
 
+from app.constants.child_hazards import CHILD_HAZARD_WORDS
 from app.core.errors import ProviderError, SafetyUnavailable
 from app.core.logging import get_logger
 from app.domain.enums import (
@@ -40,6 +41,7 @@ from app.domain.enums import (
 from app.domain.models.reply import Citation, LocalisedReply, ReplyButton
 from app.domain.models.safety import SafetyVerdict
 from app.domain.models.usage import StepUsage
+from app.domain.rules.child_hazard_matcher import ChildHazardMatcher
 from app.providers.ports import SafetyClassifier, SafetyRequest
 from app.safety.domain_policy import DomainPolicy, PolicyFindings
 from app.safety.safety_decision_mapper import SafetyDecisionMapper
@@ -82,7 +84,7 @@ class OutputCheck:
 
     verdict: SafetyVerdict
     safe_reply: SafeReply | None
-    usage: StepUsage
+    usage: StepUsage | None  # None when the d7 rule blocked before any provider call
     guard_down: bool = False  # Llama Guard failed and the Muse Spark reply check decided
     overruled: tuple[SafetyCategory, ...] = ()  # Llama Guard codes the second opinion cleared
 
@@ -90,7 +92,7 @@ class OutputCheck:
 @dataclass(frozen=True, slots=True)
 class _OutputVerdict:
     verdict: SafetyVerdict
-    usage: StepUsage
+    usage: StepUsage | None
     guard_down: bool
     overruled: tuple[SafetyCategory, ...]
 
@@ -169,14 +171,33 @@ class SafetyGate:
             guard_categories | policy_categories, source, usages, guard_down=guard is None
         )
 
-    async def check_output(self, reply: LocalisedReply, user_text: str) -> OutputCheck:
+    async def check_output(
+        self,
+        reply: LocalisedReply,
+        user_text: str,
+        *,
+        hazard_rule: frozenset[str] | None = None,
+    ) -> OutputCheck:
         """Classify our reply in the context of the user's message; seal it only if allowed.
 
         A Llama Guard flag gets a second opinion from the Muse Spark reply check: the reply is
         sent only if that finds nothing (owner, 2026-10-27: a harmless answer on teaching
         colours was flagged S2 every time). If the second opinion fails, the flag stands.
-        Raises SafetyUnavailable when Llama Guard and the backup reply check both fail.
+        `hazard_rule` (journey replies, s10b §4.10): the hazards the offered activity declares.
+        Any other physical hazard for a young child in the reply blocks it before any provider
+        call (d7). Raises SafetyUnavailable when Llama Guard and the backup check both fail.
         """
+        if hazard_rule is not None:
+            undeclared = ChildHazardMatcher.undeclared(
+                f"{reply.text} {reply.spoken_text}", CHILD_HAZARD_WORDS, hazard_rule
+            )
+            if undeclared:
+                verdict = SafetyVerdict(
+                    decision=SafetyDecision.BLOCK,
+                    categories=[SafetyCategory.CHILD_PHYSICAL_HAZARD],
+                    source="domain_policy",
+                )
+                return OutputCheck(verdict=verdict, safe_reply=None, usage=None)
         request = SafetyRequest(speaker="assistant", text=reply.text, prior_user_text=user_text)
         guard = await self._guard(request)
         overruled: tuple[SafetyCategory, ...] = ()

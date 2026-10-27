@@ -1,0 +1,28 @@
+id: yesterday-story
+version: 1
+status: enabled
+age_min: 3
+age_max: 8
+domains: [words_stories, people_feelings]
+setting: home
+season: any
+duration_minutes: 5
+materials: []
+title: "Kal ki kahani"
+steps:
+  - "Sit with your child at a quiet time, such as after food or before sleep."
+  - "Ask your child to tell you a story about something that happened yesterday."
+  - "Ask: what happened first, then what happened next, and how did it end?"
+  - "Then tell your child a short story about your own yesterday."
+questions_to_ask:
+  - "How did you feel when that happened?"
+  - "Who else was there? What do you think they felt?"
+  - "If you could change one thing in the story, what would it be?"
+listen_for: "Whether your child tells things in order, and the feeling words they use."
+parent_tips:
+  - "Telling stories in order builds the thinking a child needs for reading and writing."
+  - "Name feelings out loud yourself, like 'I felt happy when…'."
+hazards: []
+safety_notes: []
+reviewed_by_role: "owner"
+reviewed_on: 2026-10-27

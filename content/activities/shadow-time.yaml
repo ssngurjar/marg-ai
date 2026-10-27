@@ -1,0 +1,28 @@
+id: shadow-time
+version: 1
+status: enabled
+age_min: 4
+age_max: 8
+domains: [earth_sky, numbers_patterns]
+setting: outdoors
+season: any
+duration_minutes: 5
+materials: [stick, stones]
+title: "Parchhai ka khel"
+steps:
+  - "In the morning, push a stick into the ground in an open sunny spot with your child."
+  - "Ask your child to mark the tip of the stick's shadow with a stone."
+  - "Come back at lunchtime and mark the tip of the shadow again with a second stone."
+  - "If you can, mark it once more in the evening."
+questions_to_ask:
+  - "Where did the shadow go? Why do you think it moved?"
+  - "When was the shadow longest, and when was it shortest?"
+  - "Where do you think the shadow will be tomorrow morning?"
+listen_for: "Any idea that connects the shadow to where the sun is, even if it isn't exactly right."
+parent_tips:
+  - "Ask 'why do you think so?' and wait. The thinking matters more than the right answer."
+  - "It's fine to say 'I don't know either, let's watch together tomorrow'."
+hazards: []
+safety_notes: []
+reviewed_by_role: "owner"
+reviewed_on: 2026-10-27

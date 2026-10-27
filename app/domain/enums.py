@@ -248,3 +248,34 @@ class CopyKey(StrEnum):
     CONFIRM_DELETE = "confirm_delete"
     DELETE_CANCELLED = "delete_cancelled"
     DATA_DELETED = "data_deleted"
+
+
+class CuriosityDomain(StrEnum):
+    """What a child explores (s10b §4.3, s13). Tags on activities and curiosity signals."""
+
+    NATURE_LIVING = "nature_living"
+    EARTH_SKY = "earth_sky"
+    NUMBERS_PATTERNS = "numbers_patterns"
+    WORDS_STORIES = "words_stories"
+    MAKING_BUILDING = "making_building"
+    MOVEMENT_BODY = "movement_body"
+    ART_MUSIC = "art_music"
+    PEOPLE_FEELINGS = "people_feelings"
+    EVERYDAY_WORK = "everyday_work"
+
+
+class ActivityStatus(StrEnum):
+    OFFERED = "offered"
+    DONE = "done"
+    SKIPPED = "skipped"
+
+
+class AgeBand(StrEnum):
+    """NEP 5+3+3+4 stages by age (s10b §4.2). The MVP serves FOUNDATIONAL_3_8."""
+
+    UNDER_3 = "under_3"
+    FOUNDATIONAL_3_8 = "foundational_3_8"
+    PREPARATORY_8_11 = "preparatory_8_11"
+    MIDDLE_11_14 = "middle_11_14"
+    SECONDARY_14_18 = "secondary_14_18"
+    ADULT = "adult"

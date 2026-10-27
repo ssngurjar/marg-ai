@@ -78,7 +78,15 @@ class Settings(DatabaseSettings):
     model_api_base_url: HttpUrl
     model_api_key: SecretStr
     model_text: str = Field(default="muse-spark-1.3", min_length=1)
-    model_reasoning_effort: ReasoningEffort = "minimal"  # spike E: 2-4 s, no quality loss
+    model_reasoning_effort: ReasoningEffort = "minimal"
+    # Muse Spark Open on Baseten (C9): the reflection prompt; Spark 1.3 is its fallback.
+    open_model_base_url: HttpUrl
+    open_model_api_key: SecretStr
+    open_model: str = Field(min_length=1)
+    timeout_open_model_s: float = Field(default=7.0, gt=0)  # then fall back (owner, 2026-10-27)
+    activity_repeat_days: int = Field(
+        default=30, ge=1
+    )  # s10b §4.6  # spike E: 2-4 s, no quality loss
     safety_base_url: HttpUrl
     safety_api_key: SecretStr
     safety_model: str = Field(min_length=1)
@@ -93,7 +101,7 @@ class Settings(DatabaseSettings):
     # 6 s: Llama Guard (≤ 1.5 s), then the Muse Spark backup reply check when it's down (~2.5 s)
     timeout_safety_out_s: float = Field(default=6.0, gt=0)
 
-    @field_validator("model_api_key", "safety_api_key")
+    @field_validator("model_api_key", "safety_api_key", "open_model_api_key")
     @classmethod
     def _require_a_key(cls, key: SecretStr) -> SecretStr:
         if not key.get_secret_value().strip():

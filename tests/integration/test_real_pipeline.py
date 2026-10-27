@@ -40,6 +40,12 @@ from tests.fakes.sender import FakeSender
 from tests.fakes.sleeper import FakeSleeper
 from tests.support import whatsapp_payloads as wa
 from tests.support.app_factory import TEST_PHONE_NUMBER_ID, make_identity, make_settings
+from tests.support.journey import (
+    REFLECTION,
+    REFLECTION_PRAISE,
+    first_choice,
+    personalisation_for,
+)
 from tests.support.parent_answers import HINGLISH_ANSWER
 
 pytestmark = pytest.mark.integration
@@ -91,6 +97,8 @@ def wire(
             "minor_policy": FakeLanguageModel([policy]),
             "reply_policy": FakeLanguageModel([reply_policy]),
             "profile_extraction": EXTRACTION,
+            "activity_personalise": FakeLanguageModel([personalisation_for(first_choice())]),
+            "parent_reflection": FakeLanguageModel([REFLECTION]),
         }
     )
     orchestrator = build_orchestrator(settings, language_model, classifier, clock)
@@ -301,7 +309,19 @@ async def test_a_new_parent_is_onboarded_with_consent_recorded_and_one_child(
         ("granted", COPY_VERSION),
         ("child_profile_consent", COPY_VERSION),
     ]
-    assert len(pipeline.sender.sent) == 4
+    first_khoj = pipeline.sender.sent[-1].part
+    assert [button.id for button in first_khoj.buttons] == ["jrn:done", "jrn:other"]
+    assert await rows(engine, "SELECT activity_id, status FROM learner_activities") == [
+        (first_choice().id, "offered")
+    ]
+    await ask(
+        pipeline, "Munni ne kaha parchhai suraj ki wajah se ghoomti hai", message_id="wamid.O5"
+    )
+    reflection = pipeline.sender.sent[-1].part.text or ""
+    assert REFLECTION_PRAISE in reflection
+    assert await rows(engine, "SELECT status, child_response_summary FROM learner_activities") == [
+        ("done", str(REFLECTION["summary_for_record"]))
+    ]
 
 
 async def test_delete_my_data_purges_every_table_after_the_reply_and_hi_starts_fresh(

@@ -58,8 +58,9 @@ class ReplyPartsBuilder:
         """The parts that carry `reply`, in order.
 
         - `template` (NUDGE turns only): exactly one TEMPLATE part, nothing else.
-        - Otherwise: the preamble's text first, then the audio, then the reply's text split to the
-          channel limit; buttons attach to the last text part, which becomes INTERACTIVE.
+        - Otherwise: the preamble's text (with its own buttons) first, then the audio, then the
+          reply's text split to the channel limit; buttons attach to the last text part, which
+          becomes INTERACTIVE.
         - A fixed CRISIS reply puts its text before the audio, so helpline numbers arrive first.
         """
         if template is not None:
@@ -70,7 +71,7 @@ class ReplyPartsBuilder:
             )
         contents: list[_Content] = []
         if preamble is not None:
-            contents.extend(ReplyPartsBuilder._text_contents(preamble.text, buttons=()))
+            contents.extend(ReplyPartsBuilder._text_contents(preamble.text, preamble.buttons))
         reply_text = ReplyPartsBuilder._text_contents(reply.text, buttons=reply.buttons)
         if audio_blob_id is None:
             contents.extend(reply_text)

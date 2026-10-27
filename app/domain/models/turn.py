@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from app.domain.enums import Channel, ConversationState, Language, Role, Route
+from app.domain.models.activity import OfferRecord
 from app.domain.models.base import DomainModel, TurnId, UserHash
 from app.domain.models.learner import Learner
 from app.domain.models.message import InboundMessage
@@ -38,13 +39,15 @@ class Exchange(DomainModel):
 class TurnContext(DomainModel):
     """Everything one turn needs, loaded by the worker (s04 §4.5) and read by every step.
 
-    S10b adds the active learner, open activity and child session, S12 memory and the roadmap,
-    each with the table it reads.
+    S10b adds the child session, S12 memory and the roadmap, each with the table it reads.
     """
 
     turn_id: TurnId
     profile: UserProfile
     learners: list[Learner]  # the user's children (parents) or own learner (students), ≤ 3
+    active_learner: Learner | None  # who this turn is about (LearnerChooser); None: ask
+    open_activity: OfferRecord | None  # the active learner's latest OFFERED activity, < 48 h
+    activity_history: list[OfferRecord]  # the active learner's activities, newest first
     messages: list[InboundMessage]  # oldest first; at least one
     recent_exchanges: list[Exchange]  # the last RECENT_EXCHANGES, oldest first
     is_session_start: bool  # first turn, or SESSION_GAP since the previous (SessionRules)
