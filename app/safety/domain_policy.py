@@ -4,6 +4,9 @@ Two detectors next to Llama Guard:
 - the crisis phrase rules (CrisisPhraseMatcher over CRISIS_LEXICON), which need no provider;
 - the Muse Spark policy check (`minor_policy` prompt), behind SAFETY_POLICY_MODEL_ENABLED.
 
+And the backup for Llama Guard on our own reply (`reply_policy` prompt), used only when Llama
+Guard fails, so a reply is never sent unchecked and never held just because one host is down.
+
 Spike B (docs/spikes/safety-guard.md) showed Llama Guard 4 misses distress and abuse
 disclosures and flags ordinary parent questions as S1/S2/S4, so the policy check also reports
 whether the message asks for harm, which the gate uses to confirm those two codes.
@@ -41,6 +44,21 @@ class MinorPolicyCheck(BaseModel):
 
 
 MINOR_POLICY: Final = PromptSpec(prompt_id="minor_policy", output_type=MinorPolicyCheck)
+
+
+class ReplyPolicyCheck(BaseModel):
+    """The backup check on our own reply, used when Llama Guard is down (owner, 2026-10-27)."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    harm_kind: HarmKind
+    encourages_self_harm: bool
+    medical_instructions: bool
+    endangers_child: bool
+    reason: str = Field(max_length=120)  # helps the model decide; never logged or stored
+
+
+REPLY_POLICY: Final = PromptSpec(prompt_id="reply_policy", output_type=ReplyPolicyCheck)
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,6 +110,36 @@ class DomainPolicy:
         )
         result = await self._model.llm.generate(rendered.request)
         return self.findings_from(result.output, result.usage)
+
+    async def check_output_model(self, reply_text: str, user_text: str) -> PolicyFindings | None:
+        """The Muse Spark backup check on our reply; None when the policy model is switched off.
+        Raises ProviderError."""
+        if self._model is None:
+            return None
+        rendered = self._model.registry.render(
+            REPLY_POLICY,
+            system_vars={},
+            user_vars={"parent_message": user_text, "reply": reply_text},
+        )
+        result = await self._model.llm.generate(rendered.request)
+        return self.reply_findings_from(result.output, result.usage)
+
+    @staticmethod
+    def reply_findings_from(check: ReplyPolicyCheck, usage: StepUsage) -> PolicyFindings:
+        categories: set[SafetyCategory] = set()
+        if check.harm_kind != "none":
+            categories.add(DomainPolicy.HARM_CATEGORIES[check.harm_kind])
+        if check.encourages_self_harm:
+            categories.add(SafetyCategory.SELF_HARM)
+        if check.medical_instructions:
+            categories.add(SafetyCategory.MEDICAL)
+        if check.endangers_child:
+            categories.add(SafetyCategory.CHILD_PHYSICAL_HAZARD)
+        return PolicyFindings(
+            categories=frozenset(categories),
+            asks_for_harm=check.harm_kind != "none",
+            usage=usage,
+        )
 
     @staticmethod
     def findings_from(check: MinorPolicyCheck, usage: StepUsage) -> PolicyFindings:

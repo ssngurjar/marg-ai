@@ -1,6 +1,9 @@
 """SafetyGate: three checks on the user's message, Llama Guard on our reply, fail closed, and
 seal a generated reply only when it was allowed (s07 §4.2, §4.5; spike B)."""
 
+import asyncio
+from datetime import timedelta
+
 import pytest
 
 from app.core.errors import (
@@ -22,7 +25,13 @@ from app.domain.models.reply import LocalisedReply
 from app.providers.ports import SafetyRequest
 from app.safety.domain_policy import DomainPolicy, HarmKind
 from app.safety.safety_gate import SafeReply, SafetyGate
-from tests.fakes.domain_policy import CLEAR, policy_answer, rules_only_policy, scripted_policy
+from tests.fakes.domain_policy import (
+    policy_answer,
+    reply_answer,
+    rules_only_policy,
+    scripted_policies,
+    scripted_policy,
+)
 from tests.fakes.safety_classifier import FakeSafetyClassifier
 
 pytestmark = pytest.mark.unit
@@ -168,10 +177,46 @@ async def test_with_the_policy_check_off_llama_guard_codes_stand() -> None:
 
 
 @pytest.mark.parametrize("error", GUARD_FAILURES, ids=lambda error: type(error).__name__)
-async def test_llama_guard_failing_on_input_raises_safety_unavailable(error: ProviderError) -> None:
+async def test_llama_guard_down_on_input_lets_the_policy_check_decide(
+    error: ProviderError,
+) -> None:
     gate = gate_with(FakeSafetyClassifier(error=error))
-    with pytest.raises(SafetyUnavailable, match="llama_guard user check failed"):
-        await gate.check_input("hello")
+    check = await gate.check_input("hello")
+    assert check.verdict.decision is SafetyDecision.ALLOW
+    assert check.guard_down is True
+    assert check.verdict.source == "domain_policy"
+    assert check.usage is not None
+    assert check.usage.provider == "meta_model_api"
+
+
+async def test_llama_guard_down_still_catches_a_crisis_through_the_policy_check() -> None:
+    policy, _ = scripted_policy([policy_answer(self_harm=True)])
+    down = FakeSafetyClassifier(error=ProviderUnavailable("429 overloaded", provider="llama_guard"))
+    check = await gate_with(down, policy).check_input("Sab bekaar lagta hai")
+    assert check.verdict.decision is SafetyDecision.CRISIS
+    assert check.guard_down is True
+
+
+async def test_a_slow_llama_guard_is_cut_off_and_the_policy_check_decides() -> None:
+    slow = FakeSafetyClassifier(delay_s=5)
+    gate = SafetyGate(slow, scripted_policy()[0], guard_timeout=timedelta(milliseconds=20))
+    async with asyncio.timeout(1):
+        check = await gate.check_input("hello")
+    assert check.guard_down is True
+    assert check.verdict.decision is SafetyDecision.ALLOW
+
+
+async def test_both_checks_down_on_input_raise_safety_unavailable() -> None:
+    policy, _ = scripted_policy([MODEL_DOWN])
+    down = FakeSafetyClassifier(error=ProviderUnavailable("503", provider="llama_guard"))
+    with pytest.raises(SafetyUnavailable, match="policy model user check failed"):
+        await gate_with(down, policy).check_input("hello")
+
+
+async def test_llama_guard_down_with_the_policy_check_off_raises() -> None:
+    down = FakeSafetyClassifier(error=ProviderUnavailable("503", provider="llama_guard"))
+    with pytest.raises(SafetyUnavailable, match="no policy check is on"):
+        await SafetyGate(down, rules_only_policy()).check_input("hello")
 
 
 async def test_the_policy_check_failing_raises_safety_unavailable() -> None:
@@ -180,12 +225,13 @@ async def test_the_policy_check_failing_raises_safety_unavailable() -> None:
         await gate_with(FakeSafetyClassifier(), policy).check_input("hello")
 
 
-async def test_a_failing_check_cancels_the_other() -> None:
-    policy, policy_llm = scripted_policy([CLEAR], delay_s=5)
-    down = FakeSafetyClassifier(error=ProviderUnavailable("503", provider="llama_guard"))
-    with pytest.raises(SafetyUnavailable, match="llama_guard"):
-        await gate_with(down, policy).check_input("hello")
-    assert policy_llm.cancelled
+async def test_a_failing_policy_check_does_not_wait_for_a_slow_llama_guard() -> None:
+    policy, _ = scripted_policy([MODEL_DOWN])
+    slow = FakeSafetyClassifier(delay_s=5)
+    gate = SafetyGate(slow, policy, guard_timeout=timedelta(seconds=10))
+    async with asyncio.timeout(1):
+        with pytest.raises(SafetyUnavailable, match="policy model"):
+            await gate.check_input("hello")
 
 
 # --- our reply ------------------------------------------------------------------------------------
@@ -199,11 +245,49 @@ async def test_an_allowed_reply_is_sealed_with_its_verdict() -> None:
     assert check.safe_reply.fixed_kind is None
 
 
-@pytest.mark.parametrize("category", [C.HATE, C.SELF_HARM, C.VIOLENT_CRIMES])
-async def test_a_flagged_reply_is_never_sealed(category: SafetyCategory) -> None:
-    check = await gate_with(flagging(category)).check_output(REPLY, "question")
+@pytest.mark.parametrize(
+    ("category", "second_opinion"),
+    [
+        (C.HATE, reply_answer(harm="hate")),
+        (C.SELF_HARM, reply_answer(self_harm=True)),
+        (C.VIOLENT_CRIMES, reply_answer(endangers_child=True)),
+    ],
+)
+async def test_a_flag_the_second_opinion_confirms_is_never_sealed(
+    category: SafetyCategory, second_opinion: dict[str, object]
+) -> None:
+    scripted = scripted_policies(reply_outputs=[second_opinion])
+    check = await gate_with(flagging(category), scripted.policy).check_output(REPLY, QUESTION)
     assert check.safe_reply is None
     assert check.verdict.decision is SafetyDecision.BLOCK
+    assert category in check.verdict.categories
+    assert check.overruled == ()
+
+
+async def test_a_flag_the_second_opinion_clears_is_sent_and_recorded() -> None:
+    # Phone check, 2026-10-27: Llama Guard flagged a reply on teaching colours as S2, every time.
+    scripted = scripted_policies()
+    gate = gate_with(flagging(C.NON_VIOLENT_CRIMES), scripted.policy)
+    check = await gate.check_output(REPLY, QUESTION)
+    assert check.safe_reply is not None
+    assert check.overruled == (C.NON_VIOLENT_CRIMES,)
+    assert check.verdict.categories == []
+    assert check.verdict.source == "domain_policy"
+    assert check.usage.provider == "llama_guard+meta_model_api"
+
+
+async def test_if_the_second_opinion_fails_the_flag_stands() -> None:
+    scripted = scripted_policies(reply_outputs=[MODEL_DOWN])
+    gate = gate_with(flagging(C.NON_VIOLENT_CRIMES), scripted.policy)
+    check = await gate.check_output(REPLY, QUESTION)
+    assert check.safe_reply is None
+    assert check.verdict.categories == [C.NON_VIOLENT_CRIMES]
+
+
+async def test_with_the_policy_model_off_a_flag_blocks_on_its_own() -> None:
+    gate = SafetyGate(flagging(C.NON_VIOLENT_CRIMES), rules_only_policy())
+    check = await gate.check_output(REPLY, QUESTION)
+    assert check.safe_reply is None
 
 
 async def test_our_reply_is_checked_by_llama_guard_only_in_context() -> None:
@@ -217,12 +301,55 @@ async def test_our_reply_is_checked_by_llama_guard_only_in_context() -> None:
 
 
 @pytest.mark.parametrize("error", GUARD_FAILURES, ids=lambda error: type(error).__name__)
-async def test_a_classifier_failure_on_output_raises_and_seals_nothing(
+async def test_llama_guard_down_on_our_reply_uses_the_muse_spark_reply_check(
     error: ProviderError,
 ) -> None:
-    gate = gate_with(FakeSafetyClassifier(error=error))
-    with pytest.raises(SafetyUnavailable, match="llama_guard assistant check failed"):
-        await gate.check_output(REPLY, "hello")
+    scripted = scripted_policies()
+    gate = gate_with(FakeSafetyClassifier(error=error), scripted.policy)
+    check = await gate.check_output(REPLY, QUESTION)
+    assert check.safe_reply is not None
+    assert check.guard_down is True
+    assert check.verdict.source == "domain_policy"
+    assert scripted.reply_llm.prompts[0].prompt_id == "reply_policy"
+    assert REPLY.text in scripted.reply_llm.prompts[0].user
+    assert REPLY.text not in scripted.reply_llm.prompts[0].system
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        reply_answer(endangers_child=True),
+        reply_answer(medical=True),
+        reply_answer(self_harm=True),
+        reply_answer(harm="hate"),
+    ],
+    ids=["endangers-child", "medical", "self-harm", "hate"],
+)
+async def test_the_backup_reply_check_blocks_what_it_flags(answer: dict[str, object]) -> None:
+    scripted = scripted_policies(reply_outputs=[answer])
+    down = FakeSafetyClassifier(error=ProviderUnavailable("503", provider="llama_guard"))
+    check = await gate_with(down, scripted.policy).check_output(REPLY, QUESTION)
+    assert check.safe_reply is None
+    assert check.verdict.decision is SafetyDecision.BLOCK
+
+
+async def test_with_llama_guard_up_the_backup_reply_check_is_never_called() -> None:
+    scripted = scripted_policies()
+    await gate_with(FakeSafetyClassifier(), scripted.policy).check_output(REPLY, QUESTION)
+    assert scripted.reply_llm.prompts == []
+
+
+async def test_both_reply_checks_down_raise_and_seal_nothing() -> None:
+    scripted = scripted_policies(reply_outputs=[MODEL_DOWN])
+    down = FakeSafetyClassifier(error=ProviderUnavailable("503", provider="llama_guard"))
+    with pytest.raises(SafetyUnavailable, match="backup reply check both failed"):
+        await gate_with(down, scripted.policy).check_output(REPLY, QUESTION)
+
+
+async def test_llama_guard_down_on_our_reply_with_no_backup_raises() -> None:
+    down = FakeSafetyClassifier(error=ProviderUnavailable("503", provider="llama_guard"))
+    with pytest.raises(SafetyUnavailable, match="no backup is on"):
+        await SafetyGate(down, rules_only_policy()).check_output(REPLY, QUESTION)
 
 
 # --- fixed replies and the seal -------------------------------------------------------------------

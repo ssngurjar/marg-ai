@@ -1,9 +1,14 @@
-"""DomainPolicy builders for tests: phrase rules only, or with a scripted policy model."""
+"""DomainPolicy builders for tests: phrase rules only, or with scripted Muse Spark checks."""
 
 from collections.abc import Sequence
+from dataclasses import dataclass
 
 from app.safety.domain_policy import DomainPolicy, HarmKind, PolicyModel
-from tests.fakes.language_model import FakeLanguageModel, ScriptedOutput
+from tests.fakes.language_model import (
+    FakeLanguageModel,
+    PromptRoutedLanguageModel,
+    ScriptedOutput,
+)
 from tests.support.prompts import shipped_registry
 
 
@@ -15,6 +20,7 @@ def policy_answer(
     romantic: bool = False,
     harm: HarmKind = "none",
 ) -> dict[str, object]:
+    """A `minor_policy` answer on the user's message."""
     return {
         "self_harm_signal": self_harm,
         "abuse_disclosure": abuse,
@@ -25,16 +31,58 @@ def policy_answer(
     }
 
 
+def reply_answer(
+    *,
+    harm: HarmKind = "none",
+    self_harm: bool = False,
+    medical: bool = False,
+    endangers_child: bool = False,
+) -> dict[str, object]:
+    """A `reply_policy` answer on our reply (the backup when Llama Guard is down)."""
+    return {
+        "harm_kind": harm,
+        "encourages_self_harm": self_harm,
+        "medical_instructions": medical,
+        "endangers_child": endangers_child,
+        "reason": "scripted",
+    }
+
+
 CLEAR = policy_answer()
+REPLY_CLEAR = reply_answer()
 
 
 def rules_only_policy() -> DomainPolicy:
-    """SAFETY_POLICY_MODEL_ENABLED off: only the crisis phrase rules run."""
+    """SAFETY_POLICY_MODEL_ENABLED off: only the crisis phrase rules run, and no backup."""
     return DomainPolicy(model=None)
 
 
+@dataclass(frozen=True, slots=True)
+class ScriptedPolicy:
+    policy: DomainPolicy
+    input_llm: FakeLanguageModel  # the minor_policy check on the user's message
+    reply_llm: FakeLanguageModel  # the reply_policy backup on our reply
+
+
+def scripted_policies(
+    outputs: Sequence[ScriptedOutput] = (CLEAR,),
+    reply_outputs: Sequence[ScriptedOutput] = (REPLY_CLEAR,),
+    *,
+    delay_s: float = 0.0,
+) -> ScriptedPolicy:
+    input_llm = FakeLanguageModel(outputs, delay_s=delay_s)
+    reply_llm = FakeLanguageModel(reply_outputs, delay_s=delay_s)
+    llm = PromptRoutedLanguageModel({"minor_policy": input_llm, "reply_policy": reply_llm})
+    policy = DomainPolicy(model=PolicyModel(llm, shipped_registry()))
+    return ScriptedPolicy(policy, input_llm, reply_llm)
+
+
 def scripted_policy(
-    outputs: Sequence[ScriptedOutput] = (CLEAR,), *, delay_s: float = 0.0
+    outputs: Sequence[ScriptedOutput] = (CLEAR,),
+    reply_outputs: Sequence[ScriptedOutput] = (REPLY_CLEAR,),
+    *,
+    delay_s: float = 0.0,
 ) -> tuple[DomainPolicy, FakeLanguageModel]:
-    llm = FakeLanguageModel(outputs, delay_s=delay_s)
-    return DomainPolicy(model=PolicyModel(llm, shipped_registry())), llm
+    """The policy and the fake behind its check on the user's message."""
+    scripted = scripted_policies(outputs, reply_outputs, delay_s=delay_s)
+    return scripted.policy, scripted.input_llm

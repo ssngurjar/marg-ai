@@ -42,7 +42,13 @@ from app.providers.ports import SafetyRequest
 from app.safety.domain_policy import DomainPolicy
 from app.safety.safety_gate import SafetyGate
 from tests.fakes.clock import FixedClock
-from tests.fakes.domain_policy import policy_answer, scripted_policy
+from tests.fakes.domain_policy import (
+    CLEAR,
+    REPLY_CLEAR,
+    policy_answer,
+    reply_answer,
+    scripted_policy,
+)
 from tests.fakes.language_model import FakeLanguageModel, ScriptedOutput
 from tests.fakes.safety_classifier import FakeSafetyClassifier, Speaker
 from tests.fakes.step_recorder import MemoryStepRecorder
@@ -234,11 +240,24 @@ async def test_a_blocked_message_gets_the_refusal_and_generation_is_discarded() 
 
 
 async def test_a_flagged_reply_is_replaced_by_a_fixed_redirect() -> None:
-    result = await run(asking(), classifier=flagging(reply=[SafetyCategory.SPECIALIZED_ADVICE]))
+    confirmed = scripted_policy(reply_outputs=[reply_answer(medical=True)])[0]
+    result = await run(
+        asking(),
+        classifier=flagging(reply=[SafetyCategory.SPECIALIZED_ADVICE]),
+        policy=confirmed,
+    )
     assert result.outcome.fixed_reply_kind is FixedReplyKind.REFUSE
     assert result.outcome.route is Route.JOURNEY
     assert GENERATED not in result.delivered
     assert result.recorder.steps[-1].decision is SafetyDecision.BLOCK
+    # Which codes blocked our reply are recorded, so false positives can be traced (phone check).
+    assert result.recorder.steps[-1].detail == "decision=block categories=d4,s6"
+
+
+async def test_a_flag_cleared_by_the_second_opinion_is_answered_and_recorded() -> None:
+    result = await run(asking(), classifier=flagging(reply=[SafetyCategory.NON_VIOLENT_CRIMES]))
+    assert GENERATED in result.delivered
+    assert result.recorder.steps[-1].detail == "decision=allow guard_flagged=s2"
 
 
 # --- failures and their fallbacks -----------------------------------------------------------------
@@ -248,8 +267,9 @@ async def test_safety_in_unavailable_fails_closed_with_the_holding_reply() -> No
     classifier = FakeSafetyClassifier(
         error=GUARD_DOWN, fail_on=frozenset({"user"}), delay_s=IN_FLIGHT
     )
+    both_down = scripted_policy([MODEL_DOWN])[0]
     llm = FakeLanguageModel([HINGLISH_ANSWER], delay_s=5)
-    result = await run(asking(), classifier=classifier, llm=llm)
+    result = await run(asking(), classifier=classifier, llm=llm, policy=both_down)
     assert result.outcome.fixed_reply_kind is FixedReplyKind.HOLDING
     assert GENERATED not in result.delivered
     assert llm.cancelled
@@ -310,9 +330,21 @@ async def test_generation_too_slow_is_a_timeout() -> None:
     assert llm.cancelled
 
 
+async def test_llama_guard_down_still_answers_through_the_muse_spark_backup() -> None:
+    # Phone check, 2026-10-27: DeepInfra's Llama Guard was overloaded; the backup decides instead.
+    result = await run(asking(), classifier=FakeSafetyClassifier(error=GUARD_DOWN))
+    assert GENERATED in result.delivered
+    safety_rows = [row for row in result.recorder.steps if row.decision is not None]
+    assert [row.detail for row in safety_rows] == [
+        "decision=allow guard=down",
+        "decision=allow guard=down",
+    ]
+
+
 async def test_safety_out_unavailable_fails_closed_and_sends_nothing_generated() -> None:
     classifier = FakeSafetyClassifier(error=GUARD_DOWN, fail_on=frozenset({"assistant"}))
-    result = await run(asking(), classifier=classifier)
+    no_backup = scripted_policy(reply_outputs=[MODEL_DOWN])[0]
+    result = await run(asking(), classifier=classifier, policy=no_backup)
     assert result.outcome.fixed_reply_kind is FixedReplyKind.HOLDING
     assert GENERATED not in result.delivered
     assert result.outcome.first_failure is not None
@@ -404,8 +436,15 @@ class Generation(StrEnum):
 
 class OutputCheck(StrEnum):
     ALLOW = "allow"
-    FLAGGED = "flagged"
+    FLAGGED = "flagged"  # Llama Guard flags our reply and the second opinion agrees
     DOWN = "down"
+
+
+REPLY_OUTCOMES: dict[OutputCheck, ScriptedOutput] = {
+    OutputCheck.ALLOW: REPLY_CLEAR,
+    OutputCheck.FLAGGED: reply_answer(harm="hate"),
+    OutputCheck.DOWN: MODEL_DOWN,
+}
 
 
 def classifier_for(input_check: InputCheck, output_check: OutputCheck) -> FakeSafetyClassifier:
@@ -434,10 +473,16 @@ async def test_generated_text_is_delivered_only_when_both_checks_allow(
     input_check: InputCheck, generation: Generation, output_check: OutputCheck
 ) -> None:
     scripted: ScriptedOutput = HINGLISH_ANSWER if generation is Generation.OK else MODEL_DOWN
+    # "down" means Llama Guard and its Muse Spark backup are both down for that check.
+    policy = scripted_policy(
+        [MODEL_DOWN] if input_check is InputCheck.DOWN else [CLEAR],
+        reply_outputs=[REPLY_OUTCOMES[output_check]],
+    )[0]
     result = await run(
         asking(),
         classifier=classifier_for(input_check, output_check),
         llm=FakeLanguageModel([scripted]),
+        policy=policy,
     )
     everything_allowed = (
         input_check is InputCheck.ALLOW
@@ -545,7 +590,8 @@ async def test_a_crisis_during_onboarding_gets_the_helpline_and_changes_nothing(
 
 async def test_safety_down_during_onboarding_holds_and_changes_nothing() -> None:
     down = FakeSafetyClassifier(error=GUARD_DOWN)
-    result = await run(new_user(text_message("Hello")), classifier=down)
+    both_down = scripted_policy([MODEL_DOWN])[0]
+    result = await run(new_user(text_message("Hello")), classifier=down, policy=both_down)
     assert result.outcome.fixed_reply_kind is FixedReplyKind.HOLDING
     assert result.outcome.writes == []
 

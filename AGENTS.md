@@ -362,7 +362,8 @@ app/constants/  reviewed copy (fixed and onboarding replies, crisis words) and e
   may run concurrently and is discarded otherwise), and nothing is sent without `safety-out`.
   **No code path reaches the outbox without a passing `safety-out` verdict.** Tests assert this
   for every route through the pipeline.
-- **Fail closed.** If the safety service errors or times out, send the fixed holding reply.
+- **Fail closed.** If Llama Guard errors or times out, the Muse Spark backup check classifies
+  instead (owner, 2026-10-27); if the backup fails too, send the fixed holding reply.
   Never send unclassified generated text.
 - **Crisis replies are fixed text** in `app/safety/crisis.py`, reviewed by a human, with helpline
   numbers copied from their official source. An LLM never writes them.

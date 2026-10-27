@@ -6,7 +6,7 @@ store and dispatcher are the ones `build_container` wires.
 
 import os
 import random
-from collections.abc import AsyncIterator, Mapping, Sequence
+from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
@@ -29,8 +29,12 @@ from app.store.repositories.outbox_repository import OutboxRepository
 from app.wiring import EngineParts, build_orchestrator, build_turn_dispatcher
 from app.worker.turn_dispatcher import TurnDispatcher
 from tests.fakes.clock import FixedClock
-from tests.fakes.domain_policy import CLEAR, policy_answer
-from tests.fakes.language_model import FakeLanguageModel, PromptRoutedLanguageModel
+from tests.fakes.domain_policy import CLEAR, REPLY_CLEAR, policy_answer
+from tests.fakes.language_model import (
+    FakeLanguageModel,
+    PromptRoutedLanguageModel,
+    ScriptedOutput,
+)
 from tests.fakes.safety_classifier import FakeSafetyClassifier
 from tests.fakes.sender import FakeSender
 from tests.fakes.sleeper import FakeSleeper
@@ -67,7 +71,8 @@ class Pipeline:
 def wire(
     engine: AsyncEngine,
     classifier: FakeSafetyClassifier,
-    policy: Mapping[str, object] = CLEAR,
+    policy: ScriptedOutput = CLEAR,
+    reply_policy: ScriptedOutput = REPLY_CLEAR,
 ) -> Pipeline:
     settings = make_settings().model_copy(update={"turn_debounce_ms": 0})
     sessions = create_session_factory(engine)
@@ -84,6 +89,7 @@ def wire(
         {
             "parent_answer": FakeLanguageModel([HINGLISH_ANSWER]),
             "minor_policy": FakeLanguageModel([policy]),
+            "reply_policy": FakeLanguageModel([reply_policy]),
             "profile_extraction": EXTRACTION,
         }
     )
@@ -203,12 +209,28 @@ async def test_a_parents_question_is_answered_and_every_step_is_recorded(
     ) == [("completed", "journey", None, {"parent_answer": "1.0.0"})]
 
 
+async def test_llama_guard_down_is_covered_by_the_muse_spark_backup(engine: AsyncEngine) -> None:
+    down = FakeSafetyClassifier(error=ProviderUnavailable("429", provider="llama_guard"))
+    await onboarded_parent(engine)
+    pipeline = wire(engine, down)
+    await ask(pipeline, QUESTION)
+    sent = " ".join(delivered.part.text or "" for delivered in pipeline.sender.sent)
+    assert GENERATED in sent
+    assert await rows(
+        engine, "SELECT step, detail FROM turn_steps WHERE decision IS NOT NULL ORDER BY id"
+    ) == [
+        ("safety_in", "decision=allow guard=down"),
+        ("safety_out", "decision=allow guard=down"),
+    ]
+
+
 async def test_safety_down_sends_the_holding_reply_and_records_the_failure(
     engine: AsyncEngine,
 ) -> None:
     down = FakeSafetyClassifier(error=ProviderUnavailable("503", provider="llama_guard"))
     await onboarded_parent(engine)
-    pipeline = wire(engine, down)
+    model_down = ProviderUnavailable("503", provider="meta_model_api")
+    pipeline = wire(engine, down, policy=model_down, reply_policy=model_down)
     await ask(pipeline, QUESTION)
     sent = " ".join(delivered.part.text or "" for delivered in pipeline.sender.sent)
     assert GENERATED not in sent

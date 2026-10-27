@@ -25,8 +25,8 @@ Last updated: 2026-10-27 (after S5 was built).
   callback at it through the API (`override_callback_uri` on the WhatsApp account, so no
   dashboard edit). Then send: a Hinglish, a Hindi and an English parent question, a voice
   note (expect the "can't read this yet" reply), and optionally a crisis phrase.
-- [ ] Note: DeepInfra is the only production host for Llama Guard 4 found, so it is a single
-  point of failure; an outage means every turn gets HOLDING. Revisit in S16 hardening.
+- [x] DeepInfra is the only production host for Llama Guard 4, and it failed on day one (timeouts,
+  then `429 engine_overloaded`). Decided: Muse Spark backs it up (s07 log, CLAUDE.md §11).
 
 ## 2. S5 copy (users read these words)
 
@@ -40,6 +40,9 @@ Last updated: 2026-10-27 (after S5 was built).
   the abuse people/harm lists in Hindi, Hinglish and English. Recall first; brothers and
   cousins left out so sibling fights stay parenting questions. Ideally also checked by a
   counsellor or teacher (s07 Q2).
+- [ ] **Backup reply check prompt**, `app/prompts/reply_policy.md.j2` (v1.0.0): used only when
+  Llama Guard is down; what counts as harmful, self-harm, medical instructions, or endangering a
+  child.
 - [ ] **Safety policy prompt**, `app/prompts/minor_policy.md.j2` (v1.0.1): what counts as a
   self-harm signal, an abuse disclosure, a medical request, and a harmful request.
 - [ ] Known false positive you accepted: "pakka IAS ban jaunga na?" gets the crisis reply when

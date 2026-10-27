@@ -36,7 +36,7 @@ from app.providers.llm.meta_model_api_language_model import (
 from app.providers.llm.model_pricing import ModelPricing
 from app.providers.ports import ChannelSender, LanguageModel, SafetyClassifier
 from app.providers.safety.llama_guard_classifier import LlamaGuardClassifier, SafetyHostConfig
-from app.safety.domain_policy import MINOR_POLICY, DomainPolicy, PolicyModel
+from app.safety.domain_policy import MINOR_POLICY, REPLY_POLICY, DomainPolicy, PolicyModel
 from app.safety.safety_gate import SafetyGate
 from app.store.db import create_engine, create_session_factory, ping
 from app.store.repositories.inbox_repository import InboxRepository
@@ -50,7 +50,7 @@ from app.worker.turn_dispatcher import DispatcherDeps, DispatcherSettings, TurnD
 from app.worker.turn_processor import TurnDeps, TurnProcessor, TurnSettings
 
 DISPATCHER_ERROR_BACKOFF = timedelta(seconds=5)
-PROMPT_SPECS: Final = (PARENT_ANSWER, MINOR_POLICY, PROFILE_EXTRACTION)
+PROMPT_SPECS: Final = (PARENT_ANSWER, MINOR_POLICY, REPLY_POLICY, PROFILE_EXTRACTION)
 """Every prompt the app renders; the registry refuses a template without a spec."""
 INVITE_GREETING: Final = "Namaste Marg"
 
@@ -103,7 +103,7 @@ def build_container(settings: Settings) -> Container:
             base_url=str(settings.safety_base_url),
             api_key=settings.safety_api_key,
             model=settings.safety_model,
-            timeout_s=settings.timeout_safety_in_s,
+            timeout_s=settings.timeout_guard_s,
         ),
         retry=retry,
         clock=clock,
@@ -171,6 +171,7 @@ def build_orchestrator(
                     if settings.safety_policy_model_enabled
                     else None
                 ),
+                guard_timeout=timedelta(seconds=settings.timeout_guard_s),
             ),
             parent_questions=ParentQuestionLayer(language_model, registry),
             onboarding=OnboardingLayer(

@@ -125,6 +125,14 @@ How the check got there, on the way:
 One English miss of the phrase rules ("I don't feel like living anymore") was caught by the
 policy check, and the phrase was then added to the lexicon.
 
+## Day-one outage (phone check, 2026-10-27)
+
+During the S5 phone check, DeepInfra's Llama Guard timed out on every call (even a one-word
+message, 30 s), then answered `429 engine_overloaded`, while another model on the same account
+answered in 1.2 s and DeepInfra's status page showed everything operational. With one host, that
+held every message. The owner chose Muse Spark as the backup check (s07 decisions log); on the 10
+replies above it judged 10/10 at p50 1.7 s.
+
 ## Options (as put to the owner)
 
 1. **Llama Guard plus a Muse Spark policy classifier now (recommended).**

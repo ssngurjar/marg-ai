@@ -88,7 +88,10 @@ class Settings(DatabaseSettings):
     timeout_safety_in_s: float = Field(default=5.0, gt=0)
     timeout_route_s: float = Field(default=4.0, gt=0)
     timeout_generate_s: float = Field(default=12.0, gt=0)
-    timeout_safety_out_s: float = Field(default=3.0, gt=0)
+    # Llama Guard's own limit inside a safety check: past it, the Muse Spark backup decides.
+    timeout_guard_s: float = Field(default=1.5, gt=0)
+    # 6 s: Llama Guard (≤ 1.5 s), then the Muse Spark backup reply check when it's down (~2.5 s)
+    timeout_safety_out_s: float = Field(default=6.0, gt=0)
 
     @field_validator("model_api_key", "safety_api_key")
     @classmethod

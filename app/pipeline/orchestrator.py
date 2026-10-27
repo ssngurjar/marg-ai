@@ -36,6 +36,7 @@ from app.domain.enums import (
     StepOutcome,
 )
 from app.domain.models.reply import LocalisedReply
+from app.domain.models.safety import SafetyVerdict
 from app.domain.models.turn import TurnContext
 from app.domain.models.usage import StepUsage
 from app.domain.rules.register_detector import RegisterDetector
@@ -384,17 +385,17 @@ class _Turn:
 
     @staticmethod
     def _input_record(started: datetime, check: InputCheck) -> _StepRecord:
-        detail = f"decision={check.verdict.decision.value}"
-        if check.verdict.categories:
-            flagged = ",".join(category.value for category in check.verdict.categories)
-            detail = f"{detail} categories={flagged}"
+        detail = _verdict_detail(check.verdict, guard_down=check.guard_down)
         return _StepRecord(
             StepName.SAFETY_IN, started, check.verdict, check.usage, detail, check.verdict.decision
         )
 
     @staticmethod
     def _output_record(started: datetime, check: OutputCheck) -> _StepRecord:
-        detail = f"decision={check.verdict.decision.value}"
+        detail = _verdict_detail(check.verdict, guard_down=check.guard_down)
+        if check.overruled:
+            cleared = ",".join(category.value for category in check.overruled)
+            detail = f"{detail} guard_flagged={cleared}"
         return _StepRecord(
             StepName.SAFETY_OUT, started, check.verdict, check.usage, detail, check.verdict.decision
         )
@@ -442,3 +443,15 @@ class _Turn:
 
     def _elapsed_ms(self, started: datetime) -> int:
         return max(int((self.steps.clock.now() - started).total_seconds() * 1000), 0)
+
+
+def _verdict_detail(verdict: SafetyVerdict, *, guard_down: bool) -> str:
+    """Fixed vocabulary for turn_steps.detail: the decision, the codes, and whether the backup
+    decided because Llama Guard was down. Never the text."""
+    detail = f"decision={verdict.decision.value}"
+    if verdict.categories:
+        flagged = ",".join(category.value for category in verdict.categories)
+        detail = f"{detail} categories={flagged}"
+    if guard_down:
+        detail = f"{detail} guard=down"
+    return detail
