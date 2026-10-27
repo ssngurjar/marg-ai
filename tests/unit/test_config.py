@@ -23,7 +23,7 @@ S3_SETTINGS = {
     "MODEL_API_KEY": "test-model-key",
     "SAFETY_BASE_URL": "https://guard.example/v1",
     "SAFETY_API_KEY": "test-guard-key",
-    "SAFETY_MODEL": "meta-llama/llama-guard-4-12b",
+    "SAFETY_MODEL": "meta-llama/Llama-Guard-4-12B",
 }
 
 

@@ -38,7 +38,7 @@ def make_settings(
         model_api_key=SecretStr("test-model-key"),
         safety_base_url=HttpUrl("https://guard.example/v1"),
         safety_api_key=SecretStr("test-guard-key"),
-        safety_model="meta-llama/llama-guard-4-12b",
+        safety_model="meta-llama/Llama-Guard-4-12B",
     )
 
 

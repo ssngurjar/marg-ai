@@ -43,6 +43,7 @@ line of the module's docstring.
 
 | Module | Classes | What it does |
 |---|---|---|
+| `crisis_lexicon.py` | — | Crisis phrase lists (s07 §4.5 rule 1): the check that works when every provider is down. |
 | `crisis_replies.py` | `Helpline`, `CrisisText` | Crisis replies and the helplines they give (s07 §4.6). Reviewed text, never generated. |
 | `fixed_replies.py` | `FixedText`, `FixedTextKey` | Fixed replies: reviewed copy keyed by (kind, variant, language) (contracts §6). |
 | `model_prices.py` | `ModelPrice` | Model prices per million tokens, for cost accounting (s05 §4.1, s07 §4.3). |
@@ -75,7 +76,7 @@ line of the module's docstring.
 | `message.py` | `MediaRef`, `InboundMessage`, `AudioClip`, `ImageClip` | What users send us: messages and the media they carry (contracts.md §2.1). |
 | `reply.py` | `ReplyButton`, `TemplateRef`, `OutboundPart`, `Citation`, `LocalisedReply`, `CanonicalReply` | What we send back (contracts.md §2.6): reply content and the outbound parts that carry it. |
 | `routing.py` | `RouteDecision` | Where a turn goes (contracts §2.5). |
-| `safety.py` | `SafetyVerdict` | A safety check's result (contracts.md §2.5). Produced by s07's gate; read by the trace. |
+| `safety.py` | `SafetyVerdict`, `CrisisLexicon` | A safety check's result (contracts.md §2.5). Produced by s07's gate; read by the trace. |
 | `turn.py` | `UserProfile`, `Exchange`, `TurnContext`, `QueuedMessage` | A turn and what it knows about the user (contracts.md §2.2; s04 §4.4, §4.5). |
 | `usage.py` | `StepUsage` | What a provider call cost (contracts §2.3). Attached to every turn_steps row. |
 
@@ -83,6 +84,7 @@ line of the module's docstring.
 
 | Module | Classes | What it does |
 |---|---|---|
+| `crisis_phrase_matcher.py` | `CrisisPhraseMatcher` | CrisisPhraseMatcher: the crisis rules that need no provider (s07 §4.5 rule 1, §4.6). Pure. |
 | `delivery_planner.py` | `DeliveryPlanner` | DeliveryPlanner: part order and status changes (s03 §4.8, s04 §4.10). Pure. |
 | `message_splitter.py` | `MessageSplitter` | MessageSplitter: a reply cut into channel-sized messages (s05 §4.7). Pure. |
 | `register_detector.py` | `RegisterDetector` | RegisterDetector: which language and script a message is in (s09's detect_register). Pure. |
@@ -141,6 +143,7 @@ line of the module's docstring.
 
 | Module | Classes | What it does |
 |---|---|---|
+| `domain_policy.py` | `MinorPolicyCheck`, `PolicyModel`, `PolicyFindings`, `DomainPolicy` | DomainPolicy: what Llama Guard misses about our users (s07 §4.5), on the user's message. |
 | `safety_decision_mapper.py` | `SafetyDecisionMapper` | SafetyDecisionMapper: flagged categories → ALLOW / BLOCK / CRISIS, and which reply (s07 §4.4). |
 | `safety_gate.py` | `SafeReply`, `InputCheck`, `OutputCheck`, `SafetyGate` | SafetyGate: every message in and every reply out is checked, and its sealed `SafeReply` |
 

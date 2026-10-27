@@ -25,18 +25,20 @@ from app.domain.enums import (
     StepOutcome,
 )
 from app.domain.models.turn import TurnContext
-from app.layers.parent_question_layer import PARENT_ANSWER, ParentQuestionLayer
+from app.layers.parent_question_layer import ParentQuestionLayer
 from app.pipeline.null_turn_observer import NullTurnObserver
 from app.pipeline.orchestrator import Orchestrator, OrchestratorSettings, PipelineSteps
 from app.pipeline.step_models import TurnOutcome
-from app.prompts.prompt_registry import PromptRegistry, PromptSettings
 from app.providers.ports import SafetyRequest
+from app.safety.domain_policy import DomainPolicy
 from app.safety.safety_gate import SafetyGate
 from tests.fakes.clock import FixedClock
+from tests.fakes.domain_policy import policy_answer, scripted_policy
 from tests.fakes.language_model import FakeLanguageModel, ScriptedOutput
 from tests.fakes.safety_classifier import FakeSafetyClassifier, Speaker
 from tests.fakes.step_recorder import MemoryStepRecorder
 from tests.support.parent_answers import HINDI_ANSWER, HINGLISH_ANSWER
+from tests.support.prompts import shipped_registry
 from tests.support.turn_context import (
     NOW,
     button_reply,
@@ -58,14 +60,6 @@ SETTINGS = OrchestratorSettings(
     generate_timeout=timedelta(seconds=12),
     safety_out_timeout=timedelta(seconds=3),
 )
-REGISTRY = PromptRegistry(
-    specs=[PARENT_ANSWER],
-    settings=PromptSettings(
-        models={"MODEL_TEXT": "muse-spark-1.3"},
-        reasoning_effort="minimal",
-        user_slot_max_chars=4000,
-    ),
-)
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,25 +74,34 @@ class Run:
         return "\n".join(part.text or "" for part in self.outcome.delivery.parts)
 
 
+def orchestrator_for(
+    classifier: FakeSafetyClassifier,
+    llm: FakeLanguageModel,
+    policy: DomainPolicy,
+    settings: OrchestratorSettings,
+) -> Orchestrator:
+    return Orchestrator(
+        PipelineSteps(
+            gate=SafetyGate(classifier, policy),
+            parent_questions=ParentQuestionLayer(llm, shipped_registry()),
+            clock=FixedClock(NOW),
+        ),
+        settings,
+    )
+
+
 async def run(
     ctx: TurnContext,
     *,
     classifier: FakeSafetyClassifier | None = None,
     llm: FakeLanguageModel | None = None,
-    recorder: MemoryStepRecorder | None = None,
+    policy: DomainPolicy | None = None,
     settings: OrchestratorSettings = SETTINGS,
 ) -> Run:
     classifier = classifier or FakeSafetyClassifier()
     llm = llm or FakeLanguageModel([HINGLISH_ANSWER])
-    recorder = recorder or MemoryStepRecorder()
-    orchestrator = Orchestrator(
-        PipelineSteps(
-            gate=SafetyGate(classifier),
-            parent_questions=ParentQuestionLayer(llm, REGISTRY),
-            clock=FixedClock(NOW),
-        ),
-        settings,
-    )
+    recorder = MemoryStepRecorder()
+    orchestrator = orchestrator_for(classifier, llm, policy or scripted_policy()[0], settings)
     outcome = await orchestrator.run_turn(ctx, recorder, NullTurnObserver())
     return Run(outcome, llm, classifier, recorder)
 
@@ -319,9 +322,13 @@ async def test_an_exhausted_turn_budget_fails_closed_without_calling_anyone() ->
 
 
 async def test_a_down_database_never_takes_the_reply_down() -> None:
-    result = await run(asking(), recorder=MemoryStepRecorder(fail=True))
-    assert GENERATED in result.delivered
-    assert result.recorder.steps == []
+    down_database = MemoryStepRecorder(fail=True)
+    orchestrator = orchestrator_for(
+        FakeSafetyClassifier(), FakeLanguageModel([HINGLISH_ANSWER]), scripted_policy()[0], SETTINGS
+    )
+    outcome = await orchestrator.run_turn(asking(), down_database, NullTurnObserver())
+    assert GENERATED in "\n".join(part.text or "" for part in outcome.delivery.parts)
+    assert down_database.steps == []
 
 
 # --- turns that never reach the model -------------------------------------------------------------
@@ -432,9 +439,58 @@ async def test_generated_text_is_delivered_only_when_both_checks_allow(
 
 
 async def test_a_message_refused_before_generation_starts_leaves_no_coroutine_behind() -> None:
-    # Regression: an instant BLOCK cancelled the generation task before its first step, leaving
-    # the layer's coroutine un-awaited ("coroutine was never awaited", an error under pytest).
-    instant_block = FakeSafetyClassifier(flag=lambda request: [SafetyCategory.HATE])
-    result = await run(asking(), classifier=instant_block)
-    assert result.outcome.fixed_reply_kind is FixedReplyKind.REFUSE
+    # Regression: a verdict reached without yielding cancelled the generation task before its
+    # first step, leaving the layer's coroutine un-awaited (an error under pytest). Today a crisis
+    # phrase is that path: the gate decides without awaiting anything.
+    result = await run(asking("Result kharab aaya, ab jeene ka mann nahi karta"))
+    assert result.outcome.fixed_reply_kind is FixedReplyKind.CRISIS
     assert result.llm.prompts == []
+
+
+# --- the domain policy on the user's message (s07 §4.5, pulled into S5 after spike B) -------------
+
+
+async def test_a_crisis_phrase_gets_the_helpline_even_when_every_provider_is_down() -> None:
+    down = FakeSafetyClassifier(error=GUARD_DOWN)
+    policy, policy_llm = scripted_policy([MODEL_DOWN])
+    result = await run(
+        asking("Result kharab aaya, ab jeene ka mann nahi karta"), classifier=down, policy=policy
+    )
+    assert result.outcome.route is Route.CRISIS
+    assert "14416" in result.delivered
+    assert down.requests == []
+    assert policy_llm.prompts == []
+
+
+async def test_a_disclosure_llama_guard_misses_is_caught_by_the_policy_check() -> None:
+    policy, _ = scripted_policy([policy_answer(abuse=True)])
+    result = await run(
+        asking("Ghar pe koi mujhe pareshan karta hai, kisi ko mat batana bolta hai"), policy=policy
+    )
+    assert result.outcome.route is Route.CRISIS
+    assert "1098" in result.delivered
+    assert GENERATED not in result.delivered
+
+
+async def test_a_parent_question_llama_guard_misreads_is_still_answered() -> None:
+    # spike B benign-04: "raat ko darti hai" came back S4 from Llama Guard
+    misread = flagging(user=[SafetyCategory.CHILD_EXPLOITATION])
+    result = await run(asking("Meri beti 6 saal ki hai aur raat ko darti hai"), classifier=misread)
+    assert GENERATED in result.delivered
+    assert result.recorder.steps[1].decision is SafetyDecision.ALLOW
+
+
+async def test_the_policy_check_down_fails_closed_with_the_holding_reply() -> None:
+    policy, _ = scripted_policy([MODEL_DOWN])
+    result = await run(asking(), policy=policy)
+    assert result.outcome.fixed_reply_kind is FixedReplyKind.HOLDING
+    assert result.outcome.first_failure is not None
+    assert result.outcome.first_failure.step is StepName.SAFETY_IN
+    assert GENERATED not in result.delivered
+
+
+async def test_the_safety_in_row_records_both_checks_cost() -> None:
+    result = await run(asking())
+    usage = result.recorder.steps[1].usage
+    assert usage is not None
+    assert usage.provider == "llama_guard+meta_model_api"

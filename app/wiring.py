@@ -11,6 +11,7 @@ import socket
 from dataclasses import dataclass
 from datetime import timedelta
 from functools import partial
+from typing import Final
 from uuid import uuid4
 
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
@@ -33,6 +34,7 @@ from app.providers.llm.meta_model_api_language_model import (
 from app.providers.llm.model_pricing import ModelPricing
 from app.providers.ports import ChannelSender, LanguageModel, SafetyClassifier
 from app.providers.safety.llama_guard_classifier import LlamaGuardClassifier, SafetyHostConfig
+from app.safety.domain_policy import MINOR_POLICY, DomainPolicy, PolicyModel
 from app.safety.safety_gate import SafetyGate
 from app.store.db import create_engine, create_session_factory, ping
 from app.store.repositories.inbox_repository import InboxRepository
@@ -45,6 +47,8 @@ from app.worker.turn_dispatcher import DispatcherDeps, DispatcherSettings, TurnD
 from app.worker.turn_processor import TurnDeps, TurnProcessor, TurnSettings
 
 DISPATCHER_ERROR_BACKOFF = timedelta(seconds=5)
+PROMPT_SPECS: Final = (PARENT_ANSWER, MINOR_POLICY)
+"""Every prompt the app renders; the registry refuses a template without a spec."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -146,7 +150,7 @@ def build_orchestrator(
     clock: Clock,
 ) -> Orchestrator:
     registry = PromptRegistry(
-        specs=[PARENT_ANSWER],
+        specs=PROMPT_SPECS,
         settings=PromptSettings(
             models={"MODEL_TEXT": settings.model_text},
             reasoning_effort=settings.model_reasoning_effort,
@@ -155,7 +159,14 @@ def build_orchestrator(
     )
     return Orchestrator(
         PipelineSteps(
-            gate=SafetyGate(safety_classifier),
+            gate=SafetyGate(
+                safety_classifier,
+                DomainPolicy(
+                    model=PolicyModel(language_model, registry)
+                    if settings.safety_policy_model_enabled
+                    else None
+                ),
+            ),
             parent_questions=ParentQuestionLayer(language_model, registry),
             clock=clock,
         ),

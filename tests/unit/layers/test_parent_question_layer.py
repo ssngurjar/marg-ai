@@ -4,8 +4,9 @@ import pytest
 
 from app.core.errors import ProviderUnavailable
 from app.domain.enums import Language, StepOutcome
-from app.layers.parent_question_layer import PARENT_ANSWER, ParentAnswer, ParentQuestionLayer
+from app.layers.parent_question_layer import ParentAnswer, ParentQuestionLayer
 from app.prompts.prompt_registry import PromptRegistry, PromptSettings
+from app.wiring import PROMPT_SPECS
 from tests.fakes.language_model import FakeLanguageModel
 from tests.support.parent_answers import ANSWER_IN, ENGLISH_ANSWER, HINDI_ANSWER, HINGLISH_ANSWER
 from tests.support.turn_context import text_message, turn_context
@@ -17,7 +18,7 @@ QUESTION = "Beta ko rang kaise sikhayein?"
 
 def layer_with(llm: FakeLanguageModel, max_chars: int = 4000) -> ParentQuestionLayer:
     registry = PromptRegistry(
-        specs=[PARENT_ANSWER],
+        specs=PROMPT_SPECS,
         settings=PromptSettings(
             models={"MODEL_TEXT": "muse-spark-1.3"},
             reasoning_effort="minimal",

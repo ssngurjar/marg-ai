@@ -6,7 +6,7 @@ store and dispatcher are the ones `build_container` wires.
 
 import os
 import random
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
@@ -27,7 +27,8 @@ from app.store.repositories.outbox_repository import OutboxRepository
 from app.wiring import EngineParts, build_orchestrator, build_turn_dispatcher
 from app.worker.turn_dispatcher import TurnDispatcher
 from tests.fakes.clock import FixedClock
-from tests.fakes.language_model import FakeLanguageModel
+from tests.fakes.domain_policy import CLEAR, policy_answer
+from tests.fakes.language_model import FakeLanguageModel, PromptRoutedLanguageModel
 from tests.fakes.safety_classifier import FakeSafetyClassifier
 from tests.fakes.sender import FakeSender
 from tests.fakes.sleeper import FakeSleeper
@@ -61,7 +62,11 @@ class Pipeline:
     sender: FakeSender
 
 
-def wire(engine: AsyncEngine, classifier: FakeSafetyClassifier) -> Pipeline:
+def wire(
+    engine: AsyncEngine,
+    classifier: FakeSafetyClassifier,
+    policy: Mapping[str, object] = CLEAR,
+) -> Pipeline:
     settings = make_settings().model_copy(update={"turn_debounce_ms": 0})
     sessions = create_session_factory(engine)
     clock = FixedClock(NOW)
@@ -73,9 +78,13 @@ def wire(engine: AsyncEngine, classifier: FakeSafetyClassifier) -> Pipeline:
         sleeper=FakeSleeper(clock),
         rng=random.Random(5),  # noqa: S311  # deterministic jitter for tests
     )
-    orchestrator = build_orchestrator(
-        settings, FakeLanguageModel([HINGLISH_ANSWER]), classifier, clock
+    language_model = PromptRoutedLanguageModel(
+        {
+            "parent_answer": FakeLanguageModel([HINGLISH_ANSWER]),
+            "minor_policy": FakeLanguageModel([policy]),
+        }
     )
+    orchestrator = build_orchestrator(settings, language_model, classifier, clock)
     dispatcher = build_turn_dispatcher(
         settings=settings,
         session_factory=sessions,
@@ -164,3 +173,17 @@ async def test_a_crisis_gets_the_helpline_and_its_text_is_not_kept(engine: Async
     assert "14416" in sent
     assert GENERATED not in sent
     assert await rows(engine, "SELECT route, user_text FROM turns") == [("crisis", None)]
+
+
+async def test_a_disclosure_only_the_policy_check_sees_gets_the_child_helpline(
+    engine: AsyncEngine,
+) -> None:
+    pipeline = wire(engine, FakeSafetyClassifier(), policy=policy_answer(abuse=True))
+    await ask(pipeline, "Ghar pe koi mujhe pareshan karta hai, kisi ko mat batana bolta hai")
+    sent = " ".join(delivered.part.text or "" for delivered in pipeline.sender.sent)
+    assert "1098" in sent
+    assert GENERATED not in sent
+    assert await rows(engine, "SELECT route, user_text FROM turns") == [("crisis", None)]
+    assert await rows(
+        engine, "SELECT decision, provider FROM turn_steps WHERE step = 'safety_in'"
+    ) == [("crisis", "llama_guard+meta_model_api")]

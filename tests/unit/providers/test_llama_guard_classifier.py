@@ -30,7 +30,7 @@ from tests.fakes.sleeper import FakeSleeper
 pytestmark = pytest.mark.unit
 
 NOW = datetime(2026, 10, 27, 9, 0, tzinfo=UTC)
-GUARD = "meta-llama/llama-guard-4-12b"
+GUARD = "meta-llama/Llama-Guard-4-12B"
 USER_CHECK = SafetyRequest(speaker="user", text="Beta ko rang sikhana hai", prior_user_text=None)
 REPLY_CHECK = SafetyRequest(
     speaker="assistant", text="Roz rang ka khel kheliye.", prior_user_text="Rang kaise sikhayein?"
@@ -92,7 +92,7 @@ async def test_safe_is_allowed_and_priced(harness_for: HarnessFactory) -> None:
     assert verdict.categories == []
     assert verdict.source == "llama_guard"
     assert usage.model == GUARD
-    assert usage.cost_usd == Decimal("0.000041")
+    assert usage.cost_usd == Decimal("0.000037")
 
 
 async def test_unsafe_is_flagged_with_its_categories(harness_for: HarnessFactory) -> None:

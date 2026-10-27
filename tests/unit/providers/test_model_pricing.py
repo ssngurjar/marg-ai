@@ -53,4 +53,4 @@ def test_a_contributor_model_is_refused_for_user_content(model: str) -> None:
 
 def test_the_default_models_are_allowed_for_user_content() -> None:
     ModelPricing.require_allowed_for_user_content(SPARK, "MODEL_TEXT")
-    ModelPricing.require_allowed_for_user_content("meta-llama/llama-guard-4-12b", "SAFETY_MODEL")
+    ModelPricing.require_allowed_for_user_content("meta-llama/Llama-Guard-4-12B", "SAFETY_MODEL")

@@ -16,6 +16,7 @@ from app.prompts.prompt_registry import (
     PromptSpec,
     UserSlot,
 )
+from app.wiring import PROMPT_SPECS
 
 pytestmark = pytest.mark.unit
 
@@ -68,7 +69,7 @@ def registry_for(
 
 
 def test_the_shipped_prompts_load() -> None:
-    PromptRegistry(specs=[PARENT_ANSWER], settings=SETTINGS)
+    PromptRegistry(specs=PROMPT_SPECS, settings=SETTINGS)
 
 
 def test_a_render_carries_id_version_model_effort_and_budget(tmp_path: Path) -> None:
@@ -190,7 +191,7 @@ def test_wrapped_text_is_bounded_and_flagged_when_cut(text: str, max_chars: int)
 
 
 def test_the_shipped_parent_prompt_marks_the_parents_text_as_data() -> None:
-    registry = PromptRegistry(specs=[PARENT_ANSWER], settings=SETTINGS)
+    registry = PromptRegistry(specs=PROMPT_SPECS, settings=SETTINGS)
     rendered = registry.render(
         PARENT_ANSWER,
         system_vars={"language_rule": "L", "spoken_rule": "S"},

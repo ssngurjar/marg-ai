@@ -17,7 +17,6 @@ import asyncio
 from collections.abc import Awaitable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from decimal import Decimal
 from typing import ClassVar, Final, Literal
 
 from app.core.clock import Clock
@@ -170,7 +169,7 @@ class _Turn:
                 StepName.GENERATE,
                 started,
                 layer_result,
-                _summed(layer_result.usages),
+                StepUsage.total(layer_result.usages),
                 layer_result.degraded_reason,
                 outcome=layer_result.outcome,
             )
@@ -368,17 +367,3 @@ class _Turn:
 
     def _elapsed_ms(self, started: datetime) -> int:
         return max(int((self.steps.clock.now() - started).total_seconds() * 1000), 0)
-
-
-def _summed(usages: list[StepUsage]) -> StepUsage | None:
-    """One GENERATE row's usage: the layer's calls added up."""
-    if not usages:
-        return None
-    return StepUsage(
-        provider=usages[0].provider,
-        model=usages[0].model,
-        input_tokens=sum(usage.input_tokens or 0 for usage in usages),
-        output_tokens=sum(usage.output_tokens or 0 for usage in usages),
-        audio_seconds=None,
-        cost_usd=sum((usage.cost_usd for usage in usages), start=Decimal(0)),
-    )

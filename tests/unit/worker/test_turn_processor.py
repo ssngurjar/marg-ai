@@ -35,6 +35,7 @@ from app.store.repositories.turn_repository import (
 )
 from app.worker.turn_processor import TurnDeps, TurnProcessor, TurnSettings
 from tests.fakes.clock import FixedClock
+from tests.fakes.domain_policy import rules_only_policy
 from tests.fakes.orchestrator import FakeOrchestrator, ScriptedReply
 from tests.fakes.safety_classifier import FakeSafetyClassifier
 from tests.fakes.sender import FakeSender
@@ -134,7 +135,7 @@ def processor(
         store=store,
         recorder=_NoRecorder(),
         run_turn=orchestrator,
-        gate=SafetyGate(FakeSafetyClassifier()),
+        gate=SafetyGate(FakeSafetyClassifier(), rules_only_policy()),
         senders=senders,
         clock=FixedClock(NOW),
     )

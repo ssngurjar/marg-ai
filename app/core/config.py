@@ -79,8 +79,10 @@ class Settings(DatabaseSettings):
     safety_base_url: HttpUrl
     safety_api_key: SecretStr
     safety_model: str = Field(min_length=1)
+    safety_policy_model_enabled: bool = True  # s07 C16: the Muse Spark policy check on input
     user_slot_max_chars: int = Field(default=4000, ge=100)
-    timeout_safety_in_s: float = Field(default=3.0, gt=0)
+    # 5 s: the policy check is a Muse Spark call (spike E: 2.3 s p50, 3.2 s p95 at minimal)
+    timeout_safety_in_s: float = Field(default=5.0, gt=0)
     timeout_route_s: float = Field(default=4.0, gt=0)
     timeout_generate_s: float = Field(default=12.0, gt=0)
     timeout_safety_out_s: float = Field(default=3.0, gt=0)

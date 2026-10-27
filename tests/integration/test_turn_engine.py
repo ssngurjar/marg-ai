@@ -46,6 +46,7 @@ from app.worker.reply_deliverer import DeliveryDeps, DeliverySettings, ReplyDeli
 from app.worker.turn_dispatcher import DispatcherDeps, DispatcherSettings, TurnDispatcher
 from app.worker.turn_processor import TurnDeps, TurnProcessor, TurnSettings
 from tests.fakes.clock import FixedClock
+from tests.fakes.domain_policy import rules_only_policy
 from tests.fakes.orchestrator import FakeOrchestrator, ScriptedReply
 from tests.fakes.safety_classifier import FakeSafetyClassifier
 from tests.fakes.sender import FakeSender
@@ -103,7 +104,7 @@ def build(
             store=turns,
             recorder=DatabaseStepRecorder(TurnStepRepository(sessions)),
             run_turn=orchestrator,
-            gate=SafetyGate(FakeSafetyClassifier()),
+            gate=SafetyGate(FakeSafetyClassifier(), rules_only_policy()),
             senders=senders,
             clock=clock,
         ),

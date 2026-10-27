@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.core.errors import ConfigError
 from app.core.strict_json_schema import JsonObject, StrictJsonSchema
 from app.layers.parent_question_layer import ParentAnswer
+from app.safety.domain_policy import MinorPolicyCheck
 
 pytestmark = pytest.mark.unit
 
@@ -60,7 +61,7 @@ class Bounded(BaseModel):
     answer: str = Field(min_length=1, max_length=10)
 
 
-@pytest.mark.parametrize("model", [Strict, Nested, Bounded, ParentAnswer])
+@pytest.mark.parametrize("model", [Strict, Nested, Bounded, ParentAnswer, MinorPolicyCheck])
 def test_strict_models_pass_unchanged(model: type[BaseModel]) -> None:
     assert StrictJsonSchema.from_model(model) == model.model_json_schema()
 

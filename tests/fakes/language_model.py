@@ -48,3 +48,16 @@ class FakeLanguageModel:
         if request.semantic_check is not None and request.semantic_check(output):
             raise AssertionError("scripted output fails the request's semantic check")
         return GenerationResult(output=output, usage=USAGE, latency_ms=5)
+
+
+class PromptRoutedLanguageModel:
+    """Satisfies `LanguageModel`: each prompt id has its own scripted fake, like production,
+    where one model serves both the parent layer and the safety policy check."""
+
+    def __init__(self, by_prompt: Mapping[str, FakeLanguageModel]) -> None:
+        self.by_prompt = dict(by_prompt)
+
+    async def generate[OutputT: BaseModel](
+        self, request: GenerationRequest[OutputT]
+    ) -> GenerationResult[OutputT]:
+        return await self.by_prompt[request.prompt.prompt_id].generate(request)

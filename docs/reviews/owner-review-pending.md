@@ -5,22 +5,18 @@ reviewed; anything changed goes into that step doc's Decisions log in the same c
 
 Last updated: 2026-10-27 (after S5 was built).
 
-## 1. Decision needed now: the safety host
+## 1. Safety host (decided 2026-10-27)
 
-- [ ] **Llama Guard 4 is gone from Groq.** A live check on 2026-10-27 returned
-  `400: The model meta-llama/llama-guard-4-12b has been decommissioned`. The Groq key now lists
-  only `meta-llama/llama-prompt-guard-2-22m`/`-86m` (prompt-injection detectors, not content
-  safety) and `openai/gpt-oss-safeguard-20b`. Until this is decided, every live turn gets the
-  HOLDING reply (fail closed), so the S5 phone exit check is blocked. Options:
-  - **A (recommended):** another OpenAI-compatible host that serves Llama Guard 4 (Together,
-    Fireworks, DeepInfra; spike B §4.3 measures them). Config change only: `SAFETY_BASE_URL`,
-    `SAFETY_MODEL`, `SAFETY_API_KEY` and its price in `app/constants/model_prices.py`. Keeps a
-    Meta safety model.
-  - **B:** Groq `openai/gpt-oss-safeguard-20b`. It follows a written policy instead of the
-    S1–S14 codes: a new adapter, a policy prompt, a new parser and a s07 design change. Not a Meta
-    model.
-  - **C:** Llama Guard 4 on Modal + vLLM (spike B's documented fallback). Cold starts, a GPU
-    bill, and it must be kept warm during judging.
+- [x] Groq retired Llama Guard 4 (2026-03-05); the owner chose **DeepInfra**
+  (`meta-llama/Llama-Guard-4-12B`, $0.18/1M). NVIDIA's free endpoint was ruled out for real users
+  (trial terms: no production use, content may be used to improve NVIDIA products).
+- [x] DeepInfra balance added; spike B run (`docs/spikes/safety-guard.md`).
+- [x] Spike B follow-up decided: crisis phrase rules + Muse Spark policy check on every user
+  message; Llama Guard S1/S2/S4 need confirmation, S11 always counts; token cap 800. The full
+  check got 36/36 right on two runs.
+- [ ] S5 phone exit check.
+- [ ] Note: DeepInfra is the only production host for Llama Guard 4 found, so it is a single
+  point of failure; an outage means every turn gets HOLDING. Revisit in S16 hardening.
 
 ## 2. S5 copy (users read these words)
 
@@ -30,6 +26,14 @@ Last updated: 2026-10-27 (after S5 was built).
 - [ ] Fixed replies, `app/constants/fixed_replies.py`: TRY_AGAIN_LATER, HOLDING, REPEAT_PLEASE,
   UNSUPPORTED_MEDIA, REFUSE (HARMFUL, PRIVACY, MEDICAL, GENERAL, GENERIC). Wording avoids
   gendered verbs, since a parent may be a mother or a father.
+- [ ] **Crisis phrase list**, `app/constants/crisis_lexicon.py` (v1): self-harm phrases and
+  the abuse people/harm lists in Hindi, Hinglish and English. Recall first; brothers and
+  cousins left out so sibling fights stay parenting questions. Ideally also checked by a
+  counsellor or teacher (s07 Q2).
+- [ ] **Safety policy prompt**, `app/prompts/minor_policy.md.j2` (v1.0.1): what counts as a
+  self-harm signal, an abuse disclosure, a medical request, and a harmful request.
+- [ ] Known false positive you accepted: "pakka IAS ban jaunga na?" gets the crisis reply when
+  Llama Guard tags it S11.
 - [ ] The parent-answer prompt, `app/prompts/parent_answer.md.j2` (v1.0.0): warm and play-based,
   one thing to try today, no medical advice, no facts or figures, no labelling a child, and the
   parent's message treated as data.

@@ -33,9 +33,9 @@ MODEL_PRICES: Final[dict[str, ModelPrice]] = {
     "muse-spark-1.2-contributor": ModelPrice(
         Decimal("0.10"), Decimal("0.002"), Decimal("0.20"), allowed_for_user_content=False
     ),
-    # Llama Guard 4 12B at $0.20 / 1M in and out (Groq, 2026-10-27). Groq has since
-    # decommissioned it; host and price await the owner (docs/reviews/owner-review-pending.md).
-    "meta-llama/llama-guard-4-12b": ModelPrice(
-        Decimal("0.20"), Decimal("0.20"), Decimal("0.20"), allowed_for_user_content=True
+    # Llama Guard 4 12B on DeepInfra: $0.18 / 1M tokens in and out, standard tier (listed on
+    # deepinfra.com/meta-llama/Llama-Guard-4-12B, 2026-10-27). Groq retired it on 2026-03-05.
+    "meta-llama/Llama-Guard-4-12B": ModelPrice(
+        Decimal("0.18"), Decimal("0.18"), Decimal("0.18"), allowed_for_user_content=True
     ),
 }
