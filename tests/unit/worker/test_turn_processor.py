@@ -19,14 +19,21 @@ from app.domain.enums import (
     Route,
     StepName,
 )
-from app.domain.models import InboundMessage, TurnContext, TurnId, UserHash, UserProfile
-from app.domain.turns import QueuedMessage, turn_retry_delay
-from app.pipeline.parts import ReplyDelivery
-from app.pipeline.steps import StepFailure
+from app.domain.models.base import TurnId, UserHash
+from app.domain.models.message import InboundMessage
+from app.domain.models.turn import QueuedMessage, TurnContext, UserProfile
+from app.domain.rules.turn_batcher import TurnBatcher
+from app.pipeline.reply_parts_builder import ReplyDelivery
+from app.pipeline.step_models import StepFailure
 from app.providers.ports import ChannelSender
-from app.safety.gate import SafetyGate
-from app.store.repositories.turns import FinalizeResult, FinishedTurn, StartedTurn, TurnStore
-from app.worker.turns import TurnDeps, TurnProcessor, TurnSettings
+from app.safety.safety_gate import SafetyGate
+from app.store.repositories.turn_repository import (
+    FinalizeResult,
+    FinishedTurn,
+    StartedTurn,
+    TurnRepository,
+)
+from app.worker.turn_processor import TurnDeps, TurnProcessor, TurnSettings
 from tests.fakes.clock import FixedClock
 from tests.fakes.orchestrator import FakeOrchestrator, ScriptedReply
 from tests.fakes.sender import FakeSender
@@ -56,7 +63,7 @@ class Abandoned:
     retry_after: timedelta
 
 
-class MemoryTurnStore(TurnStore):
+class MemoryTurnStore(TurnRepository):
     """Hands out one scripted batch, then records what the processor does with it."""
 
     def __init__(self, batch: list[QueuedMessage]) -> None:
@@ -197,7 +204,9 @@ async def test_a_crashing_pipeline_puts_the_messages_back_with_backoff() -> None
     orchestrator = FakeOrchestrator(raise_times=1)
     await processor(store, orchestrator, FakeSender(FixedClock(NOW))).process_user_turn(USER)
     assert store.finalized == []
-    assert store.abandoned == [Abandoned(count_attempt=True, retry_after=turn_retry_delay(1))]
+    assert store.abandoned == [
+        Abandoned(count_attempt=True, retry_after=TurnBatcher.retry_delay(1))
+    ]
 
 
 async def test_a_poisoned_batch_gets_try_again_later_once_without_running() -> None:

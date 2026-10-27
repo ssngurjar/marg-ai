@@ -10,11 +10,11 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from app.channels.whatsapp.inbound import parse_webhook
 from app.channels.whatsapp.payloads import WebhookBody
+from app.channels.whatsapp.webhook_parser import WhatsAppWebhookParser
 from app.core.types import JsonValue
 from app.store.db import create_engine, create_session_factory
-from app.store.repositories.inbound import InboundRecord, InboundStore
+from app.store.repositories.inbox_repository import InboundRecord, InboxRepository
 from tests.support import whatsapp_payloads as wa
 from tests.support.app_factory import TEST_PHONE_NUMBER_ID, make_identity, make_settings
 
@@ -41,15 +41,15 @@ async def engine(database_url: str) -> AsyncIterator[AsyncEngine]:
 
 
 @pytest.fixture
-def store(engine: AsyncEngine) -> InboundStore:
-    return InboundStore(create_session_factory(engine))
+def store(engine: AsyncEngine) -> InboxRepository:
+    return InboxRepository(create_session_factory(engine))
 
 
 def records_for(
     payload: dict[str, JsonValue], received_at: datetime | None = None
 ) -> list[InboundRecord]:
     identity = make_identity()
-    parsed = parse_webhook(
+    parsed = WhatsAppWebhookParser.parse(
         WebhookBody.model_validate(payload), TEST_PHONE_NUMBER_ID, identity,
         received_at or FIXED_RECEIVED_AT,
     )  # fmt: skip
@@ -71,7 +71,7 @@ async def count(engine: AsyncEngine, table: str) -> int:
 
 
 async def test_same_webhook_three_times_stores_once_and_notifies_once(
-    engine: AsyncEngine, store: InboundStore
+    engine: AsyncEngine, store: InboxRepository
 ) -> None:
     notifications: list[str] = []
 
@@ -94,7 +94,7 @@ async def test_same_webhook_three_times_stores_once_and_notifies_once(
 
 
 async def test_older_retry_keeps_the_newer_last_inbound_time(
-    engine: AsyncEngine, store: InboundStore
+    engine: AsyncEngine, store: InboxRepository
 ) -> None:
     newer = wa.text_message(message_id="wamid.NEW")
     newer["timestamp"] = "1761555600"  # one hour after SENT_AT
@@ -108,7 +108,7 @@ async def test_older_retry_keeps_the_newer_last_inbound_time(
 
 
 async def test_no_column_anywhere_holds_the_number_or_name(
-    engine: AsyncEngine, store: InboundStore
+    engine: AsyncEngine, store: InboxRepository
 ) -> None:
     await store.save(
         records_for(wa.webhook([wa.text_message("hi"), wa.voice_note(), wa.image_message("cap")]))
@@ -122,7 +122,7 @@ async def test_no_column_anywhere_holds_the_number_or_name(
             assert wa.PROFILE_NAME not in dumped
 
 
-async def test_latest_message_and_address_round_trip(store: InboundStore) -> None:
+async def test_latest_message_and_address_round_trip(store: InboxRepository) -> None:
     await store.save(records_for(wa.webhook([wa.voice_note()])))
     latest = await store.latest_whatsapp_message()
     assert latest is not None
@@ -135,12 +135,12 @@ async def test_latest_message_and_address_round_trip(store: InboundStore) -> Non
     )
 
 
-async def test_empty_inbox_has_no_latest_message(store: InboundStore) -> None:
+async def test_empty_inbox_has_no_latest_message(store: InboxRepository) -> None:
     assert await store.latest_whatsapp_message() is None
 
 
 async def test_deleting_a_user_deletes_their_messages(
-    engine: AsyncEngine, store: InboundStore
+    engine: AsyncEngine, store: InboxRepository
 ) -> None:
     await store.save(records_for(wa.webhook([wa.text_message()])))
     async with engine.begin() as connection:
@@ -162,12 +162,12 @@ async def test_check_constraints_reject_unknown_values(engine: AsyncEngine, stat
             await connection.execute(text(statement))
 
 
-async def test_empty_batch_is_a_no_op(engine: AsyncEngine, store: InboundStore) -> None:
+async def test_empty_batch_is_a_no_op(engine: AsyncEngine, store: InboxRepository) -> None:
     assert await store.save([]) == 0
     assert await count(engine, "users") == 0
 
 
-async def test_received_at_is_kept(engine: AsyncEngine, store: InboundStore) -> None:
+async def test_received_at_is_kept(engine: AsyncEngine, store: InboxRepository) -> None:
     received = datetime(2026, 10, 27, 10, 0, tzinfo=UTC)
     await store.save(records_for(wa.webhook([wa.text_message()]), received_at=received))
     async with engine.connect() as connection:

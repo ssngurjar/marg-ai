@@ -170,3 +170,16 @@ class FixedReplyKind(StrEnum):
     CHILD_TALK_NOT_ENABLED = "child_talk_not_enabled"
     CHILD_TALK_COOLDOWN = "child_talk_cooldown"
     CHILD_SESSION_END = "child_session_end"
+
+
+class FixedReplyVariant(StrEnum):
+    """Which version of a fixed reply: DEFAULT for every kind, plus REFUSE and CRISIS variants."""
+
+    DEFAULT = "default"
+    HARMFUL = "harmful"
+    PRIVACY = "privacy"
+    MEDICAL = "medical"
+    GENERAL = "general"
+    GENERIC = "generic"
+    SELF_HARM = "self_harm"
+    ABUSE = "abuse"

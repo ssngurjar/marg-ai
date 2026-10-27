@@ -190,7 +190,7 @@ Combining rules:
 - `recent_exchanges` ← last `RECENT_EXCHANGES` turns with `status = 'completed'` and non-null
   `user_text`, oldest first
 - `is_session_start` ← the gap between this turn's first message and the previous turn's
-  `started_at` is greater than `SESSION_GAP` (`app/domain/trajectory.py`, the only definition);
+  `started_at` is greater than `SESSION_GAP` (`app/domain/rules/session_rules.py`, the only definition);
   `True` when there's no previous turn
 - `learners` ← `learners WHERE owner_user_hash = :u` (S8; `[]` for teachers)
 - `open_activity` ← the latest `learner_activities` row with `status = 'offered'` for any of those
@@ -230,7 +230,7 @@ async def run_turn(ctx: TurnContext, recorder: StepRecorder, observer: TurnObser
 - In production the observer is `NullTurnObserver`. s15's eval runner passes its own.
 
 `StepRecorder` is the protocol in contracts §3, implemented by S4 in
-`app/store/repositories/turn_steps.py`. Each `record` call is its own short transaction:
+`app/store/repositories/turn_step_repository.py`. Each `record` call is its own short transaction:
 
 ```sql
 INSERT INTO turn_steps (turn_id, step, outcome, failure_kind, decision, detail, provider, model,
@@ -241,7 +241,7 @@ SELECT pg_notify('turn_progress', :turn_id::text);
 
 `decision` is filled only for `safety_in` / `safety_out` rows (s07, read by the s14 trace).
 
-**`process_user_turn(user_hash, observer=NullTurnObserver()) -> TurnId | None`** (`app/worker/turns.py`) is the whole of §4.4–§4.7
+**`process_user_turn(user_hash, observer=NullTurnObserver()) -> TurnId | None`** (`app/worker/turn_processor.py`) is the whole of §4.4–§4.7
 plus §4.16 for one already-leased user: start the turn, handle stale or poisoned, load the
 context, acknowledge, run, finalize, run post-turn tasks. It returns the turn id, or `None` when no
 rows were picked. `TurnRunner` calls it after `claim_user`; s15's eval runner calls it directly,
@@ -353,8 +353,8 @@ FROM expired WHERE u.user_hash = expired.user_hash;
   failure is recorded and is distinguishable from success. `asyncio.CancelledError` is never caught there.
 - Poison handling happens in `start_turn`. Rows picked with `attempts >= MAX_TURN_ATTEMPTS`
   aren't passed to `run_turn`. The runner builds the reply through the same sealed path as every
-  other fixed reply: `fallbacks.localise_fixed(TRY_AGAIN_LATER, DEFAULT, language)` →
-  `SafetyGate.clear_fixed(...)` → `build_parts(safe_reply, None)` → `ReplyDelivery`. It finalizes the
+  other fixed reply: `FixedReplyService.localise(TRY_AGAIN_LATER, DEFAULT, language)` →
+  `SafetyGate.clear_fixed(...)` → `ReplyPartsBuilder.build(safe_reply, None)` → `ReplyDelivery`. It finalizes the
   turn with that delivery (`fixed_reply_kind = 'try_again_later'`, no writes, no post-turn tasks) and
   marks those rows `failed`. The reply stays sealed, so the outbox invariant holds here too.
 
@@ -531,7 +531,7 @@ class Supervisor:
     async def run(self) -> None: ...          # until shutdown
     def request_shutdown(self) -> None: ...   # signal handler
 
-# app/worker/turns.py
+# app/worker/turn_processor.py
 class TurnLoop:     async def run(self, stop: asyncio.Event) -> None: ...
 class TurnRunner:   async def run(self, user_hash: UserHash) -> None: ...    # calls process_user_turn
 async def process_user_turn(user_hash: UserHash, observer: TurnObserver = NullTurnObserver()) -> TurnId | None: ...  # contracts §3; s15 passes its observer
@@ -557,7 +557,7 @@ async def claim_user(session: AsyncSession, worker_id: str, lease_s: int, deboun
 async def renew_lease(session: AsyncSession, user_hash: UserHash, worker_id: str, lease_s: int) -> bool: ...
 async def take_over_expired_leases(session: AsyncSession) -> int: ...
 
-# app/store/repositories/turns.py
+# app/store/repositories/turn_repository.py
 async def start_turn(session: AsyncSession, user_hash: UserHash, worker_id: str, max_messages: int) -> StartedTurn: ...
 async def load_turn_context(session: AsyncSession, started: StartedTurn) -> TurnContext: ...
 async def finalize_turn(session: AsyncSession, started: StartedTurn, worker_id: str,
@@ -573,7 +573,7 @@ class WriteApplier(Protocol[W]):
 WriteAppliers = Mapping[str, WriteApplier[TurnWrite]]       # keyed by TurnWrite.kind
 def check_write_appliers(appliers: WriteAppliers) -> None: ... # startup: every variant covered, else ConfigError
 
-# app/store/repositories/outbox.py  (adds to S3's apply_status_update)
+# app/store/repositories/outbox_repository.py  (adds to S3's apply_status_update)
 class OutboxRepository:
     async def enqueue(self, session: AsyncSession, turn_id: TurnId, user_hash: UserHash,
                       channel: Channel, delivery: ReplyDelivery) -> int: ...   # the only outbox insert
@@ -648,7 +648,7 @@ Startup check: `LEASE_DURATION_S ≥ 2 × TURN_BUDGET_S`, else `ConfigError` nam
 **Unit** (fakes: a `FakeOrchestrator` returning scripted `TurnOutcome`s, a `FakeSender`, `FakeClock`)
 - `process_user_turn` calls `acknowledge` with the newest message, then `run_turn(ctx, recorder, NullTurnObserver())`, then finalize, then the post-turn tasks; `acknowledge` raising doesn't stop the turn
 - Backoff functions: values at attempts 0, 1, 2, 5, and the 60 s cap
-- Poison path: a `StartedTurn` with `poisoned=True` never calls `run_turn` and finalizes exactly one `TRY_AGAIN_LATER` part, built through `clear_fixed` → `build_parts` (a `ReplyDelivery`, not raw parts); the turn is `completed`
+- Poison path: a `StartedTurn` with `poisoned=True` never calls `run_turn` and finalizes exactly one `TRY_AGAIN_LATER` part, built through `clear_fixed` → `ReplyPartsBuilder.build` (a `ReplyDelivery`, not raw parts); the turn is `completed`
 - Stale path: `stale=True` never calls `run_turn`, finalizes zero parts, marks rows done
 - Turn status: a scripted outcome with `first_failure` set → turn `completed` with `failure_step`/`failure_kind`; an orchestrator that raises → `failed`
 - Crisis outcome (`fixed_reply_kind=CRISIS`, `user_text` set) → the finalize statement writes `user_text = NULL`
@@ -737,11 +737,11 @@ Startup check: `LEASE_DURATION_S ≥ 2 × TURN_BUDGET_S`, else `ConfigError` nam
 
 | Date | Change | Why | Approved |
 |---|---|---|---|
-| 2026-10-27 | **E1 build.** In-process `TurnDispatcher` (`app/worker/dispatcher.py`): one task per user, debounce, startup recovery (`processing` turns → failed, rows → pending with attempts + 1; `sending` parts → pending), a maintenance pass (due parts, missed wakes, retention). `TurnProcessor.process_user_turn` (`app/worker/turns.py`), `Deliverer` (`app/worker/delivery.py`), `DatabaseStepRecorder` (`app/worker/recorder.py`); stores in `app/store/repositories/{turns,outbox,turn_steps}.py`. No leases, heartbeat, LISTEN/NOTIFY or outbox loop (Phase 2) | mvp-scope §4.1, exception E1 | owner (E1) |
+| 2026-10-27 | **E1 build.** In-process `TurnDispatcher` (`app/worker/turn_dispatcher.py`): one task per user, debounce, startup recovery (`processing` turns → failed, rows → pending with attempts + 1; `sending` parts → pending), a maintenance pass (due parts, missed wakes, retention). `TurnProcessor.process_user_turn` (`app/worker/turn_processor.py`), `Deliverer` (`app/worker/reply_deliverer.py`), `DatabaseStepRecorder` (`app/worker/database_step_recorder.py`); stores in `app/store/repositories/{turns,outbox,turn_steps}.py`. No leases, heartbeat, LISTEN/NOTIFY or outbox loop (Phase 2) | mvp-scope §4.1, exception E1 | owner (E1) |
 | 2026-10-27 | **Staged contract types:** `TurnContext`, `UserProfile` and `TurnOutcome` carry only what exists after S4; S8 adds `TurnWrite`/`writes`, learners and profile fields, S10b/S12/S13 their fields and `post_turn`, each with its table. Write appliers and `check_write_appliers` arrive with the first `TurnWrite` (S8) | Same staged-delivery rule as s05 §4.4; no stub fields | owner (S4 review) |
-| 2026-10-27 | **Sealed fixed path built in S4:** `SafeReply` + `SafetyGate.clear_fixed` (`app/safety/gate.py`), `ReplyDelivery` + `build_parts` (`app/pipeline/parts.py`), `split_for_channel`, `fallbacks.localise_fixed` with `TRY_AGAIN_LATER` in hi/hinglish/en (copy v1, **for owner review**), `RetryPolicy` (`app/providers/http.py`). S5 adds `check_input`/`check_output` and the other fixed kinds | The poisoned-turn reply must go through the seal | owner (S4 review) |
-| 2026-10-27 | **Layering:** `store` may import `pipeline.parts` (only), so `enqueue(delivery: ReplyDelivery)` keeps the compile-time seal. The recorder and the outcome → row mapping live in `worker` (store can't import `pipeline.steps`); `StepRecorder`/`TurnObserver` protocols live in `app/pipeline/steps.py` (ports can't import the pipeline) | store/pipeline rule conflicted with s07's seal | owner (S4 review) |
-| 2026-10-27 | Poisoned = **any** picked message at `MAX_TURN_ATTEMPTS`. Retry times come from the database clock (`now() + delay`), the one claims compare against. `apply_status_update` (s03 §4.8) uses the pure `next_delivery_status` under a row lock, and the webhook applies status webhooks from S4 (503 on a store failure). `outbox_messages.audio_blob_id`/`image_blob_id` have no FK until S6 creates `media_blobs`; AUDIO/IMAGE parts fail `media_not_loadable` until then (build_parts never produces them before S6) | Implementation choices the doc left open | owner (S4 review) |
+| 2026-10-27 | **Sealed fixed path built in S4:** `SafeReply` + `SafetyGate.clear_fixed` (`app/safety/safety_gate.py`), `ReplyDelivery` + `ReplyPartsBuilder.build` (`app/pipeline/reply_parts_builder.py`), `MessageSplitter.split`, `FixedReplyService.localise` with `TRY_AGAIN_LATER` in hi/hinglish/en (copy v1, **for owner review**), `RetryPolicy` (`app/providers/http.py`). S5 adds `check_input`/`check_output` and the other fixed kinds | The poisoned-turn reply must go through the seal | owner (S4 review) |
+| 2026-10-27 | **Layering:** `store` may import `pipeline.parts` (only), so `enqueue(delivery: ReplyDelivery)` keeps the compile-time seal. The recorder and the outcome → row mapping live in `worker` (store can't import `pipeline.steps`); `StepRecorder`/`TurnObserver` protocols live in `app/pipeline/step_models.py` (ports can't import the pipeline) | store/pipeline rule conflicted with s07's seal | owner (S4 review) |
+| 2026-10-27 | Poisoned = **any** picked message at `MAX_TURN_ATTEMPTS`. Retry times come from the database clock (`now() + delay`), the one claims compare against. `apply_status_update` (s03 §4.8) uses the pure `next_delivery_status` under a row lock, and the webhook applies status webhooks from S4 (503 on a store failure). `outbox_messages.audio_blob_id`/`image_blob_id` have no FK until S6 creates `media_blobs`; AUDIO/IMAGE parts fail `media_not_loadable` until then (ReplyPartsBuilder.build never produces them before S6) | Implementation choices the doc left open | owner (S4 review) |
 | 2026-10-27 | **Wiring lands with S5:** the dispatcher needs `run_turn`, so `Container.dispatcher`, its start/stop in the lifespan, and the webhook's `wake(user_hash)` are added in S5. S4's exit is the integration suite (one reply, duplicates, burst, mid-turn message, crash → retry → poison, restart recovery, part order); the phone exit runs with S5 | No orchestrator exists before S5, and a placeholder one is banned | owner (S4 review) |
 | 2026-10-25 | Consolidated against the foundation docs: contracts' `TurnOutcome`/`TurnWrite`/`PostTurnTask`; `WriteApplier` registry; turn status per B3; crisis `user_text` NULL (B5); stale and poisoned turns before `run_turn`; `process_user_turn`; post-turn tasks (§4.16); purge after delivery and sweep (§4.15, B4); template parts skip the 24h check; `sending_since`; web `mark_sent` notify; `NudgeLoop` hosted; context loads learners, open activity, `is_session_start`, `active_learner` | Resolve conflicts between the step docs and add the parent journey | owner (A1–A5, B1–B12) |
 | 2026-10-26 | Context loads `child_session` and sets `speaker`; housekeeping expires child sessions past `CHILD_SESSION_MAX_MINUTES` and queues the parent summary | Owner decision C13 | owner |

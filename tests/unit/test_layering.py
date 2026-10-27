@@ -152,12 +152,12 @@ def test_store_may_import_only_the_sealed_delivery_from_the_pipeline(tmp_path: P
     write_module(
         app_root,
         "store/repositories/outbox.py",
-        "from app.pipeline.parts import ReplyDelivery\n"
-        "from app.pipeline.steps import TurnOutcome\n",
+        "from app.pipeline.reply_parts_builder import ReplyDelivery\n"
+        "from app.pipeline.step_models import TurnOutcome\n",
     )
-    write_module(app_root, "pipeline/parts.py", "")
-    write_module(app_root, "pipeline/steps.py", "")
+    write_module(app_root, "pipeline/reply_parts_builder.py", "")
+    write_module(app_root, "pipeline/step_models.py", "")
     assert violations_as_text(app_root) == [
-        "app.store.repositories.outbox → app.pipeline.steps.TurnOutcome "
-        "(store may not import pipeline.steps.TurnOutcome)"
+        "app.store.repositories.outbox → app.pipeline.step_models.TurnOutcome "
+        "(store may not import pipeline.step_models.TurnOutcome)"
     ]

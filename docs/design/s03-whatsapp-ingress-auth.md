@@ -41,7 +41,7 @@ the reply.
 - Leases, turns, outbox delivery loop → S4
 - Downloading inbound audio (`MediaFetcher`) → S6, which reuses the Graph client built here
 - Producing reply audio → S6. This step only uploads and sends an `AudioClip` it's given.
-- Splitting long text → `app/domain/text.py` (S5). The sender refuses text over 4096 characters and never truncates.
+- Splitting long text → `app/domain/rules/message_splitter.py` (S5). The sender refuses text over 4096 characters and never truncates.
 - Web channel → S14
 
 ## 4. Design
@@ -379,7 +379,7 @@ httpx); `http` is injected only by tests. Each call is **one attempt** with
 `TIMEOUT_WHATSAPP_S`: retries with backoff belong to the outbox loop (S4), driven by each error's
 `retryable` flag, and the shared retry helper in `app/providers/http.py` arrives with S5.
 
-### 5.5 `app/core/identity.py`
+### 5.5 `app/core/user_identity.py`
 
 ```python
 class UserIdentity:

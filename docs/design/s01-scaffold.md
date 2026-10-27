@@ -24,7 +24,7 @@ verification loop from CLAUDE.md §2 runs green on an almost-empty app, locally 
 - `pyproject.toml`, `uv.lock`, `.python-version` (3.13), `.env.example`, `Makefile`
 - `app/core/config.py`, `app/core/errors.py`, `app/core/logging.py`, `app/core/clock.py`
 - `app/store/db.py` (async engine and session factory only, no tables)
-- `app/main.py` (app factory), `app/api/health.py`, `app/wiring.py`
+- `app/main.py` (app factory), `app/api/routers/health.py`, `app/wiring.py`
 - Alembic initialised (`alembic.ini`, `alembic/env.py`), no revisions yet
 - `tests/conftest.py`, `tests/fakes/clock.py`, `tests/unit/test_layering.py` and the S1 unit tests
 - `.github/workflows/ci.yml`, `Dockerfile`, `docker-compose.yml`, `docker-compose.test.yml`
@@ -36,7 +36,7 @@ verification loop from CLAUDE.md §2 runs green on an almost-empty app, locally 
 - Settings beyond the S1 set (§7) → each step adds its own settings to `config.py` and
   `.env.example` in the same commit. A setting nothing reads isn't added early.
 - Provider readiness probes → S16 adds them to the probe list built here.
-- `app/core/identity.py` (user hashing and address encryption) → S3.
+- `app/core/user_identity.py` (user hashing and address encryption) → S3.
 
 ## 4. Design
 
@@ -359,7 +359,7 @@ async def close_container(container: Container) -> None:   # disposes the engine
 Later steps add fields (`language_model`, `transcriber`, `whatsapp_sender`, …) to `Container`
 and build them in `build_container`. Tests build a `Container` with fakes directly.
 
-### 4.11 App factory and health — `app/main.py`, `app/api/health.py`
+### 4.11 App factory and health — `app/main.py`, `app/api/routers/health.py`
 
 ```python
 def create_app(settings: Settings | None = None,
@@ -430,18 +430,19 @@ dependency on a third-party import linter.
 |---|---|
 | `domain` | `core.errors`, `core.types` only |
 | `layers` | `domain`, `providers.ports`, `prompts`, `rag` (retrieval interfaces), `core.errors`, `core.types` |
-| `pipeline` | `domain`, `layers`, `providers.ports`, `safety`, `store`, `telemetry`, `core` |
-| `safety` | `domain`, `providers.ports`, `prompts`, `core` |
+| `pipeline` | `domain`, `layers`, `providers.ports`, `safety`, `store`, `telemetry`, `core`, `constants` |
+| `safety` | `domain`, `providers.ports`, `prompts`, `core`, `constants` |
 | `telemetry` | `domain`, `providers.ports`, `prompts`, `store`, `core` |
 | `rag` | `domain`, `providers.ports`, `store`, `core` |
 | `audio` | `domain`, `core` |
 | `prompts` | `domain`, `core.errors`, `core.types` |
-| `channels` | `domain`, `providers.ports`, `providers.http`, `core` |
+| `channels` | `domain`, `providers.ports`, `providers.http`, `core`, `constants` |
 | `providers.ports` | `domain`, `core.errors`, `core.types` |
 | `providers.http` | `core` |
 | `providers.<adapter>` | `domain`, `providers.ports`, `providers.http`, `core`, `audio` |
-| `store` | `domain`, `core`, and `pipeline.parts` only (the sealed `ReplyDelivery` the outbox insert accepts; s04 log 2026-10-27) |
-| `api` | `domain`, `channels`, `store`, `core`, `pipeline` (hand-off only), `telemetry` (dashboard queries) |
+| `store` | `domain`, `core`, and `pipeline.reply_parts_builder` only (the sealed `ReplyDelivery` the outbox insert accepts; s04 log 2026-10-27) |
+| `constants` | `domain`, `core` (reviewed copy and external-API limits; imported by `channels`, `pipeline`, `safety`, `api`; added 2026-10-27) |
+| `api` | `domain`, `channels`, `store`, `core`, `pipeline` (hand-off only), `telemetry` (dashboard queries), `constants` |
 | `core` | `core` only |
 | `worker`, `evals` | anything except `api` |
 | `wiring`, `main`, `cli` | anything (composition roots) |
@@ -456,7 +457,7 @@ dependency on a third-party import linter.
 | `fastapi`, `starlette` | `api`, `main`, `wiring` |
 | `jinja2` | `prompts` |
 | `yaml` (pyyaml) | `layers` (catalogue loaders), `rag` (corpus frontmatter), `evals`, `cli` |
-| `cryptography` | `core` (`app/core/identity.py`) |
+| `cryptography` | `core` (`app/core/user_identity.py`) |
 | `pgvector` | `store` |
 | `structlog` | `core` only. Other code logs through `app.core.logging.get_logger`, so the redaction chain can't be bypassed. `domain`, `layers` and `prompts` don't log at all: the orchestrator records what they did. |
 
@@ -711,7 +712,7 @@ Every secret has an empty value.
 | `app/providers/ports.py` | `Clock` (Protocol) |
 | `app/store/db.py` | `create_engine`, `create_session_factory`, `ping` |
 | `app/wiring.py` | `Container`, `build_container`, `close_container` |
-| `app/api/health.py` | `router`, `HealthResponse`, `ProbeResult`, `ReadinessResponse`, `ReadinessProbe` |
+| `app/api/routers/health.py` | `router`, `HealthResponse`, `ProbeResult`, `ReadinessResponse`, `ReadinessProbe` |
 | `app/api/deps.py` | `get_container` |
 | `app/main.py` | `create_app` |
 | `tests/fakes/clock.py` | `FixedClock` |

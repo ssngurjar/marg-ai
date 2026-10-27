@@ -8,6 +8,8 @@ context from chat history.
 [plan.md](../../plan.md) says *what* we build and *when*. [CLAUDE.md](../../CLAUDE.md) says *how
 code must be written*. These docs say *how each part works*.
 
+> **Code organisation:** modules are named after the one class they hold, with a role suffix (CLAUDE.md §7). Where a step doc names a module that isn't built yet (e.g. s04's Phase 2 `leases.py`), it's created under that rule. [docs/code-map.md](../code-map.md) lists what exists.
+
 ## How to use them
 
 0. **For the hackathon build, read [mvp-scope.md](mvp-scope.md) first.** We build the full

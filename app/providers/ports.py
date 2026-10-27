@@ -10,8 +10,8 @@ from typing import Protocol
 from pydantic import BaseModel, ConfigDict, SecretStr
 
 from app.domain.enums import Channel
-from app.domain.models import AudioClip, ImageClip
-from app.domain.replies import OutboundPart
+from app.domain.models.message import AudioClip, ImageClip
+from app.domain.models.reply import OutboundPart
 
 
 class ChannelAddress(BaseModel):

@@ -7,11 +7,11 @@ from hypothesis import given
 from hypothesis import strategies as st
 from pydantic import SecretStr
 
-from app.channels.whatsapp.signature import verify_signature, verify_subscription
+from app.channels.whatsapp.webhook_signature import WebhookSignatureVerifier
 from app.core.errors import ConfigError, InvalidAddressCiphertext, SignatureInvalid
-from app.core.identity import UserIdentity
-from app.domain.delivery import next_delivery_status
+from app.core.user_identity import UserIdentity
 from app.domain.enums import OutboxStatus
+from app.domain.rules.delivery_planner import DeliveryPlanner
 from tests.support.app_factory import (
     APP_SIGNING_KEY_FOR_TESTS,
     HANDSHAKE_WORD_FOR_TESTS,
@@ -31,11 +31,13 @@ def header_for(body: bytes, secret: str = APP_SIGNING_KEY_FOR_TESTS) -> str:
 
 
 def test_verify_signature_accepts_valid_hmac() -> None:
-    verify_signature(BODY, header_for(BODY), SECRET)
+    WebhookSignatureVerifier.verify(BODY, header_for(BODY), SECRET)
 
 
 def test_verify_signature_accepts_uppercase_hex() -> None:
-    verify_signature(BODY, "sha256=" + header_for(BODY).removeprefix("sha256=").upper(), SECRET)
+    WebhookSignatureVerifier.verify(
+        BODY, "sha256=" + header_for(BODY).removeprefix("sha256=").upper(), SECRET
+    )
 
 
 @pytest.mark.parametrize(
@@ -51,18 +53,18 @@ def test_verify_signature_accepts_uppercase_hex() -> None:
 )
 def test_verify_signature_rejects_bad_headers(header: str | None, message: str) -> None:
     with pytest.raises(SignatureInvalid, match=message):
-        verify_signature(BODY, header, SECRET)
+        WebhookSignatureVerifier.verify(BODY, header, SECRET)
 
 
 def test_verify_signature_rejects_wrong_secret() -> None:
     with pytest.raises(SignatureInvalid, match="doesn't match"):
-        verify_signature(BODY, header_for(BODY, "another-secret"), SECRET)
+        WebhookSignatureVerifier.verify(BODY, header_for(BODY, "another-secret"), SECRET)
 
 
 def test_verify_signature_needs_the_raw_bytes() -> None:
     reformatted = b'{ "object": "whatsapp_business_account" }'
     with pytest.raises(SignatureInvalid, match="doesn't match"):
-        verify_signature(reformatted, header_for(BODY), SECRET)
+        WebhookSignatureVerifier.verify(reformatted, header_for(BODY), SECRET)
 
 
 @given(
@@ -74,17 +76,17 @@ def test_property_signature_verifies_and_any_flipped_byte_fails(
     body: bytes, secret: str, flip: int
 ) -> None:
     header = header_for(body, secret)
-    verify_signature(body, header, SecretStr(secret))
+    WebhookSignatureVerifier.verify(body, header, SecretStr(secret))
     if body:
         position = flip % len(body)
         tampered = body[:position] + bytes([body[position] ^ 0x01]) + body[position + 1 :]
         with pytest.raises(SignatureInvalid):
-            verify_signature(tampered, header, SecretStr(secret))
+            WebhookSignatureVerifier.verify(tampered, header, SecretStr(secret))
     digest_position = 7 + flip % 64
     flipped_char = "0" if header[digest_position] != "0" else "1"
     tampered_header = header[:digest_position] + flipped_char + header[digest_position + 1 :]
     with pytest.raises(SignatureInvalid):
-        verify_signature(body, tampered_header, SecretStr(secret))
+        WebhookSignatureVerifier.verify(body, tampered_header, SecretStr(secret))
 
 
 @pytest.mark.parametrize(
@@ -99,7 +101,12 @@ def test_property_signature_verifies_and_any_flipped_byte_fails(
     ],
 )
 def test_verify_subscription(mode: str | None, token: str | None, *, accepted: bool) -> None:
-    assert verify_subscription(mode, token, SecretStr(HANDSHAKE_WORD_FOR_TESTS)) is accepted
+    assert (
+        WebhookSignatureVerifier.verify_subscription(
+            mode, token, SecretStr(HANDSHAKE_WORD_FOR_TESTS)
+        )
+        is accepted
+    )
 
 
 # --- identity -----------------------------------------------------------------------------------
@@ -179,7 +186,7 @@ def test_property_identity(address: str, other: str) -> None:
 def test_any_arrival_order_ends_in_read(order: tuple[OutboxStatus, ...]) -> None:
     current = OutboxStatus.SENDING
     for reported in order:
-        current = next_delivery_status(current, reported)
+        current = DeliveryPlanner.next_status(current, reported)
     assert current is OutboxStatus.READ
 
 
@@ -190,7 +197,7 @@ _STATUSES = st.sampled_from(list(OutboxStatus))
 def test_property_delivery_status_never_moves_backwards(
     current: OutboxStatus, reported: OutboxStatus
 ) -> None:
-    result = next_delivery_status(current, reported)
+    result = DeliveryPlanner.next_status(current, reported)
     if OutboxStatus.FAILED in {current, reported}:
         assert result is OutboxStatus.FAILED
     else:

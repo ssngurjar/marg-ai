@@ -82,7 +82,7 @@ class ChildSessionEndReason(StrEnum): TURN_LIMIT; TIME_LIMIT; CHILD_ENDED; CRISI
 `REPEAT_PLEASE` → s06 (fixed text); `DASHBOARD_LINK` → s13; `NUDGE`, `KHOJ_CARD` → s10b. A `NUDGE` turn is
 created by the scheduler, never by inbound messages, and sends a fixed, Meta-approved template.
 
-Fixed-reply variants (`FixedReplyVariant`, `app/pipeline/fallbacks.py`): `DEFAULT` for every kind,
+Fixed-reply variants (`FixedReplyVariant`, `app/pipeline/fixed_reply_service.py`): `DEFAULT` for every kind,
 plus `HARMFUL`, `PRIVACY`, `MEDICAL`, `GENERAL`, `GENERIC` (for `REFUSE`) and `SELF_HARM`, `ABUSE`
 (for `CRISIS`, which `app/safety/crisis.py` also calls `CrisisVariant`). Crisis and refuse texts are
 keyed additionally by `Speaker`: the `LEARNER` versions use a child's words (s10b §4.16).
@@ -91,7 +91,7 @@ keyed additionally by `Speaker`: the `LEARNER` versions use a child's words (s10
 
 ## 2. Domain models
 
-### 2.1 Identity and messages — `app/domain/models.py`
+### 2.1 Identity and messages — `app/domain/models/`
 
 ```python
 UserHash = NewType("UserHash", str)          # 64 lowercase hex chars
@@ -186,9 +186,9 @@ class TurnContext(BaseModel):                # built by the worker (s04), read b
     is_session_start: bool                   # gap since the previous turn > SESSION_GAP (6 h)
 ```
 
-`SESSION_GAP = timedelta(hours=6)` lives in `app/domain/trajectory.py` and is the only definition of a session.
+`SESSION_GAP = timedelta(hours=6)` lives in `app/domain/rules/session_rules.py` and is the only definition of a session.
 
-### 2.3 Turn results — `app/pipeline/steps.py`
+### 2.3 Turn results — `app/pipeline/step_models.py`
 
 ```python
 class StepFailure(BaseModel):
@@ -317,7 +317,7 @@ class RouteDecision(BaseModel):
     reason: str                              # ≤ 120 chars, fixed vocabulary; no user text
 ```
 
-### 2.6 Replies — `app/domain/replies.py`, `app/safety/gate.py`, `app/pipeline/parts.py`
+### 2.6 Replies — `app/domain/models/reply.py`, `app/safety/safety_gate.py`, `app/pipeline/reply_parts_builder.py`
 
 ```python
 class Citation(BaseModel):
@@ -362,8 +362,8 @@ class OutboundPart(BaseModel):               # one outbox row's content
     template: TemplateRef | None             # TEMPLATE only
 ```
 
-**Sealed types (s07 §4.2).** `SafeReply` (`app/safety/gate.py`) can only be built by `SafetyGate`.
-`ReplyDelivery` (`app/pipeline/parts.py`) can only be built by `build_parts(SafeReply, …)`, and
+**Sealed types (s07 §4.2).** `SafeReply` (`app/safety/safety_gate.py`) can only be built by `SafetyGate`.
+`ReplyDelivery` (`app/pipeline/reply_parts_builder.py`) can only be built by `ReplyPartsBuilder.build(SafeReply, …)`, and
 holds the ordered `OutboundPart`s. `OutboxRepository.enqueue` accepts only a `ReplyDelivery`, so no
 code path can queue a message that didn't pass the gate. Fixed replies pass through
 `SafetyGate.clear_fixed`, which needs no classifier call.
@@ -381,11 +381,11 @@ Each lives in its owner's module. They're listed here so names stay unique.
 | `Activity`, `ActivityPersonalisation`, `ParentReflection`, `OfferedActivity` | `app/layers/journey.py`, `app/domain/activities.py` | s10b |
 | `RetrievalQuery`, `RetrievedChunk`, `RetrievalResult` | `app/rag/` | s11 |
 | `MentorAnswer`, `MentorClaim`, `OffTopicReply`, `LayerResult` | `app/layers/` | s12 |
-| `RoadmapDraft`, `RoadmapDraftStep`, `ResolvedRoadmapStep`, `Roadmap`, `RoadmapStep` | `app/layers/roadmap.py`, `app/domain/models.py` | s12 |
+| `RoadmapDraft`, `RoadmapDraftStep`, `ResolvedRoadmapStep`, `Roadmap`, `RoadmapStep` | `app/layers/roadmap.py`, `app/domain/models/` | s12 |
 | `MemoryUpdate` | `app/layers/memory.py` | s12 |
 | `MinorPolicyCheck` | `app/safety/policy.py` | s07 |
 | `AspirationSignals`, `CuriositySignals` | `app/domain/aspiration.py` | s13 |
-| `KhojCardText`, `PhotoFindings`, `CuriosityMoment`, `ChildReply`, `ChildSession` | `app/layers/journey.py`, `app/domain/models.py` | s10b |
+| `KhojCardText`, `PhotoFindings`, `CuriosityMoment`, `ChildReply`, `ChildSession` | `app/layers/journey.py`, `app/domain/models/` | s10b |
 | `DashboardClaims` | `app/telemetry/links.py` | s13 |
 | `GoldenCase`, `GoldenTurn`, `GoldenProfile`, `GoldenLearner`, `TurnExpectation`, `TurnRecord`, `CheckResult`, `JudgeItem`, `JudgeScore`, `Scorecard` | `app/evals/` | s15 |
 
@@ -587,7 +587,7 @@ No retry is attempted if it can't finish before the step's deadline (s05 §4.5).
 
 ---
 
-## 6. Fixed replies — `app/pipeline/fallbacks.py`, `app/safety/crisis.py`, `app/layers/onboarding_copy.py`
+## 6. Fixed replies — `app/pipeline/fixed_reply_service.py`, `app/safety/crisis.py`, `app/layers/onboarding_copy.py`
 
 Fixed replies are code constants keyed by `(FixedReplyKind, FixedReplyVariant, Language)` (or
 `CopyKey` for onboarding), each with a `version`. They're never generated, never translated, and
@@ -697,7 +697,8 @@ Per-step timeouts `TIMEOUT_<STEP>_S`: `FETCH_MEDIA` 5, `TRANSCRIBE` 8, `SAFETY_I
 
 | Date | Change | Why | Approved |
 |---|---|---|---|
-| 2026-10-27 | Staged types: `TurnContext`, `UserProfile`, `TurnOutcome` gain fields with the step that builds them (S8: writes, learners, profile; S10b/S12/S13 their fields and `post_turn`). `LocalisedReply.register` and `SafeReply.register` are named `reply_register` (pydantic reserves `register`; matches `TurnOutcome.reply_register`). `StepRecorder`/`TurnObserver` live in `app/pipeline/steps.py`. `RetryPolicy` takes a `RetryTiming` (attempts 3, base 0.5 s, cap 4 s). `TurnId`, `SafetyVerdict` (`app/domain/safety.py`) and S4's settings added | S4 build (s04 log) | owner (S4 review) |
+| 2026-10-27 | **Code organisation (prism-style, CLAUDE.md §7):** one main class per module, named after it, with a role suffix; behaviour in classes (stateless rules as `@staticmethod`s); domain data in `app/domain/models/<topic>.py`, pure rules in `app/domain/rules/`, constants and reviewed copy in `app/constants/`; repositories are `*Repository`. Renames: `split_for_channel` → `MessageSplitter.split`, `build_parts` → `ReplyPartsBuilder.build`, `localise_fixed` → `FixedReplyService.localise`, `SESSION_GAP`/`is_session_start` → `SessionRules`, turn rules → `TurnBatcher`, delivery rules → `DeliveryPlanner`, WhatsApp functions → `WebhookSignatureVerifier`, `WhatsAppWebhookParser`, `GraphMessageBuilder`, `GraphErrorClassifier`; `FixedReplyVariant` moves to `app/domain/enums.py`. Module paths in step docs updated; Phase 2 modules not yet built are named by the same rule when they are. `docs/code-map.md` lists every module | Owner: code must be readable without following the router | owner |
+| 2026-10-27 | Staged types: `TurnContext`, `UserProfile`, `TurnOutcome` gain fields with the step that builds them (S8: writes, learners, profile; S10b/S12/S13 their fields and `post_turn`). `LocalisedReply.register` and `SafeReply.register` are named `reply_register` (pydantic reserves `register`; matches `TurnOutcome.reply_register`). `StepRecorder`/`TurnObserver` live in `app/pipeline/step_models.py`. `RetryPolicy` takes a `RetryTiming` (attempts 3, base 0.5 s, cap 4 s). `TurnId`, `SafetyVerdict` (`app/domain/safety.py`) and S4's settings added | S4 build (s04 log) | owner (S4 review) |
 | 2026-10-25 | v1 written | foundation for the step docs | owner |
 | 2026-10-25 | Consolidated the step docs' requests: `TurnOutcome`, `TurnWrite`, `PostTurnTask`, sealed `SafeReply`/`ReplyDelivery`, `StepRecorder`, `TurnObserver`, `ChannelSender.acknowledge` + `audio`, `ReplyAudioStore`, `semantic_check`, new enums, errors and settings | Five step docs needed them; conflicting names unified into one | owner (defaults 1–10) |
 | 2026-10-25 | Parent journey: `Role.PARENT`, `Learner`, `LearnerRelation`, `AWAITING_CHILD`, `Route.JOURNEY`/`NUDGE`, `PartKind.TEMPLATE`, `CuriosityDomain`, `ActivitySource`, `d7 CHILD_PHYSICAL_HAZARD` | Owner decision: build a person from early childhood; learner-centred data model from inception | owner |

@@ -34,7 +34,7 @@ the aggregate queries and the two pages.
 **In:**
 - The `ExtractSignals` post-turn task, and the `AspirationSignals` and `CuriositySignals` schemas
   with their fixed vocabularies.
-- `app/domain/trajectory.py` (pure math), including `SESSION_GAP`.
+- `app/domain/rules/session_rules.py` (pure math), including `SESSION_GAP`.
 - Aggregate SQL and the `turn_metrics` view.
 - `/status`, `/dashboard`, `/dashboard/data.json`.
 - The k-anonymity floor.
@@ -185,7 +185,7 @@ activity title and domains (system data), the report (a user slot), the child's 
 
 Persisted to `curiosity_signals` with the learner from the `ActivityReported` write.
 
-### 4.5 Trajectory math — `app/domain/trajectory.py` (pure, no I/O)
+### 4.5 Trajectory math — `app/domain/rules/session_rules.py` (pure, no I/O)
 
 Inputs are plain domain records, so the math can be property-tested without a database.
 
@@ -461,7 +461,7 @@ class SignalExtractor:
 def signals_task_for(ctx: TurnContext, route: Route, fixed_kind: FixedReplyKind | None,
                      writes: Sequence[TurnWrite]) -> ExtractSignals | None: ...   # §4.2 table; used by the orchestrator
 
-# app/domain/trajectory.py   — §4.5
+# app/domain/rules/session_rules.py   — §4.5
 # app/telemetry/aggregates.py
 class CohortScope(BaseModel):
     kind: Literal["all", "district"]

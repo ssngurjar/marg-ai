@@ -16,8 +16,8 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
-from app.channels.whatsapp.inbound import parse_webhook
 from app.channels.whatsapp.payloads import WebhookBody
+from app.channels.whatsapp.webhook_parser import WhatsAppWebhookParser
 from app.core.errors import ProviderError, ProviderRejected, ProviderUnavailable
 from app.core.types import JsonValue
 from app.domain.enums import (
@@ -29,22 +29,22 @@ from app.domain.enums import (
     StepName,
     StepOutcome,
 )
-from app.domain.models import UserHash
-from app.domain.replies import ReplyButton
-from app.domain.turns import QueuedMessage
-from app.pipeline.steps import StepUsage
+from app.domain.models.base import UserHash
+from app.domain.models.reply import ReplyButton
+from app.domain.models.turn import QueuedMessage
+from app.pipeline.step_models import StepUsage
 from app.providers.http import RetryPolicy, RetryTiming
 from app.providers.ports import ChannelSender
-from app.safety.gate import SafetyGate
+from app.safety.safety_gate import SafetyGate
 from app.store.db import create_engine, create_session_factory
-from app.store.repositories.inbound import InboundRecord, InboundStore
-from app.store.repositories.outbox import OutboxStore
-from app.store.repositories.turn_steps import TurnStepStore
-from app.store.repositories.turns import TurnStore
-from app.worker.delivery import Deliverer, DeliveryDeps, DeliverySettings
-from app.worker.dispatcher import DispatcherDeps, DispatcherSettings, TurnDispatcher
-from app.worker.recorder import DatabaseStepRecorder
-from app.worker.turns import TurnDeps, TurnProcessor, TurnSettings
+from app.store.repositories.inbox_repository import InboundRecord, InboxRepository
+from app.store.repositories.outbox_repository import OutboxRepository
+from app.store.repositories.turn_repository import TurnRepository
+from app.store.repositories.turn_step_repository import TurnStepRepository
+from app.worker.database_step_recorder import DatabaseStepRecorder
+from app.worker.reply_deliverer import DeliveryDeps, DeliverySettings, ReplyDeliverer
+from app.worker.turn_dispatcher import DispatcherDeps, DispatcherSettings, TurnDispatcher
+from app.worker.turn_processor import TurnDeps, TurnProcessor, TurnSettings
 from tests.fakes.clock import FixedClock
 from tests.fakes.orchestrator import FakeOrchestrator, ScriptedReply
 from tests.fakes.sender import FakeSender
@@ -78,11 +78,11 @@ async def engine(database_url: str) -> AsyncIterator[AsyncEngine]:
 @dataclass
 class Engine:
     sessions: async_sessionmaker[AsyncSession]
-    inbox: InboundStore
-    turns: TurnStore
-    outbox: OutboxStore
+    inbox: InboxRepository
+    turns: TurnRepository
+    outbox: OutboxRepository
     processor: TurnProcessor
-    deliverer: Deliverer
+    deliverer: ReplyDeliverer
     dispatcher: TurnDispatcher
     orchestrator: FakeOrchestrator
     sender: FakeSender
@@ -95,12 +95,12 @@ def build(
     clock = FixedClock(NOW)
     resolved_sender = sender or FakeSender(clock)
     senders: dict[Channel, ChannelSender] = {Channel.WHATSAPP: resolved_sender}
-    turns = TurnStore(sessions)
-    outbox = OutboxStore(sessions)
+    turns = TurnRepository(sessions)
+    outbox = OutboxRepository(sessions)
     processor = TurnProcessor(
         TurnDeps(
             store=turns,
-            recorder=DatabaseStepRecorder(TurnStepStore(sessions)),
+            recorder=DatabaseStepRecorder(TurnStepRepository(sessions)),
             run_turn=orchestrator,
             gate=SafetyGate(),
             senders=senders,
@@ -114,7 +114,7 @@ def build(
             recent_exchanges=6,
         ),
     )
-    deliverer = Deliverer(
+    deliverer = ReplyDeliverer(
         DeliveryDeps(
             outbox=outbox,
             senders=senders,
@@ -144,7 +144,7 @@ def build(
     )
     return Engine(
         sessions=sessions,
-        inbox=InboundStore(sessions),
+        inbox=InboxRepository(sessions),
         turns=turns,
         outbox=outbox,
         processor=processor,
@@ -157,7 +157,7 @@ def build(
 
 def records(*messages: dict[str, JsonValue]) -> list[InboundRecord]:
     identity = make_identity()
-    parsed = parse_webhook(
+    parsed = WhatsAppWebhookParser.parse(
         WebhookBody.model_validate(wa.webhook(list(messages))), TEST_PHONE_NUMBER_ID, identity, NOW
     )
     return [
@@ -431,7 +431,7 @@ async def test_steps_and_turn_text_are_recorded_as_the_turn_runs(engine: AsyncEn
     user = await store_messages(parts, wa.text_message())
     started = await parts.turns.start_turn(user, max_messages=5, worker_id="test-worker")
     assert started is not None
-    recorder = DatabaseStepRecorder(TurnStepStore(parts.sessions))
+    recorder = DatabaseStepRecorder(TurnStepRepository(parts.sessions))
     await recorder.set_turn_text(started.turn_id, "mujhe doctor banna hai")
     await recorder.set_turn_route(started.turn_id, Route.MENTOR)
     await recorder.record(

@@ -285,6 +285,26 @@ Prefer, in order: a well-named local variable over a comment; a small named help
 expression; an explicit loop over a dense comprehension; a named type over a tuple or a nested
 dict. Length is not the enemy, density is.
 
+### Code organisation (adopted 2026-10-27, prism-style)
+
+A reader should know what a file does from its name, without following the router.
+
+- **One main class per module, and the module is named after it:** `turn_processor.py` holds
+  `TurnProcessor`. A module may also hold the small dataclasses that class takes or returns.
+- **The class name says its role:** `*Repository` (SQL for one table or aggregate, in
+  `store/repositories/`), `*Service` (application logic), `*Builder`, `*Parser`, `*Verifier`,
+  `*Classifier`, `*Planner`, `*Dispatcher`, `*Processor`, `*Sender`, `*Layer`, `*Gate`.
+- **Behaviour lives in classes.** A stateless rule is a class with `@staticmethod`s
+  (`MessageSplitter.split`, `TurnBatcher.choose_batch`). Module-level functions are kept only for
+  FastAPI route handlers and dependencies, CLI entry points, and bootstrap (config loading,
+  logging setup, creating the database engine).
+- **Data and rules are separate:** domain data models live in `app/domain/models/<topic>.py`,
+  pure domain rules in `app/domain/rules/<rule>.py`, enums only in `app/domain/enums.py`.
+- **Constants and reviewed copy** live in `app/constants/<topic>.py` (fixed replies, external
+  API limits and codes). A rule class keeps its own tunables as `ClassVar`s.
+- **`docs/code-map.md`** lists every module and class; regenerate it with
+  `.venv/bin/python -m scripts.code_map` (a unit test fails while it's stale).
+
 ## 8. Dependencies and migrations
 
 - New dependencies need explicit human approval. Note the pinned version and whether it belongs in
@@ -308,6 +328,7 @@ app/domain/     pure models, state machine, activities, trajectory math, text ru
 app/providers/  adapters behind ports in providers/ports.py. The ONLY place an SDK is imported.
 app/channels/   the ONLY place that knows a WhatsApp (or web) payload shape.
 app/store/      the ONLY place SQL lives.
+app/constants/  reviewed copy (fixed replies) and external-API limits. Imports domain and core only.
 ```
 
 - `domain/` importing anything from `app/` other than `core.errors` and `core.types` is a bug.

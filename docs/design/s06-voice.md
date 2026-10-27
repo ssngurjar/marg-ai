@@ -19,7 +19,7 @@ S6 makes Marg.ai voice-first:
   `Transcriber`, `Synthesizer`, `Embedder`, `TranscriptionHints`, `StepUsage`; enums `MediaPurpose`,
   `FailureKind`; §7 settings `MODEL_STT`, `SIDECAR_*`, `STT_FALLBACK_ENABLED`
 - [data-model.md](data-model.md): `media_blobs`, `inbox_messages.media_*`, retention §4
-- [s05-llm-orchestrator.md](s05-llm-orchestrator.md): §4.5 (flow and budgets), §4.7 (`build_parts`, AUDIO is part 0), `TurnWrite`
+- [s05-llm-orchestrator.md](s05-llm-orchestrator.md): §4.5 (flow and budgets), §4.7 (`ReplyPartsBuilder.build`, AUDIO is part 0), `TurnWrite`
 - [s03-whatsapp-ingress-auth.md](s03-whatsapp-ingress-auth.md): the Graph API client and media upload at send time
 - [s09-translation.md](s09-translation.md): `spoken_text`. The script rule in §4.6 below is a requirement on S9
 - plan.md §4.2 (voice), §0 (Muse Voice Transcribe, MMS-TTS); CLAUDE.md §12 (subprocess rules)
@@ -74,7 +74,7 @@ worker / run_turn                     WhatsApp Graph            ml-sidecar (Moda
  │◀─audio/wav (16-bit mono) ─────────────────────────────────────────│                    │
  │   to_voice_note (ffmpeg → ogg/opus mono 48 kHz)                                         │
  │   save media_blobs REPLY_AUDIO (expires 24 h) → blob_id                                 │
- │ build_parts: part 0 AUDIO(blob_id), parts 1.. TEXT                                       │
+ │ ReplyPartsBuilder.build: part 0 AUDIO(blob_id), parts 1.. TEXT                                       │
 ```
 
 If `safety_out` blocks, the speculative audio is never delivered (s05 §4.5). Its blob is deleted
@@ -415,7 +415,7 @@ class SidecarEmbedder:           dimensions: int; async def embed(self, texts: S
 def prepare_tts_text(spoken_text: str, register: Language) -> TtsText: ...
 def detect_register(text: str) -> Language | None: ...
 
-# app/pipeline/steps.py: step functions registered in PipelineSteps (s05)
+# app/pipeline/step_models.py: step functions registered in PipelineSteps (s05)
 async def fetch_media_step(msg: InboundMessage, fetcher: MediaFetcher) -> StepResult[AudioClip]: ...
 async def transcribe_step(clip: AudioClip, transcriber: Transcriber, hints: TranscriptionHints, settings: Settings) -> StepResult[Transcript]: ...
 async def synthesize_step(reply: LocalisedReply, synthesizer: Synthesizer) -> StepResult[AudioClip]: ...

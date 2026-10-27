@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.api import health, webhooks_whatsapp
+from app.api.routers import health, whatsapp_webhook
 from app.core.config import Settings, load_settings
 from app.core.logging import configure_logging
 from app.wiring import Container, build_container, close_container
@@ -32,8 +32,8 @@ def create_app(settings: Settings | None = None, container: Container | None = N
         app.state.settings = active_container.settings
         app.state.readiness_probes = active_container.readiness_probes
         app.state.identity = active_container.identity
-        app.state.inbound_store = active_container.inbound_store
-        app.state.outbox_store = active_container.outbox_store
+        app.state.inbox_repository = active_container.inbox_repository
+        app.state.outbox_repository = active_container.outbox_repository
         app.state.clock = active_container.clock
         try:
             yield
@@ -50,5 +50,5 @@ def create_app(settings: Settings | None = None, container: Container | None = N
         openapi_url=None if is_prod else "/openapi.json",
     )
     app.include_router(health.router)
-    app.include_router(webhooks_whatsapp.router)
+    app.include_router(whatsapp_webhook.router)
     return app

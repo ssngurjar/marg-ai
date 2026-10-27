@@ -5,13 +5,13 @@ from collections.abc import Sequence
 from pydantic import HttpUrl, SecretStr
 
 from app.api.readiness import ReadinessProbe
-from app.channels.whatsapp.client import WhatsAppConfig, WhatsAppSender
+from app.channels.whatsapp.whatsapp_sender import WhatsAppConfig, WhatsAppSender
 from app.core.clock import Clock, SystemClock
 from app.core.config import Environment, Settings
-from app.core.identity import UserIdentity
+from app.core.user_identity import UserIdentity
 from app.store.db import create_engine, create_session_factory
-from app.store.repositories.inbound import InboundStore
-from app.store.repositories.outbox import OutboxStore
+from app.store.repositories.inbox_repository import InboxRepository
+from app.store.repositories.outbox_repository import OutboxRepository
 from app.wiring import Container
 
 UNREACHABLE_DATABASE_URL = "postgresql+asyncpg://marg:marg@127.0.0.1:1/marg"
@@ -46,8 +46,8 @@ def make_container(
     *,
     settings: Settings | None = None,
     probes: Sequence[ReadinessProbe] = (),
-    inbound_store: InboundStore | None = None,
-    outbox_store: OutboxStore | None = None,
+    inbox_repository: InboxRepository | None = None,
+    outbox_repository: OutboxRepository | None = None,
     clock: Clock | None = None,
 ) -> Container:
     """A container with real (unconnected) adapters; tests replace what they need."""
@@ -71,6 +71,6 @@ def make_container(
             ),
             clock=resolved_clock,
         ),
-        inbound_store=inbound_store or InboundStore(session_factory),
-        outbox_store=outbox_store or OutboxStore(session_factory),
+        inbox_repository=inbox_repository or InboxRepository(session_factory),
+        outbox_repository=outbox_repository or OutboxRepository(session_factory),
     )

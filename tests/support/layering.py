@@ -18,22 +18,25 @@ ALLOWED_INTERNAL_IMPORTS: dict[str, frozenset[str]] = {
         {"domain", "providers.ports", "prompts", "rag", "core.errors", "core.types"}
     ),
     "pipeline": frozenset(
-        {"domain", "layers", "providers.ports", "safety", "store", "telemetry", "core"}
+        {"domain", "layers", "providers.ports", "safety", "store", "telemetry", "core", "constants"}
     ),
-    "safety": frozenset({"domain", "providers.ports", "prompts", "core"}),
+    "safety": frozenset({"domain", "providers.ports", "prompts", "core", "constants"}),
     "telemetry": frozenset({"domain", "providers.ports", "prompts", "store", "core"}),
     "rag": frozenset({"domain", "providers.ports", "store", "core"}),
     "audio": frozenset({"domain", "core"}),
     "prompts": frozenset({"domain", "core.errors", "core.types"}),
-    "channels": frozenset({"domain", "providers.ports", "providers.http", "core"}),
+    "channels": frozenset({"domain", "providers.ports", "providers.http", "core", "constants"}),
     "providers.ports": frozenset({"domain", "core.errors", "core.types"}),
     "providers.http": frozenset({"core"}),
     "providers.adapter": frozenset(
         {"domain", "providers.ports", "providers.http", "core", "audio"}
     ),
-    # pipeline.parts only: the outbox insert accepts nothing but a sealed ReplyDelivery (s04 log)
-    "store": frozenset({"domain", "core", "pipeline.parts"}),
-    "api": frozenset({"domain", "channels", "store", "core", "pipeline", "telemetry"}),
+    # pipeline.reply_parts_builder only: the outbox insert accepts nothing but a sealed
+    # ReplyDelivery (s04 log)
+    "store": frozenset({"domain", "core", "pipeline.reply_parts_builder"}),
+    # reviewed copy and external-API limits; read by the layers that send or check replies
+    "constants": frozenset({"domain", "core"}),
+    "api": frozenset({"domain", "channels", "store", "core", "pipeline", "telemetry", "constants"}),
     "core": frozenset({"core"}),
     "worker": frozenset({ANYTHING_EXCEPT_API}),
     "evals": frozenset({ANYTHING_EXCEPT_API}),

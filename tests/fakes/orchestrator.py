@@ -5,11 +5,12 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 from app.domain.enums import FixedReplyKind, Language, Route
-from app.domain.models import TurnContext
-from app.domain.replies import LocalisedReply, ReplyButton
-from app.pipeline.parts import build_parts
-from app.pipeline.steps import StepFailure, StepRecorder, TurnObserver, TurnOutcome
-from app.safety.gate import SafetyGate
+from app.domain.models.reply import LocalisedReply, ReplyButton
+from app.domain.models.turn import TurnContext
+from app.pipeline.reply_parts_builder import ReplyPartsBuilder
+from app.pipeline.step_models import StepFailure, TurnOutcome
+from app.pipeline.turn_protocols import StepRecorder, TurnObserver
+from app.safety.safety_gate import SafetyGate
 
 
 @dataclass(frozen=True, slots=True)
@@ -51,13 +52,13 @@ class FakeOrchestrator:
             buttons=list(reply.buttons),
         )
         # S5's classifier path doesn't exist yet, so tests seal every scripted reply through
-        # clear_fixed. Only the fixed kind matters to build_parts (CRISIS orders text first).
+        # clear_fixed. Only the fixed kind matters to the parts builder (CRISIS: text first).
         safe = self.gate.clear_fixed(localised, reply.fixed_kind or FixedReplyKind.HOLDING)
         user_text = " ".join(message.text or "" for message in ctx.messages).strip() or None
         return TurnOutcome(
             turn_id=ctx.turn_id,
             route=reply.route,
-            delivery=build_parts(safe, audio_blob_id=None),
+            delivery=ReplyPartsBuilder.build(safe, audio_blob_id=None),
             fixed_reply_kind=reply.fixed_kind,
             user_text=user_text,
             reply_text=safe.text,

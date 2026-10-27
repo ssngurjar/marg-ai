@@ -46,7 +46,7 @@ Afterwards, any user can delete everything with one sentence. This step builds:
 - `app/prompts/profile_extraction.md.j2`.
 - `app/store/repositories/users.py`: `apply_profile_change`, `mark_purge_after`, `purge_user`; `consent_events` writes.
 - `app/store/repositories/learners.py`: `upsert_learner`, `list_learners`.
-- `app/domain/text.py`: `is_greeting`, `match_keyword`, `parse_grade`, `parse_child_age`, `parse_nickname`
+- `app/domain/rules/message_splitter.py`: `is_greeting`, `match_keyword`, `parse_grade`, `parse_child_age`, `parse_nickname`
   (shared with s09/s10b). `detect_register` is **imported** from `app/domain/language.py` (s06), not redefined.
 - The Alembic migration `s08_onboarding`: `consent_events`, `learners`, `users.pending_question`, `users.purge_after_turn_id`.
 
@@ -540,7 +540,7 @@ class OnboardingLayer:
     # forced_event = DeletionRequested() when the route is DATA_DELETION and the state allows it
     # the pending question is read from ctx.profile.pending_question; learners from ctx.learners
 
-# app/domain/text.py (shared with s09, s10b)
+# app/domain/rules/message_splitter.py (shared with s09, s10b)
 def normalise(text: str) -> str
 def is_greeting(text: str) -> bool
 def match_keyword(text: str, keywords: Collection[str]) -> bool      # whole-phrase match on normalised text

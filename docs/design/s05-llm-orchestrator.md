@@ -35,7 +35,7 @@ Every later layer (S8–S13) plugs into what S5 builds.
 - `app/prompts/registry.py`, plus the first templates: `router.md.j2` and `mentor_lite.md.j2`
 - `app/pipeline/router.py`: the interactive-id rules, keyword rules and LLM router
 - `app/pipeline/orchestrator.py`, `steps.py`, `fallbacks.py`, `parts.py`, `tracking.py`
-- `app/domain/text.py`: `split_for_channel`
+- `app/domain/rules/message_splitter.py`: `MessageSplitter.split`
 - `app/layers/mentor.py` in its **mentor-lite** form: a real Muse Spark prompt with no retrieval.
   It answers in general terms, refuses to state specific facts (dates, amounts, eligibility), and
   says verified details are coming. S12 replaces its internals with grounded RAG, keeping the interface.
@@ -343,7 +343,7 @@ and the orchestrator re-runs `route → generate → translate → safety_out` o
 now `ACTIVE`. For the pending question, `user_text` is the stored question, which passes
 `safety_in` again (it's cheap, and the rule is "no generation without `safety_in`"). For the first
 khoj, the route is forced to `JOURNEY` with no user text. The preamble and the re-dispatched reply
-are combined by `build_parts` into one `ReplyDelivery`. The `writes` from both halves are
+are combined by `ReplyPartsBuilder.build` into one `ReplyDelivery`. The `writes` from both halves are
 concatenated, onboarding's first, so finalize applies them in order. If the re-dispatched half
 fails, the user still gets the preamble followed by the normal fallback for that failure.
 Onboarding's completion is never rolled back.
@@ -366,7 +366,7 @@ the observer is `NullTurnObserver`.
 built yet are `None` in that dataclass (`fetch_media`, `transcribe`, `synthesize`, `translate`),
 and §4.6 defines what happens when one is `None`. It's constructed only in `app/wiring.py`.
 
-**`TurnOutcome`** is defined once, in contracts §2.3 (`app/pipeline/steps.py`): `turn_id`, `route`,
+**`TurnOutcome`** is defined once, in contracts §2.3 (`app/pipeline/step_models.py`): `turn_id`, `route`,
 `delivery: ReplyDelivery` (sealed, ≥ 1 part), `fixed_reply_kind`, `user_text`, `reply_text`,
 `reply_register`, `prompt_versions`, `first_failure`, `writes: list[TurnWrite]`,
 `post_turn: list[PostTurnTask]`. S4 persists it in one finalize transaction under the lease.
@@ -432,7 +432,7 @@ run_turn(ctx, recorder, observer)
  │     safety_out failed → fixed HOLDING; speculative audio discarded; generated writes dropped
  │     synthesize failed → DEGRADED: text-only reply
  │
- └─ F. build_parts(SafeReply, audio_blob_id, preamble) → ReplyDelivery
+ └─ F. ReplyPartsBuilder.build(SafeReply, audio_blob_id, preamble) → ReplyDelivery
        post_turn = [ExtractSignals?, UpdateMemory?]   (rules above)
        → TurnOutcome
 ```
@@ -441,7 +441,7 @@ run_turn(ctx, recorder, observer)
 finalize as post-turn tasks (B2), so they never add latency to the reply.
 
 Fixed replies (any branch above) skip C–E's generation work:
-- `fallbacks.localise_fixed(kind, variant, language) -> LocalisedReply` builds the text, falling
+- `FixedReplyService.localise(kind, variant, language) -> LocalisedReply` builds the text, falling
   back to the Hinglish version when `language` is `None`.
 - `gate.clear_fixed(...)` produces a `SafeReply` with `source="fixed"`, without a classifier call (s07).
 - Fixed replies are synthesized too when the turn contained audio, so a voice user gets a voice
@@ -491,7 +491,7 @@ they're used by S4's post-turn runner, outside the turn budget.
 (Post-turn task failures are handled by S4 and never change the reply, s04 §4.16.)
 
 **Recording steps.** `StepRecorder` is the protocol in contracts §3, implemented by S4
-(`app/store/repositories/turn_steps.py`): `record(*, turn_id, step, outcome, started_at,
+(`app/store/repositories/turn_step_repository.py`): `record(*, turn_id, step, outcome, started_at,
 duration_ms, usage, failure, detail)`, plus `set_turn_text` (called after the combined user text
 exists) and `set_turn_route` (after routing), so the web trace can show them early.
 
@@ -528,15 +528,15 @@ Layers receive the wrapper as an ordinary `LanguageModel`.
 None of these are stubs. Each is the correct behaviour of a pipeline that has fewer steps.
 
 **`NUDGE` turns don't use `run_turn`.** s10b's `NudgeLoop` builds them directly through the fixed
-path: `fallbacks.localise_fixed(NUDGE, DEFAULT, language)` → `SafetyGate.clear_fixed(...)` →
-`build_parts(...)`, producing a `ReplyDelivery` with one `TEMPLATE` part (`TemplateRef` from
+path: `FixedReplyService.localise(NUDGE, DEFAULT, language)` → `SafetyGate.clear_fixed(...)` →
+`ReplyPartsBuilder.build(...)`, producing a `ReplyDelivery` with one `TEMPLATE` part (`TemplateRef` from
 `NUDGE_TEMPLATE_NAME`). That's why `NUDGE` is in `Route` but never in the router.
 
-### 4.7 Message splitting (`app/domain/text.py`)
+### 4.7 Message splitting (`app/domain/rules/message_splitter.py`)
 
-`def split_for_channel(text: str, limit: int = 4096) -> list[str]`
+`def MessageSplitter.split(text: str, limit: int = 4096) -> list[str]`
 
-`build_parts` uses it for TEXT parts (WhatsApp's text body limit is 4096 characters; the web
+`ReplyPartsBuilder.build` uses it for TEXT parts (WhatsApp's text body limit is 4096 characters; the web
 channel uses the same limit so behaviour is identical).
 
 1. If `len(text) <= limit`, return `[text]`.
@@ -551,15 +551,15 @@ channel uses the same limit so behaviour is identical).
    (U+FE00–FE0F). This keeps conjuncts and emoji sequences intact.
 4. Strip whitespace at part edges. Drop parts that are empty after stripping. Repeat on the remainder.
 
-`text == ""` returns `[]`, and `build_parts` treats an empty reply text as a programming error.
+`text == ""` returns `[]`, and `ReplyPartsBuilder.build` treats an empty reply text as a programming error.
 
-**`build_parts(reply: SafeReply, audio_blob_id: UUID | None, preamble: SafeReply | None = None,
-template: TemplateRef | None = None) -> ReplyDelivery`** (`app/pipeline/parts.py`):
+**`ReplyPartsBuilder.build(reply: SafeReply, audio_blob_id: UUID | None, preamble: SafeReply | None = None,
+template: TemplateRef | None = None) -> ReplyDelivery`** (`app/pipeline/reply_parts_builder.py`):
 - `template` set (NUDGE turns only) → exactly one `TEMPLATE` part, and nothing else
 - otherwise, the `preamble` (a handoff's fixed `PROFILE_DONE` text, §4.4a), when present, comes
   first as TEXT parts
 - then AUDIO, when `audio_blob_id` is present (the audio speaks the main reply, not the preamble)
-- then TEXT parts from `split_for_channel(reply.text)`, numbered consecutively
+- then TEXT parts from `MessageSplitter.split(reply.text)`, numbered consecutively
 - `reply.buttons` (≤ 3) attach to the **last** TEXT part, which becomes `kind=INTERACTIVE`
 - exception: for fixed `CRISIS` replies, text comes first and audio last, so helpline numbers
   arrive first and can be tapped (s07)
@@ -589,8 +589,8 @@ def wrap_user_slot(name: str, text: str, max_chars: int) -> WrappedSlot: ...   #
 async def decide_route(ctx: TurnContext, user_text: str, llm: LanguageModel,
                        registry: PromptRegistry) -> StepResult[RouteDecision]: ...
 
-# app/pipeline/fallbacks.py
-def localise_fixed(kind: FixedReplyKind, variant: FixedReplyVariant, language: Language | None) -> LocalisedReply: ...
+# app/pipeline/fixed_reply_service.py
+def FixedReplyService.localise(kind: FixedReplyKind, variant: FixedReplyVariant, language: Language | None) -> LocalisedReply: ...
 def failure_reply(failure: StepFailure) -> FixedReplyKind | None: ...   # None = continue (DEGRADED)
 
 # app/pipeline/orchestrator.py
@@ -598,12 +598,12 @@ async def run_turn(ctx: TurnContext, recorder: StepRecorder, observer: TurnObser
 class NullTurnObserver:                                # satisfies TurnObserver; production default
     async def on_step(self, turn_id: TurnId, step: StepName, outcome: StepOutcome, detail: str | None) -> None: ...
 
-# app/pipeline/parts.py
-def build_parts(reply: SafeReply, audio_blob_id: UUID | None, preamble: SafeReply | None = None,
+# app/pipeline/reply_parts_builder.py
+def ReplyPartsBuilder.build(reply: SafeReply, audio_blob_id: UUID | None, preamble: SafeReply | None = None,
                 template: TemplateRef | None = None) -> ReplyDelivery: ...
 
-# app/domain/text.py
-def split_for_channel(text: str, limit: int = 4096) -> list[str]: ...
+# app/domain/rules/message_splitter.py
+def MessageSplitter.split(text: str, limit: int = 4096) -> list[str]: ...
 
 # app/layers/mentor.py (mentor-lite at S5)
 class MentorLayer:
@@ -729,10 +729,10 @@ non-empty, and the lookup for `None` language returns the Hinglish text.
 
 | Subject | Invariant |
 |---|---|
-| `split_for_channel` | every part ≤ `limit`; no part empty; concatenating the parts with whitespace removed equals the input with whitespace removed (content and order preserved); no part starts with a combining mark, ZWJ, ZWNJ, variation selector, or a character right after a virama; deterministic. Strategies mix Devanagari (incl. conjuncts like "क्ष", "त्र"), Latin Hinglish, emoji with ZWJ sequences, and long unbroken runs |
-| `split_for_channel` | text of length ≤ `limit` (and not blank) → exactly `[text.strip()]` |
-| `split_for_channel` | for any text containing a sources block (generated with `render_sources_block`), every sources line `n. title — url` appears whole in exactly one part |
-| `build_parts` | for any preamble/reply/audio combination: `part_no` runs 0..n−1 with no gaps; buttons only on the last TEXT part; a `template` gives exactly one `TEMPLATE` part; for `CRISIS`, AUDIO (if any) is last |
+| `MessageSplitter.split` | every part ≤ `limit`; no part empty; concatenating the parts with whitespace removed equals the input with whitespace removed (content and order preserved); no part starts with a combining mark, ZWJ, ZWNJ, variation selector, or a character right after a virama; deterministic. Strategies mix Devanagari (incl. conjuncts like "क्ष", "त्र"), Latin Hinglish, emoji with ZWJ sequences, and long unbroken runs |
+| `MessageSplitter.split` | text of length ≤ `limit` (and not blank) → exactly `[text.strip()]` |
+| `MessageSplitter.split` | for any text containing a sources block (generated with `render_sources_block`), every sources line `n. title — url` appears whole in exactly one part |
+| `ReplyPartsBuilder.build` | for any preamble/reply/audio combination: `part_no` runs 0..n−1 with no gaps; buttons only on the last TEXT part; a `template` gives exactly one `TEMPLATE` part; for `CRISIS`, AUDIO (if any) is last |
 | `wrap_user_slot` | for any text: the output starts with `<name>\n`, ends with `\n</name>`, and the inner text contains no `<`, `>` or separator line; idempotent on the inner text |
 | `to_strict_json_schema` | for every registered output model: the root is an object; no `oneOf`/`allOf` anywhere; every object node has `additionalProperties: false` and `required` equal to its property keys |
 | `RetryPolicy` | it never sleeps past the deadline; total attempts ≤ `attempts`; `ProviderRejected` is never retried |
@@ -802,4 +802,4 @@ real Model API, logging latency, tokens and cost per call.
 | Date | Change | Why | Approved |
 |---|---|---|---|
 | 2026-10-26 | Router rules 1a (open child session → `CHILD_TALK`, child can't trigger deletion or account changes) and 6a (`kid:start` / "Main <nickname> hoon" with consent → session start; without → `CHILD_TALK_NOT_ENABLED`); dispatch adds `CHILD_TALK` and the curiosity moment; post-turn adds curiosity signals for child turns and `SendChildSessionSummary` | Owner decisions C11–C13 | owner |
-| 2026-10-25 | Consolidated against the foundation docs: `TurnOutcome` with `post_turn`; signals and memory moved out of `run_turn` (B2); `run_turn(ctx, recorder, observer)`; `semantic_check` repair; one 14-rule router table for all roles, with role remaps; generate dispatch and handoff re-dispatch (§4.4a); generated writes dropped when the reply falls back; `split_for_channel` keeps sources lines whole; `build_parts` gains preamble and template; NUDGE turns bypass `run_turn`; Q1, Q4, Q5 resolved | Resolve conflicts between the step docs and add the parent journey | owner (B1–B12) |
+| 2026-10-25 | Consolidated against the foundation docs: `TurnOutcome` with `post_turn`; signals and memory moved out of `run_turn` (B2); `run_turn(ctx, recorder, observer)`; `semantic_check` repair; one 14-rule router table for all roles, with role remaps; generate dispatch and handoff re-dispatch (§4.4a); generated writes dropped when the reply falls back; `MessageSplitter.split` keeps sources lines whole; `ReplyPartsBuilder.build` gains preamble and template; NUDGE turns bypass `run_turn`; Q1, Q4, Q5 resolved | Resolve conflicts between the step docs and add the parent journey | owner (B1–B12) |

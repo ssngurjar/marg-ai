@@ -1,4 +1,4 @@
-"""Deliverer (s04 §4.10): order, the 24-hour window, retries and permanent failures."""
+"""ReplyDeliverer (s04 §4.10): order, the 24-hour window, retries and permanent failures."""
 
 import random
 from dataclasses import dataclass
@@ -9,12 +9,12 @@ import pytest
 
 from app.core.errors import ProviderError, ProviderRejected, ProviderUnavailable
 from app.domain.enums import Channel, PartKind
-from app.domain.models import TurnId, UserHash
-from app.domain.replies import OutboundPart, TemplateRef
+from app.domain.models.base import TurnId, UserHash
+from app.domain.models.reply import OutboundPart, TemplateRef
 from app.providers.http import RetryPolicy, RetryTiming
 from app.providers.ports import ChannelSender
-from app.store.repositories.outbox import OutboxRow, OutboxStore
-from app.worker.delivery import Deliverer, DeliveryDeps, DeliverySettings
+from app.store.repositories.outbox_repository import OutboxRepository, OutboxRow
+from app.worker.reply_deliverer import DeliveryDeps, DeliverySettings, ReplyDeliverer
 from tests.fakes.clock import FixedClock
 from tests.fakes.sender import FakeSender
 from tests.fakes.sleeper import FakeSleeper
@@ -35,7 +35,7 @@ class Mark:
     detail: str | None
 
 
-class MemoryOutbox(OutboxStore):
+class MemoryOutbox(OutboxRepository):
     """Hands out scripted rows in order and records how each ended."""
 
     def __init__(self, rows: list[OutboxRow]) -> None:
@@ -96,7 +96,7 @@ def row(
     )
 
 
-def deliverer(outbox: MemoryOutbox, sender: FakeSender, clock: FixedClock) -> Deliverer:
+def deliverer(outbox: MemoryOutbox, sender: FakeSender, clock: FixedClock) -> ReplyDeliverer:
     senders: dict[Channel, ChannelSender] = {Channel.WHATSAPP: sender}
     retry = RetryPolicy(
         timing=RetryTiming(attempts=1),  # the outbox's own retries are what's under test
@@ -104,7 +104,7 @@ def deliverer(outbox: MemoryOutbox, sender: FakeSender, clock: FixedClock) -> De
         sleeper=FakeSleeper(clock),
         rng=random.Random(3),  # noqa: S311  # deterministic jitter for tests, not cryptography
     )
-    return Deliverer(
+    return ReplyDeliverer(
         DeliveryDeps(
             outbox=outbox, senders=senders, identity=make_identity(), retry=retry, clock=clock
         ),

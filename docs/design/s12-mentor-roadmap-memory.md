@@ -259,7 +259,7 @@ step this week; no paid coaching as a required step; facts only from sources). M
 ### 4.5 Sessions
 
 `TurnContext.is_session_start` (contracts §2.2, computed by s04 with `SESSION_GAP` from
-`app/domain/trajectory.py`) exists, but **nothing in S12 uses it in the MVP**: its only consumer
+`app/domain/rules/session_rules.py`) exists, but **nothing in S12 uses it in the MVP**: its only consumer
 was the session check-in, which is deferred (§4.9).
 
 ### 4.6 Router requirements (implemented in S5)
@@ -380,7 +380,7 @@ class SaveRoadmap(BaseModel):
     abandon_roadmap_id: UUID | None
     prompt_version: str
 
-# app/domain/models.py — persisted shapes loaded into TurnContext
+# app/domain/models/ — persisted shapes loaded into TurnContext
 class RoadmapStep(BaseModel):
     position: int; action: str; timeframe: str; cost_inr: Decimal | None
     source_url: HttpUrl | None; status: RoadmapStepStatus; completed_at: datetime | None

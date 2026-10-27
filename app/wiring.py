@@ -10,13 +10,13 @@ from functools import partial
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from app.api.readiness import ReadinessProbe
-from app.channels.whatsapp.client import WhatsAppConfig, WhatsAppSender
+from app.channels.whatsapp.whatsapp_sender import WhatsAppConfig, WhatsAppSender
 from app.core.clock import Clock, SystemClock
 from app.core.config import Settings
-from app.core.identity import UserIdentity
+from app.core.user_identity import UserIdentity
 from app.store.db import create_engine, create_session_factory, ping
-from app.store.repositories.inbound import InboundStore
-from app.store.repositories.outbox import OutboxStore
+from app.store.repositories.inbox_repository import InboxRepository
+from app.store.repositories.outbox_repository import OutboxRepository
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,8 +28,8 @@ class Container:
     readiness_probes: tuple[ReadinessProbe, ...]
     identity: UserIdentity
     whatsapp_sender: WhatsAppSender
-    inbound_store: InboundStore
-    outbox_store: OutboxStore
+    inbox_repository: InboxRepository
+    outbox_repository: OutboxRepository
 
 
 def build_container(settings: Settings) -> Container:
@@ -52,8 +52,8 @@ def build_container(settings: Settings) -> Container:
         ),
         identity=UserIdentity(settings.user_hash_salt, settings.address_encryption_key),
         whatsapp_sender=WhatsAppSender(config=whatsapp_config, clock=clock),
-        inbound_store=InboundStore(session_factory),
-        outbox_store=OutboxStore(session_factory),
+        inbox_repository=InboxRepository(session_factory),
+        outbox_repository=OutboxRepository(session_factory),
     )
 
 

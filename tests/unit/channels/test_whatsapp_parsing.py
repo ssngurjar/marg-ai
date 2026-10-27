@@ -6,11 +6,12 @@ from hypothesis import assume, given
 from hypothesis import strategies as st
 from pydantic import ValidationError
 
-from app.channels.whatsapp.inbound import ParsedWebhook, parse_webhook
+from app.channels.whatsapp.parsed_webhook import ParsedWebhook
 from app.channels.whatsapp.payloads import WebhookBody
+from app.channels.whatsapp.webhook_parser import WhatsAppWebhookParser
 from app.core.types import JsonValue
 from app.domain.enums import MessageKind, OutboxStatus
-from app.domain.models import InboundMessage
+from app.domain.models.message import InboundMessage
 from tests.support import whatsapp_payloads as wa
 from tests.support.app_factory import TEST_PHONE_NUMBER_ID, make_identity
 
@@ -21,7 +22,7 @@ RECEIVED_AT = datetime(2025, 10, 27, 8, 0, 1, tzinfo=UTC)
 
 def parse(payload: dict[str, JsonValue]) -> ParsedWebhook:
     body = WebhookBody.model_validate(payload)
-    return parse_webhook(body, TEST_PHONE_NUMBER_ID, make_identity(), RECEIVED_AT)
+    return WhatsAppWebhookParser.parse(body, TEST_PHONE_NUMBER_ID, make_identity(), RECEIVED_AT)
 
 
 def only_message(payload: dict[str, JsonValue]) -> InboundMessage:

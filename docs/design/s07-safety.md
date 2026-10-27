@@ -25,7 +25,7 @@ It **fails closed:** if safety can't decide, the user gets a fixed holding reply
   `SafetyRequest`, the `SafetyClassifier` port, `LocalisedReply`, `FixedReplyKind`, §4 errors
   (`SafetyUnavailable`), §6 fixed replies
 - [s05-llm-orchestrator.md](s05-llm-orchestrator.md): §4.5 (flow branches B and E, budgets),
-  `TurnOutcome.delivery`, `build_parts`, `FixedReplyVariant`, prompt slots and the canary
+  `TurnOutcome.delivery`, `ReplyPartsBuilder.build`, `FixedReplyVariant`, prompt slots and the canary
 - [data-model.md](data-model.md): `turns.fixed_reply_kind`, `turn_steps.detail`
 - [evals/golden/adversarial.yaml](../../evals/golden/adversarial.yaml), [crisis.yaml](../../evals/golden/crisis.yaml)
 - [corpus/SOURCES.md](../../corpus/SOURCES.md), "Safety and helplines"
@@ -44,7 +44,7 @@ It **fails closed:** if safety can't decide, the user gets a fixed holding reply
 - `app/safety/lexicon.toml`: the reviewed, versioned phrase lists
 - `app/safety/policy.py`: `DomainPolicy`, which combines the rules with an optional Muse Spark policy check (`minor_policy.md.j2`)
 - `app/safety/crisis.py`: crisis texts and helpline lines, copied from official sources
-- refuse texts, as variants in `app/pipeline/fallbacks.py`
+- refuse texts, as variants in `app/pipeline/fixed_reply_service.py`
 - the crisis-path telemetry fields, and the eval mapping (§4.8)
 
 **Out:**
@@ -59,12 +59,12 @@ It **fails closed:** if safety can't decide, the user gets a fixed holding reply
 ### 4.1 Where safety sits in a turn
 
 ```
-user_text ──▶ SAFETY_IN ──┬─ ALLOW ──▶ route/generate/translate ──▶ LocalisedReply ──▶ SAFETY_OUT ──┬─ ALLOW ─▶ SafeReply ─▶ build_parts ─▶ outbox
+user_text ──▶ SAFETY_IN ──┬─ ALLOW ──▶ route/generate/translate ──▶ LocalisedReply ──▶ SAFETY_OUT ──┬─ ALLOW ─▶ SafeReply ─▶ ReplyPartsBuilder.build ─▶ outbox
                           ├─ BLOCK ──▶ fixed REFUSE(variant) ─────────────────────────────────────┐ ├─ BLOCK ─▶ fixed REFUSE(GENERIC) ──┐
                           ├─ CRISIS ─▶ fixed CRISIS(variant) ─────────────────────────────────────┤ └─ error ─▶ fixed HOLDING ──────────┤
                           └─ error ──▶ fixed HOLDING (but crisis lexicon still decides, §4.6) ────┤                                    │
                                                                                                   ▼                                    ▼
-                                                                     gate.clear_fixed(…) ─▶ SafeReply(source="fixed") ─▶ build_parts ─▶ outbox
+                                                                     gate.clear_fixed(…) ─▶ SafeReply(source="fixed") ─▶ ReplyPartsBuilder.build ─▶ outbox
 ```
 
 ### 4.2 The structural invariant: `SafeReply`
@@ -72,7 +72,7 @@ user_text ──▶ SAFETY_IN ──┬─ ALLOW ──▶ route/generate/transl
 > **No outbox row exists without a `SafeReply`, and only the gate can create one.**
 
 ```python
-# app/safety/gate.py
+# app/safety/safety_gate.py
 _SEAL: Final = object()                      # module-private; never imported elsewhere
 
 @dataclass(frozen=True, slots=True)
@@ -95,15 +95,15 @@ How the invariant is enforced, layer by layer:
 1. **Runtime:** `SafeReply` can't be built without the seal. A unit test asserts that
    `SafeReply(…, _seal=object())` raises `TypeError`.
 2. **Types:**
-   - `build_parts(reply: SafeReply, …) -> ReplyDelivery` is the only producer of `ReplyDelivery`.
-   - `ReplyDelivery` (in `app/pipeline/parts.py`) is sealed the same way, with its own module-private token.
+   - `ReplyPartsBuilder.build(reply: SafeReply, …) -> ReplyDelivery` is the only producer of `ReplyDelivery`.
+   - `ReplyDelivery` (in `app/pipeline/reply_parts_builder.py`) is sealed the same way, with its own module-private token.
    - `TurnOutcome.delivery: ReplyDelivery`, and S4's `OutboxRepository.enqueue(turn_id, delivery: ReplyDelivery)` is
      the only method that inserts `outbox_messages`. So mypy rejects any path that tries to
      enqueue a `LocalisedReply` or raw parts.
 3. **Static:** `tests/unit/test_safety_seal.py` parses every module under `app/` with `ast` and
-   fails if any module other than `app/safety/gate.py` references the name `_SEAL`, or any
-   module other than `app/pipeline/parts.py` references the delivery seal. It also fails if any
-   module other than `app/store/repositories/outbox.py` contains an `insert(` on the outbox
+   fails if any module other than `app/safety/safety_gate.py` references the name `_SEAL`, or any
+   module other than `app/pipeline/reply_parts_builder.py` references the delivery seal. It also fails if any
+   module other than `app/store/repositories/outbox_repository.py` contains an `insert(` on the outbox
    table. The ruff rule `PLC2701` (import-private-name) is enabled too.
 4. **Behavioural:** orchestrator property tests (s05 §9) assert that every `TurnOutcome` came
    through the gate, and that `generate` never ran before `safety_in` returned `ALLOW`.
@@ -294,7 +294,7 @@ class MinorPolicyCheck(BaseModel):
 
 ### 4.7 Refuse and holding replies
 
-These are fixed texts in `app/pipeline/fallbacks.py`, under the `(FixedReplyKind,
+These are fixed texts in `app/pipeline/fixed_reply_service.py`, under the `(FixedReplyKind,
 FixedReplyVariant, Language)` key (s05 C6). Each one declines in one sentence, then steers back
 to studies and careers. It never repeats the request, and never explains anything dangerous.
 
@@ -345,7 +345,7 @@ to studies and careers. It never repeats the request, and never explains anythin
 ## 5. Interfaces
 
 ```python
-# app/safety/gate.py
+# app/safety/safety_gate.py
 class SafetyGate:
     def __init__(self, *, classifier: SafetyClassifier, policy: DomainPolicy, clock: Clock) -> None: ...
     async def check_input(self, user_text: str) -> StepResult[InputVerdict]: ...
@@ -359,7 +359,7 @@ class InputVerdict:
     usage: StepUsage
 
 # check_output returns StepFailure(kind=…) on SafetyUnavailable, and on BLOCK returns
-# StepSuccess with a SafeReply built from fallbacks.localise_fixed(REFUSE, GENERIC, register).
+# StepSuccess with a SafeReply built from FixedReplyService.localise(REFUSE, GENERIC, register).
 # The orchestrator learns which by reading SafeReply.fixed_kind.
 
 # app/safety/policy.py

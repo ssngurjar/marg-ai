@@ -5,8 +5,8 @@ from dataclasses import dataclass
 
 from app.core.errors import ProviderError
 from app.domain.enums import Channel
-from app.domain.models import AudioClip, ImageClip
-from app.domain.replies import OutboundPart
+from app.domain.models.message import AudioClip, ImageClip
+from app.domain.models.reply import OutboundPart
 from app.providers.ports import ChannelAddress, DeliveryReceipt
 from tests.fakes.clock import FixedClock
 

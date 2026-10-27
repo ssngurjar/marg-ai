@@ -345,13 +345,13 @@ Run the day before submission and again before the closing-ceremony finals. Ever
 |---|---|
 | `app/pipeline/budget.py` | `TurnBudget(started_at: datetime, budget_s: float, reserve_s: float, clock: Clock)` with `deadline_for(step: StepName, step_timeout_s: float) -> float \| None` (returns `None` when the step mustn't start) |
 | `app/telemetry/spend.py` | `SpendGuard` (§4.5) |
-| `app/api/health.py` | new probe factories: `database_probe`, `queue_probe`, `model_api_probe`, `safety_probe`, `sidecar_probe`, `whatsapp_probe`, each `-> ReadinessProbe`, plus `CachedProbe(probe, ttl_s, clock)` |
+| `app/api/routers/health.py` | new probe factories: `database_probe`, `queue_probe`, `model_api_probe`, `safety_probe`, `sidecar_probe`, `whatsapp_probe`, each `-> ReadinessProbe`, plus `CachedProbe(probe, ttl_s, clock)` |
 | `app/worker/maintenance.py` | maintenance jobs registered as `MaintenanceJob(name: str, run: Callable[[AsyncSession], Awaitable[int]])`; each returns the row count it changed |
 | `app/channels/sink.py` | `SinkSender` implementing `ChannelSender` (staging and load tests only) |
 | `scripts/load/run.py` | `main(argv: Sequence[str] \| None = None) -> int` |
 
 `app/telemetry/spend.py` depends on `store` and `core`, both allowed for `telemetry` (s01 §4.12).
-`app/api/health.py` builds probes from adapters passed in by `app/wiring.py`, never by importing
+`app/api/routers/health.py` builds probes from adapters passed in by `app/wiring.py`, never by importing
 providers directly.
 
 ## 6. Data

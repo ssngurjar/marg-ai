@@ -8,7 +8,8 @@ import pytest
 import respx
 from pydantic import SecretStr, ValidationError
 
-from app.channels.whatsapp.client import WhatsAppConfig, WhatsAppSender, classify_graph_error
+from app.channels.whatsapp.graph_error_classifier import GraphErrorClassifier
+from app.channels.whatsapp.whatsapp_sender import WhatsAppConfig, WhatsAppSender
 from app.core.errors import (
     ProviderRateLimited,
     ProviderRejected,
@@ -17,8 +18,8 @@ from app.core.errors import (
     ProviderUnavailable,
 )
 from app.domain.enums import Channel, PartKind
-from app.domain.models import AudioClip, ImageClip
-from app.domain.replies import OutboundPart, ReplyButton, TemplateRef
+from app.domain.models.message import AudioClip, ImageClip
+from app.domain.models.reply import OutboundPart, ReplyButton, TemplateRef
 from app.providers.ports import ChannelAddress
 from tests.fakes.clock import FixedClock
 
@@ -289,6 +290,6 @@ async def test_unexpected_success_body_is_invalid_response(
 def test_classify_graph_error(
     status_code: int, body: bytes, error_type: type[Exception], *, retryable: bool
 ) -> None:
-    error = classify_graph_error(status_code, body)
+    error = GraphErrorClassifier.classify(status_code, body)
     assert type(error) is error_type
     assert error.retryable is retryable

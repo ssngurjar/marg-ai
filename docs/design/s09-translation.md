@@ -27,7 +27,7 @@ own eval rubric, and its own failure handling.
 - CLAUDE.md §3 (spoken-text sanitiser properties), §10 (prompts, structured output, user text is data).
 - s08 §4.5 (language switching), s06 §4.5–4.6 (`detect_register` in `app/domain/language.py`, the
   TTS text validator), s05 (structured output and the `semantic_check` repair hook, prompt
-  registry, `split_for_channel`), s07 (`safety_out` runs on this step's output), s10b §4.7
+  registry, `MessageSplitter.split`), s07 (`safety_out` runs on this step's output), s10b §4.7
   (journey replies and the supervision line).
 
 ## 3. Scope
@@ -35,7 +35,7 @@ own eval rubric, and its own failure handling.
 **In**
 - `app/layers/translation.py`: `TranslationLayer`, `TranslationOutput`, `choose_register`, post-checks.
 - `app/prompts/translation.md.j2`.
-- `app/domain/text.py`: `sanitize_spoken`, `script_share`, `citation_markers`, `strip_citation_markers`, `render_sources_block`.
+- `app/domain/rules/message_splitter.py`: `sanitize_spoken`, `script_share`, `citation_markers`, `strip_citation_markers`, `render_sources_block`.
 - The rule for which language layers write canonical replies in (§4.1).
 - The eval rubric dimensions for translation (§4.9). The judge itself is s15.
 
@@ -43,8 +43,8 @@ own eval rubric, and its own failure handling.
 - Generating content: s10, s12. Fixed replies: s07, s08, `pipeline/fallbacks.py`.
 - Turning `spoken_text` into audio, including how acronyms and Latin script are read: s06.
 - `safety_out`: s07 checks this step's output.
-- Splitting long text into messages of ≤ 4096 characters: `split_for_channel` in
-  `app/domain/text.py` (owned by s05), which keeps a sources-block line whole.
+- Splitting long text into messages of ≤ 4096 characters: `MessageSplitter.split` in
+  `app/domain/rules/message_splitter.py` (owned by s05), which keeps a sources-block line whole.
 - Detecting the register of a message: `detect_register` in `app/domain/language.py` (owned by
   s06). This step imports it.
 - The fixed supervision line on parent-journey activity replies: appended by s10b **after**
@@ -279,7 +279,7 @@ class TranslationResult:
 def choose_register(profile: UserProfile, latest: InboundMessage, transcript: Transcript | None) -> RegisterChoice
 def check_translation(output: TranslationOutput, canonical: CanonicalReply, choice: RegisterChoice) -> list[str]
 
-# app/domain/text.py
+# app/domain/rules/message_splitter.py
 def sanitize_spoken(text: str) -> str
 def script_share(text: str, script: Literal["devanagari", "latin"]) -> float     # share of letters, ignoring URLs and markers
 def citation_markers(text: str) -> frozenset[int]
@@ -376,11 +376,11 @@ because they come from TTS and WhatsApp limits and aren't deployment choices.
 1. **Semantic validation callback in s05's structured-output helper:** **applied** as
    `GenerationRequest.semantic_check: Callable[[OutputT], list[str]] | None` (contracts §3).
 2. **`ProfileChange.language`:** **applied**. `ProfileChange` is a `TurnWrite` variant (contracts §2.4).
-3. **Sources-block-safe splitting:** owned by s05's `split_for_channel` in `app/domain/text.py`
+3. **Sources-block-safe splitting:** owned by s05's `MessageSplitter.split` in `app/domain/rules/message_splitter.py`
    (the old name `split_for_whatsapp` is retired).
 
 ## 13. Decisions log
 
 | Date | Change | Why | Approved |
 |---|---|---|---|
-| 2026-10-25 | English canonical (B11); `semantic_check` hook; `ProfileChange` as a `TurnWrite`; `split_for_channel` and `detect_register` imported from their owners; a parent reading-level row; spoken text entirely Devanagari for Hindi/Hinglish (acronyms as spoken); supervision line appended after translation by s10b | Consolidation against the updated foundation docs | owner (defaults, B11, B12) |
+| 2026-10-25 | English canonical (B11); `semantic_check` hook; `ProfileChange` as a `TurnWrite`; `MessageSplitter.split` and `detect_register` imported from their owners; a parent reading-level row; spoken text entirely Devanagari for Hindi/Hinglish (acronyms as spoken); supervision line appended after translation by s10b | Consolidation against the updated foundation docs | owner (defaults, B11, B12) |

@@ -12,7 +12,7 @@ from app.core.config import load_settings
 from app.core.errors import InvalidAddressCiphertext, ProviderError, StoreError
 from app.core.logging import configure_logging
 from app.domain.enums import Channel, PartKind
-from app.domain.replies import OutboundPart
+from app.domain.models.reply import OutboundPart
 from app.providers.ports import ChannelAddress
 from app.wiring import build_container, close_container
 
@@ -40,11 +40,11 @@ async def reply_latest(text: str | None) -> int:
     configure_logging(settings.log_level, environment=settings.environment)
     container = build_container(settings)
     try:
-        latest = await container.inbound_store.latest_whatsapp_message()
+        latest = await container.inbox_repository.latest_whatsapp_message()
         if latest is None:
             _say("No WhatsApp message is stored yet.")
             return EXIT_NOTHING_TO_DO
-        ciphertext = await container.inbound_store.load_address(latest.user_hash)
+        ciphertext = await container.inbox_repository.load_address(latest.user_hash)
         if ciphertext is None:
             _say("The newest message's sender has no stored address.")
             return EXIT_NOTHING_TO_DO

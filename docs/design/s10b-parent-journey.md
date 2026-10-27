@@ -352,8 +352,8 @@ For each one, in one transaction:
    - the parent already had a `JOURNEY` turn today (IST)
    - today's nudge count has reached `NUDGE_DAILY_LIMIT`
 2. Otherwise, create a `turns` row (`route = 'nudge'`, `status = 'completed'`, no inbox rows). The
-   template part is built through the normal fixed path: `localise_fixed(NUDGE)` →
-   `gate.clear_fixed` → `build_parts` → `ReplyDelivery`. A `TEMPLATE` part is inserted by
+   template part is built through the normal fixed path: `FixedReplyService.localise(NUDGE)` →
+   `gate.clear_fixed` → `ReplyPartsBuilder.build` → `ReplyDelivery`. A `TEMPLATE` part is inserted by
    `OutboxRepository.enqueue`, with `NOTIFY outbox_new`.
 3. Set `last_sent_at = now()` and `next_due_at` to the next day at `local_time` (IST).
 

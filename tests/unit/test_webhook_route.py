@@ -12,8 +12,8 @@ from app.core.errors import StoreError
 from app.core.types import JsonValue
 from app.domain.enums import OutboxStatus
 from app.main import create_app
-from app.store.repositories.inbound import InboundRecord, InboundStore
-from app.store.repositories.outbox import OutboxStore
+from app.store.repositories.inbox_repository import InboundRecord, InboxRepository
+from app.store.repositories.outbox_repository import OutboxRepository
 from tests.support import whatsapp_payloads as wa
 from tests.support.app_factory import (
     HANDSHAKE_WORD_FOR_TESTS,
@@ -27,7 +27,7 @@ pytestmark = pytest.mark.unit
 URL = "/webhooks/whatsapp"
 
 
-class RecordingStore(InboundStore):
+class RecordingStore(InboxRepository):
     """Captures what the route would store; optionally fails like a down database."""
 
     def __init__(self, *, fail: bool = False) -> None:
@@ -50,7 +50,7 @@ class AppliedStatus:
     error_code: int | None
 
 
-class RecordingOutbox(OutboxStore):
+class RecordingOutbox(OutboxRepository):
     """Captures status updates; `ours` lists the provider ids that match an outbox row."""
 
     def __init__(self, *, ours: frozenset[str] = frozenset(), fail: bool = False) -> None:
@@ -72,7 +72,9 @@ def client_with(
     store: RecordingStore, outbox: RecordingOutbox | None = None
 ) -> Iterator[TestClient]:
     structlog.reset_defaults()
-    container = make_container(inbound_store=store, outbox_store=outbox or RecordingOutbox())
+    container = make_container(
+        inbox_repository=store, outbox_repository=outbox or RecordingOutbox()
+    )
     with TestClient(create_app(container=container)) as client:
         yield client
 
@@ -170,7 +172,7 @@ def test_authentic_but_unparseable_is_200_and_stores_nothing(raw: bytes) -> None
 def test_oversized_body_is_413() -> None:
     store = RecordingStore()
     small_limit = make_settings().model_copy(update={"webhook_max_body_bytes": 100})
-    container = make_container(settings=small_limit, inbound_store=store)
+    container = make_container(settings=small_limit, inbox_repository=store)
     raw, signature = wa.signed(wa.webhook([wa.text_message("x" * 200)]))
     with TestClient(create_app(container=container)) as client:
         assert post(client, raw, signature) == 413

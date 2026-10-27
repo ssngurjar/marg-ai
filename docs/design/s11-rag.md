@@ -118,7 +118,7 @@ Heading-aware, deterministic, token-budgeted.
      previous one, up to the overlap budget.
   4. A single sentence larger than the budget is split on whitespace at the budget boundary,
      never mid-grapheme. No `regex` dependency (decision B6): it uses the same `unicodedata` rule as
-     s05's `split_for_channel` (never cut before a combining mark, or next to a virama, ZWJ, ZWNJ or
+     s05's `MessageSplitter.split` (never cut before a combining mark, or next to a virama, ZWJ, ZWNJ or
      variation selector).
 - **Chunk text as stored and embedded:** `"{title} — {heading path}\n\n{chunk body}"`. The title
   prefix makes a chunk self-describing when it's retrieved alone.
@@ -443,7 +443,7 @@ Golden cases that depend on S11 (checked end to end in S12/S15): student-mentor-
 3. **Hindi-language corpus docs:** allowed (`language: hindi`), but recommend English-only for
    the MVP so reviewers can verify against mostly English official pages.
 4. ~~**`regex` package**~~ **Resolved (decision B6):** not added; grapheme-safe splitting uses
-   `unicodedata` as in s05's `split_for_channel`.
+   `unicodedata` as in s05's `MessageSplitter.split`.
 
 ## 12. Contract changes (resolved 2026-10-25)
 
