@@ -234,7 +234,7 @@ Prefer, in order: a well-named local variable over a comment; a small named help
 expression; an explicit loop over a dense comprehension; a named type over a tuple or a nested
 dict. Length is not the enemy, density is.
 
-### Code organisation (adopted 2026-10-27, prism-style)
+### Code organisation (adopted 2026-10-27)
 
 A reader should know what a file does from its name, without following the router.
 
