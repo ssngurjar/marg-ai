@@ -26,8 +26,11 @@ CATALOGUE_DIRECTORY: Final = Path(__file__).resolve().parents[2] / "content" / "
 
 
 class ActivityCatalogue:
-    def __init__(self, activities: Sequence[Activity]) -> None:
+    def __init__(
+        self, activities: Sequence[Activity], materials: frozenset[str] = frozenset()
+    ) -> None:
         self.activities = tuple(activities)
+        self.materials = materials  # the closed list; a curiosity mini-activity uses it too
 
     @staticmethod
     def load(directory: Path = CATALOGUE_DIRECTORY) -> "ActivityCatalogue":
@@ -51,7 +54,7 @@ class ActivityCatalogue:
             if activity.id != path.stem:
                 raise CorpusValidationError(f"{path.name}: id {activity.id!r} must match the file")
             activities.append(activity)
-        return ActivityCatalogue(activities)
+        return ActivityCatalogue(activities, materials)
 
     @property
     def enabled(self) -> list[Activity]:
@@ -77,6 +80,10 @@ class CatalogueActivitySource:
 
     def __init__(self, catalogue: ActivityCatalogue) -> None:
         self._catalogue = catalogue
+
+    @property
+    def materials(self) -> frozenset[str]:
+        return self._catalogue.materials
 
     def find(self, activity_id: str) -> Activity | None:
         """An activity by id, whatever its status: an open one may since have been retired."""

@@ -6,6 +6,7 @@ from hypothesis import strategies as st
 
 from app.domain.enums import ConversationState, Role, Route
 from app.pipeline.turn_router import TurnRouter
+from tests.support.child_talk import consented_child
 from tests.support.turn_context import user_profile
 
 pytestmark = pytest.mark.unit
@@ -80,3 +81,49 @@ def test_unknown_buttons_from_active_parents_ask_to_repeat(text: str, button_id:
         return
     decision = TurnRouter.decide(PARENT, text, [button_id])
     assert decision.route is Route.REPEAT_PLEASE
+
+
+# --- child talk (C13, rules 1a and 6a) -----------------------------------------------------------
+
+MUNNI = consented_child()
+
+
+@pytest.mark.parametrize(
+    ("text", "buttons"),
+    [
+        ("mera data hatao", []),
+        ("delete my data", []),
+        ("", ["onb:delete:yes"]),
+        ("", ["jrn:other"]),
+        ("English", []),
+        ("chaand kyun chamakta hai?", []),
+    ],
+)
+def test_inside_a_child_session_everything_goes_to_child_talk(
+    text: str, buttons: list[str]
+) -> None:
+    decision = TurnRouter.decide(PARENT, text, buttons, learners=[MUNNI], child_session_open=True)
+    assert decision.route is Route.CHILD_TALK
+
+
+@pytest.mark.parametrize(
+    ("text", "buttons"),
+    [("", ["kid:start"]), ("", [f"kid:start:{MUNNI.id}"]), ("Main Munni hoon", [])],
+)
+def test_a_parent_account_starts_child_talk_with_the_button_or_a_name(
+    text: str, buttons: list[str]
+) -> None:
+    decision = TurnRouter.decide(PARENT, text, buttons, learners=[MUNNI])
+    assert decision.route is Route.CHILD_TALK
+
+
+def test_a_teacher_cant_start_child_talk() -> None:
+    assert TurnRouter.decide(TEACHER, "", ["kid:start"], learners=[MUNNI]).route is not (
+        Route.CHILD_TALK
+    )
+
+
+def test_child_talk_never_starts_before_onboarding_is_done() -> None:
+    onboarding = user_profile(state=ConversationState.AWAITING_CONSENT, role=None, consented=False)
+    decision = TurnRouter.decide(onboarding, "Main Munni hoon", [], learners=[MUNNI])
+    assert decision.route is Route.ONBOARDING

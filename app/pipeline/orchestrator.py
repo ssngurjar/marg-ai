@@ -12,6 +12,10 @@
     F. synthesize           when the user spoke: the sealed reply's spoken text (checked by
                             safety_out with the text) as a voice note; on failure, text only
 
+Child talk (s10b §4.16, C13) runs the same way with the child as the speaker: the reply is always
+spoken, safety_out adds the child rules, and a crisis gets the child-worded helpline text and
+ends the session (after an abuse disclosure the parent is told nothing, C15).
+
 Onboarding and deletion turns (s08) run safety_in, then the onboarding layer, whose reply is
 reviewed fixed copy (sealed without a classifier call) and whose writes ride on the outcome.
 
@@ -21,11 +25,12 @@ turn. Every step is recorded; a recording failure is logged and never takes the 
 """
 
 import asyncio
-from collections.abc import Awaitable
+from collections.abc import Awaitable, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import ClassVar, Final, Literal
 
+from app.constants.child_talk_copy import PARENT_SUMMARY_AFTER_SADNESS, UNNAMED_CHILD_NAME
 from app.constants.stt_keywords import STT_KEYWORDS
 from app.core.clock import Clock
 from app.core.errors import (
@@ -39,6 +44,7 @@ from app.core.errors import (
 from app.core.logging import get_logger
 from app.domain.enums import (
     AudioVerdict,
+    ChildSessionEndReason,
     FailureKind,
     FixedReplyKind,
     FixedReplyVariant,
@@ -46,6 +52,7 @@ from app.domain.enums import (
     MessageKind,
     Route,
     SafetyDecision,
+    Speaker,
     StepName,
     StepOutcome,
 )
@@ -55,10 +62,11 @@ from app.domain.models.safety import SafetyVerdict
 from app.domain.models.turn import TurnContext
 from app.domain.models.usage import StepUsage
 from app.domain.models.voice import VoiceLimits
-from app.domain.models.writes import TurnWrite
+from app.domain.models.writes import ChildSessionEnd, TurnWrite
 from app.domain.rules.audio_analyser import AudioAnalyser
 from app.domain.rules.filler_detector import FillerDetector
 from app.domain.rules.register_detector import RegisterDetector
+from app.layers.child_talk_layer import ChildTalkLayer
 from app.layers.journey_layer import JourneyLayer
 from app.layers.layer_result import LayerResult
 from app.layers.onboarding_layer import FirstKhojHandoff, OnboardingLayer, OnboardingResult
@@ -116,6 +124,7 @@ class PipelineSteps:
     journey: JourneyLayer
     onboarding: OnboardingLayer
     voice: VoiceSteps
+    child_talk: ChildTalkLayer | None  # None when CHILD_TALK_ENABLED is false
     clock: Clock
 
 
@@ -187,7 +196,8 @@ class _Turn:
         self.prompt_versions: dict[str, str] = {}
         self.user_text = ""
         self.register = self.ctx.profile.language or FALLBACK_REGISTER
-        self.voice_turn = False  # the user sent at least one voice note
+        self.voice_turn = False  # the user sent at least one voice note (or a child is talking)
+        self.speaker = Speaker.GUIDE
         self.sealed: _Sealed | None = None
 
     async def run(self) -> TurnOutcome:
@@ -213,7 +223,19 @@ class _Turn:
                 )
             )
         routed_at = self.steps.clock.now()
-        decision = TurnRouter.decide(self.ctx.profile, self.user_text, interactive_ids)
+        decision = TurnRouter.decide(
+            self.ctx.profile,
+            self.user_text,
+            interactive_ids,
+            learners=self.ctx.learners,
+            child_session_open=self.ctx.child_session is not None,
+        )
+        if decision.route is Route.CHILD_TALK and self.steps.child_talk is None:
+            # Switched off: "Main Munni hoon" is just a message; a kid: button means nothing.
+            route = Route.REPEAT_PLEASE if interactive_ids else Route.JOURNEY
+            decision = decision.model_copy(
+                update={"route": route, "reason": "child talk switched off"}
+            )
         await self._record(_StepRecord(StepName.ROUTE, routed_at, decision, None, decision.reason))
         await self._safely(self.recorder.set_turn_route(self.ctx.turn_id, decision.route))
         if decision.route is Route.REPEAT_PLEASE:
@@ -224,6 +246,8 @@ class _Turn:
             )
         if decision.route in {Route.ONBOARDING, Route.DATA_DELETION}:
             return await self._onboarding(decision.route, interactive_ids)
+        if decision.route is Route.CHILD_TALK and self.steps.child_talk is not None:
+            return await self._child_talk(self.steps.child_talk, interactive_ids)
         return await self._journey(interactive_ids)
 
     async def _onboarding(self, route: Route, interactive_ids: list[str]) -> TurnOutcome:
@@ -358,6 +382,75 @@ class _Turn:
         await self._record_skipped(StepName.TRANSLATE, "direct localisation (C3c)")
         return await self._check_and_seal(layer_result)
 
+    async def _child_talk(self, layer: ChildTalkLayer, interactive_ids: list[str]) -> TurnOutcome:
+        """A child talking (C13): like the journey, with the child as the speaker."""
+        self.speaker = Speaker.LEARNER
+        self.voice_turn = True  # voice-first for children: every reply is spoken
+        # A child's few words ("bye", "Main Munni hoon") are poor evidence of a language: the
+        # family's onboarding language decides when there is one.
+        self.register = self.ctx.profile.language or self.register
+        started = self.steps.clock.now()
+        generation = asyncio.create_task(self._child_generate(layer, interactive_ids))
+        if self.user_text:
+            try:
+                input_check = await self._bounded(
+                    self.steps.gate.check_input(self.user_text), self.settings.safety_in_timeout
+                )
+            except (SafetyUnavailable, TimeoutError) as error:
+                await self._discard(generation)
+                return await self._failed(StepName.SAFETY_IN, started, error)
+            await self._record(self._input_record(started, input_check))
+            if input_check.verdict.decision is not SafetyDecision.ALLOW:
+                await self._discard(generation)
+                return self._child_refusal(input_check)
+        try:
+            layer_result = await generation
+        except (ProviderError, TimeoutError) as error:
+            return await self._failed(StepName.GENERATE, started, error)
+        self.prompt_versions = dict(layer_result.prompt_versions)
+        await self._record(
+            _StepRecord(
+                StepName.GENERATE,
+                started,
+                layer_result,
+                StepUsage.total(layer_result.usages),
+                layer_result.degraded_reason,
+                outcome=layer_result.outcome,
+            )
+        )
+        await self._record_skipped(StepName.TRANSLATE, "direct localisation (C3c)")
+        return await self._check_and_seal(layer_result, Route.CHILD_TALK)
+
+    async def _child_generate(
+        self, layer: ChildTalkLayer, interactive_ids: list[str]
+    ) -> LayerResult:
+        return await self._bounded(
+            layer.handle(
+                self.ctx,
+                self.user_text,
+                interactive_ids,
+                self.steps.clock.now(),
+                self.register,
+            ),
+            self.settings.generate_timeout,
+        )
+
+    def _child_refusal(self, check: InputCheck) -> TurnOutcome:
+        """Child-worded fixed text. A crisis ends the session; after sadness or self-harm the
+        parent gets a gentle note with the adult helpline, after an abuse disclosure nothing
+        (C15): the adult reading the phone may be the one causing harm."""
+        choice = self._refusal_for(check)
+        session = self.ctx.child_session
+        if choice.kind is not FixedReplyKind.CRISIS or session is None:
+            return self._fixed(choice)
+        end = ChildSessionEnd(session_id=session.id, reason=ChildSessionEndReason.CRISIS)
+        if choice.variant is not FixedReplyVariant.SELF_HARM:
+            return self._fixed(choice, writes=(end,))
+        learner = self.ctx.active_learner
+        name = (learner.nickname if learner else None) or UNNAMED_CHILD_NAME[self.register]
+        note = PARENT_SUMMARY_AFTER_SADNESS[self.register].format(name=name)
+        return self._fixed(choice, writes=(end,), parent_note=note)
+
     async def _generate(self, interactive_ids: list[str]) -> LayerResult:
         """The layer call is made inside the task, so a task cancelled before it starts leaves
         no un-awaited coroutine behind."""
@@ -372,7 +465,9 @@ class _Turn:
             self.settings.generate_timeout,
         )
 
-    async def _check_and_seal(self, layer_result: LayerResult) -> TurnOutcome:
+    async def _check_and_seal(
+        self, layer_result: LayerResult, route: Route = Route.JOURNEY
+    ) -> TurnOutcome:
         checked = await self._checked(layer_result)
         if isinstance(checked, TurnOutcome):
             return checked
@@ -380,11 +475,11 @@ class _Turn:
             # Our own reply was flagged: a fixed redirect, nothing generated goes out, and
             # nothing the reply would have recorded is written.
             return self._fixed(
-                _FixedChoice(FixedReplyKind.REFUSE, FixedReplyVariant.GENERIC, Route.JOURNEY)
+                _FixedChoice(FixedReplyKind.REFUSE, FixedReplyVariant.GENERIC, route)
             )
         return TurnOutcome(
             turn_id=self.ctx.turn_id,
-            route=Route.JOURNEY,
+            route=route,
             delivery=self._delivery(checked.safe),
             fixed_reply_kind=None,
             user_text=self.user_text or None,
@@ -406,7 +501,10 @@ class _Turn:
             try:
                 output_check = await self._bounded(
                     self.steps.gate.check_output(
-                        _localised(reply), self.user_text, hazard_rule=layer_result.hazard_rule
+                        _localised(reply),
+                        self.user_text,
+                        hazard_rule=layer_result.hazard_rule,
+                        speaker=self.speaker,
                     ),
                     self.settings.safety_out_timeout,
                 )
@@ -595,9 +693,19 @@ class _Turn:
         )
         await self.observer.on_step(self.ctx.turn_id, failure.step, failure, usage, duration_ms)
 
-    def _fixed(self, choice: _FixedChoice) -> TurnOutcome:
-        """A reviewed fixed text, sealed without a classifier call (s07 §4.2)."""
-        localised = FixedReplyService.localise(choice.kind, choice.variant, self.register)
+    def _fixed(
+        self,
+        choice: _FixedChoice,
+        writes: Sequence[TurnWrite] = (),
+        parent_note: str | None = None,
+    ) -> TurnOutcome:
+        """A reviewed fixed text, sealed without a classifier call (s07 §4.2). `parent_note`
+        (fixed copy too) follows it in writing only, never spoken."""
+        localised = FixedReplyService.localise(
+            choice.kind, choice.variant, self.register, self.speaker
+        )
+        if parent_note is not None:
+            localised = localised.model_copy(update={"text": f"{localised.text}\n\n{parent_note}"})
         safe = self.steps.gate.clear_fixed(localised, choice.kind)
         return TurnOutcome(
             turn_id=self.ctx.turn_id,
@@ -609,7 +717,7 @@ class _Turn:
             reply_register=safe.reply_register,
             prompt_versions=self.prompt_versions,
             first_failure=self.first_failure,
-            writes=[],
+            writes=list(writes),
         )
 
     async def _bounded[ResultT](self, work: Awaitable[ResultT], step_timeout: timedelta) -> ResultT:

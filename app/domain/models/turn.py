@@ -3,9 +3,10 @@
 from dataclasses import dataclass
 from datetime import datetime
 
-from app.domain.enums import Channel, ConversationState, Language, Role, Route
+from app.domain.enums import Channel, ConversationState, Language, Role, Route, Speaker
 from app.domain.models.activity import OfferRecord
 from app.domain.models.base import DomainModel, TurnId, UserHash
+from app.domain.models.child_session import ChildSession
 from app.domain.models.learner import Learner
 from app.domain.models.message import InboundMessage
 
@@ -51,6 +52,14 @@ class TurnContext(DomainModel):
     messages: list[InboundMessage]  # oldest first; at least one
     recent_exchanges: list[Exchange]  # the last RECENT_EXCHANGES, oldest first
     is_session_start: bool  # first turn, or SESSION_GAP since the previous (SessionRules)
+    # S10b child talk (C13): the user's open child session, and when their last one ended (for
+    # the cooldown). Speaker is LEARNER exactly when a session is open.
+    child_session: ChildSession | None = None
+    last_child_session_ended_at: datetime | None = None
+
+    @property
+    def speaker(self) -> Speaker:
+        return Speaker.LEARNER if self.child_session is not None else Speaker.GUIDE
 
 
 @dataclass(frozen=True, slots=True)

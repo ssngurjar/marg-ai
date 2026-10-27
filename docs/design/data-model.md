@@ -371,3 +371,4 @@ upgrade → downgrade → upgrade against `docker-compose.test.yml`.
 | 2026-10-26 | `child_sessions`, `learners.child_talk_consented_at` | Owner decision C13 (direct child talk) | owner |
 | 2026-10-26 | `outbox_messages.image_blob_id`, `learner_activities.photo_findings` and `card_blob_id`, `media_blobs` purpose `khoj_card`; the photo rules in §3 | Owner decisions C6, C7 | owner |
 | 2026-10-25 | Dropped the proposed `classrooms` table and `users.classroom_id` | Classroom codes trimmed; teachers see district aggregates | owner |
+| 2026-10-27 | `s10b_child_sessions`: the partial unique index is on `user_hash` (one open session per account), not `learner_id` | One phone, one child talking at a time | pending owner review |

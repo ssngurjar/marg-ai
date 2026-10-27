@@ -26,7 +26,10 @@ from app.core.config import Settings
 from app.core.user_identity import UserIdentity
 from app.domain.enums import Channel
 from app.domain.models.voice import VoiceLimits
+from app.domain.rules.child_session_rules import ChildSessionLimits
 from app.layers.activity_catalogue import ActivityCatalogue, CatalogueActivitySource
+from app.layers.child_talk_layer import CHILD_TALK, ChildTalkLayer
+from app.layers.curiosity_moment_layer import CURIOSITY_MOMENT
 from app.layers.journey_layer import (
     ACTIVITY_PERSONALISE,
     PARENT_REFLECTION,
@@ -57,6 +60,7 @@ from app.providers.speech.sidecar_synthesizer import SidecarConfig, SidecarSynth
 from app.safety.domain_policy import MINOR_POLICY, REPLY_POLICY, DomainPolicy, PolicyModel
 from app.safety.safety_gate import SafetyGate
 from app.store.db import create_engine, create_session_factory, ping
+from app.store.repositories.child_session_repository import ChildSessionRepository
 from app.store.repositories.inbox_repository import InboxRepository
 from app.store.repositories.media_blob_repository import MediaBlobRepository
 from app.store.repositories.outbox_repository import OutboxRepository
@@ -76,6 +80,8 @@ PROMPT_SPECS: Final = (
     PROFILE_EXTRACTION,
     ACTIVITY_PERSONALISE,
     PARENT_REFLECTION,
+    CURIOSITY_MOMENT,
+    CHILD_TALK,
 )
 """Every prompt the app renders; the registry refuses a template without a spec."""
 INVITE_GREETING: Final = "Namaste Marg"
@@ -321,12 +327,20 @@ def build_orchestrator(
                 registry,
                 CatalogueActivitySource(catalogue or ActivityCatalogue.load()),
                 ParentQuestionLayer(language_model, registry),
-                JourneySettings(repeat_window=timedelta(days=settings.activity_repeat_days)),
+                JourneySettings(
+                    repeat_window=timedelta(days=settings.activity_repeat_days),
+                    child_talk_enabled=settings.child_talk_enabled,
+                ),
             ),
             onboarding=OnboardingLayer(
                 language_model, registry, invite_link=teacher_invite_link(settings)
             ),
             voice=ports.voice,
+            child_talk=(
+                ChildTalkLayer(language_model, registry, child_session_limits(settings))
+                if settings.child_talk_enabled
+                else None
+            ),
             clock=clock,
         ),
         OrchestratorSettings(
@@ -338,6 +352,14 @@ def build_orchestrator(
             transcribe_timeout=timedelta(seconds=settings.timeout_transcribe_s),
             synthesize_timeout=timedelta(seconds=settings.timeout_synthesize_s),
         ),
+    )
+
+
+def child_session_limits(settings: Settings) -> ChildSessionLimits:
+    return ChildSessionLimits(
+        max_turns=settings.child_session_max_turns,
+        max_duration=timedelta(minutes=settings.child_session_max_minutes),
+        cooldown=timedelta(minutes=settings.child_session_cooldown_minutes),
     )
 
 
@@ -406,6 +428,7 @@ def build_turn_dispatcher(
             users=users,
             clock=engine_parts.clock,
             media=engine_parts.media,
+            child_sessions=ChildSessionRepository(session_factory),
         ),
         DispatcherSettings(
             debounce=timedelta(milliseconds=settings.turn_debounce_ms),
@@ -414,6 +437,7 @@ def build_turn_dispatcher(
             retain_turn_text=timedelta(days=settings.retention_turn_text_days),
             retain_raw_payload=timedelta(days=settings.retention_raw_payload_days),
             purge_sweep_after=timedelta(seconds=settings.purge_sweep_after_s),
+            child_session_max=timedelta(minutes=settings.child_session_max_minutes),
             error_backoff=DISPATCHER_ERROR_BACKOFF,
         ),
     )

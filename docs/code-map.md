@@ -52,6 +52,8 @@ line of the module's docstring.
 | Module | Classes | What it does |
 |---|---|---|
 | `child_hazards.py` | — | The d7 child-hazard words (s10b §4.10, s07 §4.5), per hazard on content/activities/_hazards.yaml. |
+| `child_safety_words.py` | — | Phrases a reply to a child must never contain (s07 d8, the d1 child rule; s10b §4.16). |
+| `child_talk_copy.py` | — | Fixed text for child talk (s10b §4.16, C13): to the child, and the parent's summary. |
 | `crisis_lexicon.py` | — | Crisis phrase lists (s07 §4.5 rule 1): the check that works when every provider is down. |
 | `crisis_replies.py` | `Helpline`, `CrisisText` | Crisis replies and the helplines they give (s07 §4.6). Reviewed text, never generated. |
 | `fixed_replies.py` | `FixedText`, `FixedTextKey` | Fixed replies: reviewed copy keyed by (kind, variant, language) (contracts §6). |
@@ -78,7 +80,7 @@ line of the module's docstring.
 
 | Module | Classes | What it does |
 |---|---|---|
-| `enums.py` | `Channel`, `MessageKind`, `ConversationState`, `InboxStatus`, `OutboxStatus`, `AudioVerdict`, `MediaPurpose`, `PartKind`, `Language`, `Route`, `StepName`, `StepOutcome`, `FailureKind`, `TurnStatus`, `SafetyDecision`, `SafetyCategory`, `FixedReplyKind`, `FixedReplyVariant`, `Mode`, `Role`, `ConsentEventKind`, `LearnerRelation`, `CopyKey`, `CuriosityDomain`, `ActivityStatus`, `AgeBand` | Closed sets of values shared across the app (contracts.md §1). |
+| `enums.py` | `Channel`, `MessageKind`, `ConversationState`, `InboxStatus`, `OutboxStatus`, `AudioVerdict`, `Speaker`, `ChildSessionEndReason`, `MediaPurpose`, `PartKind`, `Language`, `Route`, `StepName`, `StepOutcome`, `FailureKind`, `TurnStatus`, `SafetyDecision`, `SafetyCategory`, `FixedReplyKind`, `FixedReplyVariant`, `Mode`, `Role`, `ConsentEventKind`, `LearnerRelation`, `CopyKey`, `CuriosityDomain`, `ActivityStatus`, `AgeBand` | Closed sets of values shared across the app (contracts.md §1). |
 
 ## `domain/models`
 
@@ -86,6 +88,7 @@ line of the module's docstring.
 |---|---|---|
 | `activity.py` | `Activity`, `OfferRecord`, `PastActivity`, `OfferedActivity` | Activities: reviewed catalogue entries and what was offered to a learner (s10b §4.3, §5). |
 | `base.py` | `DomainModel` | Identifiers and the base every domain model shares (contracts.md §2.1). |
+| `child_session.py` | `ChildSession` | A child talking to Marg.ai directly on the parent's phone (s10b §4.16, C13). |
 | `conversation.py` | `ProfileUpdate`, `FirstContact`, `ConsentGiven`, `ConsentDeclined`, `RoleChosen`, `RoleUnavailable`, `GuardianConfirmed`, `GuardianDeclined`, `ProfileAnswered`, `ChildAnswered`, `ChildInvalid`, `AddChild`, `ChildTalkAnswered`, `TeacherAsked`, `LanguageSwitched`, `QuestionNoted`, `Unrecognised`, `DeletionRequested`, `DeletionConfirmed`, `DeletionCancelled`, `SendCopy`, `RecordConsent`, `UpsertLearner`, `SetChildTalk`, `PurgeAfterDelivery`, `HandoffPendingQuestion`, `HandoffFirstKhoj`, `Transition` | The onboarding conversation's events and effects (s08 §4.2). Pure data. |
 | `delivery.py` | `PartState` | Where an outbound part stands in its delivery (s04 §4.10). |
 | `learner.py` | `Learner` | Learners: the child or student whose journey Marg.ai follows (contracts §2.2, data-model). |
@@ -96,7 +99,7 @@ line of the module's docstring.
 | `turn.py` | `UserProfile`, `Exchange`, `TurnContext`, `QueuedMessage` | A turn and what it knows about the user (contracts.md §2.2; s04 §4.4, §4.5). |
 | `usage.py` | `StepUsage` | What a provider call cost (contracts §2.3). Attached to every turn_steps row. |
 | `voice.py` | `AudioStats`, `VoiceLimits` | What a voice note measures, and the limits it's checked against (s06 §4.4). |
-| `writes.py` | `ProfileChange`, `LearnerUpsert`, `MarkPurgeAfterDelivery`, `ChildTalkConsent`, `ActivityOffered`, `ActivityReported` | State changes that commit with the reply (contracts §2.4). |
+| `writes.py` | `ProfileChange`, `LearnerUpsert`, `MarkPurgeAfterDelivery`, `ChildTalkConsent`, `ActivityOffered`, `ActivityReported`, `ChildSessionStart`, `ChildTalkTurn`, `ChildSessionEnd` | State changes that commit with the reply (contracts §2.4). |
 
 ## `domain/rules`
 
@@ -106,6 +109,9 @@ line of the module's docstring.
 | `activity_validator.py` | `ActivityValidator` | ActivityValidator: a catalogue entry is safe to serve, or the app refuses to start (s10b §4.3). |
 | `audio_analyser.py` | `AudioAnalyser` | AudioAnalyser: is a voice note worth transcribing? (s06 §4.4). Pure, standard library only. |
 | `child_hazard_matcher.py` | `ChildHazardMatcher` | ChildHazardMatcher: which physical hazards a text mentions (d7, s10b §4.10). Pure. |
+| `child_question_detector.py` | `ChildQuestionDetector` | ChildQuestionDetector: is the parent passing on the child's own question? (s10b §4.15). Pure. |
+| `child_reply_matcher.py` | `ChildReplyMatcher` | ChildReplyMatcher: what a reply to a child must never say (s07 d8 and the d1 child rule, |
+| `child_session_rules.py` | `ChildSessionLimits`, `ChildSessionRules` | ChildSessionRules: when a child's own conversation starts, ends, and may start again |
 | `conversation_machine.py` | `ConversationMachine` | ConversationMachine: the onboarding state machine (s08 §4.1 to §4.3). Pure and deterministic. |
 | `crisis_phrase_matcher.py` | `CrisisPhraseMatcher` | CrisisPhraseMatcher: the crisis rules that need no provider (s07 §4.5 rule 1, §4.6). Pure. |
 | `delivery_planner.py` | `DeliveryPlanner` | DeliveryPlanner: part order and status changes (s03 §4.8, s04 §4.10). Pure. |
@@ -124,6 +130,8 @@ line of the module's docstring.
 | Module | Classes | What it does |
 |---|---|---|
 | `activity_catalogue.py` | `ActivityCatalogue`, `CatalogueActivitySource` | ActivityCatalogue: the reviewed khoj catalogue, loaded and checked at startup (s10b §4.3). |
+| `child_talk_layer.py` | `ChildReply`, `ChildTalkLayer` | ChildTalkLayer: a child talks to Marg.ai directly, with the parent's consent (s10b §4.16, C13). |
+| `curiosity_moment_layer.py` | `CuriosityMoment`, `NotAChildQuestion`, `CuriosityMomentLayer` | CuriosityMomentLayer: the child's own question, answered through the parent (s10b §4.15, C11). |
 | `journey_layer.py` | `ActivityPersonalisation`, `ParentReflection`, `JourneySettings`, `JourneyLayer` | JourneyLayer: "Aaj ki Khoj" for parents of children aged 3-8 (s10b §4.4 to §4.9). |
 | `layer_result.py` | `LayerResult` | LayerResult: what every layer's generate step returns (s12 §4, s05 §4.4a). |
 | `onboarding_layer.py` | `ProfileExtraction`, `FirstKhojHandoff`, `PendingQuestionHandoff`, `OnboardingResult`, `OnboardingLayer` | OnboardingLayer: a message during onboarding → a state-machine event → fixed copy and writes |
@@ -197,6 +205,7 @@ line of the module's docstring.
 
 | Module | Classes | What it does |
 |---|---|---|
+| `child_session_repository.py` | `ChildSessionRepository` | Child sessions: a child talking to Marg.ai directly (s10b §4.16, data-model `child_sessions`). |
 | `inbox_repository.py` | `InboundRecord`, `SaveResult`, `LatestInbound`, `InboxRepository` | Storing inbound WhatsApp messages (s03 §4.5, §4.6). The only SQL for users and the inbox. |
 | `journey_repository.py` | `JourneyRepository` | The khoj offered to each child and how it went (s10b §5, data-model `learner_activities`). |
 | `learner_repository.py` | `LearnerRepository` | Learners: a parent's children or a student's own learner (s08 §4.11, data-model `learners`). |

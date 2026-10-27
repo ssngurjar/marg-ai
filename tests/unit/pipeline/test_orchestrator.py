@@ -36,7 +36,9 @@ from app.domain.enums import (
 from app.domain.models.message import InboundMessage
 from app.domain.models.turn import TurnContext
 from app.domain.models.writes import ActivityOffered, LearnerUpsert
+from app.domain.rules.child_session_rules import ChildSessionLimits
 from app.layers.activity_catalogue import ActivityCatalogue, CatalogueActivitySource
+from app.layers.child_talk_layer import ChildTalkLayer
 from app.layers.journey_layer import JourneyLayer, JourneySettings
 from app.layers.onboarding_layer import OnboardingLayer, OnboardingResult
 from app.layers.parent_question_layer import ParentQuestionLayer
@@ -96,6 +98,11 @@ SETTINGS = OrchestratorSettings(
 )
 
 
+CHILD_LIMITS = ChildSessionLimits(
+    max_turns=6, max_duration=timedelta(minutes=10), cooldown=timedelta(minutes=30)
+)
+
+
 @dataclass(frozen=True, slots=True)
 class Run:
     outcome: TurnOutcome
@@ -138,6 +145,7 @@ def orchestrator_for(
             journey=journey_for(llm),
             onboarding=OnboardingLayer(llm, shipped_registry(), invite_link=INVITE_LINK),
             voice=voice.steps(),
+            child_talk=ChildTalkLayer(llm, shipped_registry(), CHILD_LIMITS),
             clock=FixedClock(NOW),
         ),
         settings,
@@ -655,6 +663,7 @@ async def test_an_onboarding_bug_answers_try_again_later_with_no_writes() -> Non
             journey=journey_for(llm),
             onboarding=BrokenOnboarding(llm, shipped_registry(), invite_link=INVITE_LINK),
             voice=FakeVoice().steps(),
+            child_talk=None,
             clock=FixedClock(NOW),
         ),
         SETTINGS,

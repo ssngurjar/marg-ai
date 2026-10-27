@@ -31,7 +31,11 @@ from app.layers.journey_layer import (
 from app.layers.layer_result import LayerResult
 from app.layers.parent_question_layer import ParentQuestionLayer
 from tests.fakes.language_model import FakeLanguageModel, PromptRoutedLanguageModel, ScriptedOutput
+from tests.support.child_talk import consented_child
 from tests.support.journey import (
+    CURIOSITY_MOMENT,
+    MOMENT_SAY,
+    NOT_A_CHILD_QUESTION,
     PERSONALISED_INTRO,
     REFLECTION,
     REFLECTION_PRAISE,
@@ -56,12 +60,14 @@ def layer_with(
     personalise: ScriptedOutput | None = None,
     reflect: ScriptedOutput = REFLECTION,
     answer: ScriptedOutput = HINGLISH_ANSWER,
+    curiosity: ScriptedOutput = CURIOSITY_MOMENT,
 ) -> tuple[JourneyLayer, PromptRoutedLanguageModel]:
     llm = PromptRoutedLanguageModel(
         {
             "activity_personalise": FakeLanguageModel([personalise or personalisation_for(FIRST)]),
             "parent_reflection": FakeLanguageModel([reflect]),
             "parent_answer": FakeLanguageModel([answer]),
+            "curiosity_moment": FakeLanguageModel([curiosity]),
         }
     )
     registry = shipped_registry()
@@ -263,6 +269,48 @@ async def test_a_question_with_nothing_open_gets_the_parent_answer_with_the_haza
     assert result.writes == []
 
 
+# --- the curiosity moment (C11) -------------------------------------------------------------
+
+RELAYED = "Munni poochh rahi hai, chaand roz shape kyun badalta hai?"
+
+
+async def test_a_relayed_child_question_gets_the_curiosity_moment() -> None:
+    layer, llm = layer_with()
+    result = await khoj(text=RELAYED, button=None, layer=layer)
+    assert result.reply.body.startswith(MOMENT_SAY)
+    assert result.prompt_versions == {"curiosity_moment": "1.0.0"}
+    assert llm.by_prompt["parent_answer"].prompts == []
+    assert result.writes == []
+
+
+async def test_the_parents_own_question_falls_through_to_the_parent_answer_with_both_costs() -> (
+    None
+):
+    layer, _ = layer_with(curiosity=NOT_A_CHILD_QUESTION)
+    result = await khoj(
+        text="Munni ki neend poori nahi hoti, kya karein?", button=None, layer=layer
+    )
+    assert result.reply.body.startswith(str(HINGLISH_ANSWER["answer"]))
+    assert result.prompt_versions == {"curiosity_moment": "1.0.0", "parent_answer": "1.0.0"}
+    assert len(result.usages) == 2
+    assert result.hazard_rule == frozenset()
+
+
+async def test_a_parent_question_without_the_childs_question_never_asks_the_curiosity_prompt() -> (
+    None
+):
+    layer, llm = layer_with()
+    await khoj(text="Beta khana nahi khata, kya karein?", button=None, layer=layer)
+    assert llm.by_prompt["curiosity_moment"].prompts == []
+
+
+async def test_with_a_khoj_open_the_childs_words_are_a_report_first() -> None:
+    layer, llm = layer_with()
+    result = await khoj(text=RELAYED, button=None, open_activity=offer(FIRST, MUNNI), layer=layer)
+    assert result.reply.body.startswith(REFLECTION_PRAISE)
+    assert llm.by_prompt["curiosity_moment"].prompts == []
+
+
 # --- the checks on model text --------------------------------------------------------------
 
 
@@ -313,3 +361,50 @@ def test_the_reflection_checks_catch_labels_and_careers(
 ) -> None:
     reflection = ParentReflection.model_validate({**REFLECTION, **changes})
     assert problem in _ReflectionChecks.problems(reflection, H)
+
+
+# --- the "Main bachcha hoon" button (C13) ------------------------------------------------------
+
+
+async def test_a_khoj_for_a_child_with_talk_switched_on_offers_the_childs_button() -> None:
+    talker = consented_child()
+    result = await khoj(learners=[talker])
+    assert [button.id for button in result.reply.buttons] == [
+        KHOJ_DONE,
+        KHOJ_OTHER,
+        f"kid:start:{talker.id}",
+    ]
+    assert result.fallback_reply is not None
+    assert result.fallback_reply.buttons[-1].id == f"kid:start:{talker.id}"
+
+
+async def test_without_consent_there_is_no_childs_button() -> None:
+    result = await khoj()
+    assert all(not button.id.startswith("kid:") for button in result.reply.buttons)
+
+
+async def test_with_child_talk_switched_off_there_is_no_childs_button() -> None:
+    llm = PromptRoutedLanguageModel(
+        {"activity_personalise": FakeLanguageModel([personalisation_for(FIRST)])}
+    )
+    registry = shipped_registry()
+    layer = JourneyLayer(
+        llm,
+        registry,
+        CatalogueActivitySource(shipped_catalogue()),
+        ParentQuestionLayer(llm, registry),
+        JourneySettings(repeat_window=timedelta(days=30), child_talk_enabled=False),
+    )
+    result = await khoj(learners=[consented_child()], layer=layer)
+    assert all(not button.id.startswith("kid:") for button in result.reply.buttons)
+
+
+async def test_after_a_report_the_child_can_start_talking() -> None:
+    talker = consented_child()
+    result = await khoj(
+        text="Munni ne parchhai dekhi",
+        button=None,
+        learners=[talker],
+        open_activity=offer(FIRST, talker),
+    )
+    assert result.reply.buttons[-1].id == f"kid:start:{talker.id}"

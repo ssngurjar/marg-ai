@@ -10,8 +10,10 @@ from collections.abc import Sequence
 from typing import Final
 
 from app.domain.enums import ConversationState, Role, Route
+from app.domain.models.learner import Learner
 from app.domain.models.routing import RouteDecision
 from app.domain.models.turn import UserProfile
+from app.domain.rules.child_session_rules import ChildSessionRules
 from app.domain.rules.onboarding_answer_parser import OnboardingAnswerParser
 
 ONBOARDING_BUTTON_PREFIX: Final = "onb:"
@@ -21,12 +23,24 @@ JOURNEY_BUTTON_PREFIX: Final = "jrn:"
 class TurnRouter:
     @staticmethod
     def decide(  # noqa: PLR0911  # one return per routing rule, in s08 §4.6's order
-        profile: UserProfile, user_text: str, interactive_ids: Sequence[str]
+        profile: UserProfile,
+        user_text: str,
+        interactive_ids: Sequence[str],
+        *,
+        learners: Sequence[Learner] = (),
+        child_session_open: bool = False,
     ) -> RouteDecision:
+        if child_session_open:
+            # Rule 1a (C13): a child is talking. Nothing they send reaches deletion or settings.
+            return _to(Route.CHILD_TALK, "open child session")
         if not interactive_ids and OnboardingAnswerParser.asks_for_deletion(user_text):
             return _to(Route.DATA_DELETION, "deletion phrase")
         if profile.state is not ConversationState.ACTIVE:
             return _to(Route.ONBOARDING, f"state {profile.state.value}")
+        if profile.role is Role.PARENT and ChildSessionRules.asks_to_start(
+            user_text, interactive_ids, learners
+        ):
+            return _to(Route.CHILD_TALK, "child starts talking")  # rule 6a
         if any(button.startswith(ONBOARDING_BUTTON_PREFIX) for button in interactive_ids):
             return _to(Route.ONBOARDING, "onboarding button")
         if profile.role is Role.PARENT and any(

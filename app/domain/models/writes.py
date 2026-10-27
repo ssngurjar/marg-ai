@@ -13,8 +13,10 @@ from pydantic import Field
 
 from app.domain.enums import (
     ActivityStatus,
+    ChildSessionEndReason,
     ConsentEventKind,
     ConversationState,
+    CuriosityDomain,
     Language,
     LearnerRelation,
     Role,
@@ -87,12 +89,41 @@ class ActivityReported(DomainModel):
     summary: str | None = Field(max_length=200)
 
 
+class ChildSessionStart(DomainModel):
+    """s10b (C13): the child started talking. The id is chosen by the layer, so this turn's
+    ChildTalkTurn can refer to it."""
+
+    kind: Literal["child_session_start"] = "child_session_start"
+    session_id: UUID
+    learner_id: LearnerId
+
+
+class ChildTalkTurn(DomainModel):
+    """s10b (C13): one answered child turn: counts toward the limit and records the topic (a
+    curiosity domain, never the child's words) for the parent's summary."""
+
+    kind: Literal["child_talk_turn"] = "child_talk_turn"
+    session_id: UUID
+    topic: CuriosityDomain | None
+
+
+class ChildSessionEnd(DomainModel):
+    """s10b (C13): the session ended (limit, goodbye, crisis)."""
+
+    kind: Literal["child_session_end"] = "child_session_end"
+    session_id: UUID
+    reason: ChildSessionEndReason
+
+
 type TurnWrite = Annotated[
     ProfileChange
     | LearnerUpsert
     | MarkPurgeAfterDelivery
     | ChildTalkConsent
     | ActivityOffered
-    | ActivityReported,
+    | ActivityReported
+    | ChildSessionStart
+    | ChildTalkTurn
+    | ChildSessionEnd,
     Field(discriminator="kind"),
 ]

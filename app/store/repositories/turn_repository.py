@@ -37,7 +37,10 @@ from app.domain.models.turn import Exchange, QueuedMessage, TurnContext, UserPro
 from app.domain.models.writes import (
     ActivityOffered,
     ActivityReported,
+    ChildSessionEnd,
+    ChildSessionStart,
     ChildTalkConsent,
+    ChildTalkTurn,
     LearnerUpsert,
     MarkPurgeAfterDelivery,
     ProfileChange,
@@ -47,6 +50,7 @@ from app.domain.rules.learner_chooser import LearnerChooser, RecentOffer
 from app.domain.rules.session_rules import SessionRules
 from app.domain.rules.turn_batcher import TurnBatcher
 from app.pipeline.reply_parts_builder import ReplyDelivery
+from app.store.repositories.child_session_repository import ChildSessionRepository
 from app.store.repositories.journey_repository import JourneyRepository
 from app.store.repositories.learner_repository import LearnerRepository
 from app.store.repositories.outbox_repository import OutboxRepository
@@ -133,15 +137,28 @@ class TurnRepository:
                 )
                 exchanges = await _recent_exchanges(session, started.user_hash, recent_exchanges)
                 previous_started_at = await _previous_turn_start(session, started)
+                child_session = await ChildSessionRepository.open_for(session, started.user_hash)
+                last_child_session_end = await ChildSessionRepository.last_ended_at(
+                    session, started.user_hash
+                )
         except (SQLAlchemyError, OSError) as exc:
             raise StoreError(f"could not load the turn context: {type(exc).__name__}") from exc
         messages = [queued.message for queued in started.queued]
         journey = _JourneyFocus.of(user_learners, messages, records)
+        # Inside a child session the turn is about the child who is talking (C13)
+        talking = next(
+            (
+                learner
+                for learner in user_learners
+                if child_session is not None and learner.id == child_session.learner_id
+            ),
+            None,
+        )
         return TurnContext(
             turn_id=started.turn_id,
             profile=profile,
             learners=user_learners,
-            active_learner=journey.active_learner,
+            active_learner=talking or journey.active_learner,
             open_activity=journey.open_activity,
             activity_history=journey.history,
             messages=messages,
@@ -149,6 +166,8 @@ class TurnRepository:
             is_session_start=SessionRules.is_session_start(
                 previous_started_at, messages[0].provider_sent_at
             ),
+            child_session=child_session,
+            last_child_session_ended_at=last_child_session_end,
         )
 
     async def finalize(
@@ -416,6 +435,12 @@ async def _apply(session: AsyncSession, started: StartedTurn, write: TurnWrite) 
             await JourneyRepository.record_offer(session, started.user_hash, started.turn_id, write)
         case ActivityReported():
             await JourneyRepository.record_report(session, started.user_hash, write)
+        case ChildSessionStart():
+            await ChildSessionRepository.start(session, started.user_hash, write)
+        case ChildTalkTurn():
+            await ChildSessionRepository.count_turn(session, started.user_hash, write)
+        case ChildSessionEnd():
+            await ChildSessionRepository.end(session, started.user_hash, write)
         case _:
             assert_never(write)
 

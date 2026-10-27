@@ -16,3 +16,9 @@ LABEL_WORDS: Final = (
     "genius", "dull", "stupid", "naughty", "lazy", "weak", "kamzor", "budhu", "buddhu",
     "nalayak", "shaitan", "aalsi", "कमज़ोर", "कमजोर", "बुद्धू", "नालायक", "शैतान", "आलसी",
 )  # fmt: skip
+# The curiosity moment may say who explores something (C12) but never push the child toward it.
+EXPOSURE_PUSH_WORDS: Final = (
+    "you should become", "you can become", "you will become", "tum bhi ban", "aap bhi ban",
+    "tum ban sakte", "tum ban sakti", "ban sakte ho", "ban sakti ho", "banna chahiye", "bano",
+    "तुम भी बन", "बन सकते हो", "बन सकती हो", "बनना चाहिए",
+)  # fmt: skip

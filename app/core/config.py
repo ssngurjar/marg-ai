@@ -117,6 +117,12 @@ class Settings(DatabaseSettings):
     stt_max_keywords: int = Field(default=100, ge=0)
     reply_audio_for_text_input: bool = False
 
+    # Added in S10b for child talk (C13; contracts §7)
+    child_talk_enabled: bool = True
+    child_session_max_turns: int = Field(default=6, ge=1)
+    child_session_max_minutes: int = Field(default=10, ge=1)
+    child_session_cooldown_minutes: int = Field(default=30, ge=0)
+
     @field_validator("model_api_key", "safety_api_key", "open_model_api_key", "sidecar_token")
     @classmethod
     def _require_a_key(cls, key: SecretStr) -> SecretStr:

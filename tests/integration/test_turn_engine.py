@@ -37,6 +37,7 @@ from app.providers.http import RetryPolicy, RetryTiming
 from app.providers.ports import ChannelSender
 from app.safety.safety_gate import SafetyGate
 from app.store.db import create_engine, create_session_factory
+from app.store.repositories.child_session_repository import ChildSessionRepository
 from app.store.repositories.inbox_repository import InboundRecord, InboxRepository
 from app.store.repositories.media_blob_repository import MediaBlobRepository
 from app.store.repositories.outbox_repository import OutboxRepository
@@ -144,6 +145,7 @@ def build(
             users=UserRepository(sessions),
             clock=clock,
             media=MediaBlobRepository(sessions),
+            child_sessions=ChildSessionRepository(sessions),
         ),
         DispatcherSettings(
             debounce=timedelta(milliseconds=50),
@@ -151,6 +153,7 @@ def build(
             shutdown_grace=timedelta(seconds=1),
             retain_turn_text=timedelta(days=90),
             retain_raw_payload=timedelta(days=7),
+            child_session_max=timedelta(minutes=10),
             purge_sweep_after=timedelta(seconds=600),
             error_backoff=timedelta(seconds=1),
         ),

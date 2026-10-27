@@ -43,6 +43,7 @@ from tests.fakes.sleeper import FakeSleeper
 from tests.fakes.voice import VOICE_NOTE, FakeTranscriber, FakeVoice
 from tests.support import whatsapp_payloads as wa
 from tests.support.app_factory import TEST_PHONE_NUMBER_ID, make_identity, make_settings
+from tests.support.child_talk import CHILD_ANSWER, CHILD_REPLY
 from tests.support.journey import (
     REFLECTION,
     REFLECTION_PRAISE,
@@ -103,6 +104,7 @@ def wire(
             "profile_extraction": EXTRACTION,
             "activity_personalise": FakeLanguageModel([personalisation_for(first_choice())]),
             "parent_reflection": FakeLanguageModel([REFLECTION]),
+            "child_talk": FakeLanguageModel([CHILD_REPLY]),
         }
     )
     media = MediaBlobRepository(sessions)  # the real table: voice notes stored and loaded
@@ -144,6 +146,7 @@ EVERY_USER_TABLE = (
     "consent_events WHERE user_hash = :h",
     "learners WHERE owner_user_hash = :h",
     "media_blobs WHERE user_hash = :h",
+    "child_sessions WHERE user_hash = :h",
     "turn_steps WHERE turn_id IN (SELECT id FROM turns WHERE user_hash = :h)",
 )
 
@@ -178,22 +181,25 @@ async def ask(pipeline: Pipeline, question: str, *, message_id: str = "wamid.Q1"
     await send(pipeline, wa.text_message(question, message_id=message_id))
 
 
-async def onboarded_parent(engine: AsyncEngine) -> None:
-    """The user the journey tests talk to: consented, a parent, with one child."""
+async def onboarded_parent(engine: AsyncEngine, *, child_talk: bool = False) -> None:
+    """The user the journey tests talk to: consented, a parent, with one child (who may talk
+    to Marg directly when `child_talk`)."""
     async with engine.begin() as connection:
         await connection.execute(
             text(
                 "INSERT INTO users (user_hash, channel, address_ciphertext, state, role, "
-                "consented_at) VALUES (:h, 'whatsapp', :address, 'active', 'parent', now())"
+                "consented_at, language) VALUES (:h, 'whatsapp', :address, 'active', 'parent',"
+                " now(), 'hinglish')"
             ),
             {"h": USER_HASH, "address": make_identity().encrypt_address(USER_HASH, wa.FAKE_WA_ID)},
         )
         await connection.execute(
             text(
-                "INSERT INTO learners (id, owner_user_hash, relation, nickname, birth_year) "
-                "VALUES (gen_random_uuid(), :h, 'parent', 'Munni', 2021)"
+                "INSERT INTO learners (id, owner_user_hash, relation, nickname, birth_year, "
+                "child_talk_consented_at) VALUES (gen_random_uuid(), :h, 'parent', 'Munni', 2021,"
+                " CASE WHEN :talk THEN now() END)"
             ),
-            {"h": USER_HASH},
+            {"h": USER_HASH, "talk": child_talk},
         )
 
 
@@ -391,3 +397,58 @@ async def test_a_voice_question_gets_a_stored_voice_reply_sent_with_its_text(
     assert steps[:2] == [("fetch_media", "ok"), ("transcribe", "ok")]
     assert steps[-1] == ("synthesize", "ok")
     assert voice.fetcher.refs[0].provider_media_id == "MEDIA1"
+
+
+# --- child talk, end to end (s10b §4.16, C13) -----------------------------------------------------
+
+
+async def test_a_child_talks_answers_are_counted_and_bye_sends_the_parents_summary(
+    engine: AsyncEngine,
+) -> None:
+    await onboarded_parent(engine, child_talk=True)
+    pipeline = wire(engine, FakeSafetyClassifier())
+    await send(pipeline, wa.button_reply("kid:start", "Main bachcha hoon"))
+    assert "Namaste Munni" in (pipeline.sender.sent[-1].part.text or "")
+    assert await rows(engine, "SELECT turns_count, ended_at IS NULL FROM child_sessions") == [
+        (0, True)
+    ]
+    await ask(pipeline, "chaand kyun chamakta hai?", message_id="wamid.K2")
+    replies = " ".join(sent.part.text or "" for sent in pipeline.sender.sent)
+    assert CHILD_ANSWER in replies
+    assert await rows(engine, "SELECT turns_count, topics FROM child_sessions") == [
+        (1, ["earth_sky"])
+    ]
+    await ask(pipeline, "bye", message_id="wamid.K3")
+    goodbye = pipeline.sender.sent[-1].part.text or ""
+    assert "Mummy-Papa ke liye" in goodbye
+    assert "aasmaan aur mausam" in goodbye
+    assert "chaand kyun" not in goodbye  # topics, never the child's words
+    assert await rows(
+        engine,
+        "SELECT end_reason, ended_at IS NOT NULL, summary_sent_at IS NOT NULL FROM child_sessions",
+    ) == [("child_ended", True, True)]
+    assert await rows(engine, "SELECT route FROM turns ORDER BY started_at") == [
+        ("child_talk",),
+        ("child_talk",),
+        ("child_talk",),
+    ]
+
+
+async def test_inside_a_child_session_delete_my_data_deletes_nothing(engine: AsyncEngine) -> None:
+    await onboarded_parent(engine, child_talk=True)
+    pipeline = wire(engine, FakeSafetyClassifier())
+    await send(pipeline, wa.button_reply("kid:start", "Main bachcha hoon"))
+    await ask(pipeline, "mera data hatao", message_id="wamid.K4")
+    assert "Mummy-Papa karenge" in (pipeline.sender.sent[-1].part.text or "")
+    assert await count(engine, "users WHERE user_hash = :h") == 1
+    assert await count(engine, "child_sessions WHERE user_hash = :h AND ended_at IS NULL") == 1
+
+
+async def test_without_consent_the_parent_is_offered_the_switch(engine: AsyncEngine) -> None:
+    await onboarded_parent(engine)
+    pipeline = wire(engine, FakeSafetyClassifier())
+    await ask(pipeline, "Main Munni hoon", message_id="wamid.K5")
+    last = pipeline.sender.sent[-1].part
+    assert "chalu nahi hai" in (last.text or "")
+    assert last.buttons[0].id.startswith("onb:childtalk:yes:")
+    assert await count(engine, "child_sessions WHERE user_hash = :h") == 0

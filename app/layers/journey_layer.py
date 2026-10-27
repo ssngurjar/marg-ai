@@ -4,7 +4,9 @@ Flows, picked deterministically (mvp-scope C3b):
   A. today's khoj     `jrn:today[:<child>]`, or "aaj ki khoj", or right after onboarding
   B. report back      `jrn:done`, or any message while an activity is open
   C. another khoj     `jrn:other`: the open one is marked skipped, then A without it
-  D. parent question  everything else (ParentQuestionLayer)
+  D. parent question  everything else (ParentQuestionLayer), except the curiosity moment: a
+                      message passing on the child's own question goes to
+                      CuriosityMomentLayer first (s10b §4.15, C11)
 The activity is chosen by rules (ActivityChooser); the model only rewords it for the family
 (activity_personalise) or reflects on the child's report (parent_reflection, on Muse Spark Open).
 Replies are written in the parent's register (C3c). Every activity reply ends with the
@@ -21,6 +23,7 @@ from uuid import uuid4
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.constants.child_hazards import CHILD_HAZARD_WORDS
+from app.constants.child_talk_copy import kid_start_button
 from app.constants.journey_copy import (
     ADD_CHILD_BUTTON,
     AGE_COMING_SOON,
@@ -48,11 +51,13 @@ from app.domain.models.writes import ActivityOffered, ActivityReported, TurnWrit
 from app.domain.rules.activity_chooser import ActivityChooser
 from app.domain.rules.activity_validator import ActivityValidator
 from app.domain.rules.child_hazard_matcher import ChildHazardMatcher
+from app.domain.rules.child_question_detector import ChildQuestionDetector
 from app.domain.rules.conversation_machine import MAX_LEARNERS
 from app.domain.rules.phrase_finder import PhraseFinder
 from app.domain.rules.register_detector import RegisterDetector
 from app.domain.rules.stage_rules import StageRules
 from app.layers.activity_catalogue import CatalogueActivitySource
+from app.layers.curiosity_moment_layer import CuriosityMomentLayer, NotAChildQuestion
 from app.layers.layer_result import LayerResult
 from app.layers.parent_question_layer import ParentQuestionLayer
 from app.prompts.prompt_registry import PromptRegistry, PromptSpec
@@ -93,6 +98,7 @@ PARENT_REFLECTION: Final = PromptSpec(prompt_id="parent_reflection", output_type
 @dataclass(frozen=True, slots=True)
 class JourneySettings:
     repeat_window: timedelta  # ACTIVITY_REPEAT_DAYS
+    child_talk_enabled: bool = True  # CHILD_TALK_ENABLED: offer the "Main bachcha hoon" button
 
 
 class JourneyLayer:
@@ -114,6 +120,7 @@ class JourneyLayer:
         self._registry = registry
         self._source = source
         self._parent_questions = parent_questions
+        self._curiosity = CuriosityMomentLayer(llm, registry, source.materials)
         self._settings = settings
 
     async def handle(
@@ -138,8 +145,32 @@ class JourneyLayer:
         if button == KHOJ_DONE:
             # Nothing is open (it expired or was reported): offer today's khoj instead.
             return await self._today(ctx, ctx.active_learner, now, register, skipped=None)
+        return await self._question(ctx, user_text, now, register)
+
+    async def _question(
+        self, ctx: TurnContext, user_text: str, now: datetime, register: Language
+    ) -> LayerResult:
+        """D, or the curiosity moment when the parent passes on the child's own question.
+        Raises ProviderError."""
+        nicknames = [learner.nickname for learner in ctx.learners]
+        not_the_childs: NotAChildQuestion | None = None
+        if ChildQuestionDetector.relays_child_question(user_text, nicknames):
+            moment = await self._curiosity.answer(
+                ctx.active_learner, user_text, register, now.date()
+            )
+            if not isinstance(moment, NotAChildQuestion):
+                return moment
+            not_the_childs = moment
         result = await self._parent_questions.answer(ctx, user_text, register)
-        return result.model_copy(update={"hazard_rule": frozenset()})
+        if not_the_childs is None:
+            return result.model_copy(update={"hazard_rule": frozenset()})
+        return result.model_copy(
+            update={
+                "hazard_rule": frozenset(),
+                "usages": [not_the_childs.usage, *result.usages],
+                "prompt_versions": {**not_the_childs.prompt_versions, **result.prompt_versions},
+            }
+        )
 
     async def first_khoj(
         self, ctx: TurnContext, learner: Learner, now: datetime, register: Language
@@ -228,8 +259,13 @@ class JourneyLayer:
         personalised, usages, versions, problem = await self._personalise(
             activity, learner, now, register
         )
-        reviewed_reply = reviewed.reply(register, spoken=None)
-        reply = personalised.reply(register, spoken=personalised.spoken) if personalised else None
+        kid = _kid_buttons(learner, register) if self._settings.child_talk_enabled else ()
+        reviewed_reply = reviewed.reply(register, spoken=None, extra_buttons=kid)
+        reply = (
+            personalised.reply(register, spoken=personalised.spoken, extra_buttons=kid)
+            if personalised
+            else None
+        )
         return LayerResult(
             reply=reply or reviewed_reply,
             usages=usages,
@@ -299,7 +335,8 @@ class JourneyLayer:
             semantic_check=lambda output: _ReflectionChecks.problems(output, register),
         )
         versions = {rendered.request.prompt.prompt_id: rendered.request.prompt.prompt_version}
-        buttons = self._after_report_buttons(ctx, register)
+        kid = _kid_buttons(learner, register) if self._settings.child_talk_enabled else ()
+        buttons = (*self._after_report_buttons(ctx, register), *kid)
         try:
             result = await self._llm.generate(rendered.request)
         except ProviderError as exc:
@@ -374,7 +411,12 @@ class _KhojText:
             spoken=output.spoken_text,
         )
 
-    def reply(self, register: Language, spoken: str | None) -> CanonicalReply:
+    def reply(
+        self,
+        register: Language,
+        spoken: str | None,
+        extra_buttons: Sequence[ReplyButton] = (),
+    ) -> CanonicalReply:
         numbered = [f"{position}. {step}" for position, step in enumerate(self.steps, start=1)]
         questions = [f"• {question}" for question in self.questions]
         sections = [
@@ -391,7 +433,7 @@ class _KhojText:
             body_language=register,
             spoken_text=spoken_text,
             citations=[],
-            buttons=list(KHOJ_BUTTONS[register]),
+            buttons=[*KHOJ_BUTTONS[register], *extra_buttons],
             fixed_kind=None,
         )
 
@@ -454,6 +496,13 @@ def _fixed(body: str, register: Language, buttons: Sequence[ReplyButton]) -> Lay
         degraded_reason=None,
         hazard_rule=frozenset(),
     )
+
+
+def _kid_buttons(learner: Learner, register: Language) -> tuple[ReplyButton, ...]:
+    """ "Main bachcha hoon 🙋" for a child whose parent switched child talk on (C13)."""
+    if learner.child_talk_consented_at is None:
+        return ()
+    return (kid_start_button(str(learner.id), register),)
 
 
 def _done(open_activity: OfferedActivity, summary: str | None) -> TurnWrite:

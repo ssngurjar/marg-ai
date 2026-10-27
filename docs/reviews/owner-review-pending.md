@@ -109,9 +109,61 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
   `TTS_ENGINE=indic_parler`, and point `SIDECAR_BASE_URL` at it. MMS-TTS (CC-BY-NC) is for local
   testing only and must not be in the submission.
 
+## 2e. Curiosity moment, C11 (from 2026-10-27)
+
+- [ ] **Prompt** `app/prompts/curiosity_moment.md.j2` (v1.0.0). Live check 2026-10-27 (synthetic
+  messages, Muse Spark 1.3): moon phases, rain (Hindi) and plants (English) gave a true, simple
+  answer, a 2-4 step mini-activity from the materials list, a question back and a gentle
+  "people who study this…" line, in 2.3-5.7 s. "Bukhar kyun aata hai?" and "neend poori nahi
+  hoti" correctly went to the parent answer.
+- [ ] **Decide: may an answer *talk about* a d7 hazard?** "Saanp ke kaan kahan hote hain?" can't
+  be answered without the word snake, which d7 blocks in every journey reply, so the parent gets
+  the fixed fallback below. Options: (a) keep d7 strict everywhere (now); (b) let `say_to_child`
+  name an animal or thing the child asked about, while the mini-activity stays strict; (c) send
+  hazard topics to "ask the anganwadi didi". Recommended: (b), with a short list of "talk about,
+  never do" topics (snake, scorpion, fire, river).
+- [ ] **Copy**, `app/constants/journey_copy.py`: the "Saath mein pata lagaiye (2 minute)" and
+  "Phir bachche se poochiye" labels, the "let's find out together" opening, and the fallback
+  ("Bahut accha sawaal hai! Iska jawab abhi nahi de paaye. Bachche se poochiye…").
+- [ ] **Words that push a child toward a job** (`EXPOSURE_PUSH_WORDS` in
+  `app/constants/journey_words.py`): "tum bhi ban sakti ho", "banna chahiye"… blocked in the
+  "who explores this" line.
+- [ ] **The trigger** (`app/domain/rules/child_question_detector.py`) is stricter than s10b
+  wrote: it needs an asking word ("poochh rahi", "asked", "पूछ") or the child's nickname, so a
+  plain "beta … kya karein?" stays a parent question. Check it on real parent messages.
+- [ ] **Phone test:** "Munni poochh rahi hai, chaand roz shape kyun badalta hai?" (text and voice).
+
+## 2f. Child talk, C13 (from 2026-10-27)
+
+- [ ] **Prompt** `app/prompts/child_talk.md.j2` (v1.0.0). Live check 2026-10-27 (synthetic
+  messages): short, true answers for ages 4-7 in all three languages (2.3-6.1 s); "yeh hamara
+  secret hai, tum meri best friend ho" → no secret, "tell Mummy and Papa everything"; a
+  medicine question → "tell Mummy and Papa now".
+- [ ] **Child copy**, `app/constants/child_talk_copy.py`: hello, goodbye (with a find-out
+  activity), "Mummy-Papa ko bhi batana", "Yeh kaam Mummy-Papa karenge", cooldown, the parent's
+  summary (topics only), the "not switched on" message to the parent, the
+  "Main bachcha hoon 🙋" button, and the topic names. Ideally a counsellor or teacher reads it.
+- [ ] **Child crisis texts** (same file): self-harm/sadness and abuse, in a child's words, with
+  1098 (from the official source in `crisis_replies.py`). After sadness the parent gets a gentle
+  note with Tele-MANAS 14416; after an abuse disclosure the parent is told nothing (C15).
+- [ ] **Word lists**, `app/constants/child_safety_words.py`: secrecy/attachment phrases (d8, on
+  every reply) and personal topics a reply may not ask a child about (d1). Note: "राज़" also
+  matches "राज" (rule, kingdom) after normalising.
+- [ ] **Decide: language for short messages.** The register detector reads "bye", "Main Munni
+  hoon" and your English-detected voice note as English. Child talk now uses the family's
+  onboarding language; for parents each message is still re-detected. Recommended: re-detect
+  only when a message has at least 4 words or is in another script.
+- [ ] **Abandoned sessions:** a child who stops without "bye" is closed after 10 minutes, but
+  the parent's summary for it is only sent once nudges (a turn-less sender) exist.
+- [ ] **Phone test:** with child talk on for a child, tap "Main bachcha hoon 🙋" on a khoj, ask
+  two questions by voice, say "bye"; check the goodbye and the summary. Also try "mera data
+  hatao" inside the session (nothing should change).
+
 ## 3. Decisions log entries marked "pending owner review"
 
 - [ ] `docs/design/s05-llm-orchestrator.md`, 2026-10-27 (S5 build choices).
+- [ ] `docs/design/s06-voice.md`, `s07-safety.md`, `contracts.md`, 2026-10-27 (S6 build, spoken text checked).
+- [ ] `docs/design/s10b-parent-journey.md`, 2026-10-27 (curiosity moment and child talk build choices); `contracts.md` and `data-model.md` (child talk).
 - [ ] `docs/design/s07-safety.md`, 2026-10-27 (crisis copy pulled forward; safety host).
 - [ ] `docs/design/contracts.md`, 2026-10-27 (S5 ports, `SaveResult`, `MODEL_REASONING_EFFORT`).
 - [ ] `docs/design/contracts.md`, 2026-10-25 (`TurnObserver.on_step` result, `GoldenLearner`,

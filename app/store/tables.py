@@ -25,11 +25,12 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 
 from app.domain.enums import (
     ActivityStatus,
     Channel,
+    ChildSessionEndReason,
     ConsentEventKind,
     ConversationState,
     FailureKind,
@@ -309,4 +310,32 @@ learner_activities = Table(
     CheckConstraint("char_length(child_response_summary) <= 200", name="summary_length"),
     allowed_values("status", ActivityStatus),
     Index("ix_learner_activities_learner_id_offered_at", "learner_id", text("offered_at DESC")),
+)
+
+child_sessions = Table(
+    "child_sessions",
+    metadata,
+    Column("id", UUID(as_uuid=True), primary_key=True),
+    Column(
+        "learner_id",
+        UUID(as_uuid=True),
+        ForeignKey("learners.id", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    Column("user_hash", Text, ForeignKey("users.user_hash", ondelete="CASCADE"), nullable=False),
+    Column("started_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    Column("ended_at", DateTime(timezone=True), nullable=True),  # NULL while open
+    Column("turns_count", SmallInteger, nullable=False, server_default=text("0")),
+    Column("end_reason", Text, nullable=True),
+    # CuriosityDomain values the child asked about, for the parent's summary: never their words
+    Column("topics", ARRAY(Text), nullable=False, server_default=text("'{}'::text[]")),
+    Column("summary_sent_at", DateTime(timezone=True), nullable=True),
+    allowed_values("end_reason", ChildSessionEndReason),
+    Index("ix_child_sessions_learner_id_started_at", "learner_id", text("started_at DESC")),
+    Index(
+        "uq_child_sessions_one_open_per_user",
+        "user_hash",
+        unique=True,
+        postgresql_where=text("ended_at IS NULL"),
+    ),
 )

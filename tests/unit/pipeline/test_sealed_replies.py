@@ -10,7 +10,14 @@ from app.audio.tts_text_preparer import TtsTextPreparer
 from app.constants import fixed_replies
 from app.constants.whatsapp import MAX_INTERACTIVE_BODY_CHARS
 from app.core.errors import ConfigError
-from app.domain.enums import FixedReplyKind, FixedReplyVariant, Language, PartKind, SafetyDecision
+from app.domain.enums import (
+    FixedReplyKind,
+    FixedReplyVariant,
+    Language,
+    PartKind,
+    SafetyDecision,
+    Speaker,
+)
 from app.domain.models.reply import LocalisedReply, ReplyButton, TemplateRef
 from app.domain.models.safety import SafetyVerdict
 from app.pipeline.fixed_reply_service import FixedReplyService
@@ -232,3 +239,33 @@ def test_hinglish_fixed_replies_are_spoken_from_the_reviewed_hindi() -> None:
                 fixed_replies.FixedTextKey(key.kind, key.variant, Language.HINDI)
             ]
             assert fixed.spoken_text == hindi.spoken_text, key
+
+
+@pytest.mark.parametrize("variant", [FixedReplyVariant.SELF_HARM, FixedReplyVariant.ABUSE])
+@pytest.mark.parametrize("language", list(Language))
+def test_a_child_in_crisis_gets_the_child_words_and_the_child_helpline(
+    variant: FixedReplyVariant, language: Language
+) -> None:
+    reply = FixedReplyService.localise(FixedReplyKind.CRISIS, variant, language, Speaker.LEARNER)
+    assert "1098" in reply.text
+    assert "?" not in reply.text  # a child in crisis isn't asked anything
+    voice = Language.HINDI if language is Language.HINGLISH else language
+    assert TtsTextPreparer.prepare(reply.spoken_text, voice).sentences
+
+
+@pytest.mark.parametrize("variant", list(FixedReplyVariant))
+def test_any_refusal_to_a_child_is_the_child_wording(variant: FixedReplyVariant) -> None:
+    reply = FixedReplyService.localise(
+        FixedReplyKind.REFUSE, variant, Language.HINGLISH, Speaker.LEARNER
+    )
+    assert reply.text.startswith("Yeh baat Mummy-Papa ya doctor se poochho")
+
+
+def test_other_fixed_replies_are_the_same_for_a_child() -> None:
+    for_child = FixedReplyService.localise(
+        FixedReplyKind.TRY_AGAIN_LATER, FixedReplyVariant.DEFAULT, Language.HINDI, Speaker.LEARNER
+    )
+    for_parent = FixedReplyService.localise(
+        FixedReplyKind.TRY_AGAIN_LATER, FixedReplyVariant.DEFAULT, Language.HINDI
+    )
+    assert for_child == for_parent

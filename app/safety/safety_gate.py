@@ -29,6 +29,11 @@ from datetime import timedelta
 from typing import ClassVar, Final, Literal
 
 from app.constants.child_hazards import CHILD_HAZARD_WORDS
+from app.constants.child_safety_words import (
+    CHILD_MANIPULATION_PHRASES,
+    CHILD_PERSONAL_TOPICS,
+    QUESTION_WORDS,
+)
 from app.core.errors import ProviderError, SafetyUnavailable
 from app.core.logging import get_logger
 from app.domain.enums import (
@@ -37,11 +42,13 @@ from app.domain.enums import (
     Language,
     SafetyCategory,
     SafetyDecision,
+    Speaker,
 )
 from app.domain.models.reply import Citation, LocalisedReply, ReplyButton
 from app.domain.models.safety import SafetyVerdict
 from app.domain.models.usage import StepUsage
 from app.domain.rules.child_hazard_matcher import ChildHazardMatcher
+from app.domain.rules.child_reply_matcher import ChildReplyMatcher
 from app.providers.ports import SafetyClassifier, SafetyRequest
 from app.safety.domain_policy import DomainPolicy, PolicyFindings
 from app.safety.safety_decision_mapper import SafetyDecisionMapper
@@ -177,6 +184,7 @@ class SafetyGate:
         user_text: str,
         *,
         hazard_rule: frozenset[str] | None = None,
+        speaker: Speaker = Speaker.GUIDE,
     ) -> OutputCheck:
         """Classify our reply in the context of the user's message; seal it only if allowed.
 
@@ -190,6 +198,12 @@ class SafetyGate:
         classified together: nothing is spoken that wasn't checked (CLAUDE.md §11, S6).
         """
         classified_text = SafetyGate.text_to_classify(reply)
+        child_rule = SafetyGate._child_rule(classified_text, speaker)
+        if child_rule is not None:
+            verdict = SafetyVerdict(
+                decision=SafetyDecision.BLOCK, categories=[child_rule], source="domain_policy"
+            )
+            return OutputCheck(verdict=verdict, safe_reply=None, usage=None)
         if hazard_rule is not None:
             undeclared = ChildHazardMatcher.undeclared(
                 f"{reply.text} {reply.spoken_text}", CHILD_HAZARD_WORDS, hazard_rule
@@ -237,6 +251,18 @@ class SafetyGate:
             _seal=_SEAL,
         )
         return checked.result(safe_reply=safe)
+
+    @staticmethod
+    def _child_rule(classified_text: str, speaker: Speaker) -> SafetyCategory | None:
+        """Deterministic rules for children (C13): d8 on every reply (no secrecy or attachment,
+        s07 §4.5), and on a reply to a child, no question asking for personal details (d1)."""
+        if ChildReplyMatcher.manipulates(classified_text, CHILD_MANIPULATION_PHRASES):
+            return SafetyCategory.CHILD_MANIPULATION
+        if speaker is Speaker.LEARNER and ChildReplyMatcher.asks_personal_details(
+            classified_text, QUESTION_WORDS, CHILD_PERSONAL_TOPICS
+        ):
+            return SafetyCategory.MINOR_PII
+        return None
 
     @staticmethod
     def text_to_classify(reply: LocalisedReply) -> str:

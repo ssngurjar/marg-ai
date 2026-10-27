@@ -17,6 +17,7 @@ from app.core.clock import Clock
 from app.core.errors import StoreError
 from app.core.logging import get_logger
 from app.domain.models.base import TurnId, UserHash
+from app.store.repositories.child_session_repository import ChildSessionRepository
 from app.store.repositories.media_blob_repository import MediaBlobRepository
 from app.store.repositories.outbox_repository import OutboxRepository
 from app.store.repositories.turn_repository import TurnRepository
@@ -35,6 +36,7 @@ class DispatcherSettings:
     retain_turn_text: timedelta  # RETENTION_TURN_TEXT_DAYS
     retain_raw_payload: timedelta  # RETENTION_RAW_PAYLOAD_DAYS
     purge_sweep_after: timedelta  # PURGE_SWEEP_AFTER_S
+    child_session_max: timedelta  # CHILD_SESSION_MAX_MINUTES: an open session past it is closed
     error_backoff: timedelta  # wait after a database error before trying the user again
 
 
@@ -47,6 +49,7 @@ class DispatcherDeps:
     users: UserRepository
     clock: Clock
     media: MediaBlobRepository  # expired reply audio is deleted by the maintenance pass
+    child_sessions: ChildSessionRepository  # sessions a child left mid-way are closed
 
 
 class TurnDispatcher:
@@ -57,6 +60,7 @@ class TurnDispatcher:
         self._outbox = deps.outbox
         self._users = deps.users
         self._media = deps.media
+        self._child_sessions = deps.child_sessions
         self._clock = deps.clock
         self._settings = settings
         self._user_tasks: dict[UserHash, asyncio.Task[None]] = {}
@@ -197,6 +201,9 @@ class TurnDispatcher:
         expired_media = await self._media.delete_expired()
         if expired_media:
             logger.info("media_expired", blobs=expired_media)
+        abandoned = await self._child_sessions.close_abandoned(self._settings.child_session_max)
+        if abandoned:
+            logger.info("child_sessions_expired", sessions=abandoned)
 
     async def _deliver_due_parts(self) -> None:
         turn_ids: list[TurnId] = await self._outbox.turns_with_due_parts()

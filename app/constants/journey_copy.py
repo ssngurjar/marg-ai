@@ -89,3 +89,37 @@ NO_ACTIVITY_LEFT: Final[dict[Language, str]] = {
     _HINDI: "आज के लिए नई खोज नहीं है। कल एक नई खोज भेजूँगा!",
     _ENGLISH: "There's no new discovery left for today. I'll send a new one tomorrow!",
 }
+
+# The curiosity moment (s10b §4.15, C11): labels for its parts, and the honest answer used when
+# the model isn't confident of a true, simple one.
+FIND_OUT_LABEL: Final[dict[Language, str]] = {
+    _HINGLISH: "Saath mein pata lagaiye (2 minute):",
+    _HINDI: "साथ में पता लगाइए (2 मिनट):",
+    _ENGLISH: "Find out together (2 minutes):",
+}
+ASK_BACK_LABEL: Final[dict[Language, str]] = {
+    _HINGLISH: "Phir bachche se poochiye:",
+    _HINDI: "फिर बच्चे से पूछिए:",
+    _ENGLISH: "Then ask your child:",
+}
+LETS_FIND_OUT: Final[dict[Language, str]] = {
+    _HINGLISH: "Bahut accha sawaal hai! Chaliye, saath mein pata lagaate hain.",
+    _HINDI: "बहुत अच्छा सवाल है! चलिए, साथ में पता लगाते हैं।",
+    _ENGLISH: "What a good question! Let's find out together.",
+}
+# Sent when the curiosity answer fails its checks twice (e.g. a question about snakes, which the
+# d7 rule keeps out of every journey reply): no answer, but the child's thinking is still served.
+CURIOSITY_FALLBACK: Final[dict[Language, str]] = {
+    _HINGLISH: (
+        'Bahut accha sawaal hai! Iska jawab abhi nahi de paaye. Bachche se poochiye: "Tumhe kya'
+        ' lagta hai, aur kyun?" Unki soch sunna hi sabse badi seekh hai.'
+    ),
+    _HINDI: (
+        'बहुत अच्छा सवाल है! इसका जवाब अभी नहीं दे पाए। बच्चे से पूछिए: "तुम्हें क्या लगता है, और'
+        ' क्यों?" उनकी सोच सुनना ही सबसे बड़ी सीख है।'
+    ),
+    _ENGLISH: (
+        "What a good question! I can't answer it just now. Ask your child: \"What do you think,"
+        ' and why?" Listening to their thinking is the biggest lesson.'
+    ),
+}

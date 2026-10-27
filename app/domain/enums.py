@@ -56,6 +56,21 @@ class AudioVerdict(StrEnum):
     TOO_LONG = "too_long"
 
 
+class Speaker(StrEnum):
+    """Who is talking this turn (C13): the adult, or a child inside a child-talk session."""
+
+    GUIDE = "guide"
+    LEARNER = "learner"
+
+
+class ChildSessionEndReason(StrEnum):
+    TURN_LIMIT = "turn_limit"
+    TIME_LIMIT = "time_limit"
+    CHILD_ENDED = "child_ended"
+    CRISIS = "crisis"
+    EXPIRED = "expired"  # the child stopped mid-session; closed by maintenance
+
+
 class MediaPurpose(StrEnum):
     """Why a media_blobs row exists; each purpose has its own expiry (data-model `media_blobs`)."""
 

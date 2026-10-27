@@ -85,3 +85,32 @@ def offer(
 
 def at_time(day: date) -> datetime:
     return datetime.combine(day, NOW.timetz())
+
+
+MOMENT_SAY = (
+    "Chaand khud nahi chamakta, us par suraj ki roshni padti hai. Roz humein uska alag hissa"
+    " roshan dikhta hai."
+)
+CURIOSITY_MOMENT: dict[str, object] = {
+    "is_child_question": True,
+    "confident": True,
+    "say_to_child": MOMENT_SAY,
+    "find_out_together": [
+        "Ek steel plate ko aangan ki dhoop mein rakhiye.",
+        "Plate ko dheere dheere ghumaiye aur dekhiye roshni kahan padti hai.",
+    ],
+    "materials_used": ["steel plate"],
+    "ask_back": "Aaj raat chaand kaisa dikhega, tumhe kya lagta hai?",
+    "who_explores_this": "Jo log chaand-taaron ko samajhte hain unhe khagol-vaigyanik kehte hain.",
+    "spoken_text": "चाँद खुद नहीं चमकता, उस पर सूरज की रोशनी पड़ती है। आज रात चाँद कैसा दिखेगा?",
+}
+NOT_A_CHILD_QUESTION: dict[str, object] = {
+    "is_child_question": False,
+    "confident": False,
+    "say_to_child": "",
+    "find_out_together": [],
+    "materials_used": [],
+    "ask_back": "",
+    "who_explores_this": "",
+    "spoken_text": "",
+}

@@ -20,6 +20,7 @@ from app.domain.enums import (
     Language,
     SafetyCategory,
     SafetyDecision,
+    Speaker,
 )
 from app.domain.models.reply import LocalisedReply
 from app.providers.ports import SafetyRequest
@@ -453,5 +454,44 @@ async def test_the_rule_reads_the_spoken_text_too() -> None:
 async def test_without_a_hazard_rule_the_d7_check_doesnt_run() -> None:
     check = await gate_with(FakeSafetyClassifier()).check_output(
         reply_saying("Sadak paar karte waqt haath pakdiye."), QUESTION
+    )
+    assert check.safe_reply is not None
+
+
+# --- replies to children (C13: d8 and the d1 child rule) -----------------------------------------
+
+
+@pytest.mark.parametrize("speaker", list(Speaker))
+async def test_secrecy_or_attachment_in_any_reply_is_blocked_without_a_provider_call(
+    speaker: Speaker,
+) -> None:
+    classifier = FakeSafetyClassifier()
+    secret = REPLY.model_copy(update={"text": "Yeh hamara secret hai, kisi ko mat batana."})
+    check = await gate_with(classifier).check_output(secret, QUESTION, speaker=speaker)
+    assert check.verdict.decision is SafetyDecision.BLOCK
+    assert check.verdict.categories == [SafetyCategory.CHILD_MANIPULATION]
+    assert check.safe_reply is None
+    assert classifier.requests == []
+
+
+async def test_asking_a_child_for_their_school_is_blocked() -> None:
+    asking = REPLY.model_copy(update={"text": "Tumhara school kaunsa hai?"})
+    check = await gate_with(FakeSafetyClassifier()).check_output(
+        asking, QUESTION, speaker=Speaker.LEARNER
+    )
+    assert check.verdict.categories == [SafetyCategory.MINOR_PII]
+    assert check.safe_reply is None
+
+
+async def test_the_same_question_to_a_parent_is_not_the_child_rules_business() -> None:
+    asking = REPLY.model_copy(update={"text": "Bachche ka school kaunsa hai?"})
+    check = await gate_with(FakeSafetyClassifier()).check_output(asking, QUESTION)
+    assert check.safe_reply is not None
+
+
+async def test_a_kind_reply_to_a_child_passes() -> None:
+    kind = REPLY.model_copy(update={"text": "Mummy-Papa ko bhi batana!"})
+    check = await gate_with(FakeSafetyClassifier()).check_output(
+        kind, QUESTION, speaker=Speaker.LEARNER
     )
     assert check.safe_reply is not None
