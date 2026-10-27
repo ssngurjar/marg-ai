@@ -57,6 +57,19 @@ class Settings(DatabaseSettings):
     webhook_max_body_bytes: int = Field(default=5_000_000, gt=0)
     timeout_whatsapp_s: float = Field(default=5.0, gt=0)
 
+    # Added in S4 for the turn engine (contracts §7; exception E1: one process, no leases)
+    turn_debounce_ms: int = Field(default=1000, ge=0)
+    max_messages_per_turn: int = Field(default=5, ge=1)
+    max_turn_attempts: int = Field(default=3, ge=1)
+    stale_message_hours: int = Field(default=23, ge=1)
+    recent_exchanges: int = Field(default=6, ge=0)
+    turn_budget_s: float = Field(default=25.0, gt=0)
+    outbox_max_attempts: int = Field(default=5, ge=1)
+    maintenance_interval_s: float = Field(default=30.0, gt=0)
+    shutdown_grace_s: float = Field(default=20.0, ge=0)
+    retention_turn_text_days: int = Field(default=90, ge=1)
+    retention_raw_payload_days: int = Field(default=7, ge=1)
+
 
 def load_settings() -> Settings:
     """Read settings from the environment (and `.env` locally).

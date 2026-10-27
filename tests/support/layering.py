@@ -31,7 +31,8 @@ ALLOWED_INTERNAL_IMPORTS: dict[str, frozenset[str]] = {
     "providers.adapter": frozenset(
         {"domain", "providers.ports", "providers.http", "core", "audio"}
     ),
-    "store": frozenset({"domain", "core"}),
+    # pipeline.parts only: the outbox insert accepts nothing but a sealed ReplyDelivery (s04 log)
+    "store": frozenset({"domain", "core", "pipeline.parts"}),
     "api": frozenset({"domain", "channels", "store", "core", "pipeline", "telemetry"}),
     "core": frozenset({"core"}),
     "worker": frozenset({ANYTHING_EXCEPT_API}),

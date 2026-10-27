@@ -10,6 +10,7 @@ from app.core.config import Environment, Settings
 from app.core.errors import ConfigError
 from app.core.identity import UserIdentity
 from app.store.repositories.inbound import InboundStore
+from app.store.repositories.outbox import OutboxStore
 
 
 def get_settings(request: Request) -> Settings:
@@ -46,6 +47,13 @@ def get_inbound_store(request: Request) -> InboundStore:
     store = request.app.state.inbound_store
     if not isinstance(store, InboundStore):
         raise ConfigError("app.state.inbound_store is not set; build the app with create_app()")
+    return store
+
+
+def get_outbox_store(request: Request) -> OutboxStore:
+    store = request.app.state.outbox_store
+    if not isinstance(store, OutboxStore):
+        raise ConfigError("app.state.outbox_store is not set; build the app with create_app()")
     return store
 
 

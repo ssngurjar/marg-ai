@@ -440,7 +440,7 @@ dependency on a third-party import linter.
 | `providers.ports` | `domain`, `core.errors`, `core.types` |
 | `providers.http` | `core` |
 | `providers.<adapter>` | `domain`, `providers.ports`, `providers.http`, `core`, `audio` |
-| `store` | `domain`, `core` |
+| `store` | `domain`, `core`, and `pipeline.parts` only (the sealed `ReplyDelivery` the outbox insert accepts; s04 log 2026-10-27) |
 | `api` | `domain`, `channels`, `store`, `core`, `pipeline` (hand-off only), `telemetry` (dashboard queries) |
 | `core` | `core` only |
 | `worker`, `evals` | anything except `api` |

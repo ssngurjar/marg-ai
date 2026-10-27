@@ -16,6 +16,7 @@ from app.core.config import Settings
 from app.core.identity import UserIdentity
 from app.store.db import create_engine, create_session_factory, ping
 from app.store.repositories.inbound import InboundStore
+from app.store.repositories.outbox import OutboxStore
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,6 +29,7 @@ class Container:
     identity: UserIdentity
     whatsapp_sender: WhatsAppSender
     inbound_store: InboundStore
+    outbox_store: OutboxStore
 
 
 def build_container(settings: Settings) -> Container:
@@ -51,6 +53,7 @@ def build_container(settings: Settings) -> Container:
         identity=UserIdentity(settings.user_hash_salt, settings.address_encryption_key),
         whatsapp_sender=WhatsAppSender(config=whatsapp_config, clock=clock),
         inbound_store=InboundStore(session_factory),
+        outbox_store=OutboxStore(session_factory),
     )
 
 

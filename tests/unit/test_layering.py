@@ -144,3 +144,20 @@ def test_property_checker_matches_table(edges: list[tuple[str, str]]) -> None:
         assert is_allowed(importer_area, imported_area) is table_allows(
             importer_area, imported_area
         )
+
+
+def test_store_may_import_only_the_sealed_delivery_from_the_pipeline(tmp_path: Path) -> None:
+    """The outbox insert takes only a sealed ReplyDelivery (s04 decisions log, 2026-10-27)."""
+    app_root = tmp_path / "app"
+    write_module(
+        app_root,
+        "store/repositories/outbox.py",
+        "from app.pipeline.parts import ReplyDelivery\n"
+        "from app.pipeline.steps import TurnOutcome\n",
+    )
+    write_module(app_root, "pipeline/parts.py", "")
+    write_module(app_root, "pipeline/steps.py", "")
+    assert violations_as_text(app_root) == [
+        "app.store.repositories.outbox → app.pipeline.steps.TurnOutcome "
+        "(store may not import pipeline.steps.TurnOutcome)"
+    ]

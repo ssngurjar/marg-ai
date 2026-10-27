@@ -1,4 +1,8 @@
-"""Core domain models (contracts.md §2.1). Frozen; unknown fields are rejected."""
+"""Core domain models (contracts.md §2.1, §2.2). Frozen; unknown fields are rejected.
+
+Models grow in stages (s04 decisions log, 2026-10-27): each field is added, complete, by the step
+that builds what it describes, so nothing here is a placeholder for a later step.
+"""
 
 from datetime import datetime
 from typing import NewType, Self
@@ -6,10 +10,12 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
-from app.domain.enums import Channel, MessageKind
+from app.domain.enums import Channel, ConversationState, MessageKind, Route
 
 UserHash = NewType("UserHash", str)
 """64 lowercase hex chars: HMAC-SHA256(USER_HASH_SALT, "<channel>:<address>")."""
+
+TurnId = NewType("TurnId", UUID)
 
 
 class DomainModel(BaseModel):
@@ -54,3 +60,35 @@ class ImageClip(DomainModel):
 
     data: bytes
     mime_type: str  # "image/jpeg", "image/png", "image/webp"
+
+
+class UserProfile(DomainModel):
+    """The user as a turn sees them. S8 adds role, grade, language and the onboarding fields."""
+
+    user_hash: UserHash
+    channel: Channel
+    state: ConversationState
+    last_inbound_at: datetime | None  # WhatsApp's 24-hour window
+
+
+class Exchange(DomainModel):
+    """One earlier completed turn, for the model's context window."""
+
+    user_text: str
+    reply_text: str
+    route: Route
+    at: datetime
+
+
+class TurnContext(DomainModel):
+    """Everything one turn needs, loaded by the worker (s04 §4.5) and read by every step.
+
+    S8 adds learners, S10b the active learner, open activity and child session, S12 memory and
+    the roadmap, each with the table it reads.
+    """
+
+    turn_id: TurnId
+    profile: UserProfile
+    messages: list[InboundMessage]  # oldest first; at least one
+    recent_exchanges: list[Exchange]  # the last RECENT_EXCHANGES, oldest first
+    is_session_start: bool  # more than SESSION_GAP since the previous turn, or no previous turn

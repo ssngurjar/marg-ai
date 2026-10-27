@@ -2,9 +2,9 @@
 
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import Field, HttpUrl
 
-from app.domain.enums import PartKind
+from app.domain.enums import Language, PartKind
 from app.domain.models import DomainModel
 
 
@@ -33,3 +33,19 @@ class OutboundPart(DomainModel):
     image_blob_id: UUID | None
     buttons: list[ReplyButton]
     template: TemplateRef | None
+
+
+class Citation(DomainModel):
+    title: str
+    source_url: HttpUrl
+    chunk_id: UUID
+
+
+class LocalisedReply(DomainModel):
+    """A reply in the user's register: what `safety_out` checks and the gate seals."""
+
+    text: str  # for the screen
+    spoken_text: str  # for TTS: no URLs, markdown, emoji or markers
+    reply_register: Language  # contracts: `register`, renamed: pydantic reserves the name
+    citations: list[Citation]
+    buttons: list[ReplyButton] = Field(max_length=3)

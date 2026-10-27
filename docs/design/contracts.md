@@ -697,6 +697,7 @@ Per-step timeouts `TIMEOUT_<STEP>_S`: `FETCH_MEDIA` 5, `TRANSCRIBE` 8, `SAFETY_I
 
 | Date | Change | Why | Approved |
 |---|---|---|---|
+| 2026-10-27 | Staged types: `TurnContext`, `UserProfile`, `TurnOutcome` gain fields with the step that builds them (S8: writes, learners, profile; S10b/S12/S13 their fields and `post_turn`). `LocalisedReply.register` and `SafeReply.register` are named `reply_register` (pydantic reserves `register`; matches `TurnOutcome.reply_register`). `StepRecorder`/`TurnObserver` live in `app/pipeline/steps.py`. `RetryPolicy` takes a `RetryTiming` (attempts 3, base 0.5 s, cap 4 s). `TurnId`, `SafetyVerdict` (`app/domain/safety.py`) and S4's settings added | S4 build (s04 log) | owner (S4 review) |
 | 2026-10-25 | v1 written | foundation for the step docs | owner |
 | 2026-10-25 | Consolidated the step docs' requests: `TurnOutcome`, `TurnWrite`, `PostTurnTask`, sealed `SafeReply`/`ReplyDelivery`, `StepRecorder`, `TurnObserver`, `ChannelSender.acknowledge` + `audio`, `ReplyAudioStore`, `semantic_check`, new enums, errors and settings | Five step docs needed them; conflicting names unified into one | owner (defaults 1–10) |
 | 2026-10-25 | Parent journey: `Role.PARENT`, `Learner`, `LearnerRelation`, `AWAITING_CHILD`, `Route.JOURNEY`/`NUDGE`, `PartKind.TEMPLATE`, `CuriosityDomain`, `ActivitySource`, `d7 CHILD_PHYSICAL_HAZARD` | Owner decision: build a person from early childhood; learner-centred data model from inception | owner |

@@ -33,6 +33,7 @@ def create_app(settings: Settings | None = None, container: Container | None = N
         app.state.readiness_probes = active_container.readiness_probes
         app.state.identity = active_container.identity
         app.state.inbound_store = active_container.inbound_store
+        app.state.outbox_store = active_container.outbox_store
         app.state.clock = active_container.clock
         try:
             yield

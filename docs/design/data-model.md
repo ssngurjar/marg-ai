@@ -364,6 +364,7 @@ upgrade → downgrade → upgrade against `docker-compose.test.yml`.
 
 | Date | Change | Why | Approved |
 |---|---|---|---|
+| 2026-10-27 | `s04_queue_tables`: `turns`, `turn_steps`, `outbox_messages`, inbox `attempts`/`available_at`/`turn_id`. Under E1 the `users` lease columns aren't added (Phase 2). `outbox_messages.audio_blob_id`/`image_blob_id` get their FK to `media_blobs` in S6, which creates that table | Exception E1; staged tables | owner (S4 review) |
 | 2026-10-25 | v1 written | foundation | owner |
 | 2026-10-25 | Added `users.pending_question`, `users.purge_after_turn_id`, `outbox_messages.sending_since`, `outbox_messages.template`, `turn_steps.decision`, `corpus_chunks.heading_path`, `corpus_documents.language`, the `turn_metrics` view; crisis `user_text` NULL | Requested by s04, s07, s08, s11, s13, s14 | owner (defaults 1–10) |
 | 2026-10-25 | Added `learners`, `learner_activities`, `nudge_subscriptions`, `curiosity_signals`, `turns.learner_id`; `aspiration_signals` keyed by `learner_id` | Parent journey and learner-centred model | owner |

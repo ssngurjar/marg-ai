@@ -3,14 +3,21 @@
 No model calls and no outbound HTTP here; the reply is produced later by the worker.
 """
 
+from dataclasses import dataclass
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
 from fastapi.responses import PlainTextResponse
 from pydantic import ValidationError
 
-from app.api.deps import get_clock, get_identity, get_inbound_store, get_settings
-from app.channels.whatsapp.inbound import parse_webhook
+from app.api.deps import (
+    get_clock,
+    get_identity,
+    get_inbound_store,
+    get_outbox_store,
+    get_settings,
+)
+from app.channels.whatsapp.inbound import StatusUpdate, parse_webhook
 from app.channels.whatsapp.payloads import WebhookBody
 from app.channels.whatsapp.signature import verify_signature, verify_subscription
 from app.core.clock import Clock
@@ -19,6 +26,7 @@ from app.core.errors import SignatureInvalid, StoreError
 from app.core.identity import UserIdentity
 from app.core.logging import get_logger
 from app.store.repositories.inbound import InboundRecord, InboundStore
+from app.store.repositories.outbox import OutboxStore
 
 router = APIRouter(prefix="/webhooks/whatsapp")
 logger = get_logger(__name__)
@@ -40,13 +48,28 @@ async def verify(
     return Response(status_code=status.HTTP_403_FORBIDDEN)
 
 
+@dataclass(frozen=True, slots=True)
+class WebhookDeps:
+    identity: UserIdentity
+    inbox: InboundStore
+    outbox: OutboxStore
+    clock: Clock
+
+
+def get_webhook_deps(
+    identity: Annotated[UserIdentity, Depends(get_identity)],
+    inbox: Annotated[InboundStore, Depends(get_inbound_store)],
+    outbox: Annotated[OutboxStore, Depends(get_outbox_store)],
+    clock: Annotated[Clock, Depends(get_clock)],
+) -> WebhookDeps:
+    return WebhookDeps(identity=identity, inbox=inbox, outbox=outbox, clock=clock)
+
+
 @router.post("")
 async def receive(
     request: Request,
     settings: SettingsDep,
-    identity: Annotated[UserIdentity, Depends(get_identity)],
-    store: Annotated[InboundStore, Depends(get_inbound_store)],
-    clock: Annotated[Clock, Depends(get_clock)],
+    deps: Annotated[WebhookDeps, Depends(get_webhook_deps)],
 ) -> Response:
     declared_length = request.headers.get("content-length", "")
     if declared_length.isdigit() and int(declared_length) > settings.webhook_max_body_bytes:
@@ -73,23 +96,32 @@ async def receive(
         # Only the location and type of the problem are logged: the payload is user content.
         logger.error("webhook_unparseable", size=len(raw_body), problem=parse_problem)
         return PlainTextResponse("ok")
+    return await _ingest(body, settings, deps)
 
-    parsed = parse_webhook(body, settings.whatsapp_phone_number_id, identity, clock.now())
+
+async def _ingest(body: WebhookBody, settings: Settings, deps: WebhookDeps) -> Response:
+    """Store the authentic webhook's messages and apply its delivery statuses."""
+    parsed = parse_webhook(body, settings.whatsapp_phone_number_id, deps.identity, deps.clock.now())
     records = [
         InboundRecord(
             message=item.inbound,
-            address_ciphertext=identity.encrypt_address(
+            address_ciphertext=deps.identity.encrypt_address(
                 item.inbound.user_hash, item.wa_id.get_secret_value()
             ),
             raw_payload=item.raw_payload,
         )
         for item in parsed.messages
     ]
-    stored, store_problem = await _save(store, records)
+    stored, store_problem = await _save(deps.inbox, records)
     if store_problem is not None:
         # Unlike a parse failure, this one should be retried by Meta, so answer 503. The
         # driver's error isn't attached: it can quote the failing row, which holds user content.
         logger.error("webhook_store_failed", problem=store_problem)
+        return Response(status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
+    unknown_statuses, status_problem = await _apply_statuses(deps.outbox, parsed.statuses)
+    if status_problem is not None:
+        # The messages above are already stored; Meta's retry re-sends them, and they're skipped.
+        logger.error("webhook_status_update_failed", problem=status_problem)
         return Response(status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
 
     for account_error in parsed.account_errors:
@@ -101,6 +133,7 @@ async def receive(
         messages=len(parsed.messages),
         stored=stored,
         statuses=len(parsed.statuses),
+        statuses_not_ours=unknown_statuses,
         ignored=parsed.ignored,
         malformed=parsed.malformed,
     )
@@ -123,3 +156,20 @@ async def _save(store: InboundStore, records: list[InboundRecord]) -> tuple[int,
         return await store.save(records), None
     except StoreError as exc:
         return 0, str(exc)
+
+
+async def _apply_statuses(
+    outbox: OutboxStore, statuses: list[StatusUpdate]
+) -> tuple[int, str | None]:
+    """How many statuses matched no message of ours, or a description of why applying failed."""
+    not_ours = 0
+    try:
+        for update in statuses:
+            matched = await outbox.apply_status_update(
+                update.provider_message_id, update.status, update.at, update.error_code
+            )
+            if not matched:
+                not_ours += 1
+    except StoreError as exc:
+        return not_ours, str(exc)
+    return not_ours, None

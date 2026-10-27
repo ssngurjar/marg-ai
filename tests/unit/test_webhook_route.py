@@ -1,6 +1,8 @@
 import json
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
+from dataclasses import dataclass
+from datetime import datetime
 
 import pytest
 import structlog
@@ -8,8 +10,10 @@ from fastapi.testclient import TestClient
 
 from app.core.errors import StoreError
 from app.core.types import JsonValue
+from app.domain.enums import OutboxStatus
 from app.main import create_app
 from app.store.repositories.inbound import InboundRecord, InboundStore
+from app.store.repositories.outbox import OutboxStore
 from tests.support import whatsapp_payloads as wa
 from tests.support.app_factory import (
     HANDSHAKE_WORD_FOR_TESTS,
@@ -39,10 +43,37 @@ class RecordingStore(InboundStore):
         return len(records)
 
 
+@dataclass(frozen=True, slots=True)
+class AppliedStatus:
+    provider_message_id: str
+    status: OutboxStatus
+    error_code: int | None
+
+
+class RecordingOutbox(OutboxStore):
+    """Captures status updates; `ours` lists the provider ids that match an outbox row."""
+
+    def __init__(self, *, ours: frozenset[str] = frozenset(), fail: bool = False) -> None:
+        self.applied: list[AppliedStatus] = []
+        self.ours = ours
+        self.fail = fail
+
+    async def apply_status_update(
+        self, provider_message_id: str, reported: OutboxStatus, at: datetime, error_code: int | None
+    ) -> bool:
+        if self.fail:
+            raise StoreError("could not apply a status update: OperationalError")
+        self.applied.append(AppliedStatus(provider_message_id, reported, error_code))
+        return provider_message_id in self.ours
+
+
 @contextmanager
-def client_with(store: RecordingStore) -> Iterator[TestClient]:
+def client_with(
+    store: RecordingStore, outbox: RecordingOutbox | None = None
+) -> Iterator[TestClient]:
     structlog.reset_defaults()
-    with TestClient(create_app(container=make_container(inbound_store=store))) as client:
+    container = make_container(inbound_store=store, outbox_store=outbox or RecordingOutbox())
+    with TestClient(create_app(container=container)) as client:
         yield client
 
 
@@ -167,6 +198,32 @@ def test_account_update_is_200_logged_as_received_and_stores_nothing(
     logged = capsys.readouterr().out
     assert "webhook_received" in logged
     assert "webhook_unparseable" not in logged
+
+
+def test_status_webhooks_are_applied_to_the_outbox_not_stored() -> None:
+    store = RecordingStore()
+    outbox = RecordingOutbox(ours=frozenset({"wamid.OUT1"}))
+    raw, signature = wa.signed(
+        wa.webhook(
+            statuses=[
+                wa.status("delivered"),
+                wa.status("failed", message_id="wamid.OTHER", error_code=131047),
+            ]
+        )
+    )
+    with client_with(store, outbox) as client:
+        assert post(client, raw, signature) == 200
+    assert store.saved == []
+    assert outbox.applied == [
+        AppliedStatus("wamid.OUT1", OutboxStatus.DELIVERED, None),
+        AppliedStatus("wamid.OTHER", OutboxStatus.FAILED, 131047),
+    ]
+
+
+def test_status_store_down_is_503_so_meta_retries() -> None:
+    raw, signature = wa.signed(wa.webhook(statuses=[wa.status("read")]))
+    with client_with(RecordingStore(), RecordingOutbox(fail=True)) as client:
+        assert post(client, raw, signature) == 503
 
 
 def test_foreign_number_and_statuses_store_nothing() -> None:
