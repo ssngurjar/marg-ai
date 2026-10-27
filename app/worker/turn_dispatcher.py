@@ -56,23 +56,35 @@ class TurnDispatcher:
         self._woken: dict[UserHash, asyncio.Event] = {}
         self._maintenance: asyncio.Task[None] | None = None
         self._stopping = False
+        self._recovered = False
 
     @property
     def running_users(self) -> frozenset[UserHash]:
         return frozenset(self._user_tasks)
 
     async def start(self) -> None:
-        """Recover what a dead process left, resume it, then start the maintenance pass."""
+        """Recover what a dead process left and resume it, then start the maintenance pass.
+
+        If the database is down at startup, the app still starts: the failure is logged and
+        each maintenance pass retries the recovery until it succeeds.
+        """
+        try:
+            await self._recover()
+        except StoreError as exc:
+            logger.exception("dispatcher_recovery_failed", exc_info=exc)
+        self._maintenance = asyncio.create_task(self._maintain(), name="turn-maintenance")
+
+    async def _recover(self) -> None:
         requeued = await self._turns.recover_unfinished(retry_after=timedelta(0))
         reset = await self._outbox.reset_sending()
         if reset:
             # A part Meta had already accepted before the crash is sent again (s04 §4.10).
             logger.warning("outbox_resend_after_restart", parts=reset)
         logger.info("dispatcher_recovered", messages_requeued=requeued, parts_reset=reset)
+        self._recovered = True
         await self._deliver_due_parts()
         for user_hash in await self._turns.users_with_pending():
             self.wake(user_hash)
-        self._maintenance = asyncio.create_task(self._maintain(), name="turn-maintenance")
 
     def wake(self, user_hash: UserHash) -> None:
         """A message for this user was stored: run a turn soon (after the debounce)."""
@@ -158,6 +170,9 @@ class TurnDispatcher:
                 logger.exception("maintenance_failed", exc_info=exc)
 
     async def _maintenance_pass(self) -> None:
+        if not self._recovered:
+            await self._recover()
+            return
         await self._deliver_due_parts()
         for user_hash in await self._turns.users_with_pending():
             if user_hash not in self._user_tasks:

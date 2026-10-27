@@ -32,7 +32,7 @@ from app.domain.enums import (
 from app.domain.models.base import UserHash
 from app.domain.models.reply import ReplyButton
 from app.domain.models.turn import QueuedMessage
-from app.pipeline.step_models import StepUsage
+from app.domain.models.usage import StepUsage
 from app.providers.http import RetryPolicy, RetryTiming
 from app.providers.ports import ChannelSender
 from app.safety.safety_gate import SafetyGate
@@ -47,6 +47,7 @@ from app.worker.turn_dispatcher import DispatcherDeps, DispatcherSettings, TurnD
 from app.worker.turn_processor import TurnDeps, TurnProcessor, TurnSettings
 from tests.fakes.clock import FixedClock
 from tests.fakes.orchestrator import FakeOrchestrator, ScriptedReply
+from tests.fakes.safety_classifier import FakeSafetyClassifier
 from tests.fakes.sender import FakeSender
 from tests.fakes.sleeper import FakeSleeper
 from tests.support import whatsapp_payloads as wa
@@ -102,7 +103,7 @@ def build(
             store=turns,
             recorder=DatabaseStepRecorder(TurnStepRepository(sessions)),
             run_turn=orchestrator,
-            gate=SafetyGate(),
+            gate=SafetyGate(FakeSafetyClassifier()),
             senders=senders,
             clock=clock,
         ),

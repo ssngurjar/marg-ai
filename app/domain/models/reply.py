@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pydantic import Field, HttpUrl
 
-from app.domain.enums import Language, PartKind
+from app.domain.enums import FixedReplyKind, Language, PartKind
 from app.domain.models.base import DomainModel
 
 
@@ -49,3 +49,14 @@ class LocalisedReply(DomainModel):
     reply_register: Language  # contracts: `register`, renamed: pydantic reserves the name
     citations: list[Citation]
     buttons: list[ReplyButton] = Field(max_length=3)
+
+
+class CanonicalReply(DomainModel):
+    """What a layer returns. In the MVP the layer writes in the user's register directly (C3c)."""
+
+    body: str
+    body_language: Language
+    spoken_text: str | None  # set when the layer localised directly; translate is then SKIPPED
+    citations: list[Citation]
+    buttons: list[ReplyButton] = Field(max_length=3)
+    fixed_kind: FixedReplyKind | None  # set when this is fixed text (no translation, no LLM)

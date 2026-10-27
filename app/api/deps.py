@@ -1,6 +1,6 @@
 """FastAPI dependencies that read what the app factory put on `app.state`."""
 
-from typing import cast
+from typing import Protocol, cast
 
 from fastapi import Request
 
@@ -9,8 +9,22 @@ from app.core.clock import Clock
 from app.core.config import Environment, Settings
 from app.core.errors import ConfigError
 from app.core.user_identity import UserIdentity
+from app.domain.models.base import UserHash
 from app.store.repositories.inbox_repository import InboxRepository
 from app.store.repositories.outbox_repository import OutboxRepository
+
+
+class TurnWaker(Protocol):
+    """What the webhook needs from the turn dispatcher: start this user's turn soon."""
+
+    def wake(self, user_hash: UserHash) -> None: ...
+
+
+def get_turn_waker(request: Request) -> TurnWaker:
+    waker = request.app.state.turn_waker
+    if not callable(getattr(waker, "wake", None)):
+        raise ConfigError("app.state.turn_waker is not set; build the app with create_app()")
+    return cast(TurnWaker, waker)
 
 
 def get_settings(request: Request) -> Settings:

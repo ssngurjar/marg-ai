@@ -5,7 +5,8 @@ from decimal import Decimal
 
 from app.domain.enums import Route, SafetyDecision, StepName, StepOutcome
 from app.domain.models.base import TurnId
-from app.pipeline.step_models import StepFailure, StepUsage
+from app.domain.models.usage import StepUsage
+from app.pipeline.step_models import StepFailure
 from app.store.repositories.turn_step_repository import StepRow, TurnStepRepository
 
 

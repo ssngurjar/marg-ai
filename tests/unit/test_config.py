@@ -19,6 +19,11 @@ S3_SETTINGS = {
     "WHATSAPP_APP_SECRET": "test-app-secret",
     "WHATSAPP_VERIFY_TOKEN": "test-verify-token",
     "WHATSAPP_PHONE_NUMBER_ID": "100000000000001",
+    "MODEL_API_BASE_URL": "https://api.meta.ai/v1",
+    "MODEL_API_KEY": "test-model-key",
+    "SAFETY_BASE_URL": "https://guard.example/v1",
+    "SAFETY_API_KEY": "test-guard-key",
+    "SAFETY_MODEL": "meta-llama/llama-guard-4-12b",
 }
 
 

@@ -8,7 +8,7 @@ line of the module's docstring.
 
 | Module | Classes | What it does |
 |---|---|---|
-| `deps.py` | — | FastAPI dependencies that read what the app factory put on `app.state`. |
+| `deps.py` | `TurnWaker` | FastAPI dependencies that read what the app factory put on `app.state`. |
 | `readiness.py` | `ProbeResult`, `ReadinessProbe` | Readiness probes: what `/readyz` checks, and how one check is run. |
 | `whatsapp_webhook_ingestor.py` | `WhatsAppWebhookIngestor` | WhatsAppWebhookIngestor: an authentic webhook body stored and applied (s03 §4.1, §4.8). |
 
@@ -37,13 +37,15 @@ line of the module's docstring.
 |---|---|---|
 | `cli.py` | — | `marg` ops commands. Run as `.venv/bin/python -m app.cli <group> <command>`. |
 | `main.py` | — | App factory, used by `uvicorn app.main:create_app --factory` and by tests. |
-| `wiring.py` | `Container` | Composition root: the only module that builds concrete adapters. |
+| `wiring.py` | `Container`, `EngineParts` | Composition root: the only module that builds concrete adapters. |
 
 ## `constants`
 
 | Module | Classes | What it does |
 |---|---|---|
+| `crisis_replies.py` | `Helpline`, `CrisisText` | Crisis replies and the helplines they give (s07 §4.6). Reviewed text, never generated. |
 | `fixed_replies.py` | `FixedText`, `FixedTextKey` | Fixed replies: reviewed copy keyed by (kind, variant, language) (contracts §6). |
+| `model_prices.py` | `ModelPrice` | Model prices per million tokens, for cost accounting (s05 §4.1, s07 §4.3). |
 | `whatsapp.py` | — | WhatsApp Cloud API limits and error codes (s03 §4.9, §4.10). |
 
 ## `core`
@@ -54,6 +56,7 @@ line of the module's docstring.
 | `config.py` | `DatabaseSettings`, `Settings` | Typed settings, read once at startup (contracts.md §7). |
 | `errors.py` | `MargError`, `ConfigError`, `ProviderError`, `ProviderTimeout`, `ProviderRateLimited`, `ProviderUnavailable`, `ProviderRejected`, `ProviderResponseInvalid`, `SafetyUnavailable`, `MediaError`, `MediaTooLarge`, `MediaUnsupported`, `TranscodeFailed`, `TtsTextInvalid`, `ChannelError`, `SignatureInvalid`, `PayloadInvalid`, `InvalidAddressCiphertext`, `DeliveryFailed`, `DomainError`, `InvalidTransition`, `InvalidProfileValue`, `StoreError`, `LeaseLost`, `NotFound`, `CorpusValidationError`, `GoldenCaseInvalid`, `LinkInvalid`, `BudgetExceeded`, `RateLimited` | Every exception raised by Marg.ai code (contracts.md §4). |
 | `logging.py` | — | Structured JSON logging with personal-data redaction (CLAUDE.md §11). |
+| `strict_json_schema.py` | `StrictJsonSchema` | StrictJsonSchema: a Pydantic model as the strict JSON schema the Model API accepts (s05 §4.1). |
 | `types.py` | — | Shared type aliases with no domain meaning of their own. |
 | `user_identity.py` | `UserIdentity` | Who a user is, without storing who they are (decision A1, data-model.md §3). |
 
@@ -61,7 +64,7 @@ line of the module's docstring.
 
 | Module | Classes | What it does |
 |---|---|---|
-| `enums.py` | `Channel`, `MessageKind`, `ConversationState`, `InboxStatus`, `OutboxStatus`, `PartKind`, `Language`, `Route`, `StepName`, `StepOutcome`, `FailureKind`, `TurnStatus`, `SafetyDecision`, `SafetyCategory`, `FixedReplyKind`, `FixedReplyVariant` | Closed sets of values shared across the app (contracts.md §1). |
+| `enums.py` | `Channel`, `MessageKind`, `ConversationState`, `InboxStatus`, `OutboxStatus`, `PartKind`, `Language`, `Route`, `StepName`, `StepOutcome`, `FailureKind`, `TurnStatus`, `SafetyDecision`, `SafetyCategory`, `FixedReplyKind`, `FixedReplyVariant`, `Mode` | Closed sets of values shared across the app (contracts.md §1). |
 
 ## `domain/models`
 
@@ -70,9 +73,11 @@ line of the module's docstring.
 | `base.py` | `DomainModel` | Identifiers and the base every domain model shares (contracts.md §2.1). |
 | `delivery.py` | `PartState` | Where an outbound part stands in its delivery (s04 §4.10). |
 | `message.py` | `MediaRef`, `InboundMessage`, `AudioClip`, `ImageClip` | What users send us: messages and the media they carry (contracts.md §2.1). |
-| `reply.py` | `ReplyButton`, `TemplateRef`, `OutboundPart`, `Citation`, `LocalisedReply` | What we send back (contracts.md §2.6): reply content and the outbound parts that carry it. |
+| `reply.py` | `ReplyButton`, `TemplateRef`, `OutboundPart`, `Citation`, `LocalisedReply`, `CanonicalReply` | What we send back (contracts.md §2.6): reply content and the outbound parts that carry it. |
+| `routing.py` | `RouteDecision` | Where a turn goes (contracts §2.5). |
 | `safety.py` | `SafetyVerdict` | A safety check's result (contracts.md §2.5). Produced by s07's gate; read by the trace. |
 | `turn.py` | `UserProfile`, `Exchange`, `TurnContext`, `QueuedMessage` | A turn and what it knows about the user (contracts.md §2.2; s04 §4.4, §4.5). |
+| `usage.py` | `StepUsage` | What a provider call cost (contracts §2.3). Attached to every turn_steps row. |
 
 ## `domain/rules`
 
@@ -80,31 +85,64 @@ line of the module's docstring.
 |---|---|---|
 | `delivery_planner.py` | `DeliveryPlanner` | DeliveryPlanner: part order and status changes (s03 §4.8, s04 §4.10). Pure. |
 | `message_splitter.py` | `MessageSplitter` | MessageSplitter: a reply cut into channel-sized messages (s05 §4.7). Pure. |
+| `register_detector.py` | `RegisterDetector` | RegisterDetector: which language and script a message is in (s09's detect_register). Pure. |
 | `session_rules.py` | `SessionRules` | SessionRules: the only definition of a session (contracts §2.2). Pure. |
 | `turn_batcher.py` | `TurnBatcher` | TurnBatcher: which pending messages a turn takes, and when it gives up (s04 §4.4, §4.9). Pure. |
+
+## `layers`
+
+| Module | Classes | What it does |
+|---|---|---|
+| `layer_result.py` | `LayerResult` | LayerResult: what every layer's generate step returns (s12 §4, s05 §4.4a). |
+| `parent_question_layer.py` | `ParentAnswer`, `ParentQuestionLayer` | ParentQuestionLayer: a parent's question answered warmly and practically (s10b §4.9, flow D). |
 
 ## `pipeline`
 
 | Module | Classes | What it does |
 |---|---|---|
+| `failure_policy.py` | `FailurePolicy` | FailurePolicy: what a failed step becomes (s05 §4.5 "StepFailure → reply"; contracts §4). |
 | `fixed_reply_service.py` | `FixedReplyService` | FixedReplyService: the fixed reply for a kind, in the user's language (contracts §6). |
 | `null_turn_observer.py` | `NullTurnObserver` | The turn pipeline's entry point (s05 §4.5). |
+| `orchestrator.py` | `OrchestratorSettings`, `PipelineSteps`, `Orchestrator` | Orchestrator: one turn from the user's messages to a sealed reply (s05 §4.5, mvp-scope §4.2). |
 | `reply_parts_builder.py` | `ReplyDelivery`, `ReplyPartsBuilder` | ReplyPartsBuilder: a sealed reply into ordered outbound parts (s05 §4.7, s07 §4.2). |
-| `step_models.py` | `StepModel`, `StepFailure`, `StepSuccess`, `StepUsage`, `TurnOutcome` | What a turn and its steps produce (contracts §2.3). Data only. |
+| `step_models.py` | `StepModel`, `StepFailure`, `StepSuccess`, `TurnOutcome` | What a turn and its steps produce (contracts §2.3). Data only. |
 | `turn_protocols.py` | `StepRecorder`, `TurnObserver` | The two hooks every step reports through (contracts §3): StepRecorder and TurnObserver. |
+| `turn_router.py` | `TurnRouter` | TurnRouter: which layer handles a turn (s05 §4.4; MVP rules, mvp-scope §4.3). |
+
+## `prompts`
+
+| Module | Classes | What it does |
+|---|---|---|
+| `prompt_registry.py` | `PromptSpec`, `WrappedSlot`, `RenderedRequest`, `PromptSettings`, `UserSlot`, `PromptRegistry` | PromptRegistry: versioned prompt templates rendered into requests (s05 §4.3, CLAUDE.md §10). |
 
 ## `providers`
 
 | Module | Classes | What it does |
 |---|---|---|
 | `http.py` | `Sleeper`, `AsyncioSleeper`, `RetryTiming`, `RetryPolicy` | The one retry policy every external call uses (contracts §5, s05 §4.2). |
-| `ports.py` | `ChannelAddress`, `DeliveryReceipt`, `ChannelSender` | Protocols the pipeline and layers depend on (contracts.md §3). |
+| `openai_error_mapper.py` | `OpenAiErrorMapper` | OpenAiErrorMapper: an openai SDK exception → our ProviderError (s05 §4.1, contracts §4). |
+| `ports.py` | `ChannelAddress`, `DeliveryReceipt`, `ChannelSender`, `RenderedPrompt`, `GenerationRequest`, `GenerationResult`, `LanguageModel`, `SafetyRequest`, `SafetyClassifier` | Protocols the pipeline and layers depend on (contracts.md §3). |
+
+## `providers/llm`
+
+| Module | Classes | What it does |
+|---|---|---|
+| `meta_model_api_language_model.py` | `ModelApiConfig`, `MetaModelApiLanguageModel` | MetaModelApiLanguageModel: Muse Spark through Chat Completions, strict JSON (s05 §4.1, ADR 0007). |
+| `model_pricing.py` | `ModelPricing` | ModelPricing: what a call cost, and which models may see user content (s05 §4.1). |
+
+## `providers/safety`
+
+| Module | Classes | What it does |
+|---|---|---|
+| `llama_guard_classifier.py` | `SafetyHostConfig`, `LlamaGuardClassifier` | LlamaGuardClassifier: Llama Guard 4 on an OpenAI-compatible host (s07 §4.3, contracts §3). |
+| `llama_guard_output_parser.py` | `LlamaGuardOutputParser` | LlamaGuardOutputParser: Llama Guard 4's answer read strictly (s07 §4.3). Pure. |
 
 ## `safety`
 
 | Module | Classes | What it does |
 |---|---|---|
-| `safety_gate.py` | `SafeReply`, `SafetyGate` | The safety gate and its sealed output, `SafeReply` (s07 §4.2). |
+| `safety_decision_mapper.py` | `SafetyDecisionMapper` | SafetyDecisionMapper: flagged categories → ALLOW / BLOCK / CRISIS, and which reply (s07 §4.4). |
+| `safety_gate.py` | `SafeReply`, `InputCheck`, `OutputCheck`, `SafetyGate` | SafetyGate: every message in and every reply out is checked, and its sealed `SafeReply` |
 
 ## `store`
 
@@ -117,7 +155,7 @@ line of the module's docstring.
 
 | Module | Classes | What it does |
 |---|---|---|
-| `inbox_repository.py` | `InboundRecord`, `LatestInbound`, `InboxRepository` | Storing inbound WhatsApp messages (s03 §4.5, §4.6). The only SQL for users and the inbox. |
+| `inbox_repository.py` | `InboundRecord`, `SaveResult`, `LatestInbound`, `InboxRepository` | Storing inbound WhatsApp messages (s03 §4.5, §4.6). The only SQL for users and the inbox. |
 | `outbox_repository.py` | `OutboxRow`, `OutboxRepository` | OutboxRepository: queued reply parts and their delivery (s04 §4.7, §4.10; s03 §4.8). |
 | `turn_repository.py` | `StartedTurn`, `FinishedTurn`, `FinalizeResult`, `TurnRepository` | Turns: claiming a user's pending messages, loading the context, finalizing (s04 §4.4 to §4.7). |
 | `turn_step_repository.py` | `StepRow`, `TurnStepRepository` | turn_steps rows and the turn columns written while a turn runs (s04 §4.6). |

@@ -26,6 +26,12 @@ class InboundRecord:
 
 
 @dataclass(frozen=True, slots=True)
+class SaveResult:
+    stored: int  # new messages; re-sent ones are skipped
+    users_with_new_messages: frozenset[UserHash]  # whose turns should be woken
+
+
+@dataclass(frozen=True, slots=True)
 class LatestInbound:
     user_hash: UserHash
     kind: MessageKind
@@ -35,26 +41,28 @@ class InboxRepository:
     def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
         self._session_factory = session_factory
 
-    async def save(self, records: Sequence[InboundRecord]) -> int:
+    async def save(self, records: Sequence[InboundRecord]) -> SaveResult:
         """Upsert each sender and insert each message, in one transaction.
 
-        A message already stored (Meta re-sends webhooks) is skipped. Returns how many new
-        messages were stored; if any were, notifies `inbox_new`, delivered on commit.
+        A message already stored (Meta re-sends webhooks) is skipped. If any were new, notifies
+        `inbox_new`, delivered on commit.
         """
         if not records:
-            return 0
+            return SaveResult(stored=0, users_with_new_messages=frozenset())
+        stored = 0
+        users: set[UserHash] = set()
         try:
             async with self._session_factory() as session, session.begin():
-                stored = 0
                 for record in records:
                     await _upsert_sender(session, record)
                     if await _insert_message(session, record):
                         stored += 1
+                        users.add(record.message.user_hash)
                 if stored:
                     await session.execute(text("SELECT pg_notify('inbox_new', '')"))
         except (SQLAlchemyError, OSError) as exc:
             raise StoreError(f"could not store inbound messages: {type(exc).__name__}") from exc
-        return stored
+        return SaveResult(stored=stored, users_with_new_messages=frozenset(users))
 
     async def latest_whatsapp_message(self) -> LatestInbound | None:
         """The newest stored WhatsApp message's sender and kind (ops CLI)."""

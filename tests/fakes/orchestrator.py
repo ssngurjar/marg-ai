@@ -11,6 +11,7 @@ from app.pipeline.reply_parts_builder import ReplyPartsBuilder
 from app.pipeline.step_models import StepFailure, TurnOutcome
 from app.pipeline.turn_protocols import StepRecorder, TurnObserver
 from app.safety.safety_gate import SafetyGate
+from tests.fakes.safety_classifier import FakeSafetyClassifier
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,7 +33,7 @@ class FakeOrchestrator:
     block: asyncio.Event | None = None  # when set, each call waits for it (a slow turn)
     contexts: list[TurnContext] = field(default_factory=list)
     called: asyncio.Event = field(default_factory=asyncio.Event)  # set on the first call
-    gate: SafetyGate = field(default_factory=SafetyGate)
+    gate: SafetyGate = field(default_factory=lambda: SafetyGate(FakeSafetyClassifier()))
 
     async def __call__(
         self, ctx: TurnContext, recorder: StepRecorder, observer: TurnObserver

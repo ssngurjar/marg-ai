@@ -5,7 +5,8 @@ S4 adds the production observer; S5 adds `run_turn`.
 
 from app.domain.enums import StepName
 from app.domain.models.base import TurnId
-from app.pipeline.step_models import StepFailure, StepSuccess, StepUsage
+from app.domain.models.usage import StepUsage
+from app.pipeline.step_models import StepFailure, StepSuccess
 
 
 class NullTurnObserver:

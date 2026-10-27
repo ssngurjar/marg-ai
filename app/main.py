@@ -35,9 +35,12 @@ def create_app(settings: Settings | None = None, container: Container | None = N
         app.state.inbox_repository = active_container.inbox_repository
         app.state.outbox_repository = active_container.outbox_repository
         app.state.clock = active_container.clock
+        app.state.turn_waker = active_container.turn_dispatcher
+        await active_container.turn_dispatcher.start()
         try:
             yield
         finally:
+            await active_container.turn_dispatcher.stop()
             if container is None:
                 await close_container(active_container)
 

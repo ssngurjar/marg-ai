@@ -1,18 +1,17 @@
 """Settings and containers for tests: every S3 field filled with test-only values."""
 
 from collections.abc import Sequence
+from dataclasses import replace
 
 from pydantic import HttpUrl, SecretStr
 
 from app.api.readiness import ReadinessProbe
-from app.channels.whatsapp.whatsapp_sender import WhatsAppConfig, WhatsAppSender
-from app.core.clock import Clock, SystemClock
+from app.core.clock import Clock
 from app.core.config import Environment, Settings
 from app.core.user_identity import UserIdentity
-from app.store.db import create_engine, create_session_factory
 from app.store.repositories.inbox_repository import InboxRepository
 from app.store.repositories.outbox_repository import OutboxRepository
-from app.wiring import Container
+from app.wiring import Container, build_container
 
 UNREACHABLE_DATABASE_URL = "postgresql+asyncpg://marg:marg@127.0.0.1:1/marg"
 TEST_SALT = "00" * 32  # test-only values; real ones live in .env
@@ -35,6 +34,11 @@ def make_settings(
         whatsapp_app_secret=SecretStr(APP_SIGNING_KEY_FOR_TESTS),
         whatsapp_verify_token=SecretStr(HANDSHAKE_WORD_FOR_TESTS),
         whatsapp_phone_number_id=TEST_PHONE_NUMBER_ID,
+        model_api_base_url=HttpUrl("https://api.meta.ai/v1"),
+        model_api_key=SecretStr("test-model-key"),
+        safety_base_url=HttpUrl("https://guard.example/v1"),
+        safety_api_key=SecretStr("test-guard-key"),
+        safety_model="meta-llama/llama-guard-4-12b",
     )
 
 
@@ -50,27 +54,13 @@ def make_container(
     outbox_repository: OutboxRepository | None = None,
     clock: Clock | None = None,
 ) -> Container:
-    """A container with real (unconnected) adapters; tests replace what they need."""
-    resolved = settings or make_settings()
-    engine = create_engine(resolved)
-    session_factory = create_session_factory(engine)
-    resolved_clock = clock or SystemClock()
-    return Container(
-        settings=resolved,
-        clock=resolved_clock,
-        engine=engine,
-        session_factory=session_factory,
+    """The production container (unconnected), with the parts a test replaces swapped in."""
+    built = build_container(settings or make_settings())
+    return replace(
+        built,
         readiness_probes=tuple(probes),
         identity=make_identity(),
-        whatsapp_sender=WhatsAppSender(
-            config=WhatsAppConfig(
-                graph_base_url=str(resolved.whatsapp_graph_base_url),
-                phone_number_id=resolved.whatsapp_phone_number_id,
-                access_token=resolved.whatsapp_access_token,
-                timeout_s=resolved.timeout_whatsapp_s,
-            ),
-            clock=resolved_clock,
-        ),
-        inbox_repository=inbox_repository or InboxRepository(session_factory),
-        outbox_repository=outbox_repository or OutboxRepository(session_factory),
+        inbox_repository=inbox_repository or built.inbox_repository,
+        outbox_repository=outbox_repository or built.outbox_repository,
+        clock=clock or built.clock,
     )

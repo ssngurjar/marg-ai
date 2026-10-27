@@ -183,3 +183,10 @@ class FixedReplyVariant(StrEnum):
     GENERIC = "generic"
     SELF_HARM = "self_harm"
     ABUSE = "abuse"
+
+
+class Mode(StrEnum):
+    EXPOSURE = "exposure"
+    MENTOR = "mentor"
+    ROADMAP = "roadmap"
+    JOURNEY = "journey"

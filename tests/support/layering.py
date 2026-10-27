@@ -24,12 +24,13 @@ ALLOWED_INTERNAL_IMPORTS: dict[str, frozenset[str]] = {
     "telemetry": frozenset({"domain", "providers.ports", "prompts", "store", "core"}),
     "rag": frozenset({"domain", "providers.ports", "store", "core"}),
     "audio": frozenset({"domain", "core"}),
-    "prompts": frozenset({"domain", "core.errors", "core.types"}),
+    # providers.ports: the registry renders GenerationRequests (s05 §4.3)
+    "prompts": frozenset({"domain", "core", "providers.ports"}),
     "channels": frozenset({"domain", "providers.ports", "providers.http", "core", "constants"}),
     "providers.ports": frozenset({"domain", "core.errors", "core.types"}),
     "providers.http": frozenset({"core"}),
     "providers.adapter": frozenset(
-        {"domain", "providers.ports", "providers.http", "core", "audio"}
+        {"domain", "providers.ports", "providers.http", "core", "audio", "constants"}
     ),
     # pipeline.reply_parts_builder only: the outbox insert accepts nothing but a sealed
     # ReplyDelivery (s04 log)

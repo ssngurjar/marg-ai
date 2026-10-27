@@ -84,7 +84,7 @@ async def test_same_webhook_three_times_stores_once_and_notifies_once(
         assert driver is not None
         await driver.add_listener("inbox_new", on_notify)
         payload = wa.webhook([wa.text_message("hello")])
-        stored = [await store.save(records_for(payload)) for _ in range(3)]
+        stored = [(await store.save(records_for(payload))).stored for _ in range(3)]
         await asyncio.sleep(0.2)
         await driver.remove_listener("inbox_new", on_notify)
     assert stored == [1, 0, 0]
@@ -163,7 +163,9 @@ async def test_check_constraints_reject_unknown_values(engine: AsyncEngine, stat
 
 
 async def test_empty_batch_is_a_no_op(engine: AsyncEngine, store: InboxRepository) -> None:
-    assert await store.save([]) == 0
+    result = await store.save([])
+    assert result.stored == 0
+    assert result.users_with_new_messages == frozenset()
     assert await count(engine, "users") == 0
 
 

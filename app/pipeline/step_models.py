@@ -3,7 +3,6 @@
 `TurnOutcome` grows in stages: S8 adds `writes`, S13 and S12 add `post_turn`.
 """
 
-from decimal import Decimal
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
@@ -28,17 +27,6 @@ class StepSuccess[OutputT](StepModel):
     step: StepName
     output: OutputT
     outcome: Literal[StepOutcome.OK, StepOutcome.DEGRADED]
-
-
-class StepUsage(StepModel):
-    """Attached to every turn_steps row."""
-
-    provider: str | None  # "meta_model_api", "llama_guard", "ml_sidecar", …
-    model: str | None
-    input_tokens: int | None
-    output_tokens: int | None
-    audio_seconds: Decimal | None
-    cost_usd: Decimal  # Decimal("0") when free
 
 
 class TurnOutcome(StepModel):

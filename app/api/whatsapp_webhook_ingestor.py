@@ -11,6 +11,7 @@ from fastapi import Response, status
 from fastapi.responses import PlainTextResponse
 from pydantic import ValidationError
 
+from app.api.deps import TurnWaker
 from app.channels.whatsapp.parsed_webhook import StatusUpdate
 from app.channels.whatsapp.payloads import WebhookBody
 from app.channels.whatsapp.webhook_parser import WhatsAppWebhookParser
@@ -19,7 +20,7 @@ from app.core.config import Settings
 from app.core.errors import StoreError
 from app.core.logging import get_logger
 from app.core.user_identity import UserIdentity
-from app.store.repositories.inbox_repository import InboundRecord, InboxRepository
+from app.store.repositories.inbox_repository import InboundRecord, InboxRepository, SaveResult
 from app.store.repositories.outbox_repository import OutboxRepository
 
 logger = get_logger(__name__)
@@ -31,6 +32,7 @@ class WhatsAppWebhookIngestor:
     inbox: InboxRepository
     outbox: OutboxRepository
     clock: Clock
+    waker: TurnWaker
 
     ACK: ClassVar[str] = "ok"
 
@@ -59,12 +61,14 @@ class WhatsAppWebhookIngestor:
             )
             for item in parsed.messages
         ]
-        stored, store_problem = await self._save(records)
+        saved, store_problem = await self._save(records)
         if store_problem is not None:
             # Unlike a parse failure, this one should be retried by Meta, so answer 503. The
             # driver's error isn't attached: it can quote the failing row (user content).
             logger.error("webhook_store_failed", problem=store_problem)
             return Response(status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
+        for user_hash in saved.users_with_new_messages:
+            self.waker.wake(user_hash)
         unknown_statuses, status_problem = await self._apply_statuses(parsed.statuses)
         if status_problem is not None:
             # The messages are already stored; Meta's retry re-sends them, and they're skipped.
@@ -80,7 +84,7 @@ class WhatsAppWebhookIngestor:
         logger.info(
             "webhook_received",
             messages=len(parsed.messages),
-            stored=stored,
+            stored=saved.stored,
             statuses=len(parsed.statuses),
             statuses_not_ours=unknown_statuses,
             ignored=parsed.ignored,
@@ -88,12 +92,12 @@ class WhatsAppWebhookIngestor:
         )
         return PlainTextResponse(self.ACK)
 
-    async def _save(self, records: list[InboundRecord]) -> tuple[int, str | None]:
-        """How many messages were stored, or a description of why storing failed."""
+    async def _save(self, records: list[InboundRecord]) -> tuple[SaveResult, str | None]:
+        """What was stored, or a description of why storing failed."""
         try:
             return await self.inbox.save(records), None
         except StoreError as exc:
-            return 0, str(exc)
+            return SaveResult(stored=0, users_with_new_messages=frozenset()), str(exc)
 
     async def _apply_statuses(self, statuses: list[StatusUpdate]) -> tuple[int, str | None]:
         """How many statuses matched no message of ours, or why applying them failed."""

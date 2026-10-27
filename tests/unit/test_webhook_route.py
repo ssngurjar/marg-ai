@@ -1,7 +1,7 @@
 import json
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 
 import pytest
@@ -11,9 +11,11 @@ from fastapi.testclient import TestClient
 from app.core.errors import StoreError
 from app.core.types import JsonValue
 from app.domain.enums import OutboxStatus
+from app.domain.models.base import UserHash
 from app.main import create_app
-from app.store.repositories.inbox_repository import InboundRecord, InboxRepository
+from app.store.repositories.inbox_repository import InboundRecord, InboxRepository, SaveResult
 from app.store.repositories.outbox_repository import OutboxRepository
+from app.worker.turn_dispatcher import TurnDispatcher
 from tests.support import whatsapp_payloads as wa
 from tests.support.app_factory import (
     HANDSHAKE_WORD_FOR_TESTS,
@@ -35,12 +37,29 @@ class RecordingStore(InboxRepository):
         self.calls = 0
         self.fail = fail
 
-    async def save(self, records: Sequence[InboundRecord]) -> int:
+    async def save(self, records: Sequence[InboundRecord]) -> SaveResult:
         self.calls += 1
         if self.fail:
             raise StoreError("could not store inbound messages: OperationalError")
         self.saved.extend(records)
-        return len(records)
+        users = frozenset(record.message.user_hash for record in records)
+        return SaveResult(stored=len(records), users_with_new_messages=users)
+
+
+class RecordingDispatcher(TurnDispatcher):
+    """Records wake-ups instead of running turns; nothing to start or stop."""
+
+    def __init__(self) -> None:  # deliberately skips the real dependencies
+        self.woken: list[UserHash] = []
+
+    def wake(self, user_hash: UserHash) -> None:
+        self.woken.append(user_hash)
+
+    async def start(self) -> None:
+        return None
+
+    async def stop(self) -> None:
+        return None
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,11 +88,14 @@ class RecordingOutbox(OutboxRepository):
 
 @contextmanager
 def client_with(
-    store: RecordingStore, outbox: RecordingOutbox | None = None
+    store: RecordingStore,
+    outbox: RecordingOutbox | None = None,
+    dispatcher: RecordingDispatcher | None = None,
 ) -> Iterator[TestClient]:
     structlog.reset_defaults()
-    container = make_container(
-        inbox_repository=store, outbox_repository=outbox or RecordingOutbox()
+    container = replace(
+        make_container(inbox_repository=store, outbox_repository=outbox or RecordingOutbox()),
+        turn_dispatcher=dispatcher or RecordingDispatcher(),
     )
     with TestClient(create_app(container=container)) as client:
         yield client
@@ -256,3 +278,20 @@ def test_logs_never_contain_number_name_or_message(capsys: pytest.CaptureFixture
         assert private not in output
     for line in filter(None, output.splitlines()):
         json.loads(line)  # every line is structured JSON
+
+
+def test_a_stored_message_wakes_its_sender_once() -> None:
+    store = RecordingStore()
+    dispatcher = RecordingDispatcher()
+    raw, signature = wa.signed(wa.webhook([wa.text_message()]))
+    with client_with(store, dispatcher=dispatcher) as client:
+        assert post(client, raw, signature) == 200
+    assert dispatcher.woken == [store.saved[0].message.user_hash]
+
+
+def test_nothing_is_woken_when_storing_fails() -> None:
+    dispatcher = RecordingDispatcher()
+    raw, signature = wa.signed(wa.webhook([wa.text_message()]))
+    with client_with(RecordingStore(fail=True), dispatcher=dispatcher) as client:
+        assert post(client, raw, signature) == 503
+    assert dispatcher.woken == []

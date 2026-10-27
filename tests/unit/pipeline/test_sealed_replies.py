@@ -15,11 +15,12 @@ from app.domain.models.safety import SafetyVerdict
 from app.pipeline.fixed_reply_service import FixedReplyService
 from app.pipeline.reply_parts_builder import ReplyDelivery, ReplyPartsBuilder
 from app.safety.safety_gate import SafeReply, SafetyGate
+from tests.fakes.safety_classifier import FakeSafetyClassifier
 
 pytestmark = pytest.mark.unit
 
 APP_ROOT = Path(__file__).resolve().parents[3] / "app"
-GATE = SafetyGate()
+GATE = SafetyGate(FakeSafetyClassifier())
 
 
 def sealed(

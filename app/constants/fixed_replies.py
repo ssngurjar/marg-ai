@@ -1,13 +1,16 @@
 """Fixed replies: reviewed copy keyed by (kind, variant, language) (contracts §6).
 
 Never generated, never translated. Each kind is added, in every language, by the step that first
-sends it: S4 adds TRY_AGAIN_LATER (the poisoned-turn reply); S5, S6, S7, S8 and S10b add theirs.
+sends it: S4 added TRY_AGAIN_LATER; S5 adds HOLDING, REPEAT_PLEASE, UNSUPPORTED_MEDIA, REFUSE and
+CRISIS (texts in crisis_replies.py); S6, S7, S8 and S10b add theirs. Written for parents; worded
+without grammatical gender for the speaker. S5 copy (v1) is pending the owner's review.
 `FixedReplyService` reads these; a startup check makes sure every kind exists in every language.
 """
 
 from dataclasses import dataclass
 from typing import Final
 
+from app.constants.crisis_replies import CRISIS_TEXTS, CRISIS_VERSION
 from app.domain.enums import FixedReplyKind, FixedReplyVariant, Language
 
 FALLBACK_LANGUAGE: Final = Language.HINGLISH  # used when the user's language isn't known yet
@@ -35,14 +38,97 @@ _TRY_AGAIN_LATER_ENGLISH = (
     "Sorry, I can't reply right now. Please send your message again in a little while."
 )
 
+
+_K = FixedReplyKind
+_V = FixedReplyVariant
+_HINGLISH = Language.HINGLISH
+_HINDI = Language.HINDI
+_ENGLISH = Language.ENGLISH
+
+# (kind, variant) → {language: text}. Spoken text is the same as the text for these.
+_PLAIN_TEXTS: Final[dict[tuple[FixedReplyKind, FixedReplyVariant], dict[Language, str]]] = {
+    (_K.TRY_AGAIN_LATER, _V.DEFAULT): {
+        _HINGLISH: _TRY_AGAIN_LATER_HINGLISH,
+        _HINDI: _TRY_AGAIN_LATER_HINDI,
+        _ENGLISH: _TRY_AGAIN_LATER_ENGLISH,
+    },
+    (_K.HOLDING, _V.DEFAULT): {
+        _HINGLISH: (
+            "Abhi aapka message dekhne mein dikkat aa rahi hai. Kripya kuch minute baad dobara "
+            "bhejiye."
+        ),
+        _HINDI: "अभी आपका संदेश देखने में दिक्कत आ रही है। कृपया कुछ मिनट बाद दोबारा भेजिए।",
+        _ENGLISH: "I'm having trouble right now. Please send your message again in a few minutes.",
+    },
+    (_K.REPEAT_PLEASE, _V.DEFAULT): {
+        _HINGLISH: "Aapka message samajh nahi aaya. Kya aap ek baar phir se likh kar bhejenge?",
+        _HINDI: "आपका संदेश समझ नहीं आया। क्या आप एक बार फिर से लिखकर भेजेंगे?",
+        _ENGLISH: "I couldn't understand that. Could you send it again?",
+    },
+    (_K.UNSUPPORTED_MEDIA, _V.DEFAULT): {
+        _HINGLISH: "Is tarah ka message abhi samajh nahi paate. Kripya apni baat likh kar bhejiye.",
+        _HINDI: "इस तरह का संदेश अभी समझ नहीं पाते। कृपया अपनी बात लिखकर भेजिए।",
+        _ENGLISH: "I can't read this kind of message yet. Please type what you'd like to say.",
+    },
+    (_K.REFUSE, _V.HARMFUL): {
+        _HINGLISH: (
+            "Is baare mein madad nahi kar sakte. Bachche ki padhai, khel aur seekhne ke baare "
+            "mein poochhiye."
+        ),
+        _HINDI: "इस बारे में मदद नहीं कर सकते। बच्चे की पढ़ाई, खेल और सीखने के बारे में पूछिए।",
+        _ENGLISH: "I can't help with that. Ask me about your child's learning, play and curiosity.",
+    },
+    (_K.REFUSE, _V.PRIVACY): {
+        _HINGLISH: (
+            "Kisi aur ki jaankari hum kabhi share nahi karte, aur aapke message bhi private rehte"
+            " hain."
+        ),
+        _HINDI: "किसी और की जानकारी हम कभी साझा नहीं करते, और आपके संदेश भी निजी रहते हैं।",
+        _ENGLISH: "I never share anything about other people, and your messages stay private too.",
+    },
+    (_K.REFUSE, _V.MEDICAL): {
+        _HINGLISH: (
+            "Dawai ya beemari ke baare mein salah nahi de sakte. Kripya anganwadi didi, ASHA didi"
+            " ya doctor se baat kijiye."
+        ),
+        _HINDI: (
+            "दवाई या बीमारी के बारे में सलाह नहीं दे सकते। कृपया आंगनवाड़ी दीदी, आशा दीदी या "
+            "डॉक्टर से बात कीजिए।"
+        ),
+        _ENGLISH: (
+            "I can't advise on medicines or illness. Please talk to your anganwadi worker, ASHA "
+            "didi or a doctor."
+        ),
+    },
+    (_K.REFUSE, _V.GENERAL): {
+        _HINGLISH: (
+            "Is baare mein baat nahi kar sakte. Aaiye, bachche ki khoj aur seekhne ki baat karein."
+        ),
+        _HINDI: "इस बारे में बात नहीं कर सकते। आइए, बच्चे की खोज और सीखने की बात करें।",
+        _ENGLISH: (
+            "I can't talk about that. Let's talk about your child's discoveries and learning."
+        ),
+    },
+    (_K.REFUSE, _V.GENERIC): {
+        _HINGLISH: (
+            "Is sawaal ka jawab abhi nahi de paaye. Kya aap ise thoda alag tareeke se pooch sakte"
+            " hain?"
+        ),
+        _HINDI: "इस सवाल का जवाब अभी नहीं दे पाए। क्या आप इसे थोड़ा अलग तरीके से पूछ सकते हैं?",
+        _ENGLISH: "I couldn't answer that just now. Could you ask it in a different way?",
+    },
+}
+
 FIXED_TEXTS: Final[dict[FixedTextKey, FixedText]] = {
-    FixedTextKey(FixedReplyKind.TRY_AGAIN_LATER, FixedReplyVariant.DEFAULT, Language.HINGLISH): (
-        FixedText(_TRY_AGAIN_LATER_HINGLISH, _TRY_AGAIN_LATER_HINGLISH, version="1")
-    ),
-    FixedTextKey(FixedReplyKind.TRY_AGAIN_LATER, FixedReplyVariant.DEFAULT, Language.HINDI): (
-        FixedText(_TRY_AGAIN_LATER_HINDI, _TRY_AGAIN_LATER_HINDI, version="1")
-    ),
-    FixedTextKey(FixedReplyKind.TRY_AGAIN_LATER, FixedReplyVariant.DEFAULT, Language.ENGLISH): (
-        FixedText(_TRY_AGAIN_LATER_ENGLISH, _TRY_AGAIN_LATER_ENGLISH, version="1")
-    ),
+    **{
+        FixedTextKey(kind, variant, language): FixedText(text, text, version="1")
+        for (kind, variant), texts in _PLAIN_TEXTS.items()
+        for language, text in texts.items()
+    },
+    **{
+        FixedTextKey(_K.CRISIS, variant, language): FixedText(
+            crisis.text, crisis.spoken_text, version=CRISIS_VERSION
+        )
+        for (variant, language), crisis in CRISIS_TEXTS.items()
+    },
 }

@@ -9,7 +9,8 @@ from typing import Protocol
 
 from app.domain.enums import Route, SafetyDecision, StepName, StepOutcome
 from app.domain.models.base import TurnId
-from app.pipeline.step_models import StepFailure, StepSuccess, StepUsage
+from app.domain.models.usage import StepUsage
+from app.pipeline.step_models import StepFailure, StepSuccess
 
 
 class StepRecorder(Protocol):

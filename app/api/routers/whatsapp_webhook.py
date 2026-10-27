@@ -9,11 +9,13 @@ from fastapi import APIRouter, Depends, Query, Request, Response, status
 from fastapi.responses import PlainTextResponse
 
 from app.api.deps import (
+    TurnWaker,
     get_clock,
     get_identity,
     get_inbox_repository,
     get_outbox_repository,
     get_settings,
+    get_turn_waker,
 )
 from app.api.whatsapp_webhook_ingestor import WhatsAppWebhookIngestor
 from app.channels.whatsapp.webhook_signature import WebhookSignatureVerifier
@@ -52,8 +54,11 @@ def get_ingestor(
     inbox: Annotated[InboxRepository, Depends(get_inbox_repository)],
     outbox: Annotated[OutboxRepository, Depends(get_outbox_repository)],
     clock: Annotated[Clock, Depends(get_clock)],
+    waker: Annotated[TurnWaker, Depends(get_turn_waker)],
 ) -> WhatsAppWebhookIngestor:
-    return WhatsAppWebhookIngestor(identity=identity, inbox=inbox, outbox=outbox, clock=clock)
+    return WhatsAppWebhookIngestor(
+        identity=identity, inbox=inbox, outbox=outbox, clock=clock, waker=waker
+    )
 
 
 @router.post("")

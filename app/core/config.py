@@ -10,6 +10,7 @@ from pydantic import Field, HttpUrl, SecretStr, ValidationError, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.core.errors import ConfigError
+from app.core.types import ReasoningEffort
 
 ASYNCPG_SCHEME = "postgresql+asyncpg://"
 
@@ -69,6 +70,27 @@ class Settings(DatabaseSettings):
     shutdown_grace_s: float = Field(default=20.0, ge=0)
     retention_turn_text_days: int = Field(default=90, ge=1)
     retention_raw_payload_days: int = Field(default=7, ge=1)
+
+    # Added in S5 for the model, prompts and the safety core (contracts §7)
+    model_api_base_url: HttpUrl
+    model_api_key: SecretStr
+    model_text: str = Field(default="muse-spark-1.3", min_length=1)
+    model_reasoning_effort: ReasoningEffort = "minimal"  # spike E: 2-4 s, no quality loss
+    safety_base_url: HttpUrl
+    safety_api_key: SecretStr
+    safety_model: str = Field(min_length=1)
+    user_slot_max_chars: int = Field(default=4000, ge=100)
+    timeout_safety_in_s: float = Field(default=3.0, gt=0)
+    timeout_route_s: float = Field(default=4.0, gt=0)
+    timeout_generate_s: float = Field(default=12.0, gt=0)
+    timeout_safety_out_s: float = Field(default=3.0, gt=0)
+
+    @field_validator("model_api_key", "safety_api_key")
+    @classmethod
+    def _require_a_key(cls, key: SecretStr) -> SecretStr:
+        if not key.get_secret_value().strip():
+            raise ValueError("must not be empty")
+        return key
 
 
 def load_settings() -> Settings:

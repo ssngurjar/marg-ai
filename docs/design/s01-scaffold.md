@@ -435,7 +435,7 @@ dependency on a third-party import linter.
 | `telemetry` | `domain`, `providers.ports`, `prompts`, `store`, `core` |
 | `rag` | `domain`, `providers.ports`, `store`, `core` |
 | `audio` | `domain`, `core` |
-| `prompts` | `domain`, `core.errors`, `core.types` |
+| `prompts` | `domain`, `core`, `providers.ports` (the registry renders `GenerationRequest`s, s05 §4.3; added 2026-10-27) |
 | `channels` | `domain`, `providers.ports`, `providers.http`, `core`, `constants` |
 | `providers.ports` | `domain`, `core.errors`, `core.types` |
 | `providers.http` | `core` |

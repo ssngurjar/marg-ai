@@ -36,6 +36,7 @@ from app.store.repositories.turn_repository import (
 from app.worker.turn_processor import TurnDeps, TurnProcessor, TurnSettings
 from tests.fakes.clock import FixedClock
 from tests.fakes.orchestrator import FakeOrchestrator, ScriptedReply
+from tests.fakes.safety_classifier import FakeSafetyClassifier
 from tests.fakes.sender import FakeSender
 
 pytestmark = pytest.mark.unit
@@ -133,7 +134,7 @@ def processor(
         store=store,
         recorder=_NoRecorder(),
         run_turn=orchestrator,
-        gate=SafetyGate(),
+        gate=SafetyGate(FakeSafetyClassifier()),
         senders=senders,
         clock=FixedClock(NOW),
     )
