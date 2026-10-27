@@ -657,10 +657,10 @@ Some steps need the official rules confirmed (any product code) or the Model API
 | [ ] S2 | **Spikes:** STT, Llama Guard 4, MMS-TTS, structured output | Full | s02 | A recorded go/fallback decision for each | 1 |
 | [x] S3 | **WhatsApp channel:** webhook, signature, parsing, identity, sending (text, buttons, audio, template) | Full | s03 | A real phone message is stored and answered by the CLI sender | 1 |
 | [x] S4 | **Processing:** inbox dedupe, in-process dispatcher, finalize, direct send, startup recovery | Exception E1 | mvp-scope §4.1 (full: s04) | Duplicate webhooks produce one reply; a restart mid-turn loses nothing | 2 |
-| [ ] S5 | **Model API, router, orchestrator, safety core** | Full (with C3) | s05 + mvp-scope §4.2–4.3 | Text in → checked Muse Spark reply out on the phone | 2 |
+| [x] S5 | **Model API, router, orchestrator, safety core** | Full (with C3) | s05 + mvp-scope §4.2–4.3 | Text in → checked Muse Spark reply out on the phone | 2 |
 | [ ] S6 | **Voice:** media, ffmpeg, STT, ML sidecar, TTS, audio replies | Full | s06 | Voice note in → voice note out | 3 |
 | [ ] S7 | **Safety:** domain policy, crisis lexicon and texts, refuse texts, `d7` | Full | s07 | Every adversarial and crisis golden case handled; safety outage → holding reply | 4 |
-| [ ] S8 | **Onboarding:** parent and teacher paths, consent, learners, delete-my-data | Full (scoped) | s08 + mvp-scope §4.4 | Parent onboarding works on the phone; deletion purges every table | 4 |
+| [x] S8 | **Onboarding:** parent and teacher paths, consent, learners, delete-my-data | Full (scoped) | s08 + mvp-scope §4.4 | Parent onboarding works on the phone; deletion purges every table | 4 |
 | [ ] S9 | **Localisation rules and checks** inside layers (no separate call) | Full (in-layer) | s09 + mvp-scope §4.2 | Replies in Hindi, Hinglish and English with valid `spoken_text` | 5 |
 | [ ] S10b | **Parent journey:** catalogue, khoj, serve-and-return reflection, nudges | **Full (core)** | s10b | Khoj → voice report → serve-and-return reply; nudge at the chosen time | 5–6 |
 | [ ] S13 | **Telemetry:** `/status`, curiosity signals, admin young-learner dashboard | Full (scoped) | s13 + mvp-scope §4.5 | Curiosity signals and metrics from field testing visible | 6–7 |

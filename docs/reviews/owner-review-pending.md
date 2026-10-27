@@ -3,7 +3,7 @@
 Everything built or decided so far that waits for the owner's review. Tick an item when it's
 reviewed; anything changed goes into that step doc's Decisions log in the same commit.
 
-Last updated: 2026-10-27 (after S5 was built).
+Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.md, pending this review).
 
 ## 1. Safety host (decided 2026-10-27)
 
@@ -14,19 +14,17 @@ Last updated: 2026-10-27 (after S5 was built).
 - [x] Spike B follow-up decided: crisis phrase rules + Muse Spark policy check on every user
   message; Llama Guard S1/S2/S4 need confirmation, S11 always counts; token cap 800. The full
   check got 36/36 right on two runs.
-- [ ] **WhatsApp access token expired** (2026-10-26 13:00 PDT; it was the 24-hour token from API
-  Setup). Replies can't be sent until it's replaced. Make a **permanent System User token**:
-  business.facebook.com → Business settings → Users → System users → Add (`marg-ai-server`,
-  Admin) → Assign assets (the app and the WhatsApp account, full control) → Generate new
-  token (your app, expiry **Never**, `whatsapp_business_messaging` +
-  `whatsapp_business_management`) → put it in `.env` as `WHATSAPP_ACCESS_TOKEN` (never in chat).
-  Needed for judging anyway: a 24-hour token would stop replies mid-judging.
-- [ ] S5 phone exit check, after the token: Claude restarts the app and tunnel and points the
-  callback at it through the API (`override_callback_uri` on the WhatsApp account, so no
-  dashboard edit). Then send: a Hinglish, a Hindi and an English parent question, a voice
-  note (expect the "can't read this yet" reply), and optionally a crisis phrase.
+- [x] WhatsApp token replaced with a permanent System User token (2026-10-27).
+- [x] **S5 phone check passed** (2026-10-27): Hinglish, Hindi and English questions answered with
+  every reply checked; voice note → "can't read this yet". It surfaced two Llama Guard problems,
+  both now covered (below and s07 log): DeepInfra timeouts and overload, and a harmless answer on
+  teaching colours flagged with a different code each time (S2, S4, S8).
 - [x] DeepInfra is the only production host for Llama Guard 4, and it failed on day one (timeouts,
   then `429 engine_overloaded`). Decided: Muse Spark backs it up (s07 log, CLAUDE.md §11).
+- [x] A Llama Guard flag on our reply gets a Muse Spark second opinion before blocking (s07 log).
+- [ ] **Review the safety behaviour you approved today** in `app/safety/safety_gate.py`'s
+  docstring and the s07 decisions log: Llama Guard's 1.5 s limit, the Muse Spark backup on both
+  sides, the second opinion on reply flags, and `TIMEOUT_SAFETY_OUT_S` 6 s.
 
 ## 2. S5 copy (users read these words)
 
@@ -54,9 +52,14 @@ Last updated: 2026-10-27 (after S5 was built).
 
 ## 2b. S8 onboarding (built 2026-10-27)
 
-- [ ] **Add `WHATSAPP_DISPLAY_NUMBER` to `.env`**: the business number people message, digits
-  only with the country code (e.g. `91…`). It's public (it goes in the teacher's invite link),
-  but the app won't start without it.
+- [x] `WHATSAPP_DISPLAY_NUMBER` set in `.env` from the account's own number (read from Meta with
+  the new token, 2026-10-27).
+- [x] **S8 phone check passed for parents** (2026-10-27): consent → parent → child (nickname and
+  birth year only) → child-talk consent; "mera data hatao" → confirm → every table empty for that
+  user, purged right after the reply was delivered.
+- [ ] **Teacher path on the phone** (covered by tests only): after `Hi` and consent, tap **Main
+  teacher hoon**, answer subject, class and district, and check the invite link opens a chat
+  with Marg with "Namaste Marg" typed in.
 - [ ] **Onboarding copy**, `app/constants/onboarding_copy.py` (`onb-2026-10-27.1`): the consent
   intro (the legally important text), the role question (parent / teacher), student "coming
   soon", the child question, child-talk consent, the teacher invite and waiting messages, the
@@ -88,8 +91,8 @@ Last updated: 2026-10-27 (after S5 was built).
 
 ## 5. Housekeeping
 
+- [ ] **Push `main`** after this review: S5 (×3) and S8 are committed locally only
+  (`c9e1c39`, `eed566f`, `2074499`, `141fefd`, plus the plan tick). CI runs on push.
 - [ ] Muse commits its uncommitted spike files: `docs/spikes/structured-output.md`,
   `scripts/spikes/structured_output_eval.py`, `scripts/spikes/image_eval.py`.
-- [ ] Push `main` after this review (the S5 commit is local until then).
-- [ ] S5 exit check on the phone, once item 1 is decided; then tick S5 in `plan.md`.
 - [ ] If hackathon time allows: the Aspirational engine slice (s11/s12).
