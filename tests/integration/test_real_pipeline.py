@@ -15,6 +15,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from app.channels.web.web_sender import WebSender
 from app.channels.whatsapp.payloads import WebhookBody
 from app.channels.whatsapp.webhook_parser import WhatsAppWebhookParser
 from app.constants.onboarding_copy import COPY_VERSION
@@ -96,7 +97,10 @@ def wire(
     sessions = create_session_factory(engine)
     clock = FixedClock(NOW)
     sender = FakeSender(clock)
-    senders: dict[Channel, ChannelSender] = {Channel.WHATSAPP: sender}
+    senders: dict[Channel, ChannelSender] = {
+        Channel.WHATSAPP: sender,
+        Channel.WEB: WebSender(clock),
+    }
     retry = RetryPolicy(
         timing=RetryTiming(attempts=1),
         clock=clock,

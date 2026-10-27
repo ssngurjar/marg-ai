@@ -11,7 +11,7 @@ from fastapi import Response, status
 from fastapi.responses import PlainTextResponse
 from pydantic import ValidationError
 
-from app.api.deps import TurnWaker
+from app.api.turn_waker import TurnWaker
 from app.channels.whatsapp.parsed_webhook import StatusUpdate
 from app.channels.whatsapp.payloads import WebhookBody
 from app.channels.whatsapp.webhook_parser import WhatsAppWebhookParser

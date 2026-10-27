@@ -8,14 +8,17 @@ line of the module's docstring.
 
 | Module | Classes | What it does |
 |---|---|---|
-| `deps.py` | `TurnWaker` | FastAPI dependencies that read what the app factory put on `app.state`. |
+| `deps.py` | — | FastAPI dependencies that read what the app factory put on `app.state`. |
 | `readiness.py` | `ProbeResult`, `ReadinessProbe` | Readiness probes: what `/readyz` checks, and how one check is run. |
+| `turn_waker.py` | `TurnWaker` | TurnWaker: what an ingress needs from the turn dispatcher (s04 §4.3). |
+| `web_demo_ingestor.py` | `DemoLimits`, `Visitor`, `DemoDeps`, `WebDemoIngestor` | WebDemoIngestor: a web visitor's message into the same inbox as WhatsApp's (s14 §4.2-§4.7). |
 | `whatsapp_webhook_ingestor.py` | `WhatsAppWebhookIngestor` | WhatsAppWebhookIngestor: an authentic webhook body stored and applied (s03 §4.1, §4.8). |
 
 ## `api/routers`
 
 | Module | Classes | What it does |
 |---|---|---|
+| `demo.py` | `MessageIn` | The web demo (s14; exception E2): a page, a session, messages in, and polling for the reply. |
 | `health.py` | `HealthResponse`, `ReadinessResponse` | Liveness and readiness endpoints. |
 | `whatsapp_webhook.py` | — | The WhatsApp webhook routes (s03 §4.1). Thin: verify, then hand off to the ingestor. |
 
@@ -26,6 +29,13 @@ line of the module's docstring.
 | `audio_transcoder.py` | `AudioTranscoder` | AudioTranscoder: ffmpeg conversions for speech-to-text and voice notes (s06 §4.3). |
 | `ffmpeg_runner.py` | `FfmpegRunner` | FfmpegRunner: one ffmpeg run, as an argument list (never a shell), stdin to stdout, inside a |
 | `tts_text_preparer.py` | `TtsText`, `TtsTextPreparer` | TtsTextPreparer: the deterministic gate between `spoken_text` and the synthesizer (s06 §4.6). |
+
+## `channels/web`
+
+| Module | Classes | What it does |
+|---|---|---|
+| `web_message_parser.py` | `WebText`, `WebVoice`, `WebButton`, `WebUpload`, `WebMessageParser` | WebMessageParser: what a web demo visitor sent, validated once at the edge (s14 §4.3). |
+| `web_sender.py` | `WebSender` | WebSender: delivery to a web demo visitor (s14 §4.8). |
 
 ## `channels/whatsapp`
 
@@ -72,8 +82,9 @@ line of the module's docstring.
 |---|---|---|
 | `clock.py` | `Clock`, `SystemClock` | Time. The only place that reads the system clock; everything else gets a `Clock` injected. |
 | `config.py` | `DatabaseSettings`, `Settings` | Typed settings, read once at startup (contracts.md §7). |
-| `errors.py` | `MargError`, `ConfigError`, `ProviderError`, `ProviderTimeout`, `ProviderRateLimited`, `ProviderUnavailable`, `ProviderRejected`, `ProviderResponseInvalid`, `SafetyUnavailable`, `MediaError`, `MediaTooLarge`, `MediaUnsupported`, `TranscodeFailed`, `TranscodeTimeout`, `TtsTextInvalid`, `ChannelError`, `SignatureInvalid`, `PayloadInvalid`, `InvalidAddressCiphertext`, `DeliveryFailed`, `DomainError`, `InvalidTransition`, `InvalidProfileValue`, `StoreError`, `LeaseLost`, `NotFound`, `CorpusValidationError`, `GoldenCaseInvalid`, `LinkInvalid`, `BudgetExceeded`, `RateLimited` | Every exception raised by Marg.ai code (contracts.md §4). |
+| `errors.py` | `MargError`, `ConfigError`, `ProviderError`, `ProviderTimeout`, `ProviderRateLimited`, `ProviderUnavailable`, `ProviderRejected`, `ProviderResponseInvalid`, `SafetyUnavailable`, `MediaError`, `MediaTooLarge`, `MediaUnsupported`, `TranscodeFailed`, `TranscodeTimeout`, `TtsTextInvalid`, `ChannelError`, `SignatureInvalid`, `PayloadInvalid`, `InvalidAddressCiphertext`, `DeliveryFailed`, `DomainError`, `InvalidTransition`, `InvalidProfileValue`, `StoreError`, `LeaseLost`, `NotFound`, `CorpusValidationError`, `GoldenCaseInvalid`, `LinkInvalid`, `BudgetExceeded`, `RateLimited`, `WebInputInvalid`, `DemoRefused` | Every exception raised by Marg.ai code (contracts.md §4). |
 | `logging.py` | — | Structured JSON logging with personal-data redaction (CLAUDE.md §11). |
+| `signed_token_codec.py` | `VerifiedToken`, `SignedTokenCodec` | SignedTokenCodec: small signed tokens for the demo cookie and dashboard links (contracts §3, |
 | `strict_json_schema.py` | `StrictJsonSchema` | StrictJsonSchema: a Pydantic model as the strict JSON schema the Model API accepts (s05 §4.1). |
 | `types.py` | — | Shared type aliases with no domain meaning of their own. |
 | `user_identity.py` | `UserIdentity` | Who a user is, without storing who they are (decision A1, data-model.md §3). |
@@ -102,7 +113,7 @@ line of the module's docstring.
 | `turn.py` | `UserProfile`, `Exchange`, `TurnContext`, `QueuedMessage` | A turn and what it knows about the user (contracts.md §2.2; s04 §4.4, §4.5). |
 | `usage.py` | `StepUsage` | What a provider call cost (contracts §2.3). Attached to every turn_steps row. |
 | `voice.py` | `AudioStats`, `VoiceLimits` | What a voice note measures, and the limits it's checked against (s06 §4.4). |
-| `writes.py` | `ProfileChange`, `LearnerUpsert`, `MarkPurgeAfterDelivery`, `ChildTalkConsent`, `ActivityOffered`, `ActivityReported`, `ChildSessionStart`, `ChildTalkTurn`, `ChildSessionEnd`, `NudgePreference` | State changes that commit with the reply (contracts §2.4). |
+| `writes.py` | `ProfileChange`, `LearnerUpsert`, `MarkPurgeAfterDelivery`, `ChildTalkConsent`, `ActivityOffered`, `ActivityReported`, `ChildSessionStart`, `ChildTalkTurn`, `ChildSessionEnd`, `NudgePreference`, `DeleteInboundMedia` | State changes that commit with the reply (contracts §2.4). |
 
 ## `domain/rules`
 
@@ -147,6 +158,7 @@ line of the module's docstring.
 
 | Module | Classes | What it does |
 |---|---|---|
+| `channel_media_fetcher.py` | `ChannelMediaFetcher` | ChannelMediaFetcher: a voice note from wherever its channel keeps it (s06 §4.2, s14). |
 | `failure_policy.py` | `FailurePolicy` | FailurePolicy: what a failed step becomes (s05 §4.5 "StepFailure → reply"; contracts §4). |
 | `fixed_reply_service.py` | `FixedReplyService` | FixedReplyService: the fixed reply for a kind, in the user's language (contracts §6). |
 | `null_turn_observer.py` | `NullTurnObserver` | The turn pipeline's entry point (s05 §4.5). |
@@ -220,11 +232,12 @@ line of the module's docstring.
 |---|---|---|
 | `child_session_repository.py` | `ChildSessionRepository` | Child sessions: a child talking to Marg.ai directly (s10b §4.16, data-model `child_sessions`). |
 | `curiosity_signal_repository.py` | `CuriositySignalRepository` | Curiosity signals: what a child engaged with on a journey turn (s13 §4.4, data-model). |
+| `demo_repository.py` | `RateLimit`, `TraceStep`, `ReplyPartView`, `TurnView`, `MessageView`, `DemoRepository` | The web demo's reads and counters (s14 §4.3 to §4.7): rate limits, today's web cost, what |
 | `inbox_repository.py` | `InboundRecord`, `SaveResult`, `LatestInbound`, `InboxRepository` | Storing inbound WhatsApp messages (s03 §4.5, §4.6). The only SQL for users and the inbox. |
 | `journey_repository.py` | `JourneyRepository` | The khoj offered to each child and how it went (s10b §5, data-model `learner_activities`). |
 | `khoj_card_repository.py` | `QueuedCard`, `KhojCardRepository` | Khoj cards: the image, its link to the report, and the KHOJ_CARD turn that sends it |
 | `learner_repository.py` | `LearnerRepository` | Learners: a parent's children or a student's own learner (s08 §4.11, data-model `learners`). |
-| `media_blob_repository.py` | `MediaBlobRepository` | MediaBlobRepository: reply audio kept until the sender uploads it (s06 §4.7, §4.8). |
+| `media_blob_repository.py` | `OwnedMedia`, `MediaBlobRepository` | MediaBlobRepository: reply audio kept until the sender uploads it (s06 §4.7, §4.8). |
 | `nudge_repository.py` | `NudgeBatch`, `NudgeResult`, `NudgeRepository` | Daily khoj messages: who opted in, and the NUDGE turns that send them (s10b §4.11). |
 | `outbox_repository.py` | `OutboxRow`, `OutboxRepository` | OutboxRepository: queued reply parts and their delivery (s04 §4.7, §4.10; s03 §4.8). |
 | `turn_repository.py` | `StartedTurn`, `FinishedTurn`, `FinalizeResult`, `TurnRepository` | Turns: claiming a user's pending messages, loading the context, finalizing (s04 §4.4 to §4.7). |

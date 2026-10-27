@@ -149,6 +149,8 @@ inbox_messages = Table(
     Column("kind", Text, nullable=False),
     Column("text", Text, nullable=True),
     Column("media_provider_id", Text, nullable=True),
+    # a web voice note (S14), deleted once its turn has heard it; WhatsApp media is never stored
+    Column("media_blob_id", UUID(as_uuid=True), ForeignKey("media_blobs.id", ondelete="SET NULL")),
     Column("media_mime_type", Text, nullable=True),
     Column("interactive_reply_id", Text, nullable=True),
     Column("raw_payload", JSONB, nullable=True),
@@ -389,4 +391,13 @@ curiosity_signals = Table(
         "source IN ('parent_report', 'child_words', 'relayed_question')", name="source_valid"
     ),
     Index(None, "learner_id"),
+)
+
+rate_limit_counters = Table(
+    "rate_limit_counters",
+    metadata,
+    Column("key", Text, primary_key=True),  # e.g. demo:session:<user hash>; never a raw IP
+    Column("window_start", DateTime(timezone=True), primary_key=True),
+    Column("count", Integer, nullable=False),
+    Index(None, "window_start"),
 )

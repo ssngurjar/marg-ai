@@ -45,6 +45,7 @@ def make_settings(
         safety_model="meta-llama/Llama-Guard-4-12B",
         sidecar_base_url=HttpUrl("http://127.0.0.1:8100"),
         sidecar_token=SecretStr("test-sidecar-token"),
+        session_signing_key=SecretStr("test-session-signing-key-0123456789"),
     )
 
 

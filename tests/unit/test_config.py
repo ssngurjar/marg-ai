@@ -30,6 +30,7 @@ S3_SETTINGS = {
     "SAFETY_MODEL": "meta-llama/Llama-Guard-4-12B",
     "SIDECAR_BASE_URL": "http://127.0.0.1:8100",
     "SIDECAR_TOKEN": "test-sidecar-token",
+    "SESSION_SIGNING_KEY": "test-session-signing-key-0123456789",
 }
 
 

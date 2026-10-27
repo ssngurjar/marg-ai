@@ -9,7 +9,6 @@ from fastapi import APIRouter, Depends, Query, Request, Response, status
 from fastapi.responses import PlainTextResponse
 
 from app.api.deps import (
-    TurnWaker,
     get_clock,
     get_identity,
     get_inbox_repository,
@@ -17,6 +16,7 @@ from app.api.deps import (
     get_settings,
     get_turn_waker,
 )
+from app.api.turn_waker import TurnWaker
 from app.api.whatsapp_webhook_ingestor import WhatsAppWebhookIngestor
 from app.channels.whatsapp.webhook_signature import WebhookSignatureVerifier
 from app.core.clock import Clock

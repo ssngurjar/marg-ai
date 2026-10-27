@@ -2,13 +2,18 @@
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
+from typing import Final
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
-from app.api.routers import health, whatsapp_webhook
+from app.api.routers import demo, health, whatsapp_webhook
 from app.core.config import Settings, load_settings
 from app.core.logging import configure_logging
 from app.wiring import Container, build_container, close_container
+
+STATIC: Final = Path(__file__).resolve().parent / "static"
 
 
 def create_app(settings: Settings | None = None, container: Container | None = None) -> FastAPI:
@@ -36,6 +41,9 @@ def create_app(settings: Settings | None = None, container: Container | None = N
         app.state.outbox_repository = active_container.outbox_repository
         app.state.clock = active_container.clock
         app.state.turn_waker = active_container.turn_dispatcher
+        app.state.web_demo = active_container.web_demo
+        app.state.media_repository = active_container.voice_adapters.media
+        app.state.user_repository = active_container.user_repository
         await active_container.turn_dispatcher.start()
         try:
             yield
@@ -54,4 +62,6 @@ def create_app(settings: Settings | None = None, container: Container | None = N
     )
     app.include_router(health.router)
     app.include_router(whatsapp_webhook.router)
+    app.include_router(demo.router)
+    app.mount("/demo/static", StaticFiles(directory=STATIC / "demo"), name="demo-static")
     return app

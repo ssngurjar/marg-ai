@@ -151,3 +151,25 @@ class BudgetExceeded(MargError):
 
 class RateLimited(MargError):
     """One of our own rate limits has been reached."""
+
+
+class WebInputInvalid(MargError):
+    """A web demo message failed validation (s14 §4.3): which field, and why (fixed words)."""
+
+    def __init__(self, field: str, reason: str) -> None:
+        super().__init__(f"{field}: {reason}")
+        self.field = field
+        self.reason = reason
+
+
+class DemoRefused(MargError):
+    """The web demo won't take this request (s14 §4.2, §4.6, §4.7): no session, a foreign
+    origin, a rate limit, or today's budget. `retry_after_s` when trying later can help."""
+
+    def __init__(
+        self, reason: str, *, scope: str | None = None, retry_after_s: int | None = None
+    ) -> None:
+        super().__init__(reason)
+        self.reason = reason
+        self.scope = scope
+        self.retry_after_s = retry_after_s

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Marg.ai demo</title>
+  <link rel="stylesheet" href="/demo/static/demo.css">
+</head>
+<body>
+  <header class="top">
+    <div>
+      <h1>Marg.ai</h1>
+      <p class="tagline">Aaj ki Khoj: a voice coach that helps village parents grow their child's curiosity, offline.</p>
+    </div>
+    <button id="reset" class="quiet" type="button" title="Delete everything and start again">Reset</button>
+  </header>
+
+  <div id="banner" class="banner" role="status" hidden></div>
+
+  <main class="layout">
+    <section class="chat" aria-label="Conversation">
+      <ol id="messages" class="messages" aria-live="polite"></ol>
+      <form id="composer" class="composer">
+        <label class="visually-hidden" for="text">Message</label>
+        <input id="text" name="text" type="text" maxlength="1000" autocomplete="off"
+               placeholder="Type a message, e.g. Hi">
+        <button id="mic" type="button" class="mic" aria-pressed="false" title="Record a voice note (tap to start and stop)">🎤</button>
+        <button id="send" type="submit">Send</button>
+      </form>
+      <p id="mic-note" class="note" hidden></p>
+    </section>
+
+    <aside class="trace" aria-label="Pipeline trace">
+      <h2>Pipeline trace</h2>
+      <p id="trace-summary" class="note">Send a message to see each step: safety, the model, voice.</p>
+      <ol id="trace" class="steps"></ol>
+    </aside>
+  </main>
+
+  <footer class="foot">
+    <p>A demo: a cookie identifies this browser; no phone number or name is collected. Reset deletes everything.</p>
+  </footer>
+
+  <script src="/demo/static/demo.js"></script>
+</body>
+</html>

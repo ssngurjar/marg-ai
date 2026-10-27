@@ -64,6 +64,19 @@ class InboxRepository:
             raise StoreError(f"could not store inbound messages: {type(exc).__name__}") from exc
         return SaveResult(stored=stored, users_with_new_messages=frozenset(users))
 
+    async def ensure_web_user(self, user_hash: UserHash) -> None:
+        """A web visitor's row (no address), before anything that refers to it (s14 §4.1)."""
+        statement = (
+            insert(users)
+            .values(user_hash=user_hash, channel=Channel.WEB.value, address_ciphertext=None)
+            .on_conflict_do_nothing(index_elements=[users.c.user_hash])
+        )
+        try:
+            async with self._session_factory() as session, session.begin():
+                await session.execute(statement)
+        except (SQLAlchemyError, OSError) as exc:
+            raise StoreError(f"could not create a web visitor: {type(exc).__name__}") from exc
+
     async def latest_whatsapp_message(self) -> LatestInbound | None:
         """The newest stored WhatsApp message's sender and kind (ops CLI)."""
         query = (
@@ -125,6 +138,7 @@ async def _insert_message(session: AsyncSession, record: InboundRecord) -> bool:
             kind=message.kind.value,
             text=message.text,
             media_provider_id=message.media.provider_media_id if message.media else None,
+            media_blob_id=message.media.blob_id if message.media else None,
             media_mime_type=message.media.mime_type if message.media else None,
             interactive_reply_id=message.interactive_reply_id,
             raw_payload=record.raw_payload,

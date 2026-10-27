@@ -29,6 +29,7 @@ from collections.abc import Awaitable, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import ClassVar, Final, Literal
+from uuid import UUID
 
 from app.constants.child_talk_copy import PARENT_SUMMARY_AFTER_SADNESS, UNNAMED_CHILD_NAME
 from app.constants.journey_copy import NUDGE_ASK, NUDGE_BUTTONS
@@ -71,7 +72,12 @@ from app.domain.models.safety import SafetyVerdict
 from app.domain.models.turn import TurnContext
 from app.domain.models.usage import StepUsage
 from app.domain.models.voice import VoiceLimits
-from app.domain.models.writes import ActivityReported, ChildSessionEnd, TurnWrite
+from app.domain.models.writes import (
+    ActivityReported,
+    ChildSessionEnd,
+    DeleteInboundMedia,
+    TurnWrite,
+)
 from app.domain.rules.audio_analyser import AudioAnalyser
 from app.domain.rules.filler_detector import FillerDetector
 from app.domain.rules.register_detector import RegisterDetector
@@ -209,11 +215,15 @@ class _Turn:
         self.register = self.ctx.profile.language or FALLBACK_REGISTER
         self.voice_turn = False  # the user sent at least one voice note (or a child is talking)
         self.speaker = Speaker.GUIDE
+        self.heard_blobs: list[UUID] = []  # web voice notes read this turn: deleted with it
         self.sealed: _Sealed | None = None
 
     async def run(self) -> TurnOutcome:
-        outcome = await self._answer()
-        return await self._with_voice(outcome)
+        outcome = await self._with_voice(await self._answer())
+        if not self.heard_blobs:
+            return outcome
+        deletes = [DeleteInboundMedia(blob_id=blob_id) for blob_id in self.heard_blobs]
+        return outcome.model_copy(update={"writes": [*outcome.writes, *deletes]})
 
     async def _answer(self) -> TurnOutcome:
         read = await self._read_messages()
@@ -618,6 +628,8 @@ class _Turn:
             return await self._not_heard(
                 StepName.FETCH_MEDIA, started, MediaUnsupported("audio message without media")
             )
+        if message.media.blob_id is not None:
+            self.heard_blobs.append(message.media.blob_id)  # deleted whatever happens next
         try:
             clip = await self._bounded(
                 voice.fetcher.fetch(message.media), self.settings.fetch_media_timeout

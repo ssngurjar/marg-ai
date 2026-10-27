@@ -1,23 +1,20 @@
 """FastAPI dependencies that read what the app factory put on `app.state`."""
 
-from typing import Protocol, cast
+from typing import cast
 
 from fastapi import Request
 
 from app.api.readiness import ReadinessProbe
+from app.api.turn_waker import TurnWaker
+from app.api.web_demo_ingestor import WebDemoIngestor
 from app.core.clock import Clock
 from app.core.config import Environment, Settings
 from app.core.errors import ConfigError
 from app.core.user_identity import UserIdentity
-from app.domain.models.base import UserHash
 from app.store.repositories.inbox_repository import InboxRepository
+from app.store.repositories.media_blob_repository import MediaBlobRepository
 from app.store.repositories.outbox_repository import OutboxRepository
-
-
-class TurnWaker(Protocol):
-    """What the webhook needs from the turn dispatcher: start this user's turn soon."""
-
-    def wake(self, user_hash: UserHash) -> None: ...
+from app.store.repositories.user_repository import UserRepository
 
 
 def get_turn_waker(request: Request) -> TurnWaker:
@@ -76,3 +73,24 @@ def get_clock(request: Request) -> Clock:
     if not callable(getattr(clock, "now", None)):
         raise ConfigError("app.state.clock is not set; build the app with create_app()")
     return cast(Clock, clock)
+
+
+def get_web_demo(request: Request) -> WebDemoIngestor:
+    demo = request.app.state.web_demo
+    if not isinstance(demo, WebDemoIngestor):
+        raise ConfigError("app.state.web_demo is not set; build the app with create_app()")
+    return demo
+
+
+def get_media_repository(request: Request) -> MediaBlobRepository:
+    media = request.app.state.media_repository
+    if not isinstance(media, MediaBlobRepository):
+        raise ConfigError("app.state.media_repository is not set; build the app with create_app()")
+    return media
+
+
+def get_user_repository(request: Request) -> UserRepository:
+    users = request.app.state.user_repository
+    if not isinstance(users, UserRepository):
+        raise ConfigError("app.state.user_repository is not set; build the app with create_app()")
+    return users

@@ -18,12 +18,15 @@ from uuid import uuid4
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from app.api.readiness import ReadinessProbe
+from app.api.web_demo_ingestor import DemoDeps, DemoLimits, WebDemoIngestor
 from app.audio.audio_transcoder import AudioTranscoder
 from app.audio.ffmpeg_runner import FfmpegRunner
+from app.channels.web.web_sender import WebSender
 from app.channels.whatsapp.whatsapp_media_fetcher import MediaFetchConfig, WhatsAppMediaFetcher
 from app.channels.whatsapp.whatsapp_sender import WhatsAppConfig, WhatsAppSender
 from app.core.clock import Clock, SystemClock
 from app.core.config import Settings
+from app.core.signed_token_codec import SignedTokenCodec
 from app.core.user_identity import UserIdentity
 from app.domain.enums import Channel
 from app.domain.models.voice import VoiceLimits
@@ -40,6 +43,7 @@ from app.layers.journey_layer import (
 from app.layers.khoj_card_maker import KHOJ_CARD_TEXT, KhojCardMaker
 from app.layers.onboarding_layer import PROFILE_EXTRACTION, OnboardingLayer
 from app.layers.parent_question_layer import PARENT_ANSWER, ParentQuestionLayer
+from app.pipeline.channel_media_fetcher import ChannelMediaFetcher
 from app.pipeline.fixed_reply_service import FixedReplyService
 from app.pipeline.orchestrator import (
     Orchestrator,
@@ -66,6 +70,7 @@ from app.safety.safety_gate import SafetyGate
 from app.store.db import create_engine, create_session_factory, ping
 from app.store.repositories.child_session_repository import ChildSessionRepository
 from app.store.repositories.curiosity_signal_repository import CuriositySignalRepository
+from app.store.repositories.demo_repository import DemoRepository
 from app.store.repositories.inbox_repository import InboxRepository
 from app.store.repositories.khoj_card_repository import KhojCardRepository
 from app.store.repositories.media_blob_repository import MediaBlobRepository
@@ -116,6 +121,8 @@ class Container:
     voice_adapters: "VoiceAdapters"
     image_generator: MuseImageGenerator
     turn_dispatcher: TurnDispatcher
+    web_demo: WebDemoIngestor
+    user_repository: UserRepository
 
 
 @dataclass(frozen=True, slots=True)
@@ -214,7 +221,7 @@ def build_container(settings: Settings) -> Container:
             clock=clock,
             identity=identity,
             retry=retry,
-            senders={Channel.WHATSAPP: whatsapp_sender},
+            senders={Channel.WHATSAPP: whatsapp_sender, Channel.WEB: WebSender(clock)},
             orchestrator=build_orchestrator(
                 settings,
                 OrchestratorPorts(
@@ -254,6 +261,27 @@ def build_container(settings: Settings) -> Container:
         voice_adapters=voice_adapters,
         image_generator=image_generator,
         turn_dispatcher=dispatcher,
+        web_demo=WebDemoIngestor(
+            DemoDeps(
+                identity=identity,
+                codec=SignedTokenCodec(
+                    settings.session_signing_key, settings.session_signing_key_previous
+                ),
+                demo=DemoRepository(session_factory),
+                media=voice_adapters.media,
+                inbox=inbox,
+                waker=dispatcher,
+                clock=clock,
+            ),
+            DemoLimits(
+                per_session_per_hour=settings.demo_rate_limit_per_hour,
+                per_ip_per_hour=settings.demo_ip_rate_limit_per_hour,
+                sessions_per_ip_per_hour=settings.demo_sessions_per_ip_per_hour,
+                max_audio_bytes=settings.demo_max_audio_bytes,
+                daily_cost_cap_usd=settings.daily_cost_cap_usd,
+            ),
+        ),
+        user_repository=UserRepository(session_factory),
     )
 
 
@@ -305,7 +333,9 @@ def build_voice_adapters(
 
 def voice_steps(settings: Settings, adapters: VoiceAdapters) -> VoiceSteps:
     return VoiceSteps(
-        fetcher=adapters.fetcher,
+        fetcher=ChannelMediaFetcher(
+            {Channel.WHATSAPP: adapters.fetcher, Channel.WEB: adapters.media}
+        ),
         converter=adapters.transcoder,
         transcriber=adapters.transcriber,
         synthesizer=adapters.synthesizer,

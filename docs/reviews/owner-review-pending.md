@@ -174,7 +174,7 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
   2; a new idea of the child's own → 3 with "asked"; all six on Open in 1.5-3.2 s. It records
   domains and engagement only, never a label.
 - [ ] The young-learner trajectory (sessions, breadth, engagement slope, question rate) is
-  computed and tested; it's shown on the admin dashboard built with the web demo (item 6).
+  computed and tested; the admin dashboard that shows it is **not built yet**.
 
 ## 2h. Khoj card, C6 (from 2026-10-27)
 
@@ -192,6 +192,19 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
   are what's built; tick them there if you agree.
 - [ ] **Phone test:** report a khoj with a detailed answer ("Munni ne kaha… aur poocha…") and
   wait for the card after the reflection; forward it to someone.
+
+## 2i. Web demo, S14 (from 2026-10-27)
+
+- [ ] **Try it**: open `<tunnel URL>/demo`, say Hi, go through onboarding as a parent, ask for
+  "aaj ki khoj", report back, record a voice note, press Reset. The right panel shows every step.
+- [ ] **JSON instead of multipart** for messages (a voice note as base64): FastAPI's form parsing
+  needs `python-multipart`, a new dependency you haven't approved. Say if you'd rather add it.
+- [ ] **Page copy**: the tagline and footer in `app/static/demo/index.html` (English only), and
+  the error messages in `demo.js`. The web consent text is still the WhatsApp one (s14 §4.9
+  wants a web variant saying a cookie identifies the browser).
+- [ ] **Limits**: 30 messages per visitor per hour, 90 per IP, 20 new sessions per IP, and
+  $5 of web spend per India day (`DAILY_COST_CAP_USD`).
+- [ ] **Not in this build**: photos on the web (C7, item 7) and the admin dashboard (S13).
 
 ## 3. Decisions log entries marked "pending owner review"
 

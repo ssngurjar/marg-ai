@@ -8,7 +8,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import ClassVar, assert_never
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from sqlalchemy import Row, and_, func, select, update
 from sqlalchemy.exc import SQLAlchemyError
@@ -41,6 +41,7 @@ from app.domain.models.writes import (
     ChildSessionStart,
     ChildTalkConsent,
     ChildTalkTurn,
+    DeleteInboundMedia,
     LearnerUpsert,
     MarkPurgeAfterDelivery,
     NudgePreference,
@@ -54,6 +55,7 @@ from app.pipeline.reply_parts_builder import ReplyDelivery
 from app.store.repositories.child_session_repository import ChildSessionRepository
 from app.store.repositories.journey_repository import JourneyRepository
 from app.store.repositories.learner_repository import LearnerRepository
+from app.store.repositories.media_blob_repository import MediaBlobRepository
 from app.store.repositories.nudge_repository import NudgeRepository
 from app.store.repositories.outbox_repository import OutboxRepository
 from app.store.repositories.user_repository import UserRepository
@@ -398,12 +400,13 @@ def _queued_message(row: Row[tuple[object, ...]]) -> QueuedMessage:
     mapping = row._mapping
     media = None
     media_provider_id = mapping["media_provider_id"]
+    media_blob_id = mapping["media_blob_id"]
     channel = Channel(str(mapping["channel"]))
-    if media_provider_id is not None:
+    if media_provider_id is not None or isinstance(media_blob_id, UUID):
         media = MediaRef(
             channel=channel,
-            provider_media_id=str(media_provider_id),
-            blob_id=None,
+            provider_media_id=str(media_provider_id) if media_provider_id is not None else None,
+            blob_id=media_blob_id if isinstance(media_blob_id, UUID) else None,
             mime_type=str(mapping["media_mime_type"]),
         )
     message = InboundMessage(
@@ -445,6 +448,8 @@ async def _apply(session: AsyncSession, started: StartedTurn, write: TurnWrite) 
             await ChildSessionRepository.end(session, started.user_hash, write)
         case NudgePreference():
             await NudgeRepository.set_preference(session, started.user_hash, write)
+        case DeleteInboundMedia():
+            await MediaBlobRepository.delete_inbound(session, started.user_hash, write.blob_id)
         case _:
             assert_never(write)
 

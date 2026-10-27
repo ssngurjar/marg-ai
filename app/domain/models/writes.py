@@ -123,6 +123,14 @@ class NudgePreference(DomainModel):
     local_time: time | None  # IST; None when turning off
 
 
+class DeleteInboundMedia(DomainModel):
+    """s06: a web voice note this turn has heard; deleted with the reply (raw audio isn't kept
+    after transcription, CLAUDE.md §11)."""
+
+    kind: Literal["delete_inbound_media"] = "delete_inbound_media"
+    blob_id: UUID
+
+
 type TurnWrite = Annotated[
     ProfileChange
     | LearnerUpsert
@@ -133,6 +141,7 @@ type TurnWrite = Annotated[
     | ChildSessionStart
     | ChildTalkTurn
     | ChildSessionEnd
-    | NudgePreference,
+    | NudgePreference
+    | DeleteInboundMedia,
     Field(discriminator="kind"),
 ]

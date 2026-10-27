@@ -4,6 +4,7 @@ Each build step adds its own fields here, under a comment naming the step, in th
 the code that reads them, and adds them to `.env.example`.
 """
 
+from decimal import Decimal
 from typing import Literal
 
 from pydantic import Field, HttpUrl, SecretStr, ValidationError, field_validator
@@ -130,13 +131,28 @@ class Settings(DatabaseSettings):
     image_reasoning_strength: Literal["low", "high"] = "low"
     timeout_make_card_s: float = Field(default=30.0, gt=0)
 
+    # Added in S14 for the web demo (s14; exception E2: polling, no SSE)
+    session_signing_key: SecretStr
+    session_signing_key_previous: SecretStr | None = None
+    demo_rate_limit_per_hour: int = Field(default=30, ge=1)
+    demo_ip_rate_limit_per_hour: int = Field(default=90, ge=1)
+    demo_sessions_per_ip_per_hour: int = Field(default=20, ge=1)
+    demo_max_audio_bytes: int = Field(default=1_000_000, gt=0)
+    daily_cost_cap_usd: Decimal = Field(default=Decimal(5), ge=0)  # web only, IST day
+
     # Added in S10b for child talk (C13; contracts §7)
     child_talk_enabled: bool = True
     child_session_max_turns: int = Field(default=6, ge=1)
     child_session_max_minutes: int = Field(default=10, ge=1)
     child_session_cooldown_minutes: int = Field(default=30, ge=0)
 
-    @field_validator("model_api_key", "safety_api_key", "open_model_api_key", "sidecar_token")
+    @field_validator(
+        "model_api_key",
+        "safety_api_key",
+        "open_model_api_key",
+        "sidecar_token",
+        "session_signing_key",
+    )
     @classmethod
     def _require_a_key(cls, key: SecretStr) -> SecretStr:
         if not key.get_secret_value().strip():
