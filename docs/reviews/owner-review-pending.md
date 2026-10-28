@@ -116,7 +116,7 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
 - [x] **Voice for the demo** (decided 2026-10-28, s06 log): MMS-TTS is the voice in the video and
   the submission; Indic Parler-TTS is on hold (no GPU host) and stays switchable with `TTS_ENGINE`.
   **Superseded 2026-10-29:** Kokoro-82M (Apache-2.0) is the voice, the female Hindi blend at 1.1×
-  (owner's pick by ear, s06 log). Set `TTS_ENGINE=kokoro` in `.env` and start marg-ai-tts with it.
+  (owner's pick by ear, s06 log). `TTS_ENGINE=kokoro` is set in `.env`; start the sidecar with `make sidecar` (it now lives in `services/ml_sidecar`).
 - [ ] **Excited spoken wording** (2026-10-29): parent_reflection 1.2.2, child_talk 1.0.4 and
   curiosity_moment 1.0.4 open the spoken text with real wonder ("वाह! … कमाल कर दिया!", "अरे
   वाह, क्या बढ़िया सवाल है!"), short sentences and "!", calm for anything dangerous. Listen on

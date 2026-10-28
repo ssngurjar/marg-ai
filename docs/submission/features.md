@@ -32,7 +32,7 @@ encrypted address for replying. Never names, schools or exact birth dates.
    slip), it's put back into Devanagari letter by letter.
 3. The raw audio is deleted as soon as it's transcribed.
 4. The reply comes as text, and as a voice note when the user spoke, read by **Kokoro-82M**
-   (open weights, Apache-2.0) on our own voice server.
+   (open weights, Apache-2.0) in our own ML sidecar (`services/ml_sidecar`).
 
 ### The family's language, and a village voice
 - Replies come in Hindi (Devanagari), Hinglish (Roman) or English. Writing in Devanagari means
@@ -183,7 +183,7 @@ recorded for the dashboards.
 ## 6. For the team
 - **`/status`**: success rate, latency and cost from every recorded step, and readiness.
 - **`/readyz`**: database, schema, the queue (is the worker alive?), the model API, safety, the
-  voice server and ffmpeg.
+  ML sidecar (voice and search vectors) and ffmpeg.
 - **Admin dashboard** (15-minute signed link from the CLI): young learners' curiosity over time
   and students' aims, anonymous.
 - **`marg eval`**: plays 73 hand-written cases through the real pipeline and scores them, by code

@@ -90,8 +90,8 @@ scorecard, and that the field test happened.)*
 ## Why are Meta's models important to your solution?
 
 > Because the families I build for speak, they don't type. Muse Voice Transcribe hears a
-> parent's Hindi voice note on a cheap phone, and the reply comes back as a voice note, so a parent who can't
-> read a long message still gets the whole discovery.
+> parent's Hindi voice note on a cheap phone, and the reply comes back as a voice note, so a
+> parent who can't read a long message still gets the whole discovery.
 >
 > Because children are involved, safety can't be one model's guess. Llama Guard 4 and a Muse
 > Spark policy check read every message in parallel, and each covers the other's blind spots: on
@@ -104,8 +104,9 @@ scorecard, and that the field test happened.)*
 > runs the high-volume reflection and signal work, and the whole pipeline costs under one US
 > cent per reply in model calls, measured in our eval runs.
 >
-> And because one family of models covers voice in, text, images, segmentation, safety and voice
-> out, the whole system speaks one structured-output contract end to end.
+> And because one family of models covers voice in, text, images, segmentation and safety, the
+> whole system speaks one structured-output contract end to end. (Meta's models don't speak, so
+> the voice out is Kokoro-82M, an Apache-2.0 open-weights model we host ourselves.)
 
 ---
 

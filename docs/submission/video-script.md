@@ -141,8 +141,10 @@ smartphone at home"*
 - [ ] The "78 test cases" caption matches the newest scorecard in `evals/results/`.
 - [ ] The Braj clause in the impact part ("the way it learned Braj") stays only if the field
       test or a recorded demo shows a Braj reply; otherwise end that sentence at "language".
-- [ ] The voice replies are Kokoro (`TTS_ENGINE=kokoro` on both the app and the voice server),
-      not MMS: Kokoro is Apache-2.0, so C8 is closed (s06 log, 2026-10-29).
+- [ ] The voice replies are Kokoro (`TTS_ENGINE=kokoro`, the ML sidecar started with
+      `make sidecar`), not MMS: Kokoro is Apache-2.0, so C8 is closed (s06 log, 2026-10-29).
+- [ ] Nothing says Meta's models speak the reply: the voice is Kokoro, and the script calls it
+      "an open-weights voice on our own server".
 - [ ] Nothing on screen or in a caption calls Marg a chatbot, a tutor or "AI for education",
       and the student mentor never leads a scene: the rules ban basic RAG apps and AI-for-
       education chatbots, so the parent's offline discovery is the story.

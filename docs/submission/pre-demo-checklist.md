@@ -13,7 +13,7 @@ fixed or written down with its workaround before going on.
 
 ## Service health
 - [ ] `/readyz` is `200`, every probe passing: database, schema (newest migration), queue
-  (no message waiting a minute), model API, safety, voice server, ffmpeg.
+  (no message waiting a minute), model API, safety, ML sidecar, ffmpeg.
 - [ ] `/status` for the last 24 h: success rate ≥ 98%, p95 within the smoke-test numbers
   (`docs/load/2026-10-28-smoke-test.md`).
 - [ ] The ML sidecar (`make sidecar`: Kokoro voice and `/embed`) is running and stays up through judging.
