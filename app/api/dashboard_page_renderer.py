@@ -89,6 +89,15 @@ class DashboardPageRenderer:
         return _page("Marg.ai: learners", sections, _floor_note(board.floor))
 
     @staticmethod
+    def district(board: StudentDashboard, district: str) -> str:
+        """A teacher's view: their district's students only (s13 §4.9)."""
+        sections = [
+            f"<h2 class='section'>Students in {escape(district)}</h2>",
+            *DashboardPageRenderer._students(board),
+        ]
+        return _page("Marg.ai: your district", sections, _floor_note(board.floor))
+
+    @staticmethod
     def _students(board: StudentDashboard) -> list[str]:
         if not board.enough:
             return [f"<p class='note'>Not enough students yet (fewer than {board.floor}).</p>"]

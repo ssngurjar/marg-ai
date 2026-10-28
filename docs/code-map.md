@@ -79,6 +79,7 @@ line of the module's docstring.
 | `photo_check.py` | — | What SAM 3.1 looks for before a photo is used (s10b §4.14; owner, 2026-10-28). |
 | `stt_keywords.py` | — | Speech-to-text hints: words Muse Voice Transcribe might mishear (s06 §4.5). Reviewed copy. |
 | `student_copy.py` | — | Fixed copy for students (s12): labels the mentor's reply uses, its plan button and the |
+| `teacher_copy.py` | — | Fixed copy for teachers (s10): the exposure bridge's labels and buttons, and the ask-for-chapter |
 | `whatsapp.py` | — | WhatsApp Cloud API limits and error codes (s03 §4.9, §4.10). |
 
 ## `core`
@@ -110,6 +111,7 @@ line of the module's docstring.
 | `child_session.py` | `ChildSession` | A child talking to Marg.ai directly on the parent's phone (s10b §4.16, C13). |
 | `conversation.py` | `ProfileUpdate`, `FirstContact`, `ConsentGiven`, `ConsentDeclined`, `RoleChosen`, `RoleUnavailable`, `GuardianConfirmed`, `GuardianDeclined`, `ProfileAnswered`, `ChildAnswered`, `ChildInvalid`, `AddChild`, `ChildTalkAnswered`, `TeacherAsked`, `LanguageSwitched`, `QuestionNoted`, `Unrecognised`, `DeletionRequested`, `DeletionConfirmed`, `DeletionCancelled`, `SendCopy`, `RecordConsent`, `UpsertLearner`, `SetChildTalk`, `PurgeAfterDelivery`, `HandoffPendingQuestion`, `HandoffFirstKhoj`, `Transition` | The onboarding conversation's events and effects (s08 §4.2). Pure data. |
 | `curiosity.py` | `CuriositySignals`, `CuriositySource`, `ExtractSignals`, `MakeKhojCard`, `UpdateMemory` | What a child engaged with, for the young-learner trajectory (s13 §4.4). Never a label. |
+| `curriculum.py` | `Chapter`, `CatalogueBook`, `ChapterMatch` | The textbook chapter catalogue (s10 §4.5): official NCERT titles, used only as a hint. |
 | `delivery.py` | `PartState` | Where an outbound part stands in its delivery (s04 §4.10). |
 | `learner.py` | `Learner` | Learners: the child or student whose journey Marg.ai follows (contracts §2.2, data-model). |
 | `message.py` | `MediaRef`, `InboundMessage`, `AudioClip`, `ImageClip`, `Transcript` | What users send us: messages and the media they carry (contracts.md §2.1). |
@@ -132,6 +134,7 @@ line of the module's docstring.
 | `activity_validator.py` | `ActivityValidator` | ActivityValidator: a catalogue entry is safe to serve, or the app refuses to start (s10b §4.3). |
 | `aspiration_trajectory.py` | `AspirationPoint`, `StudentTrajectory`, `AspirationTrajectory` | AspirationTrajectory: how a student's aim sharpens over sessions (s13 §4.5). Pure. |
 | `audio_analyser.py` | `AudioAnalyser` | AudioAnalyser: is a voice note worth transcribing? (s06 §4.4). Pure, standard library only. |
+| `chapter_matcher.py` | `ChapterMatcher` | ChapterMatcher: which official chapter a teacher means, if any (s10 §4.5). Pure, deterministic. |
 | `child_hazard_matcher.py` | `ChildHazardMatcher` | ChildHazardMatcher: which physical hazards a text mentions (d7, s10b §4.10). Pure. |
 | `child_question_detector.py` | `ChildQuestionDetector` | ChildQuestionDetector: is the parent passing on the child's own question? (s10b §4.15). Pure. |
 | `child_reply_matcher.py` | `ChildReplyMatcher` | ChildReplyMatcher: what a reply to a child must never say (s07 d8 and the d1 child rule, |
@@ -159,6 +162,8 @@ line of the module's docstring.
 | `activity_catalogue.py` | `ActivityCatalogue`, `CatalogueActivitySource` | ActivityCatalogue: the reviewed khoj catalogue, loaded and checked at startup (s10b §4.3). |
 | `child_talk_layer.py` | `ChildReply`, `ChildTalkLayer` | ChildTalkLayer: a child talks to Marg.ai directly, with the parent's consent (s10b §4.16, C13). |
 | `curiosity_moment_layer.py` | `CuriosityMoment`, `NotAChildQuestion`, `CuriosityMomentLayer` | CuriosityMomentLayer: the child's own question, answered through the parent (s10b §4.15, C11). |
+| `curriculum_catalogue.py` | `ChapterCatalogue` | ChapterCatalogue: the NCERT chapter titles, validated at startup (s10 §4.5). |
+| `exposure_layer.py` | `ExposureField`, `ExposureBridge`, `ExposureLayer` | ExposureLayer: a teacher's chapter connected to three real-world fields (s10, the Exposure |
 | `journey_layer.py` | `ActivityPersonalisation`, `ParentReflection`, `ParentMessage`, `JourneySettings`, `JourneyLayer` | JourneyLayer: "Aaj ki Khoj" for parents of children aged 3-8 (s10b §4.4 to §4.9). |
 | `khoj_card_maker.py` | `KhojCardText`, `CardRequest`, `KhojCard`, `KhojCardMaker` | KhojCardMaker: an illustrated card of a child's discovery (s10b §4.13, C6). |
 | `layer_result.py` | `LayerResult` | LayerResult: what every layer's generate step returns (s12 §4, s05 §4.4a). |
@@ -178,7 +183,7 @@ line of the module's docstring.
 | `failure_policy.py` | `FailurePolicy` | FailurePolicy: what a failed step becomes (s05 §4.5 "StepFailure → reply"; contracts §4). |
 | `fixed_reply_service.py` | `FixedReplyService` | FixedReplyService: the fixed reply for a kind, in the user's language (contracts §6). |
 | `null_turn_observer.py` | `NullTurnObserver` | The turn pipeline's entry point (s05 §4.5). |
-| `orchestrator.py` | `OrchestratorSettings`, `VoiceSteps`, `PhotoSteps`, `StudentSteps`, `PipelineSteps`, `Orchestrator` | Orchestrator: one turn from the user's messages to a sealed reply (s05 §4.5, mvp-scope §4.2). |
+| `orchestrator.py` | `OrchestratorSettings`, `VoiceSteps`, `PhotoSteps`, `StudentSteps`, `DashboardLinks`, `PipelineSteps`, `Orchestrator` | Orchestrator: one turn from the user's messages to a sealed reply (s05 §4.5, mvp-scope §4.2). |
 | `reply_parts_builder.py` | `ReplyDelivery`, `ReplyPartsBuilder` | ReplyPartsBuilder: a sealed reply into ordered outbound parts (s05 §4.7, s07 §4.2). |
 | `step_models.py` | `StepModel`, `StepFailure`, `StepSuccess`, `TurnOutcome` | What a turn and its steps produce (contracts §2.3). Data only. |
 | `turn_protocols.py` | `StepRecorder`, `TurnObserver` | The two hooks every step reports through (contracts §3): StepRecorder and TurnObserver. |

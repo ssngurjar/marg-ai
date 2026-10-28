@@ -40,6 +40,7 @@ from app.constants.child_talk_copy import PARENT_SUMMARY_AFTER_SADNESS, UNNAMED_
 from app.constants.journey_copy import NUDGE_ASK, NUDGE_BUTTONS
 from app.constants.photo_check import PERSON_PHRASES
 from app.constants.stt_keywords import STT_KEYWORDS
+from app.constants.teacher_copy import DASHBOARD_LINK, DASHBOARD_NO_DISTRICT
 from app.core.clock import Clock
 from app.core.errors import (
     DomainError,
@@ -95,6 +96,7 @@ from app.domain.rules.filler_detector import FillerDetector
 from app.domain.rules.register_detector import RegisterDetector
 from app.domain.rules.stage_rules import StageRules
 from app.layers.child_talk_layer import ChildTalkLayer
+from app.layers.exposure_layer import ExposureLayer
 from app.layers.journey_layer import JourneyLayer, ParentMessage
 from app.layers.layer_result import LayerResult
 from app.layers.mentor_layer import MentorLayer
@@ -121,6 +123,7 @@ from app.providers.ports import (
     TranscriptionHints,
 )
 from app.safety.safety_gate import InputCheck, OutputCheck, SafeReply, SafetyGate
+from app.telemetry.dashboard_link_codec import DashboardLinkCodec, teacher_claims
 
 FALLBACK_REGISTER: Final = Language.HINGLISH
 """Until onboarding records a language (S8), a message with no letters is answered in Hinglish."""
@@ -166,10 +169,25 @@ class PhotoSteps:
 
 @dataclass(frozen=True, slots=True)
 class StudentSteps:
-    """The Aspirational layer (s12): the mentor and the roadmap."""
+    """The Aspirational layer (s12): the mentor and the roadmap; and teachers' Exposure layer
+    (s10), which shares the same turn shape."""
 
     mentor: MentorLayer
     roadmap: RoadmapLayer
+    exposure: ExposureLayer | None = None
+
+    def serves(self, route: Route) -> bool:
+        if route is Route.EXPOSURE:
+            return self.exposure is not None
+        return route in {Route.MENTOR, Route.ROADMAP}
+
+
+@dataclass(frozen=True, slots=True)
+class DashboardLinks:
+    """What a teacher's dashboard link needs (s13 §4.9)."""
+
+    codec: DashboardLinkCodec
+    base_url: str  # PUBLIC_BASE_URL
 
 
 @dataclass(frozen=True, slots=True)
@@ -182,6 +200,7 @@ class PipelineSteps:
     clock: Clock
     photos: PhotoSteps | None = None  # None when PHOTO_INPUT_ENABLED is false
     student: StudentSteps | None = None  # None: students hear the parent journey's fallback
+    dashboard_links: DashboardLinks | None = None  # None: "dashboard" is an exposure message
 
 
 @dataclass(frozen=True, slots=True)
@@ -322,10 +341,19 @@ class _Turn:
             )
         if decision.route in {Route.ONBOARDING, Route.DATA_DELETION}:
             return await self._onboarding(decision.route, interactive_ids)
-        if decision.route is Route.CHILD_TALK and self.steps.child_talk is not None:
+        return await self._layer_for(decision.route, interactive_ids, photo)
+
+    async def _layer_for(
+        self, route: Route, interactive_ids: list[str], photo: PhotoFindings | None
+    ) -> TurnOutcome:
+        """The generating routes: child talk, teachers and students, else the journey."""
+        if route is Route.CHILD_TALK and self.steps.child_talk is not None:
             return await self._child_talk(self.steps.child_talk, interactive_ids)
-        if decision.route in {Route.MENTOR, Route.ROADMAP} and self.steps.student is not None:
-            return await self._student(self.steps.student, decision.route, interactive_ids)
+        if route is Route.DASHBOARD_LINK and self.steps.dashboard_links is not None:
+            return await self._dashboard_link(self.steps.dashboard_links)
+        student = self.steps.student
+        if student is not None and student.serves(route):
+            return await self._student(student, route, interactive_ids)
         return await self._journey(interactive_ids, photo)
 
     async def _onboarding(self, route: Route, interactive_ids: list[str]) -> TurnOutcome:
@@ -509,6 +537,37 @@ class _Turn:
         await self._record_skipped(StepName.TRANSLATE, "direct localisation (C3c)")
         return await self._check_and_seal(layer_result)
 
+    async def _dashboard_link(self, links: DashboardLinks) -> TurnOutcome:
+        """A teacher's 15-minute link to their district's students: fixed copy and a signed
+        token, no model; still checked by safety_out like any reply."""
+        voice = Language.HINDI if self.register is Language.HINGLISH else self.register
+        district = self.ctx.profile.district
+        if district:
+            claims = teacher_claims(self.ctx.profile.user_hash, district)
+            url = f"{links.base_url.rstrip('/')}/dashboard?t={links.codec.link_token(claims)}"
+            body = DASHBOARD_LINK[self.register].format(url=url)
+            spoken = DASHBOARD_LINK[voice].format(url="").split("\n")[0]
+        else:
+            body, spoken = DASHBOARD_NO_DISTRICT[self.register], DASHBOARD_NO_DISTRICT[voice]
+        reply = CanonicalReply(
+            body=body,
+            body_language=self.register,
+            spoken_text=spoken,
+            citations=[],
+            buttons=[],
+            fixed_kind=None,
+        )
+        result = LayerResult(
+            reply=reply,
+            usages=[],
+            prompt_versions={},
+            outcome=StepOutcome.OK,
+            degraded_reason=None,
+            hazard_rule=None,
+        )
+        await self._record_skipped(StepName.TRANSLATE, "fixed copy with a signed link")
+        return await self._check_and_seal(result, Route.DASHBOARD_LINK)
+
     async def _student(
         self, student: StudentSteps, route: Route, interactive_ids: list[str]
     ) -> TurnOutcome:
@@ -530,7 +589,7 @@ class _Turn:
                 return self._fixed(self._refusal_for(input_check))
         try:
             layer_result = await generation
-        except (ProviderError, StoreError, TimeoutError) as error:
+        except (ProviderError, StoreError, DomainError, TimeoutError) as error:
             return await self._failed(StepName.GENERATE, started, error)
         self.prompt_versions = dict(layer_result.prompt_versions)
         await self._record(
@@ -547,6 +606,8 @@ class _Turn:
         outcome = await self._check_and_seal(layer_result, route)
         if outcome.fixed_reply_kind is not None or outcome.reply_text is None:
             return outcome
+        if route is Route.EXPOSURE:
+            return outcome  # teachers: no memory or aspiration signals in the MVP
         tasks: list[PostTurnTask] = [*outcome.post_turn]
         student_self = next(
             (learner for learner in self.ctx.learners if learner.relation is LearnerRelation.SELF),
@@ -584,6 +645,10 @@ class _Turn:
     ) -> LayerResult:
         if route is Route.ROADMAP:
             work = student.roadmap.handle(self.ctx, self.user_text, interactive_ids, self.register)
+        elif route is Route.EXPOSURE and student.exposure is not None:
+            work = student.exposure.generate(
+                self.ctx, self.user_text, interactive_ids, self.register
+            )
         else:
             work = student.mentor.answer(self.ctx, self.user_text, self.register)
         return await self._bounded(work, self.settings.generate_timeout)

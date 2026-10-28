@@ -9,6 +9,7 @@ child"), {invite_link} (the teacher's ready-to-forward wa.me link).
 COPY_VERSION is recorded on every consent event: bump it on any text change.
 v onb-2026-10-27.1: written for the MVP (parent and teacher roles); pending the owner's review.
 v onb-2026-10-28.1: the student role opens (S12): ASK_ROLE names students, a third role button.
+v onb-2026-10-28.2: teachers get the Exposure layer (S10): PROFILE_DONE_TEACHER asks for a chapter.
 """
 
 from dataclasses import dataclass
@@ -17,7 +18,7 @@ from typing import Final
 from app.domain.enums import CopyKey, Language
 from app.domain.models.reply import ReplyButton
 
-COPY_VERSION: Final = "onb-2026-10-28.1"
+COPY_VERSION: Final = "onb-2026-10-28.2"
 
 _HINGLISH = Language.HINGLISH
 _HINDI = Language.HINDI
@@ -243,18 +244,21 @@ _TEXTS: Final[dict[CopyKey, dict[Language, str]]] = {
     },
     CopyKey.PROFILE_DONE_TEACHER: {
         _HINGLISH: (
-            "Shukriya! Marg abhi chhote bachchon ke mummy-papa ke saath shuru ho raha hai, aur "
-            "aap isme sabse badi madad kar sakte hain. Yeh link apni class ke parents ke WhatsApp "
-            "group mein bhejiye: {invite_link}"
-        ),
-        _HINDI: (
-            "शुक्रिया! मार्ग अभी छोटे बच्चों के माता-पिता के साथ शुरू हो रहा है, और आप इसमें सबसे "
-            "बड़ी मदद कर सकते हैं। यह लिंक अपनी कक्षा के माता-पिता के WhatsApp ग्रुप में भेजिए: "
+            "Shukriya! Ab agla chapter batayiye (jaise 'Kal class 8 mein Force and Pressure hai'): "
+            "aapko us chapter se jude teen asli kshetra aur 5 minute ki class activity milegi. "
+            "Chhote bachchon ke parents ke liye yeh link bhi apni class ke group mein bhejiye: "
             "{invite_link}"
         ),
+        _HINDI: (
+            "शुक्रिया! अब अगला अध्याय बताइए (जैसे 'कल कक्षा 8 में बल और दाब है'): आपको उस अध्याय से "
+            "जुड़े तीन असली क्षेत्र और 5 मिनट की कक्षा गतिविधि मिलेगी। छोटे बच्चों के माता-पिता के लिए "
+            "यह लिंक भी अपनी कक्षा के ग्रुप में भेजिए: {invite_link}"
+        ),
         _ENGLISH: (
-            "Thank you! Marg is starting with parents of young children, and you can help the "
-            "most. Please share this link in your class's parents' WhatsApp group: {invite_link}"
+            "Thank you! Now tell me your next chapter (like 'Class 8 Force and Pressure "
+            "tomorrow'): you'll get three real-world fields it leads to and a 5-minute class "
+            "activity. Please "
+            "also share this link with the parents of young children in your class: {invite_link}"
         ),
     },
     CopyKey.TEACHER_WAITING: {

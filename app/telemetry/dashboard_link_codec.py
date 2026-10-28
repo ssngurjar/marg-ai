@@ -1,16 +1,16 @@
 """DashboardLinkCodec: signed dashboard links and cookies (s13 §4.9, decision A4).
 
 No passwords: `marg admin-link` mints a 15-minute admin link; opening it swaps the token for a
-2-hour HttpOnly cookie. Tokens are the shared SignedTokenCodec's, purpose "dash", so a web demo
-session can never be read as a dashboard token. Any problem is LinkInvalid, never which check
-failed. Teacher (district) links arrive with the teacher feature.
+2-hour HttpOnly cookie. A teacher who sends "dashboard" gets a link to their own district's
+students. Tokens are the shared SignedTokenCodec's, purpose "dash", so a web demo session can
+never be read as a dashboard token. Any problem is LinkInvalid, never which check failed.
 """
 
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from app.core.clock import Clock
 from app.core.errors import LinkInvalid
@@ -18,14 +18,30 @@ from app.core.signed_token_codec import SignedTokenCodec
 
 
 class DashboardClaims(BaseModel):
+    """`admin`: everything, at the admin floor. `teacher`: the students of one district only,
+    at the normal floor (the teacher's user hash is `sub`; `district` as onboarding stored it)."""
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     v: Literal["1"]
-    scope: Literal["admin"]
-    sub: Literal["admin"]
+    scope: Literal["admin", "teacher"]
+    sub: str = Field(min_length=1, max_length=64)
+    district: str = Field(max_length=80)  # "" for admin
+
+    @model_validator(mode="after")
+    def _scoped(self) -> Self:
+        if self.scope == "admin" and (self.sub != "admin" or self.district):
+            raise ValueError("an admin token has sub admin and no district")
+        if self.scope == "teacher" and (self.sub == "admin" or not self.district):
+            raise ValueError("a teacher token names the teacher and a district")
+        return self
 
 
-ADMIN: DashboardClaims = DashboardClaims(v="1", scope="admin", sub="admin")
+ADMIN: DashboardClaims = DashboardClaims(v="1", scope="admin", sub="admin", district="")
+
+
+def teacher_claims(user_hash: str, district: str) -> DashboardClaims:
+    return DashboardClaims(v="1", scope="teacher", sub=user_hash, district=district)
 
 
 @dataclass(frozen=True, slots=True)

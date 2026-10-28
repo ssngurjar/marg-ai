@@ -15,3 +15,4 @@ class TelemetryPages:
     students: StudentDashboardBuilder
     links: DashboardLinkCodec
     admin_floor: int  # K_ANONYMITY_FLOOR_ADMIN (owner, 2026-10-28)
+    teacher_floor: int  # K_ANONYMITY_FLOOR

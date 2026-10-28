@@ -206,3 +206,20 @@ async def test_signals_for_a_deleted_student_are_skipped(engine: AsyncEngine) ->
     repository = AspirationSignalRepository(create_session_factory(engine))
     gone = aspiration_task(TurnId(uuid4()))
     assert await repository.save(gone, ASPIRATION, "1.0.0") is False
+
+
+async def test_a_teachers_view_counts_only_their_districts_students(engine: AsyncEngine) -> None:
+    await add_self_learner(engine)
+    async with engine.begin() as connection:
+        await connection.execute(
+            text("UPDATE users SET district = 'Karauli' WHERE user_hash = :h"), {"h": STUDENT}
+        )
+    turn = await started(engine)
+    sessions = create_session_factory(engine)
+    await AspirationSignalRepository(sessions).save(
+        aspiration_task(turn.turn_id), ASPIRATION, "1.0.0"
+    )
+    telemetry = TelemetryRepository(sessions)
+    assert set((await telemetry.students("Karauli")).points) == {SELF}
+    assert (await telemetry.students("Barmer")).points == {}
+    assert set((await telemetry.students()).points) == {SELF}

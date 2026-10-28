@@ -26,7 +26,7 @@ from app.store.repositories.telemetry_repository import (
     YoungLearnerData,
 )
 from app.telemetry.dashboard_builder import DashboardBuilder
-from app.telemetry.dashboard_link_codec import ADMIN
+from app.telemetry.dashboard_link_codec import ADMIN, teacher_claims
 from app.telemetry.status_report_builder import StatusReportBuilder, StatusSettings
 from app.telemetry.student_dashboard_builder import StudentDashboardBuilder
 from app.wiring import dashboard_links
@@ -80,6 +80,7 @@ def make_client() -> Iterator[ClientFactory]:
             students=StudentDashboardBuilder(source, clock),
             links=dashboard_links(SETTINGS, clock),
             admin_floor=admin_floor,
+            teacher_floor=5,
         )
         container = replace(make_container(settings=SETTINGS, clock=clock), telemetry_pages=pages)
         client = TestClient(create_app(container=container))
@@ -212,3 +213,30 @@ def test_every_page_has_strict_security_headers_and_no_script(make_client: Clien
         assert "default-src 'none'" in response.headers["content-security-policy"]
         assert response.headers["x-content-type-options"] == "nosniff"
         assert "<script" not in response.text
+
+
+def teacher_link() -> str:
+    claims = teacher_claims("a" * 64, "Karauli")
+    return dashboard_links(SETTINGS, FixedClock(NOW)).link_token(claims)
+
+
+def test_a_teacher_sees_only_their_districts_students_at_the_normal_floor(
+    make_client: ClientFactory,
+) -> None:
+    source = reader(children=6)
+    client = make_client(source)
+    assert client.get(f"/dashboard?t={teacher_link()}", follow_redirects=False).status_code == 303
+    page = client.get("/dashboard")
+    assert page.status_code == 200
+    assert "Students in Karauli" in page.text
+    assert "Young learners" not in page.text
+    assert "Not enough students yet (fewer than 5)" in page.text
+    assert source.districts[-1] == "Karauli"
+    data = client.get("/dashboard/data.json").json()
+    assert set(data) == {"students"}
+
+
+def test_a_teacher_cookie_never_unlocks_admin_numbers_on_status(make_client: ClientFactory) -> None:
+    client = make_client(reader())
+    client.get(f"/dashboard?t={teacher_link()}", follow_redirects=False)
+    assert client.get("/status.json").json()["admin"] is None

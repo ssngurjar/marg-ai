@@ -1,0 +1,15 @@
+# NCERT chapter titles, classes 6-10, Science, Mathematics, Social Science (s10 §4.5).
+# Copied from the official book pages on ncert.nic.in only (CLAUDE.md §1), current edition only.
+# The site refuses connections from outside India, so this list is filled from India; until then
+# it is empty, which is valid: every teacher's message is bridged from their own words.
+# Entry format:
+#   - book: "Curiosity"            # exactly as printed on the official page
+#     grade: 6
+#     subject: science             # science | mathematics | social_science
+#     medium: english              # english | hindi
+#     edition: "2024-25"
+#     source_url: "https://ncert.nic.in/textbook.php?..."
+#     retrieved_on: 2026-10-30
+#     chapters:
+#       - {number: 1, title: "..."}
+[]

@@ -22,6 +22,9 @@ ONBOARDING_BUTTON_PREFIX: Final = "onb:"
 JOURNEY_BUTTON_PREFIX: Final = "jrn:"
 NUDGE_BUTTON_PREFIX: Final = "nudge:"
 ROADMAP_BUTTON_PREFIX: Final = "rm:"
+EXPOSURE_BUTTON_PREFIX: Final = "exp:"
+DASHBOARD_WORDS: Final = ("dashboard", "डैशबोर्ड", "mera dashboard", "my dashboard")
+"""A teacher's whole message asking for their district's students (s13 §4.9)."""
 ROADMAP_PHRASES: Final = (
     "plan banao", "plan bana do", "plan bata", "mera plan", "naya plan", "roadmap", "make a plan",
     "my plan", "new plan", "योजना बनाओ", "प्लान बनाओ", "मेरा प्लान", "नया प्लान",
@@ -70,9 +73,7 @@ class TurnRouter:
             case Role.STUDENT:
                 return TurnRouter._student(user_text, interactive_ids)
             case Role.TEACHER:
-                if interactive_ids:
-                    return _to(Route.REPEAT_PLEASE, "unknown interactive id")
-                return _to(Route.ONBOARDING, "teacher before the teacher feature")
+                return TurnRouter._teacher(user_text, interactive_ids)
             case _:
                 return TurnRouter._parent(user_text, interactive_ids, facts)
 
@@ -93,6 +94,19 @@ class TurnRouter:
         if not user_text.strip():
             return _to(Route.REPEAT_PLEASE, "blank message")
         return _to(Route.JOURNEY, "parent default")
+
+    @staticmethod
+    def _teacher(user_text: str, interactive_ids: Sequence[str]) -> RouteDecision:
+        """s10 §4.7: `exp:` buttons and any classroom message → EXPOSURE."""
+        if any(button.startswith(EXPOSURE_BUTTON_PREFIX) for button in interactive_ids):
+            return _to(Route.EXPOSURE, "exposure button")
+        if interactive_ids:
+            return _to(Route.REPEAT_PLEASE, "unknown interactive id")
+        if not user_text.strip():
+            return _to(Route.REPEAT_PLEASE, "blank message")
+        if PhraseFinder.is_exactly(user_text, DASHBOARD_WORDS):
+            return _to(Route.DASHBOARD_LINK, "dashboard asked for")
+        return _to(Route.EXPOSURE, "teacher default")
 
     @staticmethod
     def _student(user_text: str, interactive_ids: Sequence[str]) -> RouteDecision:

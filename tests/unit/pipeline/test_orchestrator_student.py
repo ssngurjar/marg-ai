@@ -7,6 +7,7 @@ from uuid import UUID
 
 import pytest
 
+from app.constants.teacher_copy import DASHBOARD_NO_DISTRICT
 from app.core.errors import ProviderError, ProviderTimeout, StoreError
 from app.domain.enums import (
     ConversationState,
@@ -25,16 +26,19 @@ from app.domain.models.learner import Learner, LearnerId
 from app.domain.models.turn import TurnContext
 from app.domain.models.writes import SaveRoadmap
 from app.layers.child_talk_layer import ChildTalkLayer
+from app.layers.curriculum_catalogue import ChapterCatalogue
+from app.layers.exposure_layer import ExposureLayer
 from app.layers.mentor_layer import MentorLayer, MentorSettings
 from app.layers.onboarding_layer import OnboardingLayer
 from app.layers.roadmap_layer import RoadmapLayer
 from app.pipeline.null_turn_observer import NullTurnObserver
-from app.pipeline.orchestrator import Orchestrator, PipelineSteps, StudentSteps
+from app.pipeline.orchestrator import DashboardLinks, Orchestrator, PipelineSteps, StudentSteps
 from app.pipeline.step_models import TurnOutcome
 from app.rag.retriever import Retriever
 from app.safety.domain_policy import DomainPolicy
 from app.safety.safety_gate import SafetyGate
 from app.store.repositories.chunk_repository import Candidate
+from app.wiring import dashboard_links
 from tests.fakes.clock import FixedClock
 from tests.fakes.corpus import FakeChunkStore
 from tests.fakes.domain_policy import CLEAR, reply_answer, scripted_policy
@@ -42,6 +46,7 @@ from tests.fakes.language_model import FakeLanguageModel, PromptRoutedLanguageMo
 from tests.fakes.safety_classifier import FakeSafetyClassifier
 from tests.fakes.step_recorder import MemoryStepRecorder
 from tests.fakes.voice import FakeVoice
+from tests.support.app_factory import make_settings
 from tests.support.prompts import shipped_registry
 from tests.support.student import (
     MENTOR_ANSWER,
@@ -50,6 +55,7 @@ from tests.support.student import (
     student_ctx,
 )
 from tests.support.turn_context import NOW, text_message, turn_context, user_profile
+from tests.unit.layers.test_exposure_layer import BRIDGE, teacher_ctx
 from tests.unit.pipeline.test_orchestrator import (
     CHILD_LIMITS,
     INVITE_LINK,
@@ -59,6 +65,10 @@ from tests.unit.pipeline.test_orchestrator import (
 )
 
 pytestmark = pytest.mark.unit
+
+LINKS = DashboardLinks(
+    codec=dashboard_links(make_settings(), FixedClock(NOW)), base_url="https://marg.example"
+)
 
 QUESTION = "class 8 mein scholarship milti hai kya"
 PLAN = "class 8 scholarship ka plan banao"
@@ -107,8 +117,11 @@ async def run_student(
             voice=FakeVoice().steps(),
             child_talk=ChildTalkLayer(llm, shipped_registry(), CHILD_LIMITS),
             clock=FixedClock(NOW),
+            dashboard_links=LINKS,
             student=StudentSteps(
-                mentor=mentor, roadmap=RoadmapLayer(llm, shipped_registry(), mentor)
+                mentor=mentor,
+                roadmap=RoadmapLayer(llm, shipped_registry(), mentor),
+                exposure=ExposureLayer(llm, shipped_registry(), ChapterCatalogue(())),
             ),
         ),
         SETTINGS,
@@ -219,3 +232,32 @@ async def test_a_students_turn_also_records_where_they_are_heading() -> None:
         8,
     )
     assert isinstance(remember, UpdateMemory)
+
+
+async def test_a_teachers_chapter_gets_a_bridge_and_no_student_tasks() -> None:
+    result = await run_student(teacher_ctx(), {"exposure": [BRIDGE]})
+    assert result.outcome.route is Route.EXPOSURE
+    assert "Three fields this chapter leads to" in result.delivered
+    assert result.outcome.post_turn == []
+
+
+async def test_a_teacher_gets_a_signed_link_to_their_districts_students() -> None:
+    ctx = teacher_ctx("dashboard")
+    result = await run_student(ctx, {})
+    assert result.outcome.route is Route.DASHBOARD_LINK
+    assert "/dashboard?t=" in result.delivered
+    token = result.delivered.split("/dashboard?t=")[1].split()[0]
+    claims = LINKS.codec.read(token)
+    assert (claims.scope, claims.district, claims.sub) == (
+        "teacher",
+        "Karauli",
+        ctx.profile.user_hash,
+    )
+
+
+async def test_a_teacher_without_a_district_is_asked_for_it() -> None:
+    ctx = teacher_ctx("dashboard")
+    ctx = ctx.model_copy(update={"profile": ctx.profile.model_copy(update={"district": None})})
+    result = await run_student(ctx, {})
+    assert "/dashboard?t=" not in result.delivered
+    assert DASHBOARD_NO_DISTRICT[Language.ENGLISH] in result.delivered

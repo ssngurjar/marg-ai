@@ -216,8 +216,9 @@ class TelemetryRepository:
         except (SQLAlchemyError, OSError) as exc:
             raise StoreError(f"could not read young learners: {type(exc).__name__}") from exc
 
-    async def students(self) -> StudentData:
-        """Students' aspiration signals, plans created, and how their turns were routed."""
+    async def students(self, district: str | None = None) -> StudentData:
+        """Students' aspiration signals, plans created, and how their turns were routed; only
+        one district's students when `district` is given (a teacher's view, exact match)."""
         data = StudentData()
         signals = await self._rows(
             """
@@ -225,9 +226,12 @@ class TelemetryRepository:
             FROM aspiration_signals a
             JOIN turns t ON t.id = a.turn_id
             JOIN learners l ON l.id = a.learner_id
+            JOIN users u ON u.user_hash = l.owner_user_hash
             WHERE l.relation = 'self'
+              AND (CAST(:district AS text) IS NULL OR u.district = :district)
             ORDER BY a.learner_id, t.started_at
-            """
+            """,
+            district=district,
         )
         points: defaultdict[LearnerId, list[AspirationPoint]] = defaultdict(list)
         for row in signals:
@@ -240,15 +244,23 @@ class TelemetryRepository:
                 )
             )
         data.points = dict(points)
-        [created] = await self._rows("SELECT count(*) AS plans FROM roadmaps")
+        [created] = await self._rows(
+            """
+            SELECT count(*) AS plans FROM roadmaps r JOIN users u ON u.user_hash = r.user_hash
+            WHERE CAST(:district AS text) IS NULL OR u.district = :district
+            """,
+            district=district,
+        )
         data.roadmaps_created = int(created.plans)
         routes = await self._rows(
             """
             SELECT t.route, count(*) AS turns FROM turns t
             JOIN users u ON u.user_hash = t.user_hash
             WHERE u.role = 'student' AND t.route IS NOT NULL
+              AND (CAST(:district AS text) IS NULL OR u.district = :district)
             GROUP BY t.route
-            """
+            """,
+            district=district,
         )
         data.turns_by_route = {str(row.route): int(row.turns) for row in routes}
         return data

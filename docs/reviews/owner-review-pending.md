@@ -278,6 +278,20 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
   स्कॉलरशिप मिलती है क्या", "Marine biologist kaise bante hain", "ISRO scientist banna hai, plan
   bana do", "mera plan dikhao".
 
+## 2m. Teachers: the Exposure layer and district dashboards (S10, from 2026-10-28)
+
+- [ ] **Fill `corpus/curriculum/ncert_chapters.yaml` from India** (classes 6-10, Science, Maths,
+  Social Science, English and Hindi medium, from the official book pages on ncert.nic.in only).
+  It ships empty because the site refused us; bridges still work from the teacher's own words.
+- [ ] **Prompt** `exposure.md.j2` 1.0.0 and **copy** `app/constants/teacher_copy.py` (labels,
+  "Aur activity" / "Naya chapter", ask-for-chapter, the dashboard-link text), and the new
+  `PROFILE_DONE_TEACHER` (asks for a chapter, keeps the parents' invite link).
+- [ ] **Decide:** should a teacher's own career question go to the mentor? Now every teacher
+  message is an exposure message (no model routing).
+- [ ] **Phone test:** onboard as a teacher (class 8, science, your district); send "Kal class 8
+  mein Force and Pressure padhana hai"; tap Aur activity; send "बच्चों को कुछ नया सिखाना है";
+  tap Naya chapter; send "dashboard" and open the link.
+
 ## 3. Decisions log entries marked "pending owner review"
 
 - [ ] `docs/design/s05-llm-orchestrator.md`, 2026-10-27 (S5 build choices).

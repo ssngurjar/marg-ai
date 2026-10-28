@@ -63,9 +63,13 @@ async def dashboard_page(
 ) -> Response:
     if t is not None:
         return _swap_link_for_cookie(request, pages, t)
-    if _claims(pages, cookie) is None:
+    claims = _claims(pages, cookie)
+    if claims is None:
         return _html(DashboardPageRenderer.link_invalid(), status.HTTP_401_UNAUTHORIZED)
     try:
+        if claims.scope == "teacher":
+            district = await pages.students.build(pages.teacher_floor, claims.district)
+            return _html(DashboardPageRenderer.district(district, claims.district))
         board = await pages.dashboard.build(pages.admin_floor)
         students = await pages.students.build(pages.admin_floor)
     except StoreError as exc:
@@ -76,9 +80,13 @@ async def dashboard_page(
 
 @router.get("/dashboard/data.json")
 async def dashboard_data(pages: PagesDep, cookie: CookieDep = None) -> Response:
-    if _claims(pages, cookie) is None:
+    claims = _claims(pages, cookie)
+    if claims is None:
         return _json({"error": "link_invalid"}, status.HTTP_401_UNAUTHORIZED)
     try:
+        if claims.scope == "teacher":
+            district = await pages.students.build(pages.teacher_floor, claims.district)
+            return _json({"students": district.model_dump(mode="json")})
         board = await pages.dashboard.build(pages.admin_floor)
         students = await pages.students.build(pages.admin_floor)
     except StoreError as exc:

@@ -39,6 +39,7 @@ class FakeTelemetryReader:
     student: StudentData = field(default_factory=StudentData)
     broken: bool = False
     cost_reads: list[tuple[datetime, Channel | None]] = field(default_factory=list)
+    districts: list[str | None] = field(default_factory=list)
 
     async def step_latency_24h(self) -> list[StepLatencyRow]:
         self._check()
@@ -65,8 +66,9 @@ class FakeTelemetryReader:
         self._check()
         return self.young
 
-    async def students(self) -> StudentData:
+    async def students(self, district: str | None = None) -> StudentData:
         self._check()
+        self.districts.append(district)
         return self.student
 
     def _check(self) -> None:

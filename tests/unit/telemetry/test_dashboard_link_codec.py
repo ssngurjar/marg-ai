@@ -7,7 +7,12 @@ from pydantic import SecretStr
 
 from app.core.errors import LinkInvalid
 from app.core.signed_token_codec import SignedTokenCodec
-from app.telemetry.dashboard_link_codec import ADMIN, DashboardLinkCodec, DashboardLinkSettings
+from app.telemetry.dashboard_link_codec import (
+    ADMIN,
+    DashboardLinkCodec,
+    DashboardLinkSettings,
+    teacher_claims,
+)
 from tests.fakes.clock import FixedClock
 
 pytestmark = pytest.mark.unit
@@ -69,12 +74,12 @@ def test_a_token_signed_with_another_key_is_rejected() -> None:
 @pytest.mark.parametrize(
     "payload",
     [
-        {"v": "1", "scope": "teacher", "sub": "admin"},
-        {"v": "2", "scope": "admin", "sub": "admin"},
+        {"v": "1", "scope": "teacher", "sub": "admin", "district": "Karauli"},
+        {"v": "2", "scope": "admin", "sub": "admin", "district": ""},
         {"v": "1", "scope": "admin", "sub": "admin", "district": "Karauli"},
         {},
     ],
-    ids=["teacher_scope", "unknown_version", "extra_claim", "empty"],
+    ids=["teacher_named_admin", "unknown_version", "admin_with_district", "empty"],
 )
 def test_claims_this_version_doesnt_know_are_rejected(payload: dict[str, str]) -> None:
     token = SignedTokenCodec(KEY).issue("dash", payload, NOW, timedelta(minutes=15))
@@ -85,4 +90,20 @@ def test_claims_this_version_doesnt_know_are_rejected(payload: dict[str, str]) -
 @pytest.mark.parametrize("token", ["", "garbage", "a.b", "....", "%%%.%%%"])
 def test_malformed_tokens_are_rejected_not_errors(token: str) -> None:
     with pytest.raises(LinkInvalid):
+        codec_at(NOW).read(token)
+
+
+def test_a_teacher_link_reads_back_with_its_district() -> None:
+    codec = codec_at(NOW)
+    claims = teacher_claims("a" * 64, "Karauli")
+    assert codec.read(codec.link_token(claims)) == claims
+
+
+@pytest.mark.parametrize("district", ["", None])
+def test_a_teacher_link_needs_a_district(district: str | None) -> None:
+    payload = {"v": "1", "scope": "teacher", "sub": "a" * 64}
+    if district is not None:
+        payload["district"] = district
+    token = SignedTokenCodec(KEY).issue("dash", payload, NOW, timedelta(minutes=15))
+    with pytest.raises(LinkInvalid, match="unknown claims"):
         codec_at(NOW).read(token)

@@ -35,6 +35,8 @@ from app.domain.rules.child_session_rules import ChildSessionLimits
 from app.layers.activity_catalogue import ActivityCatalogue, CatalogueActivitySource
 from app.layers.child_talk_layer import CHILD_TALK, ChildTalkLayer
 from app.layers.curiosity_moment_layer import CURIOSITY_MOMENT
+from app.layers.curriculum_catalogue import ChapterCatalogue
+from app.layers.exposure_layer import EXPOSURE, ExposureLayer
 from app.layers.journey_layer import (
     ACTIVITY_PERSONALISE,
     PARENT_REFLECTION,
@@ -51,6 +53,7 @@ from app.layers.roadmap_layer import ROADMAP, RoadmapLayer
 from app.pipeline.channel_media_fetcher import ChannelMediaFetcher
 from app.pipeline.fixed_reply_service import FixedReplyService
 from app.pipeline.orchestrator import (
+    DashboardLinks,
     Orchestrator,
     OrchestratorSettings,
     PhotoSteps,
@@ -124,6 +127,7 @@ PROMPT_SPECS: Final = (
     MENTOR,
     ROADMAP,
     ASPIRATION_EXTRACT,
+    EXPOSURE,
 )
 """Every prompt the app renders; the registry refuses a template without a spec."""
 INVITE_GREETING: Final = "Namaste Marg"
@@ -346,6 +350,7 @@ def build_telemetry_pages(
         students=StudentDashboardBuilder(reader, clock),
         links=dashboard_links(settings, clock),
         admin_floor=settings.k_anonymity_floor_admin,
+        teacher_floor=settings.k_anonymity_floor,
     )
 
 
@@ -498,7 +503,11 @@ def student_steps(
         retriever,
         MentorSettings(query_rewrite_enabled=settings.query_rewrite_enabled),
     )
-    return StudentSteps(mentor=mentor, roadmap=RoadmapLayer(language_model, registry, mentor))
+    return StudentSteps(
+        mentor=mentor,
+        roadmap=RoadmapLayer(language_model, registry, mentor),
+        exposure=ExposureLayer(language_model, registry, ChapterCatalogue.load()),
+    )
 
 
 def check_startup(settings: Settings) -> None:
@@ -552,6 +561,9 @@ def build_orchestrator(
             clock=clock,
             photos=ports.photos,
             student=student_steps(settings, language_model, registry, ports.retriever),
+            dashboard_links=DashboardLinks(
+                codec=dashboard_links(settings, clock), base_url=str(settings.public_base_url)
+            ),
         ),
         OrchestratorSettings(
             turn_budget=timedelta(seconds=settings.turn_budget_s),

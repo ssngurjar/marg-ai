@@ -73,9 +73,10 @@ class StudentDashboardBuilder:
         self._reader = reader
         self._clock = clock
 
-    async def build(self, floor: int) -> StudentDashboard:
-        """Raises StoreError when the database can't be read."""
-        data = await self._reader.students()
+    async def build(self, floor: int, district: str | None = None) -> StudentDashboard:
+        """All students, or one district's (a teacher's view). Raises StoreError when the
+        database can't be read."""
+        data = await self._reader.students(district)
         now = self._clock.now()
         if len(data.points) < floor:
             return _not_enough(now, floor)
