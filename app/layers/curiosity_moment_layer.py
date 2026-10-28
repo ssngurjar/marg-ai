@@ -84,6 +84,8 @@ class CuriosityMomentLayer:
         parent_message: str,
         register: Language,
         today: date,
+        *,
+        voice: str,
     ) -> LayerResult | NotAChildQuestion:
         """The curiosity-moment reply, or NotAChildQuestion when the model says this isn't the
         child's own question. Raises ProviderError when the model can't be reached."""
@@ -93,7 +95,8 @@ class CuriosityMomentLayer:
             system_vars={
                 "language_rule": ParentQuestionLayer.LANGUAGE_RULES[register].replace(
                     "answer and try_this", "say_to_child, find_out_together and ask_back"
-                ),
+                )
+                + f" {voice}",
                 "spoken_rule": ParentQuestionLayer.SPOKEN_RULES[register],
                 "child_age": child_age,
                 "materials": ", ".join(sorted(self._materials)),

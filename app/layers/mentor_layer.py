@@ -35,6 +35,7 @@ from app.domain.rules.phrase_finder import PhraseFinder
 from app.domain.rules.register_detector import RegisterDetector
 from app.domain.rules.stage_rules import StageRules
 from app.layers.layer_result import LayerResult
+from app.layers.local_voice import LocalVoice
 from app.layers.mentor_context import LabelledChunk, MentorContext, MentorContextBuilder
 from app.layers.parent_question_layer import ParentQuestionLayer
 from app.layers.query_rewriter import QueryRewriter
@@ -123,8 +124,13 @@ class MentorLayer:
                 "dont_know": not context.chunks,
                 "sources": context.sources,
                 "profile_block": context.profile_block,
-                "language_rule": ParentQuestionLayer.LANGUAGE_RULES[register].replace(
-                    "answer and try_this", "opening, claims, guidance and next_question"
+                "language_rule": LocalVoice.language_rule(
+                    ParentQuestionLayer.LANGUAGE_RULES[register].replace(
+                        "answer and try_this", "opening, claims, guidance and next_question"
+                    ),
+                    register,
+                    ctx,
+                    user_text,
                 ),
                 "spoken_rule": ParentQuestionLayer.SPOKEN_RULES[register],
             },

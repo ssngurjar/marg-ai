@@ -62,6 +62,7 @@ from app.domain.rules.phrase_finder import PhraseFinder
 from app.domain.rules.register_detector import RegisterDetector
 from app.domain.rules.stage_rules import StageRules
 from app.layers.layer_result import LayerResult
+from app.layers.local_voice import LocalVoice
 from app.layers.parent_question_layer import ParentQuestionLayer
 from app.prompts.prompt_registry import PromptRegistry, PromptSpec
 from app.providers.ports import LanguageModel
@@ -123,7 +124,8 @@ class ChildTalkLayer:
             return self._goodbye(session, learner, register, ChildSessionEndReason.TIME_LIMIT, ())
         if ChildSessionRules.says_goodbye(user_text):
             return self._goodbye(session, learner, register, ChildSessionEndReason.CHILD_ENDED, ())
-        return await self._turn(session, learner, user_text, now, register)
+        voice = LocalVoice.for_turn(register, ctx, user_text)
+        return await self._turn(session, learner, user_text, now, register, voice=voice)
 
     # --- start --------------------------------------------------------------------------------
 
@@ -153,20 +155,23 @@ class ChildTalkLayer:
         if not ChildQuestionDetector.asks(user_text):
             hello = _fixed(CHILD_HELLO, register, name=name)
             return hello.model_copy(update={"writes": [start]})
-        result = await self._turn(session, learner, user_text, now, register)
+        voice = LocalVoice.for_turn(register, ctx, user_text)
+        result = await self._turn(session, learner, user_text, now, register, voice=voice)
         return result.model_copy(update={"writes": [start, *result.writes]})
 
     # --- a turn and the goodbye -------------------------------------------------------------------
 
-    async def _turn(
+    async def _turn(  # noqa: PLR0913  # plus the turn's local voice (owner, 2026-10-28)
         self,
         session: ChildSession,
         learner: Learner,
         user_text: str,
         now: datetime,
         register: Language,
+        *,
+        voice: str,
     ) -> LayerResult:
-        answer = await self._answer(learner, user_text, now, register)
+        answer = await self._answer(learner, user_text, now, register, voice)
         counted = ChildTalkTurn(session_id=session.id, topic=answer.topic)
         source = CuriositySource(
             learner_id=learner.id, kind="child_words", hint_domains=[], activity_title=None
@@ -232,7 +237,7 @@ class ChildTalkLayer:
         )
 
     async def _answer(
-        self, learner: Learner, user_text: str, now: datetime, register: Language
+        self, learner: Learner, user_text: str, now: datetime, register: Language, voice: str
     ) -> _Answer:
         age = StageRules.age_on(learner.birth_year, now.date())
         band: Literal["young", "older"] = "young" if age <= YOUNGEST_BAND_MAX_AGE else "older"
@@ -242,7 +247,8 @@ class ChildTalkLayer:
             system_vars={
                 "language_rule": ParentQuestionLayer.LANGUAGE_RULES[register].replace(
                     "answer and try_this", "answer, find_out and ask_back"
-                ),
+                )
+                + f" {voice}",
                 "spoken_rule": ParentQuestionLayer.SPOKEN_RULES[register],
                 "child_age": age,
                 "max_words": max_words,

@@ -42,7 +42,7 @@ async def test_the_reply_is_the_answer_then_one_thing_to_try(register: Language)
     assert result.reply.body_language is register
     assert result.outcome is StepOutcome.OK
     assert result.degraded_reason is None
-    assert result.prompt_versions == {"parent_answer": "1.0.0"}
+    assert result.prompt_versions == {"parent_answer": "1.0.1"}
     assert len(result.usages) == 1
 
 

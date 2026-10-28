@@ -361,6 +361,16 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
 - [ ] **Walk the pre-demo checklist** (`docs/submission/pre-demo-checklist.md`) the day before
   submission.
 
+## 2u. Braj, village examples and short spoken sentences (from 2026-10-28)
+
+- [ ] **Check the Braj words with people in your village** (`app/constants/braj_words.py`): the
+  markers that tell a Braj speaker, and the forms Marg uses back (मेरो, तेरो, वाको; गयो, आयो;
+  जायगो; नाय; हतो; छोरा, छोरी, लाला, लली). Drop anything stiff or wrong, add everyday words.
+- [ ] **Phone test:** write "Mero lala din bhar mobile dekhto hai, vaako ka karun?" and listen
+  to the voice reply: light Braj, short sentences, a village example.
+- [ ] Is the Braj district list right (Mathura, Agra, Bharatpur, Dholpur, Karauli, Aligarh,
+  Hathras, Firozabad, Etah, Kasganj, Mainpuri, Deeg, Palwal)?
+
 ## 3. Decisions log entries marked "pending owner review"
 
 - [ ] `docs/design/s05-llm-orchestrator.md`, 2026-10-27 (S5 build choices).

@@ -34,6 +34,7 @@ from app.domain.rules.phrase_finder import PhraseFinder
 from app.domain.rules.register_detector import RegisterDetector
 from app.layers.curriculum_catalogue import ChapterCatalogue
 from app.layers.layer_result import LayerResult
+from app.layers.local_voice import LocalVoice
 from app.layers.mentor_layer import MentorLayer
 from app.layers.parent_question_layer import ParentQuestionLayer
 from app.prompts.prompt_registry import PromptRegistry, PromptSpec
@@ -147,8 +148,13 @@ class ExposureLayer:
                 "requested_mode": "the teacher pressed 'another activity'"
                 if wants_more
                 else "only if they asked for one",
-                "language_rule": ParentQuestionLayer.LANGUAGE_RULES[register].replace(
-                    "answer and try_this", "every text field"
+                "language_rule": LocalVoice.language_rule(
+                    ParentQuestionLayer.LANGUAGE_RULES[register].replace(
+                        "answer and try_this", "every text field"
+                    ),
+                    register,
+                    ctx,
+                    user_text,
                 ),
                 "spoken_rule": ParentQuestionLayer.SPOKEN_RULES[register],
             },

@@ -68,6 +68,7 @@ line of the module's docstring.
 
 | Module | Classes | What it does |
 |---|---|---|
+| `braj_words.py` | — | Braj: how to tell a Braj speaker, and how Marg speaks light Braj back (owner, 2026-10-28). |
 | `child_hazards.py` | — | The d7 child-hazard words (s10b §4.10, s07 §4.5), per hazard on content/activities/_hazards.yaml. |
 | `child_safety_words.py` | — | Phrases a reply to a child must never contain (s07 d8, the d1 child rule; s10b §4.16). |
 | `child_talk_copy.py` | — | Fixed text for child talk (s10b §4.16, C13): to the child, and the parent's summary. |
@@ -138,6 +139,7 @@ line of the module's docstring.
 | `activity_validator.py` | `ActivityValidator` | ActivityValidator: a catalogue entry is safe to serve, or the app refuses to start (s10b §4.3). |
 | `aspiration_trajectory.py` | `AspirationPoint`, `StudentTrajectory`, `AspirationTrajectory` | AspirationTrajectory: how a student's aim sharpens over sessions (s13 §4.5). Pure. |
 | `audio_analyser.py` | `AudioAnalyser` | AudioAnalyser: is a voice note worth transcribing? (s06 §4.4). Pure, standard library only. |
+| `braj_detector.py` | `BrajDetector` | BrajDetector: does this person speak Braj (owner, 2026-10-28)? Pure; the word and district |
 | `chapter_matcher.py` | `ChapterMatcher` | ChapterMatcher: which official chapter a teacher means, if any (s10 §4.5). Pure, deterministic. |
 | `child_hazard_matcher.py` | `ChildHazardMatcher` | ChildHazardMatcher: which physical hazards a text mentions (d7, s10b §4.10). Pure. |
 | `child_question_detector.py` | `ChildQuestionDetector` | ChildQuestionDetector: is the parent passing on the child's own question? (s10b §4.15). Pure. |
@@ -189,6 +191,7 @@ line of the module's docstring.
 | `journey_layer.py` | `ActivityPersonalisation`, `ParentReflection`, `ParentMessage`, `JourneySettings`, `JourneyLayer` | JourneyLayer: "Aaj ki Khoj" for parents of children aged 3-8 (s10b §4.4 to §4.9). |
 | `khoj_card_maker.py` | `KhojCardText`, `CardRequest`, `KhojCard`, `KhojCardMaker` | KhojCardMaker: an illustrated card of a child's discovery (s10b §4.13, C6). |
 | `layer_result.py` | `LayerResult` | LayerResult: what every layer's generate step returns (s12 §4, s05 §4.4a). |
+| `local_voice.py` | `LocalVoice` | LocalVoice: the line every prompt's language rule ends with (owner, 2026-10-28). |
 | `memory_layer.py` | `MemoryLayer` | MemoryLayer: a student's rolling memory, refreshed after each mentor or roadmap turn (s12 §4.7). |
 | `mentor_context.py` | `LabelledChunk`, `MentorContext`, `MentorContextBuilder` | MentorContext: what every mentor and roadmap prompt is given, within a token budget (s12 §4.2). |
 | `mentor_layer.py` | `MentorClaim`, `MentorAnswer`, `MentorSettings`, `MentorLayer` | MentorLayer: a student's question answered only from official sources, or honestly not |

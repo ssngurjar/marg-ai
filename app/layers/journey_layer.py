@@ -77,6 +77,7 @@ from app.domain.rules.stage_rules import StageRules
 from app.layers.activity_catalogue import CatalogueActivitySource
 from app.layers.curiosity_moment_layer import CuriosityMomentLayer, NotAChildQuestion
 from app.layers.layer_result import LayerResult
+from app.layers.local_voice import LocalVoice
 from app.layers.parent_question_layer import ParentQuestionLayer
 from app.prompts.prompt_registry import PromptRegistry, PromptSpec
 from app.providers.ports import LanguageModel
@@ -203,7 +204,11 @@ class JourneyLayer:
         not_the_childs: NotAChildQuestion | None = None
         if ChildQuestionDetector.relays_child_question(user_text, nicknames):
             moment = await self._curiosity.answer(
-                ctx.active_learner, user_text, register, now.date()
+                ctx.active_learner,
+                user_text,
+                register,
+                now.date(),
+                voice=LocalVoice.for_turn(register, ctx, user_text),
             )
             if not isinstance(moment, NotAChildQuestion):
                 return _with_curiosity(moment, ctx.active_learner, "relayed_question")
@@ -324,8 +329,9 @@ class JourneyLayer:
             activity_version=activity.version,
         )
         reviewed = _KhojText.from_activity(activity)
+        said = " ".join(message.text or "" for message in ctx.messages)
         personalised, usages, versions, problem = await self._personalise(
-            activity, learner, now, register
+            activity, learner, now, register, LocalVoice.rule(register, ctx.profile.district, said)
         )
         kid = _kid_buttons(learner, register) if self._settings.child_talk_enabled else ()
         reviewed_reply = reviewed.reply(register, spoken=None, extra_buttons=kid)
@@ -355,12 +361,17 @@ class JourneyLayer:
         return _fixed(WHICH_CHILD[register], register, buttons=tuple(buttons))
 
     async def _personalise(
-        self, activity: Activity, learner: Learner, now: datetime, register: Language
+        self,
+        activity: Activity,
+        learner: Learner,
+        now: datetime,
+        register: Language,
+        voice: str,
     ) -> tuple["_KhojText | None", list[StepUsage], dict[str, str], str | None]:
         rendered = self._registry.render(
             ACTIVITY_PERSONALISE,
             system_vars={
-                "language_rule": self.LANGUAGE_RULES[register],
+                "language_rule": f"{self.LANGUAGE_RULES[register]} {voice}",
                 "spoken_rule": self.SPOKEN_RULES[register],
                 "title": activity.title,
                 "child_age": StageRules.age_on(learner.birth_year, now.date()),
@@ -397,7 +408,9 @@ class JourneyLayer:
         rendered = self._registry.render(
             PARENT_REFLECTION,
             system_vars={
-                "language_rule": self.LANGUAGE_RULES[register],
+                "language_rule": LocalVoice.language_rule(
+                    self.LANGUAGE_RULES[register], register, ctx, report
+                ),
                 "spoken_rule": self.SPOKEN_RULES[register],
                 "title": activity.title,
                 "child_age": child_age,

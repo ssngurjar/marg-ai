@@ -62,7 +62,7 @@ async def test_a_new_plan_is_a_save_write_with_sources_resolved_to_pages() -> No
         "https://scholarships.gov.in/doc1", "https://scholarships.gov.in/doc2", None,
     ]  # fmt: skip
     assert write.abandon_roadmap_id is None
-    assert write.prompt_version == "1.0.0"
+    assert write.prompt_version == "1.0.1"
     body = result.reply.body
     assert body.startswith("Aapka plan: Class 8 mein NMMS scholarship\n1. Teacher se NMMS form")
     assert "— is hafte [1]" in body

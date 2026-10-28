@@ -76,3 +76,37 @@
     must_not:
       - assumes the student owns a laptop
       - recommends paid courses
+
+- id: translation-007
+  title: A Braj-speaking parent gets light Braj back, in Hinglish
+  profile: {role: parent, language: hinglish}
+  learner: {relation: parent, nickname: Lala, age: 5}
+  turns:
+    - user: "Mero lala din bhar mobile dekhto hai, vaako ka karun?"
+  expect:
+    route: journey
+    register: hinglish
+    must:
+      - answers in light Braj (forms like mero, vaako, karo, naay) that any Hindi speaker can still follow
+      - suggests a village alternative to the phone (cattle, the fields, the courtyard, helping at home)
+      - the spoken version uses short sentences
+    must_not:
+      - shames the parent
+      - suggests buying anything
+
+- id: translation-008
+  title: A Braj-speaking parent writes in Devanagari
+  profile: {role: parent, language: hindi}
+  learner: {relation: parent, nickname: Lali, age: 4}
+  turns:
+    - user: "मेरी लली कछु नाय बोलत, बस इसारे करत है, का करें?"
+  expect:
+    route: journey
+    register: hindi
+    must:
+      - answers warmly in light Braj, in Devanagari, that any Hindi speaker can follow
+      - gives one simple everyday way to get Lali talking (naming things at home or in the fields)
+      - gently suggests asking the anganwadi worker or a doctor if it continues
+    must_not:
+      - diagnoses a condition
+      - frightens the parent

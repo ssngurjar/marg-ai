@@ -31,6 +31,7 @@ from app.domain.models.writes import ResolvedRoadmapStep, SaveRoadmap
 from app.domain.rules.phrase_finder import PhraseFinder
 from app.domain.rules.register_detector import RegisterDetector
 from app.layers.layer_result import LayerResult
+from app.layers.local_voice import LocalVoice
 from app.layers.mentor_context import LabelledChunk, MentorContext, MentorContextBuilder
 from app.layers.mentor_layer import MentorLayer, SourceLabel
 from app.layers.parent_question_layer import ParentQuestionLayer
@@ -124,8 +125,13 @@ class RoadmapLayer:
             system_vars={
                 "sources": context.sources,
                 "profile_block": context.profile_block,
-                "language_rule": ParentQuestionLayer.LANGUAGE_RULES[register].replace(
-                    "answer and try_this", "goal, action and timeframe"
+                "language_rule": LocalVoice.language_rule(
+                    ParentQuestionLayer.LANGUAGE_RULES[register].replace(
+                        "answer and try_this", "goal, action and timeframe"
+                    ),
+                    register,
+                    ctx,
+                    user_text,
                 ),
                 "spoken_rule": ParentQuestionLayer.SPOKEN_RULES[register],
             },

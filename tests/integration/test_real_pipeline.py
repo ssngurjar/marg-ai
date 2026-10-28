@@ -261,7 +261,7 @@ async def test_a_parents_question_is_answered_and_every_step_is_recorded(
     ]
     assert await rows(
         engine, "SELECT status, route, fixed_reply_kind, prompt_versions FROM turns"
-    ) == [("completed", "journey", None, {"parent_answer": "1.0.0"})]
+    ) == [("completed", "journey", None, {"parent_answer": "1.0.1"})]
 
 
 async def test_llama_guard_down_is_covered_by_the_muse_spark_backup(engine: AsyncEngine) -> None:

@@ -5,6 +5,7 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 from app.audio.tts_text_preparer import TtsTextPreparer
+from app.constants.braj_words import VILLAGE_RULE
 from app.constants.journey_copy import (
     ASK_BACK_LABEL,
     CURIOSITY_FALLBACK,
@@ -46,7 +47,7 @@ async def moment_for(
 ) -> tuple[LayerResult | NotAChildQuestion, FakeLanguageModel]:
     llm = FakeLanguageModel([output])
     layer = CuriosityMomentLayer(llm, shipped_registry(), MATERIALS)
-    return await layer.answer(MUNNI, message, register, NOW.date()), llm
+    return await layer.answer(MUNNI, message, register, NOW.date(), voice=VILLAGE_RULE), llm
 
 
 def answered(result: LayerResult | NotAChildQuestion) -> LayerResult:
@@ -115,7 +116,7 @@ async def test_a_confident_answer_has_the_answer_activity_question_and_supervisi
     assert reply.spoken_text is not None
     assert reply.spoken_text.endswith(SUPERVISION_LINE[Language.HINDI])
     assert answered(result).hazard_rule == frozenset()
-    assert answered(result).prompt_versions == {"curiosity_moment": "1.0.0"}
+    assert answered(result).prompt_versions == {"curiosity_moment": "1.0.1"}
     assert answered(result).writes == []
 
 
@@ -139,7 +140,7 @@ async def test_the_parents_own_question_comes_back_with_its_cost() -> None:
         NOT_A_CHILD_QUESTION, message="Munni ki tabiyat kharab hai kya karein"
     )
     assert isinstance(result, NotAChildQuestion)
-    assert result.prompt_versions == {"curiosity_moment": "1.0.0"}
+    assert result.prompt_versions == {"curiosity_moment": "1.0.1"}
     assert result.usage.cost_usd >= 0
 
 

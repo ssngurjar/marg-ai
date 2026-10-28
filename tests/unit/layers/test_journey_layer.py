@@ -119,7 +119,7 @@ async def test_todays_khoj_is_the_chosen_activity_personalised_with_the_supervis
     assert offered(result).activity_id == FIRST.id
     assert offered(result).learner_id == MUNNI.id
     assert result.hazard_rule == frozenset(FIRST.hazards)
-    assert result.prompt_versions == {"activity_personalise": "1.0.3"}
+    assert result.prompt_versions == {"activity_personalise": "1.0.4"}
 
 
 async def test_the_reviewed_text_is_kept_as_the_fallback_reply() -> None:
@@ -224,7 +224,7 @@ async def test_a_report_gets_a_specific_reflection_and_is_recorded_done() -> Non
         )
     ]
     assert [button.id for button in result.reply.buttons] == ["onb:add-child"]
-    assert result.prompt_versions == {"parent_reflection": "1.2.0"}
+    assert result.prompt_versions == {"parent_reflection": "1.2.1"}
 
 
 async def test_done_button_with_an_open_activity_reflects() -> None:
@@ -282,7 +282,7 @@ async def test_a_relayed_child_question_gets_the_curiosity_moment() -> None:
     layer, llm = layer_with()
     result = await khoj(text=RELAYED, button=None, layer=layer)
     assert result.reply.body.startswith(MOMENT_SAY)
-    assert result.prompt_versions == {"curiosity_moment": "1.0.0"}
+    assert result.prompt_versions == {"curiosity_moment": "1.0.1"}
     assert llm.by_prompt["parent_answer"].prompts == []
     assert result.writes == []
 
@@ -295,7 +295,7 @@ async def test_the_parents_own_question_falls_through_to_the_parent_answer_with_
         text="Munni ki neend poori nahi hoti, kya karein?", button=None, layer=layer
     )
     assert result.reply.body.startswith(str(HINGLISH_ANSWER["answer"]))
-    assert result.prompt_versions == {"curiosity_moment": "1.0.0", "parent_answer": "1.0.0"}
+    assert result.prompt_versions == {"curiosity_moment": "1.0.1", "parent_answer": "1.0.1"}
     assert len(result.usages) == 2
     assert result.hazard_rule == frozenset()
 

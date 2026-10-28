@@ -14,6 +14,7 @@ from app.domain.models.reply import CanonicalReply
 from app.domain.models.turn import TurnContext
 from app.domain.rules.register_detector import RegisterDetector
 from app.layers.layer_result import LayerResult
+from app.layers.local_voice import LocalVoice
 from app.prompts.prompt_registry import PromptRegistry, PromptSpec
 from app.providers.ports import LanguageModel
 
@@ -40,10 +41,14 @@ class ParentQuestionLayer:
         ),
         Language.ENGLISH: "Write answer and try_this in simple English.",
     }
+    SHORT_SPOKEN: ClassVar[str] = (
+        "Short sentences in spoken_text, about 12 words or fewer, one idea each: it is heard once,"
+        " often on a phone speaker, by someone who may not read."
+    )
     SPOKEN_RULES: ClassVar[dict[Language, str]] = {
-        Language.HINDI: "Write spoken_text in Hindi, in Devanagari script.",
-        Language.HINGLISH: "Write spoken_text in Hindi, in Devanagari script.",
-        Language.ENGLISH: "Write spoken_text in English.",
+        Language.HINDI: f"Write spoken_text in Hindi, in Devanagari script. {SHORT_SPOKEN}",
+        Language.HINGLISH: f"Write spoken_text in Hindi, in Devanagari script. {SHORT_SPOKEN}",
+        Language.ENGLISH: f"Write spoken_text in English. {SHORT_SPOKEN}",
     }
 
     def __init__(self, llm: LanguageModel, registry: PromptRegistry) -> None:
@@ -55,7 +60,9 @@ class ParentQuestionLayer:
         rendered = self._registry.render(
             PARENT_ANSWER,
             system_vars={
-                "language_rule": self.LANGUAGE_RULES[register],
+                "language_rule": LocalVoice.language_rule(
+                    self.LANGUAGE_RULES[register], register, ctx, user_text
+                ),
                 "spoken_rule": self.SPOKEN_RULES[register],
             },
             user_vars={"parent_message": user_text},
