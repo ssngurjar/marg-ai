@@ -124,8 +124,12 @@ def test_a_message_that_is_only_a_language_name(text: str, language: Language | 
 
 @pytest.mark.parametrize(
     "text",
-    ["mera data hatao", "Delete my data!", "मेरा डेटा हटाओ", "consent wapas", "data delete karo"],
-)
+    [
+        "mera data hatao", "Delete my data!", "मेरा डेटा हटाओ", "consent wapas", "data delete karo",
+        "Mera saara data hata do",  # regression: the eval's onboarding-004 reached the mentor
+        "please remove my data", "सारा डेटा हटा दो",
+    ],
+)  # fmt: skip
 def test_deletion_phrases(text: str) -> None:
     assert P.asks_for_deletion(text)
 

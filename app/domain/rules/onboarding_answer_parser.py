@@ -106,7 +106,10 @@ class OnboardingAnswerParser:
         {
             "delete my data", "delete my account", "mera data hatao", "mera data delete karo",
             "data delete", "data delete karo", "mera data mita do", "consent wapas",
+            "data hata do", "data hatao", "data mita do", "data mitao", "data delete kar do",
+            "remove my data", "erase my data",
             "मेरा डेटा हटाओ", "डेटा डिलीट", "मेरा डेटा डिलीट करो", "मेरा डेटा मिटा दो",
+            "डेटा हटा दो", "डेटा मिटा दो", "डेटा डिलीट कर दो",
         }
     )  # fmt: skip
     ADD_CHILD_PHRASES: ClassVar[frozenset[str]] = frozenset(

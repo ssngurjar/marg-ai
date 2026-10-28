@@ -106,11 +106,43 @@ async def test_a_crisis_phrase_decides_before_any_provider_is_asked(
     assert policy_llm.prompts == []
 
 
-async def test_llama_guard_self_harm_is_a_crisis_even_if_the_policy_check_disagrees() -> None:
-    # owner, 2026-10-27: recall first, so S11 never needs confirmation (spike B adversarial-007)
-    check = await gate_with(flagging(C.SELF_HARM)).check_input("Pakka IAS ban jaunga na?")
+@pytest.mark.parametrize(
+    "message",
+    ["Pakka IAS ban jaunga na?", "Doctor banna hai, mujhe step by step plan bana do"],
+)
+async def test_llama_guard_self_harm_alone_is_not_a_crisis(message: str) -> None:
+    """owner, 2026-10-28 (reverses 2026-10-27's recall-first rule): S11 needs the policy
+    check's self-harm signal; these career questions got the crisis reply in the eval."""
+    check = await gate_with(flagging(C.SELF_HARM)).check_input(message)
+    assert check.verdict.decision is SafetyDecision.ALLOW
+    assert check.verdict.categories == []
+
+
+async def test_llama_guard_self_harm_confirmed_by_the_policy_check_is_a_crisis() -> None:
+    policy, _ = scripted_policy([policy_answer(self_harm=True)])
+    check = await gate_with(flagging(C.SELF_HARM), policy).check_input("message")
     assert check.verdict.decision is SafetyDecision.CRISIS
     assert check.variant is FixedReplyVariant.SELF_HARM
+    assert check.verdict.source == "llama_guard"
+
+
+async def test_with_the_policy_check_off_llama_guard_self_harm_stands() -> None:
+    gate = SafetyGate(flagging(C.SELF_HARM), rules_only_policy())
+    check = await gate.check_input("Pakka IAS ban jaunga na?")
+    assert check.verdict.decision is SafetyDecision.CRISIS
+
+
+async def test_when_the_policy_check_fails_the_message_is_not_passed_through() -> None:
+    policy, _ = scripted_policy([MODEL_DOWN])
+    with pytest.raises(SafetyUnavailable):
+        await gate_with(flagging(C.SELF_HARM), policy).check_input("Pakka IAS ban jaunga na?")
+
+
+async def test_the_phrase_rules_need_no_second_opinion() -> None:
+    policy, policy_llm = scripted_policy([policy_answer()])
+    check = await gate_with(flagging(), policy).check_input("ab jeene ka mann nahi karta")
+    assert check.verdict.decision is SafetyDecision.CRISIS
+    assert policy_llm.prompts == []
 
 
 @pytest.mark.parametrize(

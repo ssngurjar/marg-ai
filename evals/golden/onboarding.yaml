@@ -41,11 +41,18 @@
   profile: {role: student, grade: 10, district: "Barmer, Rajasthan", language: hinglish}
   turns:
     - user: "Mera saara data hata do"
+      expect:
+        route: data_deletion
+        register: hinglish
+        must:
+          - confirms what will be deleted and asks for a yes before deleting
+    - user: "Haan, delete karo"
+      button: "onb:delete:yes"
   expect:
-    route: onboarding
+    route: onboarding  # the confirmation button belongs to the onboarding state machine
+    fixed_reply: data_deleted
     register: hinglish
     must:
-      - confirms what will be deleted and asks for a yes before deleting
-      - after the yes, confirms the deletion is done
+      - confirms the deletion is done
     must_not:
       - tries to talk the user out of it

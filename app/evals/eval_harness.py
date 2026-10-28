@@ -31,7 +31,7 @@ from app.core.config import Settings
 from app.core.errors import ConfigError, CorpusValidationError, ProviderError, StoreError
 from app.core.user_identity import UserIdentity
 from app.domain.enums import Channel, MessageKind
-from app.domain.models.base import TurnId, UserHash
+from app.domain.models.base import UserHash
 from app.domain.models.message import AudioClip, ImageClip, InboundMessage, MediaRef
 from app.evals.eval_context import EvalContext
 from app.evals.eval_judge import EvalJudge
@@ -50,6 +50,7 @@ from app.store.eval_database import EvalDatabase
 from app.store.repositories.eval_repository import (
     EvalRepository,
     EvalSeed,
+    EvalTurnSnapshot,
     SeedActivity,
     SeedLearner,
 )
@@ -205,24 +206,31 @@ class EvalHarness:
         if turn_id is None:
             await wired.leases.release(user_hash, WORKER_ID)
             raise StoreError(f"eval turn for {case.id} picked no message")
+        # Read the turn before delivering it: a confirmed deletion purges the user (and the
+        # turn with them) once the reply is out (s08 §4.10).
+        snapshot = await wired.evals.snapshot(turn_id)
         await wired.deliverer.deliver_turn(turn_id)
         await wired.post_turn.run(wired.processor.take_post_turn(turn_id))
-        return await self._record(user_hash, turn_id, capture, turn_key)
+        return await self._record(user_hash, snapshot, capture, turn_key)
 
     async def _record(
-        self, user_hash: UserHash, turn_id: TurnId, capture: TurnCapture, turn_key: str
+        self,
+        user_hash: UserHash,
+        snapshot: EvalTurnSnapshot,
+        capture: TurnCapture,
+        turn_key: str,
     ) -> TurnRecord:
         evals = self._wired.evals
         generated = capture.generated
         cited = [citation.chunk_id for citation in generated.citations] if generated else []
         return TurnRecord(
-            snapshot=await evals.snapshot(turn_id),
+            snapshot=snapshot,
             safety_in=capture.safety_in,
             safety_out=capture.safety_out,
             generated=generated,
             spoken_texts=self.synthesizer.spoken_in(turn_key),
             sources=await evals.sources(cited),
-            later_turns=await evals.turns_after(user_hash, turn_id),
+            later_turns=await evals.turns_after(user_hash, snapshot.turn_id),
             media_left=await evals.stored_media(user_hash),
             card_prompts=self.images.prompts_in(turn_key),
         )

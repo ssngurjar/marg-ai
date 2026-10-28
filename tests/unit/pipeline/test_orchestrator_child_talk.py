@@ -25,7 +25,7 @@ from app.pipeline.null_turn_observer import NullTurnObserver
 from app.pipeline.orchestrator import Orchestrator, PipelineSteps
 from app.safety.safety_gate import SafetyGate
 from tests.fakes.clock import FixedClock
-from tests.fakes.domain_policy import reply_answer, scripted_policy
+from tests.fakes.domain_policy import policy_answer, reply_answer, scripted_policy
 from tests.fakes.language_model import FakeLanguageModel
 from tests.fakes.safety_classifier import FakeSafetyClassifier
 from tests.fakes.step_recorder import MemoryStepRecorder
@@ -70,6 +70,7 @@ async def test_a_child_in_distress_gets_child_words_and_the_parent_a_gentle_note
         in_session("mujhe jeena nahi hai, sab mujhe daante hain"),
         classifier=flagging(user=[SafetyCategory.SELF_HARM]),
         llm=FakeLanguageModel([CHILD_REPLY], delay_s=5),
+        policy=scripted_policy([policy_answer(self_harm=True)])[0],  # S11 confirmed
     )
     outcome = result.outcome
     assert outcome.route is Route.CRISIS

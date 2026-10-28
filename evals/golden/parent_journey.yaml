@@ -278,7 +278,7 @@
   turns:
     - user: "Main Munni hoon"
   expect:
-    route: journey
+    route: child_talk  # the fixed "not enabled" reply (owner, 2026-10-28)
     register: hinglish
     must:
       - tells the parent that child talk is off and how to turn it on

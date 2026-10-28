@@ -269,7 +269,11 @@ async def test_a_crisis_gets_the_fixed_helpline_reply_and_nothing_generated(
     category: SafetyCategory, number: str
 ) -> None:
     llm = FakeLanguageModel([HINGLISH_ANSWER], delay_s=5)
-    result = await run(asking(), classifier=flagging(user=[category]), llm=llm)
+    # S11 counts only with the policy check's own self-harm signal (owner, 2026-10-28)
+    confirming = scripted_policy([policy_answer(self_harm=category is SafetyCategory.SELF_HARM)])
+    result = await run(
+        asking(), classifier=flagging(user=[category]), llm=llm, policy=confirming[0]
+    )
     assert result.outcome.route is Route.CRISIS
     assert result.outcome.fixed_reply_kind is FixedReplyKind.CRISIS
     assert number in result.delivered
@@ -516,8 +520,13 @@ async def test_generated_text_is_delivered_only_when_both_checks_allow(
 ) -> None:
     scripted: ScriptedOutput = HINGLISH_ANSWER if generation is Generation.OK else MODEL_DOWN
     # "down" means Llama Guard and its Muse Spark backup are both down for that check.
+    input_answer: ScriptedOutput = CLEAR
+    if input_check is InputCheck.DOWN:
+        input_answer = MODEL_DOWN
+    elif input_check is InputCheck.CRISIS:  # S11 needs the policy check to agree (2026-10-28)
+        input_answer = policy_answer(self_harm=True)
     policy = scripted_policy(
-        [MODEL_DOWN] if input_check is InputCheck.DOWN else [CLEAR],
+        [input_answer],
         reply_outputs=[REPLY_OUTCOMES[output_check]],
     )[0]
     result = await run(

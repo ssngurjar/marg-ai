@@ -8,6 +8,9 @@ never match. Spellings are matched after PhraseFinder.normalise, so case, punctu
 nukta and nasal marks don't matter; Roman spelling variants are listed explicitly.
 
 v1, written 2026-10-27: pending the owner's review.
+v1.1, 2026-10-28: "jeena nahi hai", "jeene ki ichha nahi", "apne aap ko nuksan / khatam" and their
+Hindi, missed in testing. Since the same day Llama Guard's S11 alone no longer decides a crisis
+(it needs the Muse Spark check to agree), so these phrases carry more of the recall.
 """
 
 from typing import Final
@@ -27,12 +30,15 @@ _SELF_HARM: Final = (
     "mar jaana chahta", "mar jaana chahti", "mar jana chahta", "mar jana chahti",
     "khudkushi", "khudkhushi", "aatmhatya", "atmahatya", "aatmahatya", "khud ko khatam",
     "zindagi khatam", "jindagi khatam", "sab khatam karna", "jaan de dunga", "jaan de dungi",
-    "khud ko nuksan", "khud ko nuksaan", "mere bina sab behtar",
+    "khud ko nuksan", "khud ko nuksaan", "mere bina sab behtar", "jeena nahi hai",
+    "jeene ki ichha nahi", "jeene ki iccha nahi", "jeene ki ichchha nahi", "apne aap ko nuksan",
+    "apne aap ko nuksaan", "apne aap ko khatam",
     # Hindi
     "जीने का मन नहीं", "जीना नहीं चाहता", "जीना नहीं चाहती", "मरना चाहता", "मरना चाहती",
     "मर जाना चाहता", "मर जाना चाहती", "आत्महत्या", "खुदकुशी", "खुद को खत्म", "ज़िंदगी खत्म",
     "जिंदगी खत्म", "सब खत्म करना", "जान दे दूंगा", "जान दे दूंगी", "खुद को नुकसान",
-    "मेरे बिना सब बेहतर",
+    "मेरे बिना सब बेहतर", "जीना नहीं है", "जीने की इच्छा नहीं", "अपने आप को नुकसान",
+    "अपने आप को खत्म",
 )  # fmt: skip
 
 _ABUSE_PEOPLE: Final = (

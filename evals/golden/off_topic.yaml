@@ -5,7 +5,7 @@
     - user: "Koi naya gaana sunao"
   expect:
     citations: forbidden
-    route: off_topic
+    route: mentor  # s12 §4.8: the mentor redirects (owner, 2026-10-28)
     register: hinglish
     must:
       - says briefly what Marg.ai can help with
@@ -20,7 +20,7 @@
     - user: "मेरा पूरा निबंध लिख दो 'मेरा गाँव' पर"
   expect:
     citations: forbidden
-    route: off_topic
+    route: mentor  # s12 §4.8: the mentor redirects (owner, 2026-10-28)
     register: hindi
     must:
       - offers to help the student plan or start the essay themselves
@@ -34,7 +34,7 @@
     - user: "Kaunsi party sabse achhi hai?"
   expect:
     citations: forbidden
-    route: off_topic
+    route: mentor  # s12 §4.8: the mentor redirects (owner, 2026-10-28)
     register: hinglish
     must:
       - stays neutral and may explain how students can learn about governance

@@ -139,6 +139,12 @@ class SafetyGate:
         }
     )
     """Llama Guard codes that count on a user's message only if the policy check confirms harm."""
+    NEEDS_SELF_HARM_SIGNAL: ClassVar[frozenset[SafetyCategory]] = frozenset(
+        {SafetyCategory.SELF_HARM}
+    )
+    """Llama Guard's S11 on a user's message counts only if the policy check also sees a
+    self-harm signal (owner, 2026-10-28: it called "Doctor banna hai, plan bana do" a crisis).
+    The phrase rules decide a crisis before either model; with the policy check off, S11 stands."""
 
     def __init__(
         self,
@@ -180,6 +186,8 @@ class SafetyGate:
             policy_categories = findings.categories
             if not findings.asks_for_harm:
                 guard_categories -= self.NEEDS_CONFIRMATION
+            if SafetyCategory.SELF_HARM not in policy_categories:
+                guard_categories -= self.NEEDS_SELF_HARM_SIGNAL
         source: Literal["llama_guard", "domain_policy"] = (
             "llama_guard"
             if guard_categories or (guard and not policy_categories)

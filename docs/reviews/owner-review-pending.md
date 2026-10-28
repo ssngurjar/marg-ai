@@ -340,6 +340,16 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
 - [ ] **Decide:** the judge's token cap went from 2000 to 6000 (it was cutting answers off), and
   the judge sees only the cited sources, not every retrieved one. Recommended: keep both.
 
+## 2s. Safety and deletion fixes from the first eval run (2026-10-28)
+
+- [x] **Decided:** Llama Guard's self-harm flag (S11) counts only when the Muse Spark check agrees
+  (it had sent the crisis reply to "Doctor banna hai, plan bana do").
+- [ ] **Review crisis lexicon v1.1** (`app/constants/crisis_lexicon.py`): "jeena nahi hai",
+  "jeene ki ichha nahi", "apne aap ko nuksan / khatam" and their Hindi.
+- [ ] **Review the added deletion phrases** (`OnboardingAnswerParser.DELETION_PHRASES`):
+  "data hata do", "data mita do", "remove my data", "डेटा हटा दो" and similar. Each still asks
+  for a yes before anything is deleted.
+
 ## 3. Decisions log entries marked "pending owner review"
 
 - [ ] `docs/design/s05-llm-orchestrator.md`, 2026-10-27 (S5 build choices).

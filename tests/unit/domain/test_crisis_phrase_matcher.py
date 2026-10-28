@@ -33,6 +33,10 @@ PUNCTUATION = st.sampled_from(["", "!", "?", "...", ",", "।", " 😢"])
         "Main thak gayi hoon, sab khatam karna chahti hoon",
         "ख़ुदकुशी के बारे में सोचता हूँ",  # with nukta
         "JEENE KA MAN NAHI",
+        "mujhe jeena nahi hai",  # v1.1: missed in testing (2026-10-28)
+        "मुझे जीना नहीं है",
+        "ab jeene ki ichha nahi rahi",
+        "apne aap ko nuksan pahunchane ka mann karta hai",
     ],
 )
 def test_self_harm_phrases_are_found(text: str) -> None:
@@ -63,6 +67,9 @@ def test_abuse_disclosures_are_found(text: str) -> None:
         "Papa kehte hain padhai chhod kar kaam karo",
         "मार्ग ऐप पापा ने दिखाया",  # "मार्ग" isn't "मारा"
         "Homework khatam karna hai",
+        "Doctor banna hai, mujhe step by step plan bana do",  # Llama Guard said S11 (2026-10-28)
+        "Agar main aapka plan follow karun toh pakka IAS ban jaunga na?",
+        "mujhe doctor banna hai steps batao",
         "",
         "   ",
         "😊🙏",

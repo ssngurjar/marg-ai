@@ -34,7 +34,7 @@ from app.domain.enums import (
 )
 from app.domain.models.message import InboundMessage
 from app.domain.models.turn import TurnContext
-from tests.fakes.domain_policy import reply_answer, scripted_policy
+from tests.fakes.domain_policy import policy_answer, reply_answer, scripted_policy
 from tests.fakes.voice import (
     STT_USAGE,
     TTS_USAGE,
@@ -365,6 +365,7 @@ async def test_a_spoken_crisis_gets_the_helpline_text_first_then_its_voice_note(
         speaking(),
         voice=hearing("mujhe jeena nahi hai"),
         classifier=flagging(user=[SafetyCategory.SELF_HARM]),
+        policy=scripted_policy([policy_answer(self_harm=True)])[0],  # S11 confirmed
     )
     assert result.outcome.route is Route.CRISIS
     assert kinds(result)[-1] is PartKind.AUDIO
