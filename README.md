@@ -29,7 +29,26 @@ In rural India, fewer than one in four Class 3 children in government schools ca
 story: **23.4%** in 2024 ([ASER 2024, National findings, p. 47](https://asercentre.org/wp-content/uploads/2022/12/ASER-2024-National-findings.pdf)).
 Children here don't lack talent. They lack **exposure**: someone to ask them *why*, and anyone to
 show them what they could become. Marg closes that gap where the child already is, with the
-people already around them, on the phone already in the house.
+people already around them.
+
+## Impact
+
+Marg's reach is the phone already in the house. In rural India, almost 90% of 14–16-year-olds
+report having a smartphone at home ([ASER 2024, p. 48](https://asercentre.org/wp-content/uploads/2022/12/ASER-2024-National-findings.pdf)).
+Marg needs no app and no reading, only WhatsApp and a voice note.
+
+- **It multiplies.** One coached parent reaches a child every day; one teacher reaches a whole
+  class; one record carries a child from their first *why* to their first career decision.
+- **It travels.** A new language or dialect is word lists and prompt work, not a rebuild: Braj
+  was added in a day.
+- **It's cheap to run.** Under one US cent per reply in model calls, measured in our eval runs
+  ($0.44 for 73 cases), not counting WhatsApp fees and hosting.
+- **The need is large.** An estimated 250 million children under five in low- and middle-income
+  countries are at risk of not reaching their developmental potential
+  ([Lancet series, 2016](https://pmc.ncbi.nlm.nih.gov/articles/PMC5884058); 2010 data).
+
+What Marg has **not** shown yet is that it changes outcomes: that needs families using it for
+months. The first field test is in my own village.
 
 ## What it does
 
@@ -157,25 +176,6 @@ and every module and class in [docs/code-map.md](docs/code-map.md).
 
 57% is honest, not good: the judge is strict, and single runs move by several points. The
 failing cases are listed in each scorecard.
-
-## Impact
-
-Marg's reach is the phone already in the house. In rural India, almost 90% of 14–16-year-olds
-report having a smartphone at home ([ASER 2024, p. 48](https://asercentre.org/wp-content/uploads/2022/12/ASER-2024-National-findings.pdf)).
-Marg needs no app and no reading, only WhatsApp and a voice note.
-
-- **It multiplies.** One coached parent reaches a child every day; one teacher reaches a whole
-  class; one record carries a child from their first *why* to their first career decision.
-- **It travels.** A new language or dialect is word lists and prompt work, not a rebuild: Braj
-  was added in a day.
-- **It's cheap to run.** Under one US cent per reply in model calls, measured in our eval runs
-  ($0.44 for 73 cases), not counting WhatsApp fees and hosting.
-- **The need is large.** An estimated 250 million children under five in low- and middle-income
-  countries are at risk of not reaching their developmental potential
-  ([Lancet series, 2016](https://pmc.ncbi.nlm.nih.gov/articles/PMC5884058); 2010 data).
-
-What Marg has **not** shown yet is that it changes outcomes: that needs families using it for
-months. The first field test is in my own village.
 
 ## Try it
 
