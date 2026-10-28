@@ -312,3 +312,22 @@ class AgeBand(StrEnum):
     MIDDLE_11_14 = "middle_11_14"
     SECONDARY_14_18 = "secondary_14_18"
     ADULT = "adult"
+
+
+class EmbedPurpose(StrEnum):
+    """What a text is embedded as (s11 §4.4): e5 needs "query: " or "passage: " in front."""
+
+    QUERY = "query"
+    PASSAGE = "passage"
+
+
+class CorpusTopic(StrEnum):
+    """The corpus folders (s11 §4.1); a document's topic must equal its folder."""
+
+    EXAMS = "exams"
+    SCHOLARSHIPS = "scholarships"
+    SPORTS = "sports"
+    ENTREPRENEURSHIP = "entrepreneurship"
+    PUBLIC_SERVICE = "public_service"
+    SKILLING = "skilling"
+    EXPOSURE_FIELDS = "exposure_fields"

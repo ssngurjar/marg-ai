@@ -2,6 +2,7 @@
 
 whatsapp reply-latest   send a text to the sender of the newest stored WhatsApp message
 admin-link              print a 15-minute link to the admin dashboard (s13 §4.9)
+ingest-corpus           validate, chunk, embed and store corpus/ (s11 §4.8)
 """
 
 import argparse
@@ -11,13 +12,21 @@ from collections.abc import Sequence
 
 from app.core.clock import SystemClock
 from app.core.config import load_settings
-from app.core.errors import InvalidAddressCiphertext, ProviderError, StoreError
+from app.core.errors import (
+    CorpusValidationError,
+    InvalidAddressCiphertext,
+    ProviderError,
+    StoreError,
+)
 from app.core.logging import configure_logging
 from app.domain.enums import Channel, PartKind
 from app.domain.models.reply import OutboundPart
 from app.providers.ports import ChannelAddress
+from app.rag.corpus_ingestor import CorpusIngestor
+from app.rag.corpus_loader import CorpusLoader
+from app.store.db import create_engine, create_session_factory
 from app.telemetry.dashboard_link_codec import ADMIN
-from app.wiring import build_container, close_container, dashboard_links
+from app.wiring import build_container, build_rag, build_retry, close_container, dashboard_links
 
 EXIT_OK = 0
 EXIT_NOTHING_TO_DO = 1
@@ -37,12 +46,51 @@ def main(argv: Sequence[str] | None = None) -> int:
     admin.add_argument(
         "--base-url", default=None, help="the app's public address (default: PUBLIC_BASE_URL)"
     )
+    ingest = groups.add_parser("ingest-corpus", help="validate, chunk, embed and store corpus/")
+    ingest.add_argument("--dry-run", action="store_true", help="validate and report; write nothing")
+    ingest.add_argument("--yes", action="store_true", help="confirm ingesting into production")
     arguments = parser.parse_args(argv)
+    if arguments.group == "ingest-corpus":
+        dry_run: bool = arguments.dry_run
+        confirmed: bool = arguments.yes
+        return asyncio.run(ingest_corpus(dry_run=dry_run, confirmed=confirmed))
     if arguments.group == "admin-link":
         base_url: str | None = arguments.base_url
         return admin_link(base_url)
     text: str | None = arguments.text
     return asyncio.run(reply_latest(text))
+
+
+async def ingest_corpus(*, dry_run: bool, confirmed: bool) -> int:
+    """The corpus isn't user data, so ingesting into production is allowed, but only with
+    --yes (s11 §4.8)."""
+    settings = load_settings()
+    configure_logging(settings.log_level, environment=settings.environment)
+    if settings.environment == "prod" and not confirmed and not dry_run:
+        _say("ENVIRONMENT is prod: run again with --yes to ingest into it.")
+        return EXIT_NOTHING_TO_DO
+    try:
+        files = CorpusLoader.load(SystemClock().now().date())
+    except CorpusValidationError as exc:
+        _say(f"The corpus is invalid; nothing was written:\n{exc}")
+        return EXIT_FAILED
+    clock = SystemClock()
+    engine = create_engine(settings)
+    rag = build_rag(settings, create_session_factory(engine), build_retry(clock), clock)
+    try:
+        report = await CorpusIngestor(rag.embedder, rag.store).ingest(files, dry_run=dry_run)
+    except (ProviderError, StoreError) as exc:
+        _say(f"Failed: {type(exc).__name__}: {exc}")
+        return EXIT_FAILED
+    finally:
+        await rag.embedder.aclose()
+        await engine.dispose()
+    verb = "Would write" if dry_run else "Wrote"
+    _say(
+        f"{verb}: {report.added} added, {report.updated} updated, {report.unchanged} unchanged, "
+        f"{report.deleted} deleted, {report.chunks_written} chunks ({len(files)} files)."
+    )
+    return EXIT_OK
 
 
 def admin_link(base_url: str | None) -> int:

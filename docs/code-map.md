@@ -59,7 +59,7 @@ line of the module's docstring.
 |---|---|---|
 | `cli.py` | — | `marg` ops commands. Run as `.venv/bin/python -m app.cli <group> <command>`. |
 | `main.py` | — | App factory, used by `uvicorn app.main:create_app --factory` and by tests. |
-| `wiring.py` | `Container`, `OrchestratorPorts`, `VoiceAdapters`, `EngineParts` | Composition root: the only module that builds concrete adapters. |
+| `wiring.py` | `Container`, `OrchestratorPorts`, `VoiceAdapters`, `RagParts`, `EngineParts` | Composition root: the only module that builds concrete adapters. |
 
 ## `constants`
 
@@ -97,7 +97,7 @@ line of the module's docstring.
 
 | Module | Classes | What it does |
 |---|---|---|
-| `enums.py` | `Channel`, `MessageKind`, `ConversationState`, `InboxStatus`, `OutboxStatus`, `AudioVerdict`, `Speaker`, `ChildSessionEndReason`, `MediaPurpose`, `PartKind`, `Language`, `Route`, `StepName`, `StepOutcome`, `FailureKind`, `TurnStatus`, `SafetyDecision`, `SafetyCategory`, `FixedReplyKind`, `FixedReplyVariant`, `Mode`, `Role`, `ConsentEventKind`, `LearnerRelation`, `CopyKey`, `CuriosityDomain`, `ActivityStatus`, `AgeBand` | Closed sets of values shared across the app (contracts.md §1). |
+| `enums.py` | `Channel`, `MessageKind`, `ConversationState`, `InboxStatus`, `OutboxStatus`, `AudioVerdict`, `Speaker`, `ChildSessionEndReason`, `MediaPurpose`, `PartKind`, `Language`, `Route`, `StepName`, `StepOutcome`, `FailureKind`, `TurnStatus`, `SafetyDecision`, `SafetyCategory`, `FixedReplyKind`, `FixedReplyVariant`, `Mode`, `Role`, `ConsentEventKind`, `LearnerRelation`, `CopyKey`, `CuriosityDomain`, `ActivityStatus`, `AgeBand`, `EmbedPurpose`, `CorpusTopic` | Closed sets of values shared across the app (contracts.md §1). |
 
 ## `domain/models`
 
@@ -113,6 +113,7 @@ line of the module's docstring.
 | `message.py` | `MediaRef`, `InboundMessage`, `AudioClip`, `ImageClip`, `Transcript` | What users send us: messages and the media they carry (contracts.md §2.1). |
 | `photo.py` | `ObjectCount`, `PhotoFindings` | What a parent's photo of the child's work tells us: counts only, never the image (s10b §4.14). |
 | `reply.py` | `ReplyButton`, `TemplateRef`, `OutboundPart`, `Citation`, `LocalisedReply`, `CanonicalReply` | What we send back (contracts.md §2.6): reply content and the outbound parts that carry it. |
+| `retrieval.py` | `RetrievalQuery`, `RetrievedChunk`, `RetrievalResult` | What retrieval is asked and what it finds (s11 §4.6, §4.7; contracts §2.7). |
 | `routing.py` | `RouteDecision` | Where a turn goes (contracts §2.5). |
 | `safety.py` | `SafetyVerdict`, `CrisisLexicon` | A safety check's result (contracts.md §2.5). Produced by s07's gate; read by the trace. |
 | `turn.py` | `UserProfile`, `Exchange`, `TurnContext`, `QueuedMessage` | A turn and what it knows about the user (contracts.md §2.2; s04 §4.4, §4.5). |
@@ -141,6 +142,7 @@ line of the module's docstring.
 | `nudge_schedule.py` | `NudgeSchedule` | NudgeSchedule: when the daily khoj message is due, in India time (s10b §4.11). Pure. |
 | `onboarding_answer_parser.py` | `Found`, `GradeParse`, `ChildAgeParse`, `NicknameParse`, `OnboardingAnswerParser` | OnboardingAnswerParser: what an onboarding answer says, without a model (s08 §4.4 step 4). Pure. |
 | `phrase_finder.py` | `PhraseFinder` | PhraseFinder: whole-phrase matching on normalised text, for keyword rules (s07, s08). Pure. |
+| `rank_fusion.py` | `RankedHit`, `FusedHit`, `RankFusion` | RankFusion: two ranked candidate lists into one (s11 §4.7). Pure. |
 | `register_detector.py` | `RegisterDetector` | RegisterDetector: which language and script a message is in (s09's detect_register). Pure. |
 | `session_rules.py` | `SessionRules` | SessionRules: the only definition of a session (contracts §2.2). Pure. |
 | `stage_rules.py` | `StageRules` | StageRules: a learner's age and NEP stage from their birth year (s10b §4.2). Pure. |
@@ -158,6 +160,7 @@ line of the module's docstring.
 | `layer_result.py` | `LayerResult` | LayerResult: what every layer's generate step returns (s12 §4, s05 §4.4a). |
 | `onboarding_layer.py` | `ProfileExtraction`, `FirstKhojHandoff`, `PendingQuestionHandoff`, `OnboardingResult`, `OnboardingLayer` | OnboardingLayer: a message during onboarding → a state-machine event → fixed copy and writes |
 | `parent_question_layer.py` | `ParentAnswer`, `ParentQuestionLayer` | ParentQuestionLayer: a parent's question answered warmly and practically (s10b §4.9, flow D). |
+| `query_rewriter.py` | `RewrittenQuery`, `QueryRewriter` | QueryRewriter: a student's question as an English search with exam and scheme names |
 
 ## `pipeline`
 
@@ -179,13 +182,19 @@ line of the module's docstring.
 |---|---|---|
 | `prompt_registry.py` | `PromptSpec`, `WrappedSlot`, `RenderedRequest`, `PromptSettings`, `UserSlot`, `PromptRegistry` | PromptRegistry: versioned prompt templates rendered into requests (s05 §4.3, CLAUDE.md §10). |
 
+## `providers/embeddings`
+
+| Module | Classes | What it does |
+|---|---|---|
+| `sidecar_embedder.py` | `EmbedderConfig`, `SidecarEmbedder` | SidecarEmbedder: multilingual-e5-small vectors from the voice server's `/embed` (s11 §4.4). |
+
 ## `providers`
 
 | Module | Classes | What it does |
 |---|---|---|
 | `http.py` | `Sleeper`, `AsyncioSleeper`, `RetryTiming`, `RetryPolicy` | The one retry policy every external call uses (contracts §5, s05 §4.2). |
 | `openai_error_mapper.py` | `OpenAiErrorMapper` | OpenAiErrorMapper: an openai SDK exception → our ProviderError (s05 §4.1, contracts §4). |
-| `ports.py` | `ChannelAddress`, `DeliveryReceipt`, `ChannelSender`, `RenderedPrompt`, `GenerationRequest`, `GenerationResult`, `LanguageModel`, `SafetyRequest`, `SafetyClassifier`, `TranscriptionHints`, `Transcriber`, `Synthesizer`, `ImageGenerator`, `ReplyImageStore`, `AudioConverter`, `MediaFetcher`, `ImageSegmenter`, `ReplyAudioStore` | Protocols the pipeline and layers depend on (contracts.md §3). |
+| `ports.py` | `ChannelAddress`, `DeliveryReceipt`, `ChannelSender`, `RenderedPrompt`, `GenerationRequest`, `GenerationResult`, `LanguageModel`, `SafetyRequest`, `SafetyClassifier`, `TranscriptionHints`, `Transcriber`, `Synthesizer`, `ImageGenerator`, `ReplyImageStore`, `AudioConverter`, `MediaFetcher`, `Embedder`, `ImageSegmenter`, `ReplyAudioStore` | Protocols the pipeline and layers depend on (contracts.md §3). |
 
 ## `providers/image`
 
@@ -218,6 +227,16 @@ line of the module's docstring.
 | `muse_voice_transcriber.py` | `TranscriberConfig`, `MuseVoiceTranscriber` | MuseVoiceTranscriber: a voice note's words, from Muse Voice Transcribe (s06 §4.5). |
 | `sidecar_synthesizer.py` | `SidecarConfig`, `SidecarSynthesizer` | SidecarSynthesizer: a reply's spoken text as a WhatsApp voice note (s06 §4.7). |
 
+## `rag`
+
+| Module | Classes | What it does |
+|---|---|---|
+| `chunk_store.py` | `ChunkStore` | ChunkStore: what ingestion and retrieval need from the corpus tables (ChunkRepository in |
+| `chunker.py` | `ChunkDraft`, `Chunker` | Chunker: a corpus document into heading-aware, token-budgeted chunks (s11 §4.3). Pure. |
+| `corpus_ingestor.py` | `IngestReport`, `CorpusIngestor` | CorpusIngestor: the validated corpus files into the corpus tables (s11 §4.5). Idempotent. |
+| `corpus_loader.py` | `CorpusFrontmatter`, `CorpusFile`, `CorpusLoader` | CorpusLoader: the corpus files, validated before anything is ingested (s11 §4.1). |
+| `retriever.py` | `RetrieverSettings`, `Retriever` | Retriever: hybrid search over the corpus, with an honest "nothing relevant" (s11 §4.7). |
+
 ## `safety`
 
 | Module | Classes | What it does |
@@ -232,12 +251,14 @@ line of the module's docstring.
 |---|---|---|
 | `db.py` | — | Async database engine and sessions. The only place a connection is opened. |
 | `tables.py` | — | Table definitions (data-model.md). Each table is created by its step's Alembic migration. |
+| `vector_column.py` | `VectorColumn` | VectorColumn: pgvector's `vector(n)` column type, for table definitions only (s11 §6). |
 
 ## `store/repositories`
 
 | Module | Classes | What it does |
 |---|---|---|
 | `child_session_repository.py` | `ChildSessionRepository` | Child sessions: a child talking to Marg.ai directly (s10b §4.16, data-model `child_sessions`). |
+| `chunk_repository.py` | `DocumentRow`, `ChunkRow`, `Candidate`, `StoredChunk`, `ChunkRepository` | ChunkRepository: the corpus in Postgres (s11 §4.5, §4.7). No user data. |
 | `curiosity_signal_repository.py` | `CuriositySignalRepository` | Curiosity signals: what a child engaged with on a journey turn (s13 §4.4, data-model). |
 | `demo_repository.py` | `RateLimit`, `TraceStep`, `ReplyPartView`, `TurnView`, `MessageView`, `DemoRepository` | The web demo's reads and counters (s14 §4.3 to §4.7): rate limits, today's web cost, what |
 | `inbox_repository.py` | `InboundRecord`, `SaveResult`, `LatestInbound`, `InboxRepository` | Storing inbound WhatsApp messages (s03 §4.5, §4.6). The only SQL for users and the inbox. |

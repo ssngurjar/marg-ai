@@ -158,6 +158,13 @@ class Settings(DatabaseSettings):
     k_anonymity_floor: int = Field(default=5, ge=1)
     k_anonymity_floor_admin: int = Field(default=1, ge=1)
 
+    # Added in S11 for retrieval over the corpus (s11 §7). The voice server also serves /embed.
+    embed_model: str = Field(default="intfloat/multilingual-e5-small", min_length=1)
+    timeout_embed_s: float = Field(default=5.0, gt=0)
+    retrieval_top_k: int = Field(default=5, ge=1, le=10)
+    retrieval_min_similarity: float = Field(default=0.80, ge=0, le=1)  # calibrated on the eval
+    query_rewrite_enabled: bool = False  # on only if the eval shows recall@5 +0.05 (B9)
+
     # Added in S10b for child talk (C13; contracts §7)
     child_talk_enabled: bool = True
     child_session_max_turns: int = Field(default=6, ge=1)

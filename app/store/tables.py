@@ -10,6 +10,8 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     Column,
+    Computed,
+    Date,
     DateTime,
     ForeignKey,
     Identity,
@@ -26,7 +28,7 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, TSVECTOR, UUID
 
 from app.domain.enums import (
     ActivityStatus,
@@ -34,6 +36,7 @@ from app.domain.enums import (
     ChildSessionEndReason,
     ConsentEventKind,
     ConversationState,
+    CorpusTopic,
     FailureKind,
     FixedReplyKind,
     InboxStatus,
@@ -50,6 +53,7 @@ from app.domain.enums import (
     StepOutcome,
     TurnStatus,
 )
+from app.store.vector_column import VectorColumn
 
 metadata = MetaData(
     naming_convention={
@@ -402,4 +406,48 @@ rate_limit_counters = Table(
     Column("window_start", DateTime(timezone=True), primary_key=True),
     Column("count", Integer, nullable=False),
     Index(None, "window_start"),
+)
+
+EMBEDDING_DIMENSIONS = 384  # intfloat/multilingual-e5-small (s11 §4.4)
+
+corpus_documents = Table(
+    "corpus_documents",
+    metadata,
+    Column("id", UUID(as_uuid=True), primary_key=True),
+    Column("path", Text, nullable=False, unique=True),  # repo-relative: corpus/<topic>/<slug>.md
+    Column("title", Text, nullable=False),
+    Column("source_url", Text, nullable=False),
+    Column("retrieved_on", Date, nullable=False),
+    Column("topic", Text, nullable=False),
+    Column("language", Text, nullable=False, server_default=text("'english'")),
+    Column("grades", ARRAY(SmallInteger), nullable=False, server_default=text("'{}'")),
+    Column("keywords", ARRAY(Text), nullable=False),  # stored upper-cased
+    Column("content_sha256", Text, nullable=False),
+    Column("ingested_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    allowed_values("topic", CorpusTopic),
+)
+
+corpus_chunks = Table(
+    "corpus_chunks",
+    metadata,
+    Column("id", UUID(as_uuid=True), primary_key=True),
+    Column(
+        "document_id",
+        UUID(as_uuid=True),
+        ForeignKey("corpus_documents.id", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    Column("position", SmallInteger, nullable=False),
+    Column("heading_path", Text, nullable=False),
+    Column("text", Text, nullable=False),
+    Column("embedding", VectorColumn(EMBEDDING_DIMENSIONS), nullable=False),
+    Column("tsv", TSVECTOR, Computed("to_tsvector('simple', text)", persisted=True)),
+    UniqueConstraint("document_id", "position"),
+    Index(
+        "ix_corpus_chunks_embedding_hnsw",
+        "embedding",
+        postgresql_using="hnsw",
+        postgresql_ops={"embedding": "vector_cosine_ops"},
+    ),
+    Index("ix_corpus_chunks_tsv", "tsv", postgresql_using="gin"),
 )

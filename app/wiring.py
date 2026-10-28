@@ -44,6 +44,7 @@ from app.layers.journey_layer import (
 from app.layers.khoj_card_maker import KHOJ_CARD_TEXT, KhojCardMaker
 from app.layers.onboarding_layer import PROFILE_EXTRACTION, OnboardingLayer
 from app.layers.parent_question_layer import PARENT_ANSWER, ParentQuestionLayer
+from app.layers.query_rewriter import QUERY_REWRITE
 from app.pipeline.channel_media_fetcher import ChannelMediaFetcher
 from app.pipeline.fixed_reply_service import FixedReplyService
 from app.pipeline.orchestrator import (
@@ -54,6 +55,7 @@ from app.pipeline.orchestrator import (
     VoiceSteps,
 )
 from app.prompts.prompt_registry import PromptRegistry, PromptSettings
+from app.providers.embeddings.sidecar_embedder import EmbedderConfig, SidecarEmbedder
 from app.providers.http import AsyncioSleeper, RetryPolicy, RetryTiming
 from app.providers.image.image_compressor import ImageCompressor
 from app.providers.image.muse_image_generator import ImageModelConfig, MuseImageGenerator
@@ -68,10 +70,12 @@ from app.providers.ports import ChannelSender, ImageSegmenter, LanguageModel, Sa
 from app.providers.safety.llama_guard_classifier import LlamaGuardClassifier, SafetyHostConfig
 from app.providers.speech.muse_voice_transcriber import MuseVoiceTranscriber, TranscriberConfig
 from app.providers.speech.sidecar_synthesizer import SidecarConfig, SidecarSynthesizer
+from app.rag.retriever import Retriever, RetrieverSettings
 from app.safety.domain_policy import MINOR_POLICY, REPLY_POLICY, DomainPolicy, PolicyModel
 from app.safety.safety_gate import SafetyGate
 from app.store.db import create_engine, create_session_factory, ping
 from app.store.repositories.child_session_repository import ChildSessionRepository
+from app.store.repositories.chunk_repository import ChunkRepository
 from app.store.repositories.curiosity_signal_repository import CuriositySignalRepository
 from app.store.repositories.demo_repository import DemoRepository
 from app.store.repositories.inbox_repository import InboxRepository
@@ -107,6 +111,7 @@ PROMPT_SPECS: Final = (
     CHILD_TALK,
     CURIOSITY_EXTRACT,
     KHOJ_CARD_TEXT,
+    QUERY_REWRITE,
 )
 """Every prompt the app renders; the registry refuses a template without a spec."""
 INVITE_GREETING: Final = "Namaste Marg"
@@ -160,9 +165,7 @@ def build_container(settings: Settings) -> Container:
     session_factory = create_session_factory(engine)
     clock = SystemClock()
     identity = UserIdentity(settings.user_hash_salt, settings.address_encryption_key)
-    retry = RetryPolicy(
-        timing=RetryTiming(), clock=clock, sleeper=AsyncioSleeper(), rng=random.SystemRandom()
-    )
+    retry = build_retry(clock)
     whatsapp_sender = WhatsAppSender(
         config=WhatsAppConfig(
             graph_base_url=str(settings.whatsapp_graph_base_url),
@@ -336,6 +339,49 @@ def dashboard_links(settings: Settings, clock: Clock) -> DashboardLinkCodec:
             cookie_ttl=timedelta(seconds=settings.dashboard_cookie_ttl_s),
         ),
     )
+
+
+def build_retry(clock: Clock) -> RetryPolicy:
+    """The one retry policy every provider call shares (CLAUDE.md §12)."""
+    return RetryPolicy(
+        timing=RetryTiming(), clock=clock, sleeper=AsyncioSleeper(), rng=random.SystemRandom()
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class RagParts:
+    """Retrieval over the corpus (s11): the embedder is kept so it can be closed."""
+
+    embedder: SidecarEmbedder
+    store: ChunkRepository
+    retriever: Retriever
+
+
+def build_rag(
+    settings: Settings,
+    session_factory: async_sessionmaker[AsyncSession],
+    retry: RetryPolicy,
+    clock: Clock,
+) -> RagParts:
+    embedder = SidecarEmbedder(
+        config=EmbedderConfig(
+            base_url=str(settings.sidecar_base_url),
+            token=settings.sidecar_token,
+            model=settings.embed_model,
+            timeout_s=settings.timeout_embed_s,
+        ),
+        retry=retry,
+        clock=clock,
+    )
+    store = ChunkRepository(session_factory)
+    retriever = Retriever(
+        embedder,
+        store,
+        RetrieverSettings(
+            top_k=settings.retrieval_top_k, min_similarity=settings.retrieval_min_similarity
+        ),
+    )
+    return RagParts(embedder, store, retriever)
 
 
 def build_voice_adapters(
