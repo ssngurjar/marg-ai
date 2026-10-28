@@ -29,7 +29,7 @@ from app.domain.models.learner import Learner
 from app.domain.models.writes import ChildSessionEnd, ChildSessionStart, ChildTalkTurn
 from app.domain.rules.child_hazard_matcher import ChildHazardMatcher
 from app.domain.rules.child_reply_matcher import ChildReplyMatcher
-from app.layers.child_talk_layer import ChildReply, ChildTalkLayer, _ChildChecks, _ParentSummary
+from app.layers.child_talk_layer import ChildReply, ChildTalkLayer, _ChildChecks
 from app.layers.layer_result import LayerResult
 from tests.fakes.language_model import FakeLanguageModel, ScriptedOutput
 from tests.support.child_talk import (
@@ -232,7 +232,7 @@ async def test_nothing_a_child_sends_changes_the_account(text: str, buttons: lis
 )
 def test_the_parents_summary_never_quotes_the_child(words: list[str]) -> None:
     """The summary is built from topics and the nickname only."""
-    summary = _ParentSummary.text(MUNNI, [CuriosityDomain.EARTH_SKY], H)
+    summary = ChildTalkLayer.parent_summary(MUNNI.nickname, [CuriosityDomain.EARTH_SKY], H)
     said = " ".join(words)
     for word in said.split():
         if word != "Munni":

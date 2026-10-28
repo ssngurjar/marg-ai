@@ -4,20 +4,54 @@ Writes run inside the finalize transaction, only for the user's own children. A 
 counts and topics (curiosity domains), never what the child said.
 """
 
+from dataclasses import dataclass
 from datetime import datetime, timedelta
-from uuid import UUID
+from uuid import UUID, uuid4
 
-from sqlalchemy import ColumnElement, and_, func, select, update
+from sqlalchemy import ColumnElement, and_, func, or_, select, update
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.errors import StoreError
-from app.domain.enums import ChildSessionEndReason, CuriosityDomain
-from app.domain.models.base import UserHash
+from app.domain.enums import (
+    Channel,
+    ChildSessionEndReason,
+    CuriosityDomain,
+    FixedReplyKind,
+    Language,
+    Route,
+    TurnStatus,
+)
+from app.domain.models.base import TurnId, UserHash
 from app.domain.models.child_session import ChildSession
 from app.domain.models.learner import LearnerId
 from app.domain.models.writes import ChildSessionEnd, ChildSessionStart, ChildTalkTurn
-from app.store.tables import child_sessions, learners
+from app.pipeline.reply_parts_builder import ReplyDelivery
+from app.store.repositories.outbox_repository import OutboxRepository
+from app.store.tables import child_sessions, learners, turns, users
+from app.store.turn_progress_notifier import TurnProgressNotifier
+
+
+@dataclass(frozen=True, slots=True)
+class ExpiredSession:
+    """A session closed without a goodbye: what its parent's summary needs (topics, never the
+    child's words)."""
+
+    session_id: UUID
+    user_hash: UserHash
+    channel: Channel
+    language: Language | None
+    nickname: str | None
+    topics: list[CuriosityDomain]
+
+
+@dataclass(frozen=True, slots=True)
+class QueuedSummary:
+    expired: ExpiredSession
+    delivery: ReplyDelivery  # sealed by the safety gate
+    reply_text: str
+    register: Language
+    worker_id: str
 
 
 class ChildSessionRepository:
@@ -100,7 +134,7 @@ class ChildSessionRepository:
 
     async def close_abandoned(self, older_than: timedelta) -> int:
         """Maintenance: sessions the child left without a goodbye, past the time limit. Closed as
-        EXPIRED; their summary waits for a turn-less sender (nudges)."""
+        EXPIRED; ChildSessionSummarySender then sends the parent their summary."""
         statement = (
             update(child_sessions)
             .where(
@@ -117,6 +151,95 @@ class ChildSessionRepository:
                 return len((await session.execute(statement)).all())
         except (SQLAlchemyError, OSError) as exc:
             raise StoreError(f"could not close child sessions: {type(exc).__name__}") from exc
+
+    async def due_summaries(self, limit: int, window: timedelta) -> list[ExpiredSession]:
+        """Expired sessions whose parent hasn't had the summary, still inside `window` (WhatsApp's
+        24 hours: a free-form reply can't go later; the web has none). Older ones are never sent."""
+        window_open = or_(
+            users.c.channel == Channel.WEB.value,
+            users.c.last_inbound_at > func.now() - window,
+        )
+        query = (
+            select(
+                child_sessions.c.id,
+                child_sessions.c.user_hash,
+                child_sessions.c.topics,
+                learners.c.nickname,
+                users.c.channel,
+                users.c.language,
+            )
+            .join(learners, learners.c.id == child_sessions.c.learner_id)
+            .join(users, users.c.user_hash == child_sessions.c.user_hash)
+            .where(
+                and_(
+                    child_sessions.c.end_reason == ChildSessionEndReason.EXPIRED.value,
+                    child_sessions.c.summary_sent_at.is_(None),
+                    child_sessions.c.ended_at > func.now() - window,
+                    window_open,
+                )
+            )
+            .order_by(child_sessions.c.ended_at)
+            .limit(limit)
+        )
+        try:
+            async with self._session_factory() as session:
+                rows = (await session.execute(query)).all()
+        except (SQLAlchemyError, OSError) as exc:
+            raise StoreError(f"could not read due summaries: {type(exc).__name__}") from exc
+        return [
+            ExpiredSession(
+                session_id=row.id,
+                user_hash=UserHash(row.user_hash),
+                channel=Channel(row.channel),
+                language=Language(row.language) if row.language else None,
+                nickname=row.nickname,
+                topics=[CuriosityDomain(topic) for topic in row.topics],
+            )
+            for row in rows
+        ]
+
+    async def queue_summary(self, summary: QueuedSummary) -> TurnId | None:
+        """Mark the summary sent and queue its turn, in one transaction. None when another
+        worker got there first, or the parent was deleted meanwhile."""
+        expired = summary.expired
+        try:
+            async with self._session_factory() as session, session.begin():
+                claimed = (
+                    await session.execute(
+                        update(child_sessions)
+                        .where(
+                            and_(
+                                child_sessions.c.id == expired.session_id,
+                                child_sessions.c.summary_sent_at.is_(None),
+                            )
+                        )
+                        .values(summary_sent_at=func.now())
+                        .returning(child_sessions.c.id)
+                    )
+                ).first()
+                if claimed is None:
+                    return None
+                turn_id = TurnId(uuid4())
+                await session.execute(
+                    turns.insert().values(
+                        id=turn_id,
+                        user_hash=expired.user_hash,
+                        status=TurnStatus.COMPLETED.value,
+                        route=Route.CHILD_TALK.value,
+                        reply_text=summary.reply_text,
+                        reply_register=summary.register.value,
+                        fixed_reply_kind=FixedReplyKind.CHILD_SESSION_END.value,
+                        worker_id=summary.worker_id,
+                        completed_at=func.now(),
+                    )
+                )
+                await OutboxRepository.enqueue(
+                    session, turn_id, expired.user_hash, expired.channel, summary.delivery
+                )
+                await TurnProgressNotifier.notify(session, turn_id)
+                return turn_id
+        except (SQLAlchemyError, OSError) as exc:
+            raise StoreError(f"could not queue a session summary: {type(exc).__name__}") from exc
 
 
 def _open_session(owner: UserHash, session_id: UUID) -> ColumnElement[bool]:

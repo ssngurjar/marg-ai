@@ -276,7 +276,7 @@ line of the module's docstring.
 | Module | Classes | What it does |
 |---|---|---|
 | `aspiration_signal_repository.py` | `AspirationSignalRepository` | Aspiration signals: where a student's own words say they're heading (s13 §4.3, data-model). |
-| `child_session_repository.py` | `ChildSessionRepository` | Child sessions: a child talking to Marg.ai directly (s10b §4.16, data-model `child_sessions`). |
+| `child_session_repository.py` | `ExpiredSession`, `QueuedSummary`, `ChildSessionRepository` | Child sessions: a child talking to Marg.ai directly (s10b §4.16, data-model `child_sessions`). |
 | `chunk_repository.py` | `DocumentRow`, `ChunkRow`, `Candidate`, `StoredChunk`, `ChunkRepository` | ChunkRepository: the corpus in Postgres (s11 §4.5, §4.7). No user data. |
 | `curiosity_signal_repository.py` | `CuriositySignalRepository` | Curiosity signals: what a child engaged with on a journey turn (s13 §4.4, data-model). |
 | `demo_repository.py` | `RateLimit`, `TraceStep`, `ReplyPartView`, `TurnView`, `MessageView`, `DemoRepository` | The web demo's reads and counters (s14 §4.3 to §4.7): rate limits, today's web cost, what |
@@ -314,6 +314,7 @@ line of the module's docstring.
 | Module | Classes | What it does |
 |---|---|---|
 | `__main__.py` | — | `python -m app.worker`: one worker process (s04 §4.1). Runs until SIGTERM or SIGINT. |
+| `child_session_summary_sender.py` | `SummaryDeps`, `ChildSessionSummarySender` | ChildSessionSummarySender: the parent's summary for a session the child left without a |
 | `database_step_recorder.py` | `DatabaseStepRecorder` | The production StepRecorder (contracts §3): pipeline step results → turn_steps rows. |
 | `khoj_card_sender.py` | `CardOutcome`, `CardDeps`, `KhojCardSender` | KhojCardSender: after a good report, an illustrated card of the child's discovery |
 | `maintenance_loop.py` | `MaintenanceSettings`, `MaintenanceDeps`, `MaintenanceLoop` | MaintenanceLoop: the periodic jobs that keep the queue healthy (s04 §4.13). |

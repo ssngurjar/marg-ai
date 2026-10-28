@@ -211,7 +211,9 @@ class ChildTalkLayer:
         new_topics: Sequence[CuriosityDomain],
     ) -> LayerResult:
         """The goodbye to the child (spoken), then the parent's summary (text only)."""
-        summary = _ParentSummary.text(learner, [*session.topics, *new_topics], register)
+        summary = ChildTalkLayer.parent_summary(
+            learner.nickname, [*session.topics, *new_topics], register
+        )
         return LayerResult(
             reply=CanonicalReply(
                 body=f"{CHILD_GOODBYE[register]}\n\n{summary}",
@@ -260,6 +262,15 @@ class ChildTalkLayer:
         return _Answer(reply, result.output.topic, [result.usage], versions, None)
 
     @staticmethod
+    def parent_summary(
+        nickname: str | None, topics: Sequence[CuriosityDomain], register: Language
+    ) -> str:
+        """What the child asked about, for the parent: reviewed wording and topic labels only,
+        never the child's words. Used at the goodbye, and by maintenance for a session the
+        child left without one."""
+        return _ParentSummary.text(nickname, topics, register)
+
+    @staticmethod
     def _is_account_action(user_text: str, interactive_ids: Sequence[str]) -> bool:
         """Anything that would change the account (C16): deletion, a language or child change,
         or any button but `kid:`."""
@@ -300,8 +311,8 @@ def _child_reply_text(body: str, spoken: str | None, register: Language) -> Cano
 
 class _ParentSummary:
     @staticmethod
-    def text(learner: Learner, topics: Sequence[CuriosityDomain], register: Language) -> str:
-        name = learner.nickname or UNNAMED_CHILD_NAME[register]
+    def text(nickname: str | None, topics: Sequence[CuriosityDomain], register: Language) -> str:
+        name = nickname or UNNAMED_CHILD_NAME[register]
         unique_topics = list(dict.fromkeys(topics))
         if not unique_topics:
             return PARENT_SUMMARY_NO_TOPICS[register].format(name=name)

@@ -3,7 +3,7 @@
 Every MAINTENANCE_INTERVAL_S, in order, each in its own transaction and each idempotent, so
 several workers can run it at once: take over expired leases (fail the dead turn, put its
 messages back), reset parts stuck in `sending`, retention, the purge sweep, expired media,
-abandoned child sessions, and the daily nudges.
+abandoned child sessions and their parents' summaries, and the daily nudges.
 """
 
 import asyncio
@@ -19,6 +19,7 @@ from app.store.repositories.media_blob_repository import MediaBlobRepository
 from app.store.repositories.outbox_repository import OutboxRepository
 from app.store.repositories.turn_repository import TurnRepository
 from app.store.repositories.user_repository import UserRepository
+from app.worker.child_session_summary_sender import ChildSessionSummarySender
 from app.worker.nudge_sender import NudgeSender
 
 logger = get_logger(__name__)
@@ -42,6 +43,7 @@ class MaintenanceDeps:
     users: UserRepository
     media: MediaBlobRepository
     child_sessions: ChildSessionRepository
+    summaries: ChildSessionSummarySender  # for sessions the child left without a goodbye
     nudges: NudgeSender | None  # the daily khoj message; None while NUDGES_ENABLED is false
     clock: Clock
 
@@ -96,6 +98,9 @@ class MaintenanceLoop:
         abandoned = await deps.child_sessions.close_abandoned(self._settings.child_session_max)
         if abandoned:
             logger.info("child_sessions_expired", sessions=abandoned)
+        summaries = await deps.summaries.send_due()
+        if summaries:
+            logger.info("child_session_summaries_sent", parents=summaries)
         if deps.nudges is not None:
             nudged = await deps.nudges.send_due()
             if nudged:

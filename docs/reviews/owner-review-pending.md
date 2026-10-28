@@ -314,6 +314,14 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
 - [ ] **Bug fixed on the way:** a web visitor's khoj card was sent to WhatsApp and failed; it
   now goes to their page, live.
 
+## 2p. Summary when a child walks away mid-talk (s10b §4.16, from 2026-10-28)
+
+- [ ] **Decide:** the summary for a session the child left without "bye" is sent by
+  maintenance with the reviewed copy only, and checked by code, not by Llama Guard (nothing in
+  it was written by a model). Recommended: keep it.
+- [ ] **Phone test:** start child talk, ask one question, then stop replying for 10 minutes:
+  the parent gets "Mummy-Papa ke liye: aaj Munni ne … ke baare mein baatein ki" once.
+
 ## 3. Decisions log entries marked "pending owner review"
 
 - [ ] `docs/design/s05-llm-orchestrator.md`, 2026-10-27 (S5 build choices).
@@ -323,6 +331,7 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
 - [ ] `docs/design/contracts.md`, 2026-10-27 (S5 ports, `SaveResult`, `MODEL_REASONING_EFFORT`).
 - [ ] `docs/design/s04-queue-worker.md` and `mvp-scope.md`, 2026-10-28 (E1 upgrade: leases, loops, listener).
 - [ ] `docs/design/s14-web-channel.md` and `mvp-scope.md`, 2026-10-28 (E2 upgrade: the live trace).
+- [ ] `docs/design/s10b-parent-journey.md`, 2026-10-28 (summary for a session the child left).
 - [ ] `docs/design/contracts.md`, 2026-10-25 (`TurnObserver.on_step` result, `GoldenLearner`,
   `SignedTokenCodec`, the `ExtractSignals`/`UpdateMemory` fields).
 

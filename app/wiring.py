@@ -107,6 +107,7 @@ from app.telemetry.dashboard_builder import DashboardBuilder
 from app.telemetry.dashboard_link_codec import DashboardLinkCodec, DashboardLinkSettings
 from app.telemetry.status_report_builder import StatusReportBuilder, StatusSettings
 from app.telemetry.student_dashboard_builder import StudentDashboardBuilder
+from app.worker.child_session_summary_sender import ChildSessionSummarySender, SummaryDeps
 from app.worker.database_step_recorder import DatabaseStepRecorder
 from app.worker.khoj_card_sender import CardDeps, KhojCardSender
 from app.worker.maintenance_loop import MaintenanceDeps, MaintenanceLoop, MaintenanceSettings
@@ -746,6 +747,14 @@ def build_worker(
             users=users,
             media=engine_parts.media,
             child_sessions=ChildSessionRepository(session_factory),
+            summaries=ChildSessionSummarySender(
+                SummaryDeps(
+                    sessions=ChildSessionRepository(session_factory),
+                    gate=engine_parts.orchestrator.steps.gate,
+                    deliverer=deliverer,
+                ),
+                worker_id,
+            ),
             nudges=(
                 NudgeSender(
                     NudgeRepository(session_factory),

@@ -55,6 +55,7 @@ from app.store.repositories.turn_step_repository import TurnStepRepository
 from app.store.repositories.user_repository import UserRepository
 from app.telemetry.aspiration_signal_extractor import AspirationSignalExtractor
 from app.telemetry.curiosity_signal_extractor import CuriositySignalExtractor
+from app.worker.child_session_summary_sender import ChildSessionSummarySender, SummaryDeps
 from app.worker.database_step_recorder import DatabaseStepRecorder
 from app.worker.maintenance_loop import MaintenanceDeps, MaintenanceLoop, MaintenanceSettings
 from app.worker.outbox_loop import OutboxLoop, OutboxLoopSettings
@@ -223,6 +224,14 @@ def build(
             users=UserRepository(sessions),
             media=MediaBlobRepository(sessions),
             child_sessions=ChildSessionRepository(sessions),
+            summaries=ChildSessionSummarySender(
+                SummaryDeps(
+                    sessions=ChildSessionRepository(sessions),
+                    gate=SafetyGate(FakeSafetyClassifier(), rules_only_policy()),
+                    deliverer=deliverer,
+                ),
+                WORKER,
+            ),
             nudges=None,
             clock=clock,
         ),
