@@ -117,6 +117,10 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
   the submission; Indic Parler-TTS is on hold (no GPU host) and stays switchable with `TTS_ENGINE`.
 - [ ] **Ask the organisers** in #office-hours whether MMS-TTS (CC-BY-NC 4.0) is fine in a
   hackathon submission, and keep the answer (C8).
+  - 2026-10-28, #office-hours auto-reply: an Apache-2.0 TTS model alongside the Meta models is
+    fine ("None of the listed Meta models do text-to-speech"); whether CC-BY-NC fits a
+    prize-winning submission "is for the organizers to rule on", question passed to them.
+    Pending their answer.
 
 ## 2e. Curiosity moment, C11 (from 2026-10-27)
 
