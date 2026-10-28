@@ -37,7 +37,7 @@ from app.telemetry.curiosity_signal_extractor import CuriositySignalExtractor
 from app.wiring import EngineParts, OrchestratorPorts, build_orchestrator, build_worker
 from app.worker.supervisor import Supervisor
 from tests.fakes.clock import FixedClock
-from tests.fakes.domain_policy import CLEAR, REPLY_CLEAR, policy_answer
+from tests.fakes.domain_policy import CLEAR, REPLY_CLEAR, policy_answer, reply_answer
 from tests.fakes.image import TINY_PNG, FakeImageGenerator, FakeImageSegmenter
 from tests.fakes.language_model import (
     FakeLanguageModel,
@@ -510,3 +510,56 @@ async def test_without_consent_the_parent_is_offered_the_switch(engine: AsyncEng
     assert "chalu nahi hai" in (last.text or "")
     assert last.buttons[0].id.startswith("onb:childtalk:yes:")
     assert await count(engine, "child_sessions WHERE user_hash = :h") == 0
+
+
+# --- the two rules every fault must keep (s16 §4.1) -------------------------------------------
+
+MODEL_DOWN_FOR_SAFETY = ProviderUnavailable("503", provider="meta_model_api")
+GUARD_DOWN = ProviderUnavailable("503", provider="llama_guard")
+
+
+def flagging_replies(request: SafetyRequest) -> list[SafetyCategory]:
+    return [SafetyCategory.HATE] if request.speaker == "assistant" else []
+
+
+SCENARIOS: dict[str, tuple[FakeSafetyClassifier, ScriptedOutput, ScriptedOutput]] = {
+    "all_well": (FakeSafetyClassifier(), CLEAR, REPLY_CLEAR),
+    "llama_guard_down": (FakeSafetyClassifier(error=GUARD_DOWN), CLEAR, REPLY_CLEAR),
+    "every_safety_check_down": (
+        FakeSafetyClassifier(error=GUARD_DOWN), MODEL_DOWN_FOR_SAFETY, MODEL_DOWN_FOR_SAFETY,
+    ),
+    "crisis": (FakeSafetyClassifier(), policy_answer(self_harm=True), REPLY_CLEAR),
+    "reply_flagged_and_confirmed": (
+        FakeSafetyClassifier(flag=flagging_replies), CLEAR, reply_answer(harm="hate"),
+    ),
+    "reply_check_down": (
+        FakeSafetyClassifier(flag=flagging_replies), CLEAR, MODEL_DOWN_FOR_SAFETY,
+    ),
+}  # fmt: skip
+
+
+@pytest.mark.parametrize("scenario", list(SCENARIOS))
+async def test_no_turn_is_silent_and_no_unchecked_text_is_sent(
+    engine: AsyncEngine, scenario: str
+) -> None:
+    classifier, policy, reply_policy = SCENARIOS[scenario]
+    await onboarded_parent(engine)
+    pipeline = wire(engine, classifier, policy=policy, reply_policy=reply_policy)
+    await ask(pipeline, QUESTION)
+    await ask(pipeline, "", message_id="wamid.BLANK")  # an empty message in the same run
+    silent = await rows(
+        engine,
+        "SELECT t.id FROM turns t WHERE t.status = 'completed' AND NOT EXISTS "
+        "(SELECT 1 FROM outbox_messages o WHERE o.turn_id = t.id)",
+    )
+    assert silent == []
+    unchecked = await rows(
+        engine,
+        "SELECT t.id FROM turns t WHERE t.fixed_reply_kind IS NULL "
+        "AND EXISTS (SELECT 1 FROM outbox_messages o WHERE o.turn_id = t.id) "
+        "AND NOT EXISTS (SELECT 1 FROM turn_steps s WHERE s.turn_id = t.id "
+        "AND s.step = 'safety_out' AND s.outcome = 'ok' AND s.decision = 'allow')",
+    )
+    assert unchecked == []
+    sent = " ".join(delivered.part.text or "" for delivered in pipeline.sender.sent)
+    assert (GENERATED in sent) is (scenario in {"all_well", "llama_guard_down"})

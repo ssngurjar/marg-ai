@@ -3,9 +3,11 @@
 import asyncio
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 
 from pydantic import BaseModel
 
+from app.core.clock import Clock
 from app.core.errors import MargError
 from app.core.logging import get_logger
 
@@ -42,3 +44,28 @@ async def run_probe(probe: ReadinessProbe) -> ProbeResult:
         logger.warning("readiness_probe_failed", probe=probe.name, reason=type(exc).__name__)
         return ProbeResult(name=probe.name, ok=False, detail=str(exc), critical=probe.critical)
     return ProbeResult(name=probe.name, ok=True, detail=None, critical=probe.critical)
+
+
+class CachedCheck:
+    """A provider check run at most once per `ttl`: `/readyz` is polled every few seconds, and
+    a paid call (the safety classifier) or a rate-limited API must not be hit each time. The
+    last outcome, success or the error, is replayed until it expires."""
+
+    def __init__(self, check: Callable[[], Awaitable[None]], ttl: timedelta, clock: Clock) -> None:
+        self._check = check
+        self._ttl = ttl
+        self._clock = clock
+        self._checked_at: datetime | None = None
+        self._error: MargError | None = None
+
+    async def __call__(self) -> None:
+        now = self._clock.now()
+        if self._checked_at is None or now - self._checked_at >= self._ttl:
+            try:
+                await self._check()
+                self._error = None
+            except MargError as exc:
+                self._error = exc
+            self._checked_at = now
+        if self._error is not None:
+            raise self._error

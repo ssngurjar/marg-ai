@@ -2,15 +2,16 @@
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import timedelta
 
-from sqlalchemy import func, select, text
+from sqlalchemy import and_, func, select, text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.errors import StoreError
 from app.core.types import JsonValue
-from app.domain.enums import Channel, MessageKind
+from app.domain.enums import Channel, InboxStatus, MessageKind
 from app.domain.models.base import UserHash
 from app.domain.models.message import InboundMessage
 from app.store.tables import inbox_messages, users
@@ -93,6 +94,22 @@ class InboxRepository:
         if row is None:
             return None
         return LatestInbound(user_hash=UserHash(row.user_hash), kind=MessageKind(row.kind))
+
+    async def oldest_due_wait(self) -> timedelta | None:
+        """How long the oldest due pending message has waited: the worker's liveness (s16
+        §4.3). None when nothing is waiting."""
+        query = select(func.now(), func.min(inbox_messages.c.available_at)).where(
+            and_(
+                inbox_messages.c.status == InboxStatus.PENDING.value,
+                inbox_messages.c.available_at <= func.now(),
+            )
+        )
+        try:
+            async with self._session_factory() as session:
+                now, oldest = (await session.execute(query)).one()
+        except (SQLAlchemyError, OSError) as exc:
+            raise StoreError(f"could not read the queue: {type(exc).__name__}") from exc
+        return now - oldest if oldest is not None else None
 
     async def load_address(self, user_hash: UserHash) -> bytes | None:
         """The sender's encrypted address, for decrypting just before a send."""

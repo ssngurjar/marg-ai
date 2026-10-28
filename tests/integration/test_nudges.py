@@ -1,6 +1,7 @@
 """The daily khoj message against Postgres (s10b §4.11): opt-in, who is due, the skip rules, and
 the template part going out through the outbox, outside the 24-hour window."""
 
+import asyncio
 import os
 import random
 from collections.abc import AsyncIterator
@@ -10,6 +11,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
+from app.core.errors import ProviderError, ProviderRejected
 from app.domain.enums import Channel, Language, PartKind
 from app.domain.models.base import UserHash
 from app.domain.models.writes import NudgePreference
@@ -307,3 +309,46 @@ async def test_the_nudge_is_delivered_even_days_after_the_last_message(
 
 def test_every_language_has_a_template() -> None:
     assert set(TEMPLATES) == set(Language)
+
+
+# --- when things go wrong (s16 §4.7) ----------------------------------------------------------
+
+
+async def test_a_template_meta_rejects_fails_once_and_waits_for_tomorrow(
+    engine: AsyncEngine, sessions: async_sessionmaker[AsyncSession]
+) -> None:
+    await parent(engine)
+    await opt_in(sessions)
+    await make_due(engine)
+
+    def not_approved(_part: object, _call: int) -> ProviderError | None:
+        return ProviderRejected("graph api error 132001", provider="whatsapp")
+
+    sender = FakeSender(FixedClock(MORNING), not_approved)
+    assert await sender_for(sessions, sender).send_due() == 1
+    assert await rows(
+        engine, "SELECT kind, status, last_error IS NOT NULL FROM outbox_messages"
+    ) == [("template", "failed", True)]
+    assert await rows(engine, "SELECT status FROM turns") == [("completed",)]
+    async with engine.connect() as connection:
+        due_at = (
+            await connection.execute(text("SELECT next_due_at FROM nudge_subscriptions"))
+        ).scalar_one()
+    assert due_at > MORNING  # tomorrow morning: no retry flood
+    assert due_at.astimezone(NudgeSchedule.INDIA).hour == 8
+    assert await sender_for(sessions, FakeSender(FixedClock(MORNING))).send_due() == 0
+
+
+async def test_two_workers_send_one_parent_one_nudge(
+    engine: AsyncEngine, sessions: async_sessionmaker[AsyncSession]
+) -> None:
+    await parent(engine)
+    await opt_in(sessions)
+    await make_due(engine)
+    sender = FakeSender(FixedClock(MORNING))
+    first, second = await asyncio.gather(
+        sender_for(sessions, sender).send_due(), sender_for(sessions, sender).send_due()
+    )
+    assert first + second == 1
+    assert len(sender.sent) == 1
+    assert await rows(engine, "SELECT count(*) FROM turns WHERE route = 'nudge'") == [(1,)]

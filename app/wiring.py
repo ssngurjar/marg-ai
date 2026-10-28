@@ -11,13 +11,16 @@ import socket
 from dataclasses import dataclass, replace
 from datetime import timedelta
 from functools import partial
+from pathlib import Path
 from typing import Final
 from urllib.parse import quote
 from uuid import uuid4
 
+from alembic.config import Config as AlembicConfig
+from alembic.script import ScriptDirectory
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
-from app.api.readiness import ReadinessProbe
+from app.api.readiness import PROBE_TIMEOUT_S, CachedCheck, ReadinessProbe
 from app.api.telemetry_pages import TelemetryPages
 from app.api.turn_event_stream import StreamSettings, TurnEventStream
 from app.api.turn_progress_hub import StreamLimits, TurnProgressHub
@@ -29,6 +32,7 @@ from app.channels.whatsapp.whatsapp_media_fetcher import MediaFetchConfig, Whats
 from app.channels.whatsapp.whatsapp_sender import WhatsAppConfig, WhatsAppSender
 from app.core.clock import Clock, SystemClock
 from app.core.config import Settings
+from app.core.errors import ProviderUnavailable, StoreError
 from app.core.signed_token_codec import SignedTokenCodec
 from app.core.user_identity import UserIdentity
 from app.domain.enums import Channel
@@ -66,6 +70,7 @@ from app.pipeline.orchestrator import (
 )
 from app.prompts.prompt_registry import PromptRegistry, PromptSettings, PromptSpec
 from app.providers.embeddings.sidecar_embedder import EmbedderConfig, SidecarEmbedder
+from app.providers.health.http_health_check import HealthEndpoint, HttpHealthCheck
 from app.providers.http import AsyncioSleeper, RetryPolicy, RetryTiming
 from app.providers.image.image_compressor import ImageCompressor
 from app.providers.image.muse_image_generator import ImageModelConfig, MuseImageGenerator
@@ -82,6 +87,7 @@ from app.providers.ports import (
     ImageSegmenter,
     LanguageModel,
     SafetyClassifier,
+    SafetyRequest,
     Synthesizer,
 )
 from app.providers.safety.llama_guard_classifier import LlamaGuardClassifier, SafetyHostConfig
@@ -90,7 +96,13 @@ from app.providers.speech.sidecar_synthesizer import SidecarConfig, SidecarSynth
 from app.rag.retriever import Retriever, RetrieverSettings
 from app.safety.domain_policy import MINOR_POLICY, REPLY_POLICY, DomainPolicy, PolicyModel
 from app.safety.safety_gate import SafetyGate
-from app.store.db import create_engine, create_listener_engine, create_session_factory, ping
+from app.store.db import (
+    create_engine,
+    create_listener_engine,
+    create_session_factory,
+    ping,
+    schema_version,
+)
 from app.store.notification_listener import ListenerSettings, NotificationListener
 from app.store.repositories.aspiration_signal_repository import AspirationSignalRepository
 from app.store.repositories.child_session_repository import ChildSessionRepository
@@ -128,6 +140,10 @@ from app.worker.turn_loop import TurnLoop, TurnLoopDeps, TurnLoopSettings
 from app.worker.turn_processor import TurnDeps, TurnProcessor, TurnSettings
 
 WORKER_ERROR_BACKOFF = timedelta(seconds=5)
+PROVIDER_PROBE_TTL = timedelta(seconds=60)
+QUEUE_STALL = timedelta(seconds=60)
+READINESS_GREETING: Final = "Namaste, aaj ki khoj kya hai?"
+ALEMBIC_INI: Final = Path(__file__).resolve().parents[1] / "alembic.ini"
 LISTENER_HEALTH_CHECK = timedelta(seconds=15)
 STREAM_HEARTBEAT = timedelta(seconds=15)  # s14 §4.4: a ping keeps proxies from closing the stream
 STREAM_REPLAY_WINDOW = timedelta(minutes=2)
@@ -176,6 +192,7 @@ class Container:
     rag: "RagParts"
     worker: Supervisor  # started by the api lifespan only when RUN_WORKER_IN_API
     listener_engine: AsyncEngine  # the one unpooled connection for LISTEN
+    health_checks: "HealthChecks"  # the HTTP clients `/readyz` uses, closed on shutdown
     web_demo: WebDemoIngestor
     user_repository: UserRepository
     telemetry_pages: TelemetryPages
@@ -224,6 +241,7 @@ def build_container(settings: Settings) -> Container:
     providers = build_providers(settings, session_factory, retry, clock)
     inbox = InboxRepository(session_factory)
     outbox = OutboxRepository(session_factory)
+    health_checks = build_health_checks(settings)
     listener_engine = create_listener_engine(settings.database_listen_url or settings.database_url)
     demo_repository = DemoRepository(session_factory)
     progress_hub = TurnProgressHub(
@@ -251,6 +269,9 @@ def build_container(settings: Settings) -> Container:
         session_factory=session_factory,
         readiness_probes=(
             ReadinessProbe(name="database", critical=True, check=partial(ping, engine)),
+            ReadinessProbe(name="schema", critical=True, check=partial(schema_is_current, engine)),
+            ReadinessProbe(name="queue", critical=True, check=partial(queue_is_moving, inbox)),
+            *provider_probes(settings, providers, health_checks, clock),
             # Voice degrades to text when these fail, so they don't take the app out of service
             ReadinessProbe(
                 name="ffmpeg",
@@ -258,6 +279,7 @@ def build_container(settings: Settings) -> Container:
                 check=providers.voice_adapters.transcoder.check_encoders,
             ),
         ),
+        health_checks=health_checks,
         identity=identity,
         whatsapp_sender=whatsapp_sender,
         inbox_repository=inbox,
@@ -309,6 +331,82 @@ def build_container(settings: Settings) -> Container:
             ListenerSettings(health_check_every=LISTENER_HEALTH_CHECK),
         ),
     )
+
+
+@dataclass(frozen=True, slots=True)
+class HealthChecks:
+    model_api: HttpHealthCheck
+    sidecar: HttpHealthCheck
+
+
+def build_health_checks(settings: Settings) -> HealthChecks:
+    return HealthChecks(
+        model_api=HttpHealthCheck(
+            HealthEndpoint(
+                provider="meta_model_api",
+                url=f"{str(settings.model_api_base_url).rstrip('/')}/models",
+                token=settings.model_api_key,
+                timeout_s=PROBE_TIMEOUT_S,
+            )
+        ),
+        sidecar=HttpHealthCheck(
+            HealthEndpoint(
+                provider="ml_sidecar",
+                url=f"{str(settings.sidecar_base_url).rstrip('/')}/healthz",
+                token=settings.sidecar_token,
+                timeout_s=PROBE_TIMEOUT_S,
+            )
+        ),
+    )
+
+
+def provider_probes(
+    settings: Settings, providers: "Providers", checks: HealthChecks, clock: Clock
+) -> tuple[ReadinessProbe, ...]:
+    """s16 §4.3: the model API and safety are critical (without safety every reply is a holding
+    reply); the voice server isn't (text still goes out). Each is cached so `/readyz` polling
+    never hammers a paid or rate-limited API. WhatsApp has no probe: the messaging token can't
+    read any object (owner checks a real reply instead, pre-demo checklist)."""
+
+    async def safety_allows_a_greeting() -> None:
+        verdict, _ = await providers.safety_classifier.classify(
+            SafetyRequest(speaker="user", text=READINESS_GREETING, prior_user_text=None)
+        )
+        if verdict.categories:
+            raise ProviderUnavailable("safety host flags a greeting", provider="llama_guard")
+
+    return (
+        ReadinessProbe(
+            name="model_api",
+            critical=True,
+            check=CachedCheck(checks.model_api.check, PROVIDER_PROBE_TTL, clock),
+        ),
+        ReadinessProbe(
+            name="safety",
+            critical=True,
+            check=CachedCheck(safety_allows_a_greeting, PROVIDER_PROBE_TTL, clock),
+        ),
+        ReadinessProbe(
+            name="sidecar",
+            critical=False,
+            check=CachedCheck(checks.sidecar.check, PROVIDER_PROBE_TTL, clock),
+        ),
+    )
+
+
+async def schema_is_current(engine: AsyncEngine) -> None:
+    """The database is at the newest migration bundled with this build."""
+    head = ScriptDirectory.from_config(AlembicConfig(str(ALEMBIC_INI))).get_current_head()
+    current = await schema_version(engine)
+    if current != head:
+        raise StoreError(f"schema at {current}, this build needs {head}")
+
+
+async def queue_is_moving(inbox: InboxRepository) -> None:
+    """The worker's liveness (s16 §4.3): no due message has waited a minute."""
+    waited = await inbox.oldest_due_wait()
+    if waited is not None and waited > QUEUE_STALL:
+        raise StoreError(f"oldest message waiting {int(waited.total_seconds())} s")
 
 
 def build_telemetry_pages(
@@ -830,6 +928,7 @@ def build_worker(
             users=users,
             media=engine_parts.media,
             child_sessions=ChildSessionRepository(session_factory),
+            demo=DemoRepository(session_factory),
             summaries=ChildSessionSummarySender(
                 SummaryDeps(
                     sessions=ChildSessionRepository(session_factory),
@@ -971,3 +1070,5 @@ async def close_container(container: Container) -> None:
     await container.rag.embedder.aclose()
     await container.engine.dispose()
     await container.listener_engine.dispose()
+    await container.health_checks.model_api.aclose()
+    await container.health_checks.sidecar.aclose()

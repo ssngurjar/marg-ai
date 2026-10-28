@@ -42,3 +42,18 @@ def create_listener_engine(url: SecretStr) -> AsyncEngine:
     """An engine without a pool for the one `LISTEN` connection (NotificationListener): the
     session must stay open, and must close for good rather than go back to a shared pool."""
     return sqlalchemy_create_async_engine(url.get_secret_value(), poolclass=NullPool)
+
+
+async def schema_version(engine: AsyncEngine) -> str | None:
+    """The migration the database is at (`alembic_version`), or None before any.
+
+    Raises StoreError when the database can't answer.
+    """
+    try:
+        async with engine.connect() as connection:
+            version: str | None = (
+                await connection.execute(text("SELECT version_num FROM alembic_version"))
+            ).scalar_one_or_none()
+    except (SQLAlchemyError, OSError) as exc:
+        raise StoreError(f"schema version unreadable: {type(exc).__name__}") from exc
+    return version

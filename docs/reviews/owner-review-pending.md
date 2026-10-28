@@ -350,6 +350,17 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
   "data hata do", "data mita do", "remove my data", "डेटा हटा दो" and similar. Each still asks
   for a yes before anything is deleted.
 
+## 2t. Hardening (S16, from 2026-10-28)
+
+- [ ] **Read the smoke test** (`docs/load/2026-10-28-smoke-test.md`): 10 visitors, 50 replies,
+  nothing lost or doubled; p95 wait 14.9 s (target 12 s), from the first khoj. **Decide:**
+  accept, shorten the burst wait to 500 ms, or move personalisation to Muse Spark Open.
+- [ ] **Your WhatsApp token:** reading the phone number or `/me` with it fails (Graph error 200,
+  a permissions error), so `/readyz` can't check it. Send "Hi" from your phone before filming;
+  make it a permanent system-user token before judging.
+- [ ] **Walk the pre-demo checklist** (`docs/submission/pre-demo-checklist.md`) the day before
+  submission.
+
 ## 3. Decisions log entries marked "pending owner review"
 
 - [ ] `docs/design/s05-llm-orchestrator.md`, 2026-10-27 (S5 build choices).
@@ -362,6 +373,7 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
 - [ ] `docs/design/s10b-parent-journey.md`, 2026-10-28 (summary for a session the child left).
 - [ ] `docs/design/s08-onboarding.md`, 2026-10-28 (web consent wording).
 - [ ] `docs/design/s15-evals.md`, 2026-10-28 (the eval harness and its choices).
+- [ ] `docs/design/s16-hardening.md`, 2026-10-28 (hardening choices).
 - [ ] `docs/design/contracts.md`, 2026-10-25 (`TurnObserver.on_step` result, `GoldenLearner`,
   `SignedTokenCodec`, the `ExtractSignals`/`UpdateMemory` fields).
 

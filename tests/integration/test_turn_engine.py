@@ -12,6 +12,7 @@ from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from uuid import uuid4
 
 import pytest
 from pydantic import SecretStr
@@ -20,7 +21,13 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from app.channels.whatsapp.payloads import WebhookBody
 from app.channels.whatsapp.webhook_parser import WhatsAppWebhookParser
-from app.core.errors import LeaseLost, ProviderError, ProviderRejected, ProviderUnavailable
+from app.core.errors import (
+    LeaseLost,
+    ProviderError,
+    ProviderRejected,
+    ProviderTimeout,
+    ProviderUnavailable,
+)
 from app.core.types import JsonValue
 from app.domain.enums import (
     Channel,
@@ -33,6 +40,8 @@ from app.domain.enums import (
     StepOutcome,
 )
 from app.domain.models.base import TurnId, UserHash
+from app.domain.models.curiosity import CuriositySource, ExtractSignals, UpdateMemory
+from app.domain.models.learner import LearnerId
 from app.domain.models.reply import ReplyButton
 from app.domain.models.turn import QueuedMessage
 from app.domain.models.usage import StepUsage
@@ -45,6 +54,7 @@ from app.store.notification_listener import ListenerSettings, NotificationListen
 from app.store.repositories.aspiration_signal_repository import AspirationSignalRepository
 from app.store.repositories.child_session_repository import ChildSessionRepository
 from app.store.repositories.curiosity_signal_repository import CuriositySignalRepository
+from app.store.repositories.demo_repository import DemoRepository
 from app.store.repositories.inbox_repository import InboundRecord, InboxRepository
 from app.store.repositories.lease_repository import LeaseRepository, LeaseTimes
 from app.store.repositories.media_blob_repository import MediaBlobRepository
@@ -224,6 +234,7 @@ def build(
             users=UserRepository(sessions),
             media=MediaBlobRepository(sessions),
             child_sessions=ChildSessionRepository(sessions),
+            demo=DemoRepository(sessions),
             summaries=ChildSessionSummarySender(
                 SummaryDeps(
                     sessions=ChildSessionRepository(sessions),
@@ -782,3 +793,78 @@ FINISHED_FOR_LEASE_TEST = FinishedTurn(
     failure_kind=None,
     inbox_status=InboxStatus.DONE,
 )
+
+
+async def test_maintenance_prunes_rate_limit_windows_older_than_two_days(
+    engine: AsyncEngine,
+) -> None:
+    parts = build(engine, FakeOrchestrator())
+    old, new = f"demo:old:{uuid4().hex}", f"demo:new:{uuid4().hex}"  # the table isn't truncated
+    async with engine.begin() as connection:
+        await connection.execute(
+            text(
+                "INSERT INTO rate_limit_counters (key, window_start, count) VALUES "
+                "(:old, now() - interval '3 days', 5), (:new, now(), 1)"
+            ),
+            {"old": old, "new": new},
+        )
+    await parts.maintenance.run_once()
+    async with engine.connect() as connection:
+        kept = (
+            (
+                await connection.execute(
+                    text("SELECT key FROM rate_limit_counters WHERE key IN (:old, :new)"),
+                    {"old": old, "new": new},
+                )
+            )
+            .scalars()
+            .all()
+        )
+    assert kept == [new]
+
+
+async def test_post_turn_work_that_fails_is_recorded_and_the_next_task_still_runs(
+    engine: AsyncEngine,
+) -> None:
+    """s16 §4.1: signals and memory run after the reply; their failure is a step row only."""
+    parts = build(engine, FakeOrchestrator())
+    user = await store_messages(parts, wa.text_message())
+    turn_id = await run_one_turn(parts, user)
+    assert turn_id is not None
+    sessions = parts.sessions
+    timed_out = ProviderTimeout("muse spark timed out", provider="meta_model_api")
+    runner = PostTurnRunner(
+        PostTurnDeps(
+            extractor=CuriositySignalExtractor(FakeLanguageModel([timed_out]), shipped_registry()),
+            signals=CuriositySignalRepository(sessions),
+            recorder=DatabaseStepRecorder(TurnStepRepository(sessions)),
+            clock=FixedClock(NOW),
+            timeout=timedelta(seconds=5),
+            cards=None,
+            memory=MemoryLayer(FakeLanguageModel([timed_out]), shipped_registry()),
+            memories=ProfileMemoryRepository(sessions),
+            aspiration=AspirationSignalExtractor(FakeLanguageModel([]), shipped_registry()),
+            aspirations=AspirationSignalRepository(sessions),
+        )
+    )
+    signals = ExtractSignals(
+        turn_id=turn_id,
+        learner_id=LearnerId(uuid4()),
+        user_text="Munni ne patte ikatthe kiye",
+        source=CuriositySource(
+            learner_id=LearnerId(uuid4()), kind="parent_report", hint_domains=[],
+            activity_title=None,
+        ),
+        child_age=5,
+    )  # fmt: skip
+    memory = UpdateMemory(
+        turn_id=turn_id, user_hash=user, previous=None, user_text="x", reply_text="y"
+    )
+    await runner.run([signals, memory])  # never raises: the reply is already out
+    assert await rows(
+        engine,
+        "SELECT step, outcome, failure_kind FROM turn_steps "
+        "WHERE step IN ('extract_signals', 'update_memory') ORDER BY id",
+    ) == [("extract_signals", "failed", "timeout"), ("update_memory", "failed", "timeout")]
+    assert await rows(engine, "SELECT status FROM turns") == [("completed",)]
+    assert await scalar(engine, "SELECT count(*) FROM curiosity_signals") == 0

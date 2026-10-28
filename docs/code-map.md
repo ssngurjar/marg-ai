@@ -11,7 +11,7 @@ line of the module's docstring.
 | `dashboard_page_renderer.py` | `DashboardPageRenderer` | DashboardPageRenderer: /status and /dashboard as plain HTML (s13 §4.7). |
 | `demo_view_serializer.py` | `DemoViewSerializer` | DemoViewSerializer: a visitor's turn as the JSON the demo page renders (s14 §4.4, §4.5). |
 | `deps.py` | — | FastAPI dependencies that read what the app factory put on `app.state`. |
-| `readiness.py` | `ProbeResult`, `ReadinessProbe` | Readiness probes: what `/readyz` checks, and how one check is run. |
+| `readiness.py` | `ProbeResult`, `ReadinessProbe`, `CachedCheck` | Readiness probes: what `/readyz` checks, and how one check is run. |
 | `telemetry_pages.py` | `TelemetryPages` | TelemetryPages: what the /status and /dashboard routes need, built once in wiring. |
 | `turn_event_stream.py` | `StreamSettings`, `TurnEventStream` | TurnEventStream: one visitor's live trace as Server-Sent Events (s14 §4.4). |
 | `turn_progress_hub.py` | `StreamLimits`, `Subscription`, `TurnProgressHub` | TurnProgressHub: routes `turn_progress` notifications to web visitors' open streams (s14 §4.4). |
@@ -62,7 +62,7 @@ line of the module's docstring.
 |---|---|---|
 | `cli.py` | `EvalRequest` | `marg` ops commands. Run as `.venv/bin/python -m app.cli <group> <command>`. |
 | `main.py` | — | App factory, used by `uvicorn app.main:create_app --factory` and by tests. |
-| `wiring.py` | `Container`, `OrchestratorPorts`, `VoiceAdapters`, `RagParts`, `EngineParts`, `Providers`, `EngineBasics` | Composition root: the only module that builds concrete adapters. |
+| `wiring.py` | `Container`, `OrchestratorPorts`, `VoiceAdapters`, `HealthChecks`, `RagParts`, `EngineParts`, `Providers`, `EngineBasics` | Composition root: the only module that builds concrete adapters. |
 
 ## `constants`
 
@@ -222,6 +222,12 @@ line of the module's docstring.
 | Module | Classes | What it does |
 |---|---|---|
 | `sidecar_embedder.py` | `EmbedderConfig`, `SidecarEmbedder` | SidecarEmbedder: multilingual-e5-small vectors from the voice server's `/embed` (s11 §4.4). |
+
+## `providers/health`
+
+| Module | Classes | What it does |
+|---|---|---|
+| `http_health_check.py` | `HealthEndpoint`, `HttpHealthCheck` | HttpHealthCheck: is a provider's API answering, for `/readyz` (s16 §4.3). |
 
 ## `providers`
 

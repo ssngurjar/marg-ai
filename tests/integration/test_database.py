@@ -4,6 +4,7 @@ import os
 
 import pytest
 from fastapi.testclient import TestClient
+from pydantic import HttpUrl
 from sqlalchemy.engine import make_url
 
 from app.core.errors import StoreError
@@ -23,14 +24,32 @@ def database_url() -> str:
 
 
 def test_readyz_against_real_postgres(database_url: str) -> None:
-    settings = make_settings(database_url=database_url)
+    """The database-backed probes pass against the test Postgres; the providers point at a
+    closed local port (no live call from the test suite), so their critical probes fail and
+    the service is honestly not ready."""
+    nowhere = HttpUrl("http://127.0.0.1:1/v1")
+    settings = make_settings(database_url=database_url).model_copy(
+        update={
+            "model_api_base_url": nowhere,
+            "safety_base_url": nowhere,
+            "sidecar_base_url": nowhere,
+        }
+    )
     with TestClient(create_app(settings=settings)) as client:
         response = client.get("/readyz")
-    assert response.status_code == 200
-    assert response.json()["checks"] == [
-        {"name": "database", "ok": True, "detail": None, "critical": True},
-        {"name": "ffmpeg", "ok": True, "detail": None, "critical": False},  # voice (s06)
-    ]
+    checks = {
+        check["name"]: (check["ok"], check["critical"]) for check in response.json()["checks"]
+    }
+    assert checks == {
+        "database": (True, True),
+        "schema": (True, True),  # the test database is at the newest migration
+        "queue": (True, True),
+        "model_api": (False, True),
+        "safety": (False, True),
+        "sidecar": (False, False),  # text replies still go out without the voice server
+        "ffmpeg": (True, False),
+    }
+    assert response.status_code == 503
 
 
 async def test_ping_raises_store_error_on_bad_credentials(database_url: str) -> None:

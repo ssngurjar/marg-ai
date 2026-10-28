@@ -3,7 +3,7 @@
 Every MAINTENANCE_INTERVAL_S, in order, each in its own transaction and each idempotent, so
 several workers can run it at once: take over expired leases (fail the dead turn, put its
 messages back), reset parts stuck in `sending`, retention, the purge sweep, expired media,
-abandoned child sessions and their parents' summaries, and the daily nudges.
+old rate-limit windows, abandoned child sessions and their parents' summaries, and the daily nudges.
 """
 
 import asyncio
@@ -14,6 +14,7 @@ from app.core.clock import Clock
 from app.core.errors import StoreError
 from app.core.logging import get_logger
 from app.store.repositories.child_session_repository import ChildSessionRepository
+from app.store.repositories.demo_repository import DemoRepository
 from app.store.repositories.lease_repository import LeaseRepository
 from app.store.repositories.media_blob_repository import MediaBlobRepository
 from app.store.repositories.outbox_repository import OutboxRepository
@@ -33,6 +34,7 @@ class MaintenanceSettings:
     retain_raw_payload: timedelta  # RETENTION_RAW_PAYLOAD_DAYS
     purge_sweep_after: timedelta  # PURGE_SWEEP_AFTER_S
     child_session_max: timedelta  # CHILD_SESSION_MAX_MINUTES: an open session past it is closed
+    rate_limit_window_kept: timedelta = timedelta(days=2)  # s04 §4.13
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,6 +46,7 @@ class MaintenanceDeps:
     media: MediaBlobRepository
     child_sessions: ChildSessionRepository
     summaries: ChildSessionSummarySender  # for sessions the child left without a goodbye
+    demo: DemoRepository  # the web demo's rate-limit counters
     nudges: NudgeSender | None  # the daily khoj message; None while NUDGES_ENABLED is false
     clock: Clock
 
@@ -101,6 +104,9 @@ class MaintenanceLoop:
         summaries = await deps.summaries.send_due()
         if summaries:
             logger.info("child_session_summaries_sent", parents=summaries)
+        pruned = await deps.demo.prune_rate_limits(self._settings.rate_limit_window_kept)
+        if pruned:
+            logger.info("rate_limits_pruned", windows=pruned)
         if deps.nudges is not None:
             nudged = await deps.nudges.send_due()
             if nudged:

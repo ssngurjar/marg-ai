@@ -9,7 +9,7 @@ from decimal import Decimal
 from uuid import UUID
 
 from pydantic import TypeAdapter
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, delete, func, select, tuple_
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -28,6 +28,7 @@ from app.store.tables import (
 )
 
 _BUTTONS = TypeAdapter(list[ReplyButton])
+PRUNE_BATCH = 1000
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,6 +93,28 @@ class DemoRepository:
                 return None
         except (SQLAlchemyError, OSError) as exc:
             raise StoreError(f"could not count a demo request: {type(exc).__name__}") from exc
+
+    async def prune_rate_limits(self, older_than: timedelta) -> int:
+        """Maintenance (s04 §4.13): hourly counter windows nobody can hit any more."""
+        stale = (
+            select(rate_limit_counters.c.key, rate_limit_counters.c.window_start)
+            .where(rate_limit_counters.c.window_start < func.now() - older_than)
+            .limit(PRUNE_BATCH)
+        )
+        try:
+            async with self._session_factory() as session, session.begin():
+                result = await session.execute(
+                    delete(rate_limit_counters)
+                    .where(
+                        tuple_(rate_limit_counters.c.key, rate_limit_counters.c.window_start).in_(
+                            stale
+                        )
+                    )
+                    .returning(rate_limit_counters.c.key)
+                )
+                return len(result.all())
+        except (SQLAlchemyError, OSError) as exc:
+            raise StoreError(f"could not prune rate limits: {type(exc).__name__}") from exc
 
     async def web_cost_since(self, since: datetime) -> Decimal:
         """Today's spend on web visitors (s14 §4.7)."""
