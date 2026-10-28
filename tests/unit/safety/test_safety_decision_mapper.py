@@ -4,7 +4,14 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from app.domain.enums import FixedReplyVariant, SafetyCategory, SafetyDecision
+from app.constants.fixed_replies import FIXED_TEXTS, FixedTextKey
+from app.domain.enums import (
+    FixedReplyKind,
+    FixedReplyVariant,
+    Language,
+    SafetyCategory,
+    SafetyDecision,
+)
 from app.safety.safety_decision_mapper import SafetyDecisionMapper
 
 pytestmark = pytest.mark.unit
@@ -37,6 +44,18 @@ def test_nothing_flagged_is_allowed_with_no_variant() -> None:
         ([C.HATE, C.SELF_HARM], (SafetyDecision.CRISIS, FixedReplyVariant.SELF_HARM)),
         ([C.ABUSE_DISCLOSURE, C.SELF_HARM], (SafetyDecision.CRISIS, FixedReplyVariant.SELF_HARM)),
         ([C.VIOLENT_CRIMES], (SafetyDecision.BLOCK, FixedReplyVariant.HARMFUL)),
+        (
+            [C.INDISCRIMINATE_WEAPONS],
+            (SafetyDecision.BLOCK, FixedReplyVariant.DANGEROUS_MAKING),
+        ),
+        (
+            [C.INDISCRIMINATE_WEAPONS, C.VIOLENT_CRIMES],
+            (SafetyDecision.BLOCK, FixedReplyVariant.HARMFUL),
+        ),
+        (
+            [C.INDISCRIMINATE_WEAPONS, C.MEDICAL],
+            (SafetyDecision.BLOCK, FixedReplyVariant.DANGEROUS_MAKING),
+        ),
         ([C.PRIVACY, C.MEDICAL], (SafetyDecision.BLOCK, FixedReplyVariant.PRIVACY)),
         ([C.MEDICAL], (SafetyDecision.BLOCK, FixedReplyVariant.MEDICAL)),
         ([C.ROMANTIC], (SafetyDecision.BLOCK, FixedReplyVariant.GENERAL)),
@@ -72,3 +91,23 @@ def test_order_of_categories_never_changes_the_outcome(categories: list[SafetyCa
     forward = SafetyDecisionMapper.decide(categories, SafetyDecisionMapper.INPUT)
     backward = SafetyDecisionMapper.decide(list(reversed(categories)), SafetyDecisionMapper.INPUT)
     assert forward == backward
+
+
+@pytest.mark.parametrize("language", list(Language))
+def test_the_weapons_refusal_redirects_to_a_safe_way_to_learn(language: Language) -> None:
+    """Owner, 2026-10-28: "can I make a rocket from firecracker powder?" never gets a method,
+    but is told never to make one and where to learn safely."""
+    key = FixedTextKey(FixedReplyKind.REFUSE, FixedReplyVariant.DANGEROUS_MAKING, language)
+    text = FIXED_TEXTS[key].text
+    teacher = {
+        Language.HINGLISH: "science teacher",
+        Language.HINDI: "विज्ञान शिक्षक",
+        Language.ENGLISH: "science teacher",
+    }
+    never = {
+        Language.HINGLISH: "Kabhi khud mat",
+        Language.HINDI: "कभी ख़ुद मत",
+        Language.ENGLISH: "Never make one",
+    }
+    assert teacher[language] in text
+    assert never[language] in text

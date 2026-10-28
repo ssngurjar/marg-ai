@@ -423,4 +423,5 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
   allowed there too; it would need the reflection's question and tip checked by a model instead.
 - [ ] The prompt lines on hazards as examples (child_talk 1.0.3, curiosity_moment 1.0.3,
   mentor 1.1.3) and the round-tip scissors phrases in `app/constants/child_hazards.py`.
-
+- [ ] The weapons and explosives redirect copy (`REFUSE`/`DANGEROUS_MAKING` in
+  `app/constants/fixed_replies.py`), in Hinglish, Hindi and English.

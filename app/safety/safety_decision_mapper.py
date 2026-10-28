@@ -2,7 +2,7 @@
 
 Two total tables, one for the user's message and one for our reply. Precedence over a set of
 categories: CRISIS > BLOCK > ALLOW. The fixed-reply variant comes from the highest-priority
-category: SELF_HARM > ABUSE > HARMFUL > PRIVACY > MEDICAL > GENERAL.
+category: SELF_HARM > ABUSE > HARMFUL > DANGEROUS_MAKING > PRIVACY > MEDICAL > GENERAL.
 """
 
 from collections.abc import Collection, Mapping
@@ -57,7 +57,8 @@ class SafetyDecisionMapper:
             _C.NON_VIOLENT_CRIMES: FixedReplyVariant.HARMFUL,
             _C.SEX_CRIMES: FixedReplyVariant.HARMFUL,
             _C.CHILD_EXPLOITATION: FixedReplyVariant.HARMFUL,
-            _C.INDISCRIMINATE_WEAPONS: FixedReplyVariant.HARMFUL,
+            # owner, 2026-10-28: "can I make a rocket from firecracker powder?" gets a safe redirect
+            _C.INDISCRIMINATE_WEAPONS: FixedReplyVariant.DANGEROUS_MAKING,
             _C.HATE: FixedReplyVariant.HARMFUL,
             _C.SEXUAL_CONTENT: FixedReplyVariant.HARMFUL,
             _C.CODE_INTERPRETER_ABUSE: FixedReplyVariant.HARMFUL,
@@ -69,6 +70,7 @@ class SafetyDecisionMapper:
         FixedReplyVariant.SELF_HARM,
         FixedReplyVariant.ABUSE,
         FixedReplyVariant.HARMFUL,
+        FixedReplyVariant.DANGEROUS_MAKING,
         FixedReplyVariant.PRIVACY,
         FixedReplyVariant.MEDICAL,
         FixedReplyVariant.GENERAL,

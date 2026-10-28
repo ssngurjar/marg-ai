@@ -210,6 +210,7 @@ class FixedReplyVariant(StrEnum):
 
     DEFAULT = "default"
     HARMFUL = "harmful"
+    DANGEROUS_MAKING = "dangerous_making"  # weapons or explosives: never at home, learn safely
     PRIVACY = "privacy"
     MEDICAL = "medical"
     GENERAL = "general"

@@ -129,6 +129,25 @@ _PLAIN_TEXTS: Final[dict[tuple[FixedReplyKind, FixedReplyVariant], dict[Language
             "I can't help with that. Ask me about studies, play, careers or children's learning."
         ),
     },
+    # Weapons or explosives (S9), owner 2026-10-28: never how, but a safe way to learn about it.
+    (_K.REFUSE, _V.DANGEROUS_MAKING): {
+        _HINGLISH: (
+            "Ghar par patakhe, rocket ya koi hathiyaar banana bahut khatarnak hai, isliye iska"
+            " tareeka nahi bata sakte. Kabhi khud mat banaiye. Rocket kaise udta hai ya kaun log"
+            " ispar kaam karte hain, yeh poochhiye. Seekhne ke liye school ke science teacher se"
+            " baat kijiye."
+        ),
+        _HINDI: (
+            "घर पर पटाखे, रॉकेट या कोई हथियार बनाना बहुत ख़तरनाक है, इसलिए इसका तरीका नहीं बता"
+            " सकते। कभी ख़ुद मत बनाइए। रॉकेट कैसे उड़ता है या कौन लोग इस पर काम करते हैं, यह"
+            " पूछिए। सीखने के लिए स्कूल के विज्ञान शिक्षक से बात कीजिए।"
+        ),
+        _ENGLISH: (
+            "Making firecrackers, rockets or any weapon at home is very dangerous, so I can't say"
+            " how. Never make one yourself. Ask me how a rocket flies, or who works on them. To"
+            " learn more, talk to your school's science teacher."
+        ),
+    },
     (_K.REFUSE, _V.PRIVACY): {
         _HINGLISH: (
             "Kisi aur ki jaankari hum kabhi share nahi karte, aur aapke message bhi private rehte"
