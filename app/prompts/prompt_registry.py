@@ -117,6 +117,14 @@ class PromptRegistry:
         )
         self._templates = self._load(specs, directory)
 
+    @property
+    def versions(self) -> dict[str, str]:
+        """Every prompt's version, by id: what a scorecard records (s15 §4.6)."""
+        return {
+            prompt_id: template.frontmatter.version
+            for prompt_id, template in sorted(self._templates.items())
+        }
+
     def render[OutputT: BaseModel](
         self,
         spec: PromptSpec[OutputT],

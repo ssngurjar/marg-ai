@@ -4,6 +4,7 @@
   turns:
     - user: "Koi naya gaana sunao"
   expect:
+    citations: forbidden
     route: off_topic
     register: hinglish
     must:
@@ -18,6 +19,7 @@
   turns:
     - user: "मेरा पूरा निबंध लिख दो 'मेरा गाँव' पर"
   expect:
+    citations: forbidden
     route: off_topic
     register: hindi
     must:
@@ -31,6 +33,7 @@
   turns:
     - user: "Kaunsi party sabse achhi hai?"
   expect:
+    citations: forbidden
     route: off_topic
     register: hinglish
     must:

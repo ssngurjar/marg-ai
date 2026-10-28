@@ -235,7 +235,7 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
 
 - [x] **Decided 2026-10-28:** the admin view shows counts from a single child; everyone else's
   floor stays 5.
-- [ ] **Run `make migrate`** (two new migrations: `s10b_photos`, `s13_turn_metrics`), then open
+- [x] ~~Run `make migrate`~~ (done 2026-10-28, database at `s04_user_leases`), then open
   `http://127.0.0.1:8000/status`, and `.venv/bin/python -m app.cli admin-link` for the dashboard.
 - [ ] **Look at the pages**: wording of the tiles and headings, what you'd want on screen in the
   video (`/status` and the `/demo` trace are safe to film; the dashboard isn't, or blur it).
@@ -244,8 +244,7 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
 
 ## 2l. The Aspirational engine: corpus, mentor, roadmap, memory (S11, S12, from 2026-10-28)
 
-- [ ] **Run `make migrate`** (now four new migrations: `s10b_photos`, `s13_turn_metrics`,
-  `s11_corpus_tables`, `s12_roadmaps_memory`), start the voice server (it now also serves
+- [x] ~~Run `make migrate`~~ (done 2026-10-28, database at `s04_user_leases`); voice server started and corpus ingested on 2026-10-28 (50 documents, 235 chunks). Was: start the voice server (it now also serves
   `/embed`; first start downloads multilingual-e5-small, about 470 MB), then
   `.venv/bin/python -m app.cli ingest-corpus`.
 - [ ] **Review the corpus: 50 documents in `corpus/`** (scholarships 18, sports 7, exams 10,
@@ -294,7 +293,7 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
 
 ## 2n. Several workers: leases and LISTEN/NOTIFY (E1 upgrade, s04, from 2026-10-28)
 
-- [ ] **Run `make migrate`** (new migration `s04_user_leases`: two lease columns on `users`).
+- [x] `make migrate` run by the owner on 2026-10-28: the local database is at `s04_user_leases`.
 - [ ] **Decide:** keep the worker inside the api by default (`RUN_WORKER_IN_API=true`, one process,
   what the demo uses), or run `python -m app.worker` beside the api (`make worker`). Both are safe
   with leases. Recommended: keep the default for the hackathon.
@@ -329,6 +328,18 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
   naam ya phone number nahi liya jata … Upar 'Reset' dabakar kabhi bhi sab delete kar sakte
   hain." WhatsApp's wording is unchanged. Copy version `onb-2026-10-28.3`.
 
+## 2r. The eval scorecard (S15, from 2026-10-28)
+
+- [x] `EVAL_DATABASE_ADMIN_URL` added to `.env` beside `DATABASE_URL` (the test Postgres; each
+  run creates and drops its own `marg_eval_*` database there). `MODEL_JUDGE` and
+  `TIMEOUT_JUDGE_S` have defaults.
+- [ ] **Read the scorecard** in `evals/results/` (the newest `.md`): the honest pass rate, the
+  hard gates (crisis, adversarial) and every failing case with the judge's reason.
+- [ ] **Collect the two photo fixtures** for parent-journey-010/011 (`evals/fixtures/images/`:
+  leaves only; and a consented adult holding leaves, never a child). Until then they're skipped.
+- [ ] **Decide:** the judge's token cap went from 2000 to 6000 (it was cutting answers off), and
+  the judge sees only the cited sources, not every retrieved one. Recommended: keep both.
+
 ## 3. Decisions log entries marked "pending owner review"
 
 - [ ] `docs/design/s05-llm-orchestrator.md`, 2026-10-27 (S5 build choices).
@@ -340,6 +351,7 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
 - [ ] `docs/design/s14-web-channel.md` and `mvp-scope.md`, 2026-10-28 (E2 upgrade: the live trace).
 - [ ] `docs/design/s10b-parent-journey.md`, 2026-10-28 (summary for a session the child left).
 - [ ] `docs/design/s08-onboarding.md`, 2026-10-28 (web consent wording).
+- [ ] `docs/design/s15-evals.md`, 2026-10-28 (the eval harness and its choices).
 - [ ] `docs/design/contracts.md`, 2026-10-25 (`TurnObserver.on_step` result, `GoldenLearner`,
   `SignedTokenCodec`, the `ExtractSignals`/`UpdateMemory` fields).
 

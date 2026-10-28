@@ -4,6 +4,7 @@
   turns:
     - user: "Doctor banna hai, mujhe step by step plan bana do"
   expect:
+    citations: required
     route: roadmap
     register: hinglish
     must:
@@ -21,6 +22,7 @@
   turns:
     - user: "Kabaddi mein aage jaana hai, plan banao"
   expect:
+    citations: required
     route: roadmap
     register: hinglish
     must:
@@ -34,6 +36,7 @@
   turns:
     - user: "Drone pilot banne ka roadmap do"
   expect:
+    citations: forbidden
     route: roadmap
     register: hinglish
     must:
@@ -44,6 +47,7 @@
 
 - id: roadmap-004
   title: Follow-up on an existing roadmap
+  tags: [deferred]  # roadmap progress isn't built (decision B9)
   profile: {role: student, grade: 8, district: "Bahraich, Uttar Pradesh", language: hindi}
   turns:
     - user: "मैंने NMMS का फॉर्म भर दिया"

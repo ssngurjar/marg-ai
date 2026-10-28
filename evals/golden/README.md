@@ -1,10 +1,13 @@
-# Golden evaluation cases (draft, S0)
+# Golden evaluation cases
 
-Hand-written cases that `marg eval` (S15) runs through the real pipeline. They're drafted now so
-every layer is built against known expectations from the start.
+Hand-written cases that `marg eval` (S15) plays through the real pipeline, with real models and
+safety, on a disposable copy of the database. Each reply is checked by code (route, register,
+safety, fixed reply, citations, spoken text) and by an LLM judge (every `must` / `must_not`, plus
+five rubric scores). The scorecard goes to `evals/results/`.
 
-**The format is provisional.** S15 turns it into a Pydantic model, and these files will be
-migrated to match it. Until then, keep to the shape below.
+The format is the `GoldenCase` model in `app/evals/golden_case.py`; unknown keys are refused.
+Run `.venv/bin/python -m app.cli eval --file crisis.yaml` (needs `EVAL_DATABASE_ADMIN_URL`, the
+test Postgres from `make test-db-up`, and the voice server's `/embed` for the corpus).
 
 ## Case shape
 
@@ -24,6 +27,9 @@ migrated to match it. Until then, keep to the shape below.
     register: hindi | hinglish | english   # the language the reply must come back in
     safety: pass | block_in | block_out
     fixed_reply: crisis | holding | repeat_please   # when the reply must be fixed text, not generated
+    citations: required | forbidden | any   # required: every citation is a corpus chunk
+    photo_count: {leaf: 7}         # what SAM 3.1 must count, within one either way
+    card: sent | none              # a khoj card after the reply
     must:                          # rubric statements the LLM judge checks
       - …
     must_not:

@@ -180,22 +180,29 @@ class Settings(DatabaseSettings):
     retrieval_min_similarity: float = Field(default=0.80, ge=0, le=1)  # calibrated on the eval
     query_rewrite_enabled: bool = False  # on only if the eval shows recall@5 +0.05 (B9)
 
+    # Added in S15 for `marg eval` (s15 §7). The judge reads replies, never users' messages.
+    model_judge: str = Field(default="muse-spark-1.3", min_length=1)
+    timeout_judge_s: float = Field(default=90.0, gt=0)  # high reasoning: slower than a turn
+    # The TEST Postgres, with rights to create and drop databases: each run gets its own.
+    eval_database_admin_url: SecretStr | None = None
+    eval_concurrency: int = Field(default=4, ge=1, le=16)
+
     # Added in S10b for child talk (C13; contracts §7)
     child_talk_enabled: bool = True
     child_session_max_turns: int = Field(default=6, ge=1)
     child_session_max_minutes: int = Field(default=10, ge=1)
     child_session_cooldown_minutes: int = Field(default=30, ge=0)
 
-    @field_validator("database_listen_url", mode="before")
+    @field_validator("database_listen_url", "eval_database_admin_url", mode="before")
     @classmethod
     def _none_when_blank(cls, value: object) -> object:
         if isinstance(value, str) and not value.strip():
             return None
         return value
 
-    @field_validator("database_listen_url")
+    @field_validator("database_listen_url", "eval_database_admin_url")
     @classmethod
-    def _listen_url_uses_asyncpg(cls, url: SecretStr | None) -> SecretStr | None:
+    def _optional_url_uses_asyncpg(cls, url: SecretStr | None) -> SecretStr | None:
         if url is not None and not url.get_secret_value().startswith(ASYNCPG_SCHEME):
             raise ValueError(f"must use the {ASYNCPG_SCHEME} scheme")
         return url

@@ -60,9 +60,9 @@ line of the module's docstring.
 
 | Module | Classes | What it does |
 |---|---|---|
-| `cli.py` | — | `marg` ops commands. Run as `.venv/bin/python -m app.cli <group> <command>`. |
+| `cli.py` | `EvalRequest` | `marg` ops commands. Run as `.venv/bin/python -m app.cli <group> <command>`. |
 | `main.py` | — | App factory, used by `uvicorn app.main:create_app --factory` and by tests. |
-| `wiring.py` | `Container`, `OrchestratorPorts`, `VoiceAdapters`, `RagParts`, `EngineParts` | Composition root: the only module that builds concrete adapters. |
+| `wiring.py` | `Container`, `OrchestratorPorts`, `VoiceAdapters`, `RagParts`, `EngineParts`, `Providers`, `EngineBasics` | Composition root: the only module that builds concrete adapters. |
 
 ## `constants`
 
@@ -116,6 +116,7 @@ line of the module's docstring.
 | `curiosity.py` | `CuriositySignals`, `CuriositySource`, `ExtractSignals`, `MakeKhojCard`, `UpdateMemory` | What a child engaged with, for the young-learner trajectory (s13 §4.4). Never a label. |
 | `curriculum.py` | `Chapter`, `CatalogueBook`, `ChapterMatch` | The textbook chapter catalogue (s10 §4.5): official NCERT titles, used only as a hint. |
 | `delivery.py` | `PartState` | Where an outbound part stands in its delivery (s04 §4.10). |
+| `eval_judgement.py` | `JudgeItem`, `JudgeScore` | What the eval judge returns for one reply (s15 §4.4): a verdict per must / must_not item and |
 | `learner.py` | `Learner` | Learners: the child or student whose journey Marg.ai follows (contracts §2.2, data-model). |
 | `message.py` | `MediaRef`, `InboundMessage`, `AudioClip`, `ImageClip`, `Transcript` | What users send us: messages and the media they carry (contracts.md §2.1). |
 | `photo.py` | `ObjectCount`, `PhotoFindings` | What a parent's photo of the child's work tells us: counts only, never the image (s10b §4.14). |
@@ -157,6 +158,24 @@ line of the module's docstring.
 | `session_rules.py` | `SessionRules` | SessionRules: the only definition of a session (contracts §2.2). Pure. |
 | `stage_rules.py` | `StageRules` | StageRules: a learner's age and NEP stage from their birth year (s10b §4.2). Pure. |
 | `turn_batcher.py` | `TurnBatcher` | TurnBatcher: which pending messages a turn takes, and when it gives up (s04 §4.4, §4.9). Pure. |
+
+## `evals`
+
+| Module | Classes | What it does |
+|---|---|---|
+| `eval_checks.py` | `CheckResult`, `EvalChecks` | EvalChecks: the deterministic checks on one turn's reply (s15 §4.3). |
+| `eval_context.py` | `EvalContext` | EvalContext: which case's turn is running, for the recorders shared across cases (s15 §4.2). |
+| `eval_harness.py` | `HarnessOptions`, `EvalHarness` | EvalHarness: a disposable database and the real pipeline, wired for one eval run (s15 §4.2). |
+| `eval_judge.py` | `JudgedTurn`, `EvalJudge` | EvalJudge: an LLM reads one reply and decides each must / must_not item (s15 §4.4). |
+| `eval_runner.py` | `CaseFilter`, `EvalRunConfig`, `RunIdentity`, `EvalOutcome`, `EvalRunner` | EvalRunner: `marg eval` from start to finish (s15 §4.2, §4.5 to §4.8). |
+| `golden_case.py` | `GoldenProfile`, `GoldenLearner`, `GoldenAttachment`, `TurnExpectation`, `GoldenTurn`, `GoldenCase` | GoldenCase: one hand-written eval case from `evals/golden/*.yaml` (s15 §4.1). |
+| `golden_case_loader.py` | `LoadedCase`, `GoldenCaseLoader` | GoldenCaseLoader: reads and checks every case file in `evals/golden/` (s15 §4.1). |
+| `recording_image_generator.py` | `RecordingImageGenerator` | RecordingImageGenerator: khoj-card picture stand-in for `marg eval` (s15 §4.2). |
+| `recording_synthesizer.py` | `RecordingSynthesizer` | RecordingSynthesizer: text-to-speech stand-in for `marg eval` (s15 §4.2). |
+| `scorecard.py` | `FailedItem`, `CaseResult`, `Scorecard`, `RubricDrop`, `RegressionReport` | Scorecard: one `marg eval` run, as committed to `evals/results/` (s15 §4.6). |
+| `scorecard_builder.py` | `RunMeta`, `ScorecardBuilder` | ScorecardBuilder: case results → the run's scorecard, its file name and the baseline it's |
+| `scorecard_renderer.py` | `ScorecardRenderer` | ScorecardRenderer: the scorecard as markdown, readable on its own (s15 §4.6). |
+| `turn_capture.py` | `TurnRecord`, `TurnCapture` | TurnCapture: what one eval turn did, from the pipeline's observer and the database (s15 §4.2). |
 
 ## `layers`
 
@@ -266,6 +285,7 @@ line of the module's docstring.
 | Module | Classes | What it does |
 |---|---|---|
 | `db.py` | — | Async database engine and sessions. The only place a connection is opened. |
+| `eval_database.py` | `EvalDatabase` | EvalDatabase: the disposable database each `marg eval` run creates and drops (s15 §4.2). |
 | `notification_listener.py` | `ListenerSettings`, `NotificationListener` | NotificationListener: Postgres `LISTEN` on one dedicated connection (s04 §4.11; s14 §4.6). |
 | `tables.py` | — | Table definitions (data-model.md). Each table is created by its step's Alembic migration. |
 | `turn_progress_notifier.py` | `TurnProgressNotifier` | TurnProgressNotifier: `NOTIFY turn_progress` with a turn id (s04 §4.6, s14 §4.4). |
@@ -280,6 +300,7 @@ line of the module's docstring.
 | `chunk_repository.py` | `DocumentRow`, `ChunkRow`, `Candidate`, `StoredChunk`, `ChunkRepository` | ChunkRepository: the corpus in Postgres (s11 §4.5, §4.7). No user data. |
 | `curiosity_signal_repository.py` | `CuriositySignalRepository` | Curiosity signals: what a child engaged with on a journey turn (s13 §4.4, data-model). |
 | `demo_repository.py` | `RateLimit`, `TraceStep`, `ReplyPartView`, `TurnView`, `MessageView`, `DemoRepository` | The web demo's reads and counters (s14 §4.3 to §4.7): rate limits, today's web cost, what |
+| `eval_repository.py` | `SeedLearner`, `SeedActivity`, `EvalSeed`, `EvalStep`, `EvalPart`, `EvalTurnSnapshot`, `SourceText`, `EvalRepository` | EvalRepository: seeding a golden case's user and reading back what a turn did (s15 §4.2). |
 | `inbox_repository.py` | `InboundRecord`, `SaveResult`, `LatestInbound`, `InboxRepository` | Storing inbound WhatsApp messages (s03 §4.5, §4.6). The only SQL for users and the inbox. |
 | `journey_repository.py` | `JourneyRepository` | The khoj offered to each child and how it went (s10b §5, data-model `learner_activities`). |
 | `khoj_card_repository.py` | `QueuedCard`, `KhojCardRepository` | Khoj cards: the image, its link to the report, and the KHOJ_CARD turn that sends it |

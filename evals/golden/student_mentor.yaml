@@ -19,6 +19,7 @@
   turns:
     - user: "मुझे डॉक्टर बनना है, उसके लिए कौन सा एग्जाम देना होगा?"
   expect:
+    citations: required
     route: mentor
     register: hindi
     must:
@@ -50,6 +51,7 @@
   turns:
     - user: "Marine biologist kaise bante hain? hamare yahan samundar nahi hai"
   expect:
+    citations: forbidden
     route: mentor
     register: hinglish
     must:

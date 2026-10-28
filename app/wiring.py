@@ -8,7 +8,7 @@ model on user content, every fixed reply in every language, every prompt templat
 import os
 import random
 import socket
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import timedelta
 from functools import partial
 from typing import Final
@@ -32,6 +32,7 @@ from app.core.config import Settings
 from app.core.signed_token_codec import SignedTokenCodec
 from app.core.user_identity import UserIdentity
 from app.domain.enums import Channel
+from app.domain.models.eval_judgement import JudgeScore
 from app.domain.models.voice import VoiceLimits
 from app.domain.rules.child_session_rules import ChildSessionLimits
 from app.layers.activity_catalogue import ActivityCatalogue, CatalogueActivitySource
@@ -63,7 +64,7 @@ from app.pipeline.orchestrator import (
     StudentSteps,
     VoiceSteps,
 )
-from app.prompts.prompt_registry import PromptRegistry, PromptSettings
+from app.prompts.prompt_registry import PromptRegistry, PromptSettings, PromptSpec
 from app.providers.embeddings.sidecar_embedder import EmbedderConfig, SidecarEmbedder
 from app.providers.http import AsyncioSleeper, RetryPolicy, RetryTiming
 from app.providers.image.image_compressor import ImageCompressor
@@ -75,7 +76,14 @@ from app.providers.llm.meta_model_api_language_model import (
     ModelApiConfig,
 )
 from app.providers.llm.model_pricing import ModelPricing
-from app.providers.ports import ChannelSender, ImageSegmenter, LanguageModel, SafetyClassifier
+from app.providers.ports import (
+    ChannelSender,
+    ImageGenerator,
+    ImageSegmenter,
+    LanguageModel,
+    SafetyClassifier,
+    Synthesizer,
+)
 from app.providers.safety.llama_guard_classifier import LlamaGuardClassifier, SafetyHostConfig
 from app.providers.speech.muse_voice_transcriber import MuseVoiceTranscriber, TranscriberConfig
 from app.providers.speech.sidecar_synthesizer import SidecarConfig, SidecarSynthesizer
@@ -124,6 +132,8 @@ LISTENER_HEALTH_CHECK = timedelta(seconds=15)
 STREAM_HEARTBEAT = timedelta(seconds=15)  # s14 §4.4: a ping keeps proxies from closing the stream
 STREAM_REPLAY_WINDOW = timedelta(minutes=2)
 STREAMS_PER_VISITOR = 2
+EVAL_JUDGE: Final = PromptSpec(prompt_id="eval_judge", output_type=JudgeScore)
+"""Rendered only by `marg eval` (app/evals), over synthetic golden cases (s15 §4.4)."""
 PROMPT_SPECS: Final = (
     PARENT_ANSWER,
     MINOR_POLICY,
@@ -141,6 +151,7 @@ PROMPT_SPECS: Final = (
     ROADMAP,
     ASPIRATION_EXTRACT,
     EXPOSURE,
+    EVAL_JUDGE,
 )
 """Every prompt the app renders; the registry refuses a template without a spec."""
 INVITE_GREETING: Final = "Namaste Marg"
@@ -210,67 +221,7 @@ def build_container(settings: Settings) -> Container:
         ),
         clock=clock,
     )
-    spark = MetaModelApiLanguageModel(
-        config=ModelApiConfig(
-            base_url=str(settings.model_api_base_url),
-            api_key=settings.model_api_key,
-            timeout_s=settings.timeout_generate_s,
-        ),
-        retry=retry,
-        clock=clock,
-    )
-    open_model = MetaModelApiLanguageModel(
-        config=ModelApiConfig(
-            base_url=str(settings.open_model_base_url),
-            api_key=settings.open_model_api_key,
-            timeout_s=settings.timeout_open_model_s,
-        ),
-        retry=retry,
-        clock=clock,
-    )
-    language_model = FallbackLanguageModel(
-        open_model,
-        spark,
-        FallbackRoute(
-            primary_model=settings.open_model,
-            fallback_model=settings.model_text,
-            primary_timeout=timedelta(seconds=settings.timeout_open_model_s),
-        ),
-    )
-    safety_classifier = LlamaGuardClassifier(
-        config=SafetyHostConfig(
-            base_url=str(settings.safety_base_url),
-            api_key=settings.safety_api_key,
-            model=settings.safety_model,
-            timeout_s=settings.timeout_guard_s,
-        ),
-        retry=retry,
-        clock=clock,
-    )
-    voice_adapters = build_voice_adapters(settings, session_factory, retry, clock)
-    rag = build_rag(settings, session_factory, retry, clock)
-    image_generator = MuseImageGenerator(
-        config=ImageModelConfig(
-            base_url=str(settings.model_api_base_url),
-            api_key=settings.model_api_key,
-            model=settings.model_image,
-            reasoning_strength=settings.image_reasoning_strength,
-            timeout_s=settings.timeout_make_card_s,
-        ),
-        retry=retry,
-        clock=clock,
-        compressor=ImageCompressor(FfmpegRunner(timeout_s=settings.transcode_timeout_s)),
-    )
-    image_segmenter = SamImageSegmenter(
-        config=SegmentModelConfig(
-            base_url=str(settings.model_api_base_url),
-            api_key=settings.model_api_key,
-            model=settings.model_segment,
-            timeout_s=settings.timeout_analyze_image_s,
-        ),
-        retry=retry,
-        clock=clock,
-    )
+    providers = build_providers(settings, session_factory, retry, clock)
     inbox = InboxRepository(session_factory)
     outbox = OutboxRepository(session_factory)
     listener_engine = create_listener_engine(settings.database_listen_url or settings.database_url)
@@ -285,33 +236,12 @@ def build_container(settings: Settings) -> Container:
         settings=settings,
         session_factory=session_factory,
         listener_engine=listener_engine,
-        engine_parts=EngineParts(
-            clock=clock,
-            identity=identity,
-            retry=retry,
+        engine_parts=build_engine_parts(
+            settings,
+            providers,
+            EngineBasics(identity=identity, retry=retry, clock=clock, outbox=outbox),
             senders={Channel.WHATSAPP: whatsapp_sender, Channel.WEB: WebSender(clock)},
-            orchestrator=build_orchestrator(
-                settings,
-                OrchestratorPorts(
-                    language_model,
-                    safety_classifier,
-                    voice_steps(settings, voice_adapters),
-                    photo_steps(settings, voice_adapters, image_segmenter),
-                    rag.retriever,
-                ),
-                clock,
-                catalogue=catalogue,
-            ),
-            outbox=outbox,
-            media=voice_adapters.media,
-            signals=CuriositySignalExtractor(language_model, prompt_registry(settings)),
-            cards=(
-                KhojCardMaker(spark, image_generator, prompt_registry(settings))
-                if settings.khoj_card_enabled
-                else None
-            ),
-            memory=MemoryLayer(spark, prompt_registry(settings)),
-            memory_model=language_model,
+            catalogue=catalogue,
         ),
     )
     return Container(
@@ -323,19 +253,21 @@ def build_container(settings: Settings) -> Container:
             ReadinessProbe(name="database", critical=True, check=partial(ping, engine)),
             # Voice degrades to text when these fail, so they don't take the app out of service
             ReadinessProbe(
-                name="ffmpeg", critical=False, check=voice_adapters.transcoder.check_encoders
+                name="ffmpeg",
+                critical=False,
+                check=providers.voice_adapters.transcoder.check_encoders,
             ),
         ),
         identity=identity,
         whatsapp_sender=whatsapp_sender,
         inbox_repository=inbox,
         outbox_repository=outbox,
-        language_models=(spark, open_model),
-        safety_classifier=safety_classifier,
-        voice_adapters=voice_adapters,
-        image_generator=image_generator,
-        image_segmenter=image_segmenter,
-        rag=rag,
+        language_models=(providers.spark, providers.open_model),
+        safety_classifier=providers.safety_classifier,
+        voice_adapters=providers.voice_adapters,
+        image_generator=providers.image_generator,
+        image_segmenter=providers.image_segmenter,
+        rag=providers.rag,
         worker=worker,
         listener_engine=listener_engine,
         web_demo=WebDemoIngestor(
@@ -345,7 +277,7 @@ def build_container(settings: Settings) -> Container:
                     settings.session_signing_key, settings.session_signing_key_previous
                 ),
                 demo=demo_repository,
-                media=voice_adapters.media,
+                media=providers.voice_adapters.media,
                 inbox=inbox,
                 waker=worker,
                 clock=clock,
@@ -625,7 +557,11 @@ def prompt_registry(settings: Settings) -> PromptRegistry:
     return PromptRegistry(
         specs=PROMPT_SPECS,
         settings=PromptSettings(
-            models={"MODEL_TEXT": settings.model_text, "OPEN_MODEL": settings.open_model},
+            models={
+                "MODEL_TEXT": settings.model_text,
+                "OPEN_MODEL": settings.open_model,
+                "MODEL_JUDGE": settings.model_judge,
+            },
             reasoning_effort=settings.model_reasoning_effort,
             user_slot_max_chars=settings.user_slot_max_chars,
         ),
@@ -658,6 +594,153 @@ class EngineParts:
     cards: KhojCardMaker | None  # None while KHOJ_CARD_ENABLED is false
     memory: MemoryLayer
     memory_model: LanguageModel  # the extraction model (Muse Spark Open with its fallback)
+
+
+@dataclass(frozen=True, slots=True)
+class Providers:
+    """The adapters behind every port: the same for the app and for `marg eval`."""
+
+    spark: MetaModelApiLanguageModel
+    open_model: MetaModelApiLanguageModel
+    language_model: FallbackLanguageModel  # Muse Spark Open, falling back to Spark
+    safety_classifier: LlamaGuardClassifier
+    voice_adapters: VoiceAdapters
+    rag: RagParts
+    image_generator: MuseImageGenerator
+    image_segmenter: SamImageSegmenter
+
+
+@dataclass(frozen=True, slots=True)
+class EngineBasics:
+    identity: UserIdentity
+    retry: RetryPolicy
+    clock: Clock
+    outbox: OutboxRepository
+
+
+def build_providers(
+    settings: Settings,
+    session_factory: async_sessionmaker[AsyncSession],
+    retry: RetryPolicy,
+    clock: Clock,
+) -> Providers:
+    spark = MetaModelApiLanguageModel(
+        config=ModelApiConfig(
+            base_url=str(settings.model_api_base_url),
+            api_key=settings.model_api_key,
+            timeout_s=settings.timeout_generate_s,
+        ),
+        retry=retry,
+        clock=clock,
+    )
+    open_model = MetaModelApiLanguageModel(
+        config=ModelApiConfig(
+            base_url=str(settings.open_model_base_url),
+            api_key=settings.open_model_api_key,
+            timeout_s=settings.timeout_open_model_s,
+        ),
+        retry=retry,
+        clock=clock,
+    )
+    language_model = FallbackLanguageModel(
+        open_model,
+        spark,
+        FallbackRoute(
+            primary_model=settings.open_model,
+            fallback_model=settings.model_text,
+            primary_timeout=timedelta(seconds=settings.timeout_open_model_s),
+        ),
+    )
+    safety_classifier = LlamaGuardClassifier(
+        config=SafetyHostConfig(
+            base_url=str(settings.safety_base_url),
+            api_key=settings.safety_api_key,
+            model=settings.safety_model,
+            timeout_s=settings.timeout_guard_s,
+        ),
+        retry=retry,
+        clock=clock,
+    )
+    voice_adapters = build_voice_adapters(settings, session_factory, retry, clock)
+    rag = build_rag(settings, session_factory, retry, clock)
+    image_generator = MuseImageGenerator(
+        config=ImageModelConfig(
+            base_url=str(settings.model_api_base_url),
+            api_key=settings.model_api_key,
+            model=settings.model_image,
+            reasoning_strength=settings.image_reasoning_strength,
+            timeout_s=settings.timeout_make_card_s,
+        ),
+        retry=retry,
+        clock=clock,
+        compressor=ImageCompressor(FfmpegRunner(timeout_s=settings.transcode_timeout_s)),
+    )
+    image_segmenter = SamImageSegmenter(
+        config=SegmentModelConfig(
+            base_url=str(settings.model_api_base_url),
+            api_key=settings.model_api_key,
+            model=settings.model_segment,
+            timeout_s=settings.timeout_analyze_image_s,
+        ),
+        retry=retry,
+        clock=clock,
+    )
+    return Providers(
+        spark=spark,
+        open_model=open_model,
+        language_model=language_model,
+        safety_classifier=safety_classifier,
+        voice_adapters=voice_adapters,
+        rag=rag,
+        image_generator=image_generator,
+        image_segmenter=image_segmenter,
+    )
+
+
+def build_engine_parts(  # noqa: PLR0913  # the app and `marg eval` swap different parts
+    settings: Settings,
+    providers: Providers,
+    basics: EngineBasics,
+    *,
+    senders: dict[Channel, ChannelSender],
+    catalogue: ActivityCatalogue | None = None,
+    synthesizer: Synthesizer | None = None,
+    image_generator: ImageGenerator | None = None,
+) -> EngineParts:
+    """Everything the worker runs a turn with. `synthesizer` and `image_generator` replace the
+    real ones (`marg eval` records instead of speaking or drawing)."""
+    voice = voice_steps(settings, providers.voice_adapters)
+    if synthesizer is not None:
+        voice = replace(voice, synthesizer=synthesizer)
+    registry = prompt_registry(settings)
+    return EngineParts(
+        clock=basics.clock,
+        identity=basics.identity,
+        retry=basics.retry,
+        senders=senders,
+        orchestrator=build_orchestrator(
+            settings,
+            OrchestratorPorts(
+                providers.language_model,
+                providers.safety_classifier,
+                voice,
+                photo_steps(settings, providers.voice_adapters, providers.image_segmenter),
+                providers.rag.retriever,
+            ),
+            basics.clock,
+            catalogue=catalogue,
+        ),
+        outbox=basics.outbox,
+        media=providers.voice_adapters.media,
+        signals=CuriositySignalExtractor(providers.language_model, registry),
+        cards=(
+            KhojCardMaker(providers.spark, image_generator or providers.image_generator, registry)
+            if settings.khoj_card_enabled
+            else None
+        ),
+        memory=MemoryLayer(providers.spark, registry),
+        memory_model=providers.language_model,
+    )
 
 
 def build_worker(
@@ -844,6 +927,34 @@ def build_post_turn_runner(
             aspirations=AspirationSignalRepository(session_factory),
         )
     )
+
+
+def build_judge_model(
+    settings: Settings, retry: RetryPolicy, clock: Clock
+) -> MetaModelApiLanguageModel:
+    """`marg eval`'s judge (s15 §4.4): Muse Spark at high reasoning, with its own longer timeout."""
+    return MetaModelApiLanguageModel(
+        config=ModelApiConfig(
+            base_url=str(settings.model_api_base_url),
+            api_key=settings.model_api_key,
+            timeout_s=settings.timeout_judge_s,
+        ),
+        retry=retry,
+        clock=clock,
+    )
+
+
+async def close_providers(providers: Providers) -> None:
+    """Release the HTTP clients `build_providers` opened (`marg eval`)."""
+    for language_model in (providers.spark, providers.open_model):
+        await language_model.aclose()
+    await providers.safety_classifier.aclose()
+    await providers.voice_adapters.fetcher.aclose()
+    await providers.voice_adapters.transcriber.aclose()
+    await providers.voice_adapters.synthesizer.aclose()
+    await providers.image_generator.aclose()
+    await providers.image_segmenter.aclose()
+    await providers.rag.embedder.aclose()
 
 
 async def close_container(container: Container) -> None:
