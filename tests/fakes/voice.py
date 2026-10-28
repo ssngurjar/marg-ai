@@ -32,7 +32,7 @@ STT_USAGE = StepUsage(
 )
 TTS_USAGE = StepUsage(
     provider="ml_sidecar",
-    model="facebook/mms-tts-hin",
+    model="hexgrad/Kokoro-82M",
     input_tokens=None,
     output_tokens=None,
     audio_seconds=Decimal("4.5"),

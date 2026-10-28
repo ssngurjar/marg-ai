@@ -1,10 +1,9 @@
 """SidecarSynthesizer: a reply's spoken text as a WhatsApp voice note (s06 §4.7).
 
-The text is prepared by TtsTextPreparer (script check, sentences), spoken by the voice server's
-`/tts` (the separate marg-ai-tts project), and converted to OGG/Opus by AudioTranscoder. One
-adapter serves every engine (C8): `TTS_ENGINE` says which one the voice server runs, and a
-server running the other engine answers 422. The voice server costs nothing per request (local
-or rented by the hour), so the recorded cost is 0.
+The text is prepared by TtsTextPreparer (script check, sentences), spoken by the ML sidecar's
+`/tts` (services/ml_sidecar), and converted to OGG/Opus by AudioTranscoder. `TTS_ENGINE` says
+which speech model the sidecar runs; a sidecar running another answers 422. The sidecar costs
+nothing per request (local or rented by the hour), so the recorded cost is 0.
 """
 
 from dataclasses import dataclass
@@ -53,8 +52,6 @@ class SidecarSynthesizer:
     """Satisfies `Synthesizer`."""
 
     MODELS: ClassVar[dict[TtsEngine, dict[Voice, str]]] = {
-        "mms": {"hin": "facebook/mms-tts-hin", "eng": "facebook/mms-tts-eng"},
-        "indic_parler": {"hin": "ai4bharat/indic-parler-tts", "eng": "ai4bharat/indic-parler-tts"},
         "kokoro": {"hin": "hexgrad/Kokoro-82M", "eng": "hexgrad/Kokoro-82M"},
     }
     DURATION_HEADER: ClassVar[str] = "x-audio-duration-ms"

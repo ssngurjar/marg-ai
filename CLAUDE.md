@@ -96,6 +96,9 @@ as done without a clean run of all four stages is a failed task.
 - `pytest` by default runs `unit` and `contract` tests (hermetic). Integration tests need
   `docker compose -f docker-compose.test.yml up -d` and run with `pytest -m integration`; run them
   whenever `app/store/` or `alembic/` changed.
+- `services/ml_sidecar/` has its own Python 3.12 environment (torch, kokoro). Ruff covers it from
+  the root; its mypy (the same strict settings) and its tests run there: `make sidecar-check`,
+  which `make check` includes. Run it whenever the sidecar changed.
 - Report the actual output. Never claim a stage passed if it did not, and never describe a stage
   you skipped as having run.
 

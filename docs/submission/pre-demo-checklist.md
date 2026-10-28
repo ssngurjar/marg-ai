@@ -16,7 +16,7 @@ fixed or written down with its workaround before going on.
   (no message waiting a minute), model API, safety, voice server, ffmpeg.
 - [ ] `/status` for the last 24 h: success rate ≥ 98%, p95 within the smoke-test numbers
   (`docs/load/2026-10-28-smoke-test.md`).
-- [ ] The voice server (`TTS_ENGINE=kokoro` and `/embed`) is running and stays up through judging.
+- [ ] The ML sidecar (`make sidecar`: Kokoro voice and `/embed`) is running and stays up through judging.
 - [ ] The corpus is ingested (`marg ingest-corpus`): 50 documents, verified from India.
 - [ ] Nudge template approved in WhatsApp Manager in all three languages, or
   `NUDGES_ENABLED=false`.

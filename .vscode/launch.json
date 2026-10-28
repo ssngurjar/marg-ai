@@ -1,7 +1,8 @@
 {
   // Run and debug Marg.ai from VS Code (Run and Debug panel, or F5).
-  // Assumes marg-ai-tts is checked out next to this repo: ../marg-ai-tts
-  // Both servers read this repo's .env (TTS_ENGINE, SIDECAR_TOKEN and HF_TOKEN are shared).
+  // The ML sidecar (Kokoro-82M speech, e5 embeddings) lives in services/ml_sidecar with its own
+  // venv: run `make sidecar-setup` once. Both servers read this repo's .env (TTS_ENGINE and
+  // SIDECAR_TOKEN are shared).
   // Needs the "Python Debugger" extension (it brings debugpy; nothing to install in the venvs).
   "version": "0.2.0",
   "configurations": [
@@ -25,18 +26,19 @@
       "justMyCode": true
     },
     {
-      "name": "Voice server (marg-ai-tts)",
+      "name": "ML sidecar (Kokoro voice + embeddings)",
       "type": "debugpy",
       "request": "launch",
       "module": "uvicorn",
       "args": [
-        "server.tts_server:app",
+        "sidecar.server:build_app",
+        "--factory",
         "--host", "127.0.0.1",
         "--port", "8100",
         "--no-access-log"
       ],
-      "python": "${workspaceFolder}/../marg-ai-tts/.venv/bin/python",
-      "cwd": "${workspaceFolder}/../marg-ai-tts",
+      "python": "${workspaceFolder}/services/ml_sidecar/.venv/bin/python",
+      "cwd": "${workspaceFolder}/services/ml_sidecar",
       "envFile": "${workspaceFolder}/.env",
       "console": "integratedTerminal",
       "justMyCode": true
@@ -55,8 +57,8 @@
   ],
   "compounds": [
     {
-      "name": "Marg.ai: API + voice server",
-      "configurations": ["Voice server (marg-ai-tts)", "Marg.ai API + worker"],
+      "name": "Marg.ai: API + ML sidecar",
+      "configurations": ["ML sidecar (Kokoro voice + embeddings)", "Marg.ai API + worker"],
       "stopAll": true
     }
   ]

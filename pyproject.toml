@@ -82,7 +82,9 @@ warn_unreachable = true
 warn_unused_ignores = true
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool", "possibly-undefined"]
 plugins = ["pydantic.mypy"]
-exclude = ["^\\.venv/"]
+# The ML sidecar has its own Python 3.12 environment (torch, kokoro), so `make sidecar-check`
+# type-checks it there with these same settings (services/ml_sidecar/pyproject.toml).
+exclude = ["^\\.venv/", "^services/ml_sidecar/"]
 
 [tool.pydantic-mypy]
 init_forbid_extra = true

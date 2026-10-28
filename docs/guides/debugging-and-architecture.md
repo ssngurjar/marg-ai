@@ -44,40 +44,46 @@ the feature freeze). What each feature does for users, step by step: `docs/submi
 
 ## 2. Running everything locally
 
-Order matters: database, migrations, voice server, API, tunnel.
+Order matters: database, migrations, ML sidecar, API, tunnel.
 
 | # | What | Command | Check |
 |---|---|---|---|
 | 1 | Postgres | `docker compose up -d postgres` | `docker compose ps` shows healthy |
 | 2 | Migrations | `make migrate` | `.venv/bin/alembic current` → `s04_user_leases (head)` |
-| 3 | Voice server (other folder) | see §2.1 | `curl -s 127.0.0.1:8100/healthz` → `"engine":"mms"` |
+| 3 | ML sidecar (`services/ml_sidecar`) | `make sidecar` (see §2.1) | `curl -s 127.0.0.1:8100/healthz` → `"engine":"kokoro"` |
 | 3b | Corpus (once, and after any change under `corpus/`) | `.venv/bin/python -m app.cli ingest-corpus` | the mentor cites sources |
 | 4 | API + worker | `.venv/bin/uvicorn app.main:create_app --factory --host 127.0.0.1 --port 8000 --no-access-log` | `curl -s 127.0.0.1:8000/readyz` → `ready`, every probe `ok` (§7.3) |
 | 5 | Public tunnel | `scripts/dev_tunnel.sh 8000` | prints a `https://…trycloudflare.com` URL |
 | 6 | WhatsApp callback | point Meta at `<tunnel>/webhooks/whatsapp` (new URL on every tunnel start) | send "Hi" from the phone |
 | 7 | Web demo | open `<tunnel>/demo` (or `http://127.0.0.1:8000/demo`) | the page greets you |
 
-**From VS Code:** Run and Debug → **"Marg.ai: API + voice server"** starts steps 1, 3 and 4 with
+**From VS Code:** Run and Debug → **"Marg.ai: API + ML sidecar"** starts steps 1, 3 and 4 with
 breakpoints (`.vscode/launch.json`; Postgres comes up first through `.vscode/tasks.json`). Run the
 tunnel with Terminal → Run Task → "tunnel: public URL for WhatsApp and /demo".
 
 Logs: uvicorn prints JSON lines (structlog) to stdout. Redirect them to a file when running in
 the background: `… >> /tmp/marg-app.log 2>&1`.
 
-### 2.1 The voice server (`/Users/santramgurjar/personal/marg-ai-tts`)
+### 2.1 The ML sidecar (`services/ml_sidecar/`)
 
-A separate project (FastAPI). It loads **one** engine, the one `TTS_ENGINE` names:
+The voice and the search vectors: FastAPI with `/tts` (Kokoro-82M), `/embed`
+(multilingual-e5-small) and `/healthz`. It has its own Python 3.12 environment (Kokoro needs
+3.12 and PyTorch; the main service runs 3.13 without them):
 
 ```sh
-cd ../marg-ai-tts
-TTS_ENGINE=mms SIDECAR_TOKEN=<same as marg-ai .env> HF_TOKEN=<from .env> \
-  .venv/bin/uvicorn server.tts_server:app --host 127.0.0.1 --port 8100 --no-access-log
+make sidecar-setup    # once: services/ml_sidecar/.venv from its own lockfile
+make sidecar          # serves :8100 with this repo's .env
+make sidecar-check    # its strict mypy and its tests (also part of `make check`)
 ```
 
-- `mms` (MMS-TTS on the CPU): local testing only. Licence CC-BY-NC, never in the submission.
-- `indic_parler` (Indic Parler-TTS): demo and final tests, needs a GPU host (too slow on the Mac).
-- marg-ai's `.env` must have the same `TTS_ENGINE`, plus `SIDECAR_BASE_URL` and `SIDECAR_TOKEN`.
-  A mismatch returns 422 and every reply goes text-only (`synthesize` FAILED in the trace).
+- It loads the speech model `TTS_ENGINE` names. Only `kokoro` exists; another model plugs in
+  as a `SpeechEngine` (`sidecar/speech_engine.py`) and an entry in `sidecar/server.py`'s
+  `ENGINES`, plus its name in `app/core/types.py` `TtsEngine`.
+- Hindi and Hinglish: Kokoro's `hf_alpha` and `hf_beta` voices blended, at 1.1× speed. English:
+  `af_heart`. About 1 s per 8 s of speech on the Mac's CPU, after a ~5 s first call.
+- `.env` needs `TTS_ENGINE`, `SIDECAR_BASE_URL` and `SIDECAR_TOKEN`. An engine mismatch returns
+  422 and every reply goes text-only (`synthesize` FAILED in the trace); the sidecar down also
+  stops the mentor's source search.
 
 ### 2.2 Settings that change behaviour (`.env`)
 

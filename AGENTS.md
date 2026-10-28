@@ -39,15 +39,16 @@ costs more than a feature not shipped: the Indie track is judged on
 
 `make check` is the §2 verification loop.
 
-- `make setup` — `uv sync`
+- `make setup` — `uv sync`, here and in `services/ml_sidecar`
 - `make fmt` — `.venv/bin/ruff format .`
 - `make lint` — `.venv/bin/ruff check .`
 - `make type` — `.venv/bin/mypy .`
 - `make test` — `.venv/bin/pytest` (unit + contract, hermetic)
-- `make check` — fmt + lint + type + test, in order; each stage must exit 0 before the next
+- `make check` — fmt + lint + type + test + sidecar-check, in order; each stage must exit 0 before the next
 - `make test-db-up` / `make test-db-down` — Postgres for integration tests
   (`docker-compose.test.yml`)
 - `make test-int` — alembic upgrade/downgrade/upgrade + check, then `pytest -m integration`
+- `make sidecar` — the ML sidecar (Kokoro voice, `/embed`) on :8100 with `.env`; `make sidecar-check` — its mypy and tests
 - `make migrate` — `alembic upgrade head` against the LOCAL database only (never a deployed
   database unless asked, §8)
 - `marg eval` on the affected golden cases when a prompt or a layer changes; report the
@@ -147,6 +148,9 @@ as done without a clean run of all four stages is a failed task.
 - `pytest` by default runs `unit` and `contract` tests (hermetic). Integration tests need
   `docker compose -f docker-compose.test.yml up -d` and run with `pytest -m integration`; run them
   whenever `app/store/` or `alembic/` changed.
+- `services/ml_sidecar/` has its own Python 3.12 environment (torch, kokoro). Ruff covers it from
+  the root; its mypy (the same strict settings) and its tests run there: `make sidecar-check`,
+  which `make check` includes. Run it whenever the sidecar changed.
 - Report the actual output. Never claim a stage passed if it did not, and never describe a stage
   you skipped as having run.
 

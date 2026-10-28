@@ -1,10 +1,12 @@
 # Marg.ai developer commands. `make check` is the CLAUDE.md §2 verification loop.
 TEST_DATABASE_URL := postgresql+asyncpg://marg:marg@localhost:55432/marg_test
 
-.PHONY: setup fmt lint type test check test-db-up test-db-down test-int up down migrate worker
+.PHONY: setup fmt lint type test check test-db-up test-db-down test-int up down migrate worker \
+	sidecar-setup sidecar sidecar-check
 
 setup:
 	uv sync
+	cd services/ml_sidecar && uv sync
 
 fmt:
 	.venv/bin/ruff format .
@@ -18,7 +20,8 @@ type:
 test:
 	.venv/bin/pytest
 
-check: fmt lint type test
+# ruff covers services/ml_sidecar from here; its types and tests run in its own environment.
+check: fmt lint type test sidecar-check
 
 test-db-up:
 	docker compose -f docker-compose.test.yml up -d --wait
@@ -48,3 +51,16 @@ worker:
 # (CLAUDE.md §8).
 migrate:
 	.venv/bin/alembic upgrade head
+
+# The ML sidecar (services/ml_sidecar): Kokoro-82M speech and e5 embeddings, in its own Python
+# 3.12 environment. `make sidecar` serves it on :8100 with this repo's .env (TTS_ENGINE,
+# SIDECAR_TOKEN).
+sidecar-setup:
+	cd services/ml_sidecar && uv sync
+
+sidecar:
+	cd services/ml_sidecar && set -a && . ../../.env && set +a && \
+		.venv/bin/uvicorn sidecar.server:build_app --factory --host 127.0.0.1 --port 8100 --no-access-log
+
+sidecar-check:
+	cd services/ml_sidecar && .venv/bin/mypy . && .venv/bin/pytest -q

@@ -1,0 +1,61 @@
+[project]
+name = "marg-ai-ml-sidecar"
+version = "0.1.0"
+description = "Marg.ai's ML sidecar: Kokoro-82M speech (/tts, s06 §4.9) and multilingual-e5-small vectors (/embed, s11 §4.4)"
+# Kokoro 0.9.4 supports Python 3.10–3.12, so the sidecar keeps its own environment (CLAUDE.md §8).
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "en-core-web-sm",
+    "fastapi==0.115.12",
+    "kokoro==0.9.4",
+    "misaki[en]==0.9.4",
+    "numpy==2.5.4",
+    "pydantic==2.14.1",
+    "torch==2.6.0",
+    "transformers==4.46.1",
+    "uvicorn==0.34.3",
+]
+
+[dependency-groups]
+dev = [
+    "httpx==0.28.1",
+    "mypy==2.4.0",
+    "pytest==9.1.1",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+# misaki's English phonemiser loads this spaCy model; pinned so it is never fetched at runtime.
+en-core-web-sm = { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl" }
+
+[tool.ruff]
+extend = "../../pyproject.toml"
+target-version = "py312"
+
+[tool.ruff.lint.extend-per-file-ignores]
+"tests/**" = ["S101", "PLR2004"]   # the same allowance as the main repo's tests
+
+# The main repo's settings, checked in this environment (it has torch and kokoro).
+[tool.mypy]
+python_version = "3.12"
+strict = true
+disallow_any_unimported = true
+disallow_any_explicit = true
+disallow_any_decorated = false   # FastAPI decorators are Any-typed internally (decision B7)
+warn_unreachable = true
+warn_unused_ignores = true
+enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool", "possibly-undefined"]
+plugins = ["pydantic.mypy"]
+exclude = ["^\\.venv/"]
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--strict-markers --strict-config -ra"
+markers = ["unit: pure or fake-backed, no I/O"]
