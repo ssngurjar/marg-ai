@@ -48,7 +48,7 @@ holding a phone, WhatsApp open on the Marg.ai chat.*
 > Children here don't lack talent. They lack exposure: someone to ask them *why*, and anyone
 > who's walked a path beyond the village.
 >
-> So I built Marg.ai. *Marg* means path. It isn't a tutor, and the child never touches a screen.
+> So I built Marg.ai. *Marg* means path. It isn't a tutor, and it isn't screen time for children.
 > It coaches the people already around a child, by voice, on WhatsApp. The world is the
 > curriculum; the phone is the coach.
 >
