@@ -75,6 +75,7 @@ class MediaPurpose(StrEnum):
     """Why a media_blobs row exists; each purpose has its own expiry (data-model `media_blobs`)."""
 
     INBOUND_AUDIO = "inbound_audio"
+    INBOUND_PHOTO = "inbound_photo"  # a web visitor's photo, only until its turn has looked at it
     REPLY_AUDIO = "reply_audio"
     KHOJ_CARD = "khoj_card"
 

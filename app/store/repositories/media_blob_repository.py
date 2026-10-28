@@ -1,8 +1,9 @@
 """MediaBlobRepository: reply audio kept until the sender uploads it (s06 §4.7, §4.8).
 
 Reply audio is saved after safety_out passes, in its own short transaction, and expires after
-24 hours; the maintenance pass deletes what has expired. WhatsApp voice notes from users are
-never stored here (data-model §4).
+24 hours; the maintenance pass deletes what has expired. WhatsApp voice notes and photos from
+users are never stored here (data-model §4). A web visitor's voice note or photo waits here only
+until its turn has used it, and is deleted in that turn's finalize.
 """
 
 from collections.abc import Collection
@@ -29,10 +30,12 @@ class OwnedMedia:
 
 
 class MediaBlobRepository:
-    """Satisfies `ReplyAudioStore`, `ReplyImageStore`, and `MediaFetcher` for web voice notes."""
+    """Satisfies `ReplyAudioStore`, `ReplyImageStore`, and `MediaFetcher` for web voice notes
+    and photos."""
 
     REPLY_AUDIO_LIFETIME: ClassVar[timedelta] = timedelta(hours=24)
     INBOUND_AUDIO_LIFETIME: ClassVar[timedelta] = timedelta(hours=24)  # if no turn ever hears it
+    INBOUND_PHOTO_LIFETIME: ClassVar[timedelta] = timedelta(minutes=10)  # if no turn looks at it
 
     def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
         self._session_factory = session_factory
@@ -109,6 +112,46 @@ class MediaBlobRepository:
             raise StoreError(f"could not save a voice note: {type(exc).__name__}") from exc
         return blob_id
 
+    async def save_inbound_photo(self, user_hash: UserHash, image: ImageClip) -> UUID:
+        """A web visitor's photo, only until its turn has looked at it (s10b §4.14, C7)."""
+        size = len(image.data)
+        if size > MEDIA_BLOB_MAX_BYTES:
+            raise MediaTooLarge(f"photo is {size} bytes")
+        blob_id = uuid4()
+        statement = insert(media_blobs).values(
+            id=blob_id,
+            user_hash=user_hash,
+            purpose=MediaPurpose.INBOUND_PHOTO.value,
+            mime_type=image.mime_type,
+            data=image.data,
+            size_bytes=size,
+            expires_at=func.now() + self.INBOUND_PHOTO_LIFETIME,
+        )
+        try:
+            async with self._session_factory() as session, session.begin():
+                await session.execute(statement)
+        except (SQLAlchemyError, OSError) as exc:
+            raise StoreError(f"could not save a photo: {type(exc).__name__}") from exc
+        return blob_id
+
+    async def fetch_image(self, ref: MediaRef) -> ImageClip:
+        """`MediaFetcher` for web photos. Raises MediaUnsupported when it's gone."""
+        if ref.blob_id is None:
+            raise ValueError("MediaBlobRepository.fetch_image needs a stored blob")
+        statement = select(media_blobs.c.data, media_blobs.c.mime_type).where(
+            media_blobs.c.id == ref.blob_id,
+            media_blobs.c.purpose == MediaPurpose.INBOUND_PHOTO.value,
+            media_blobs.c.expires_at > func.now(),
+        )
+        try:
+            async with self._session_factory() as session:
+                row = (await session.execute(statement)).first()
+        except (SQLAlchemyError, OSError) as exc:
+            raise StoreError(f"could not load a photo: {type(exc).__name__}") from exc
+        if row is None:
+            raise MediaUnsupported("the photo has expired")
+        return ImageClip(data=row.data, mime_type=row.mime_type)
+
     async def fetch(self, ref: MediaRef) -> AudioClip:
         """`MediaFetcher` for web voice notes. Raises MediaUnsupported when it's gone."""
         if ref.blob_id is None:
@@ -137,12 +180,15 @@ class MediaBlobRepository:
 
     @staticmethod
     async def delete_inbound(session: AsyncSession, owner: UserHash, blob_id: UUID) -> None:
-        """Inside finalize: the voice note was heard; it isn't kept (CLAUDE.md §11)."""
+        """Inside finalize: the voice note was heard, or the photo looked at; neither is kept
+        (CLAUDE.md §11, s10b §4.14)."""
         await session.execute(
             delete(media_blobs).where(
                 media_blobs.c.id == blob_id,
                 media_blobs.c.user_hash == owner,
-                media_blobs.c.purpose == MediaPurpose.INBOUND_AUDIO.value,
+                media_blobs.c.purpose.in_(
+                    [MediaPurpose.INBOUND_AUDIO.value, MediaPurpose.INBOUND_PHOTO.value]
+                ),
             )
         )
 

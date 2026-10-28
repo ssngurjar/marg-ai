@@ -53,3 +53,6 @@ IMAGE_PRICE_EACH: Final[dict[str, Decimal]] = {"muse-image-1.0": Decimal("0.01")
 
 # Muse Voice Transcribe: $0.18 per hour of audio, billed in whole seconds (plan.md §0, s06 §4.5).
 STT_PRICE_PER_HOUR: Final[dict[str, Decimal]] = {"muse-voice-transcribe-1.0": Decimal("0.18")}
+
+# SAM 3.1: $2.50 per 1,000 images (s02 §4.6a). Billed per call: one noun phrase per call.
+SEGMENT_PRICE_EACH: Final[dict[str, Decimal]] = {"sam-3.1": Decimal("0.0025")}

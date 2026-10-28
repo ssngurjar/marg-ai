@@ -479,12 +479,13 @@ class TurnObserver(Protocol):               # s15 evals capture; production pass
 class ImageGenerator(Protocol):            # Muse Image (s10b khoj card, C6)
     async def generate(self, prompt: RenderedPrompt, size: Literal["1024x1024"]) -> tuple[ImageClip, StepUsage]: ...
 
-class ObjectCount(BaseModel):
+class ObjectCount(DomainModel):             # app/domain/models/photo.py (with PhotoFindings)
     phrase: str                              # the noun phrase asked for, e.g. "leaf"
-    count: int
+    count: int                               # ≥ 0
 
 class ImageSegmenter(Protocol):             # SAM 3.1 (s10b activity photos, C7)
     async def count(self, image: ImageClip, phrases: Sequence[str]) -> tuple[list[ObjectCount], StepUsage]: ...
+    # one Responses call per phrase; a failure of any phrase raises (never a partial count)
 
 class ActivitySource(Protocol):             # s10b: catalogue now, guarded generation later
     async def candidates(self, learner: Learner, today: date, recent_ids: Sequence[str]) -> list["Activity"]: ...
@@ -726,3 +727,4 @@ Per-step timeouts `TIMEOUT_<STEP>_S`: `FETCH_MEDIA` 5, `TRANSCRIBE` 8, `SAFETY_I
 | 2026-10-27 | S13: `ExtractSignals` gains `source: CuriositySource` and `child_age`; `TurnOutcome.post_turn`; `LayerResult.curiosity`; `CuriositySignals`, `CuriositySource`, `PostTurnTask` live in `app/domain/models/curiosity.py`; `StepName.EXTRACT_SIGNALS` recorded per task | S13 build (s13 decisions log) | pending owner review |
 | 2026-10-27 | S10b cards: `ImageGenerator.generate(prompt: str)` (the style is a constant, not a rendered prompt); `ReplyImageStore.load_image`; `SafetyGate.check_card(caption, image)`; `ReplyPartsBuilder.card(reply, image_blob_id)`; `MakeKhojCard` carries the activity, summary and `reply_register`; settings `KHOJ_CARD_ENABLED`, `MODEL_IMAGE`, `IMAGE_REASONING_STRENGTH`, `TIMEOUT_MAKE_CARD_S` | S10b build (s10b decisions log) | pending owner review |
 | 2026-10-27 | S14: `SignedTokenCodec` in `app/core/signed_token_codec.py` (purposes `demo_session`, `dash`); `WebSender`; `ChannelMediaFetcher`; `DeleteInboundMedia` write; `WebInputInvalid`, `DemoRefused` errors; `inbox_messages.media_blob_id`; settings `SESSION_SIGNING_KEY` (+`_PREVIOUS`), `DEMO_RATE_LIMIT_PER_HOUR`, `DEMO_IP_RATE_LIMIT_PER_HOUR`, `DEMO_SESSIONS_PER_IP_PER_HOUR`, `DEMO_MAX_AUDIO_BYTES`, `DAILY_COST_CAP_USD` | S14 build | pending owner review |
+| 2026-10-28 | S10b photos: `ObjectCount` and `PhotoFindings` are domain models (`app/domain/models/photo.py`); `MediaFetcher.fetch_image`; `SafetyGate.check_photo(image, caption) → PhotoCheck` (no backup: Llama Guard down drops the photo); `ActivityReported.photo_counts`; `Activity.photo_count_phrases` (≤ 3 singular lowercase nouns, reviewed); `JourneyLayer.handle(ctx, ParentMessage(text, interactive_ids, photo), now, register)` and `photo_phrases(ctx)`; `TurnRouter.decide(…, TurnFacts(learners, child_session_open, has_photo))`; `PipelineSteps.photos: PhotoSteps \| None`; settings `PHOTO_INPUT_ENABLED`, `MODEL_SEGMENT`, `MAX_INBOUND_IMAGE_BYTES`, `TIMEOUT_FETCH_IMAGE_S`, `TIMEOUT_ANALYZE_IMAGE_S`, `DEMO_MAX_IMAGE_BYTES`; `MediaPurpose.INBOUND_PHOTO` | S10b photo build | pending owner review |

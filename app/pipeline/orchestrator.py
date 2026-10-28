@@ -1,8 +1,13 @@
 """Orchestrator: one turn from the user's messages to a sealed reply (s05 §4.5, mvp-scope §4.2).
 
     A. user text            text and transcribed voice notes, in the order sent (S6: fetch,
-                            convert, check for silence and length, transcribe); images aren't
-                            understood before S10b
+                            convert, check for silence and length, transcribe); a photo's caption
+                            is text too
+    A2. photo               (s10b §4.14, C7) only while a khoj is open: fetch (memory only), the
+                            person check first (any person, a hand too → PHOTO_HAS_PERSON), then
+                            Llama Guard on the image ‖ SAM counting the activity's things; the
+                            counts, never the photo, go to the reflection. A failure drops the
+                            photo and the report goes on without it
     B. route ‖ safety_in ‖ generate
                             generation starts with the safety check, and its result is used ONLY
                             if safety_in returns ALLOW; otherwise it's cancelled, unread (C3a)
@@ -33,6 +38,7 @@ from uuid import UUID
 
 from app.constants.child_talk_copy import PARENT_SUMMARY_AFTER_SADNESS, UNNAMED_CHILD_NAME
 from app.constants.journey_copy import NUDGE_ASK, NUDGE_BUTTONS
+from app.constants.photo_check import PERSON_PHRASES
 from app.constants.stt_keywords import STT_KEYWORDS
 from app.core.clock import Clock
 from app.core.errors import (
@@ -66,8 +72,10 @@ from app.domain.models.curiosity import (
     PostTurnTask,
 )
 from app.domain.models.learner import Learner
-from app.domain.models.message import InboundMessage
+from app.domain.models.message import ImageClip, InboundMessage
+from app.domain.models.photo import ObjectCount, PhotoFindings
 from app.domain.models.reply import CanonicalReply, LocalisedReply
+from app.domain.models.routing import RouteDecision
 from app.domain.models.safety import SafetyVerdict
 from app.domain.models.turn import TurnContext
 from app.domain.models.usage import StepUsage
@@ -83,7 +91,7 @@ from app.domain.rules.filler_detector import FillerDetector
 from app.domain.rules.register_detector import RegisterDetector
 from app.domain.rules.stage_rules import StageRules
 from app.layers.child_talk_layer import ChildTalkLayer
-from app.layers.journey_layer import JourneyLayer
+from app.layers.journey_layer import JourneyLayer, ParentMessage
 from app.layers.layer_result import LayerResult
 from app.layers.onboarding_layer import FirstKhojHandoff, OnboardingLayer, OnboardingResult
 from app.pipeline.failure_policy import FailurePolicy
@@ -91,9 +99,10 @@ from app.pipeline.fixed_reply_service import FixedReplyService
 from app.pipeline.reply_parts_builder import ReplyDelivery, ReplyPartsBuilder
 from app.pipeline.step_models import StepFailure, StepSuccess, TurnOutcome
 from app.pipeline.turn_protocols import StepRecorder, TurnObserver
-from app.pipeline.turn_router import TurnRouter
+from app.pipeline.turn_router import TurnFacts, TurnRouter
 from app.providers.ports import (
     AudioConverter,
+    ImageSegmenter,
     MediaFetcher,
     ReplyAudioStore,
     Synthesizer,
@@ -119,6 +128,8 @@ class OrchestratorSettings:
     fetch_media_timeout: timedelta  # TIMEOUT_FETCH_MEDIA_S: the download and the conversion
     transcribe_timeout: timedelta
     synthesize_timeout: timedelta
+    fetch_image_timeout: timedelta = timedelta(seconds=5)  # TIMEOUT_FETCH_IMAGE_S
+    analyze_image_timeout: timedelta = timedelta(seconds=6)  # TIMEOUT_ANALYZE_IMAGE_S
 
 
 @dataclass(frozen=True, slots=True)
@@ -135,6 +146,14 @@ class VoiceSteps:
 
 
 @dataclass(frozen=True, slots=True)
+class PhotoSteps:
+    """What a photo of the child's work needs (s10b §4.14, C7)."""
+
+    fetcher: MediaFetcher
+    segmenter: ImageSegmenter
+
+
+@dataclass(frozen=True, slots=True)
 class PipelineSteps:
     gate: SafetyGate
     journey: JourneyLayer
@@ -142,6 +161,7 @@ class PipelineSteps:
     voice: VoiceSteps
     child_talk: ChildTalkLayer | None  # None when CHILD_TALK_ENABLED is false
     clock: Clock
+    photos: PhotoSteps | None = None  # None when PHOTO_INPUT_ENABLED is false
 
 
 @dataclass(frozen=True, slots=True)
@@ -215,7 +235,8 @@ class _Turn:
         self.register = self.ctx.profile.language or FALLBACK_REGISTER
         self.voice_turn = False  # the user sent at least one voice note (or a child is talking)
         self.speaker = Speaker.GUIDE
-        self.heard_blobs: list[UUID] = []  # web voice notes read this turn: deleted with it
+        self.heard_blobs: list[UUID] = []  # web voice notes and photos read: deleted with it
+        self.photos: list[InboundMessage] = []  # photos sent this turn (when photos are on)
         self.sealed: _Sealed | None = None
 
     async def run(self) -> TurnOutcome:
@@ -237,7 +258,7 @@ class _Turn:
         )
         if self.user_text:
             await self._safely(self.recorder.set_turn_text(self.ctx.turn_id, self.user_text))
-        if not self.user_text and not interactive_ids and has_unsupported:
+        if not self.user_text and not interactive_ids and not self.photos and has_unsupported:
             return self._fixed(
                 _FixedChoice(
                     FixedReplyKind.UNSUPPORTED_MEDIA, FixedReplyVariant.DEFAULT, Route.REPEAT_PLEASE
@@ -248,8 +269,11 @@ class _Turn:
             self.ctx.profile,
             self.user_text,
             interactive_ids,
-            learners=self.ctx.learners,
-            child_session_open=self.ctx.child_session is not None,
+            TurnFacts(
+                learners=self.ctx.learners,
+                child_session_open=self.ctx.child_session is not None,
+                has_photo=bool(self.photos),
+            ),
         )
         if decision.route is Route.CHILD_TALK and self.steps.child_talk is None:
             # Switched off: "Main Munni hoon" is just a message; a kid: button means nothing.
@@ -259,6 +283,17 @@ class _Turn:
             )
         await self._record(_StepRecord(StepName.ROUTE, routed_at, decision, None, decision.reason))
         await self._safely(self.recorder.set_turn_route(self.ctx.turn_id, decision.route))
+        return await self._dispatch(decision, interactive_ids)
+
+    async def _dispatch(self, decision: RouteDecision, interactive_ids: list[str]) -> TurnOutcome:
+        """A photo is looked at first (its fixed replies end the turn), then the route's step."""
+        photo: PhotoFindings | None = None
+        if self.photos:
+            has_words = bool(self.user_text or interactive_ids)
+            looked = await self._photo_for(decision.route, has_words=has_words)
+            if isinstance(looked, TurnOutcome):
+                return looked
+            photo = looked
         if decision.route is Route.REPEAT_PLEASE:
             return self._fixed(
                 _FixedChoice(
@@ -269,7 +304,7 @@ class _Turn:
             return await self._onboarding(decision.route, interactive_ids)
         if decision.route is Route.CHILD_TALK and self.steps.child_talk is not None:
             return await self._child_talk(self.steps.child_talk, interactive_ids)
-        return await self._journey(interactive_ids)
+        return await self._journey(interactive_ids, photo)
 
     async def _onboarding(self, route: Route, interactive_ids: list[str]) -> TurnOutcome:
         """safety_in on what the user typed (button ids are ours), then the onboarding layer."""
@@ -370,9 +405,11 @@ class _Turn:
             return None
         return checked
 
-    async def _journey(self, interactive_ids: list[str]) -> TurnOutcome:
+    async def _journey(
+        self, interactive_ids: list[str], photo: PhotoFindings | None = None
+    ) -> TurnOutcome:
         started = self.steps.clock.now()
-        generation = asyncio.create_task(self._generate(interactive_ids))
+        generation = asyncio.create_task(self._generate(interactive_ids, photo))
         if self.user_text:  # a button press carries our own id, nothing typed to check
             try:
                 input_check = await self._bounded(
@@ -472,14 +509,15 @@ class _Turn:
         note = PARENT_SUMMARY_AFTER_SADNESS[self.register].format(name=name)
         return self._fixed(choice, writes=(end,), parent_note=note)
 
-    async def _generate(self, interactive_ids: list[str]) -> LayerResult:
+    async def _generate(
+        self, interactive_ids: list[str], photo: PhotoFindings | None
+    ) -> LayerResult:
         """The layer call is made inside the task, so a task cancelled before it starts leaves
         no un-awaited coroutine behind."""
         return await self._bounded(
             self.steps.journey.handle(
                 self.ctx,
-                self.user_text,
-                interactive_ids,
+                ParentMessage(self.user_text, interactive_ids, photo),
                 self.steps.clock.now(),
                 self.register,
             ),
@@ -613,10 +651,146 @@ class _Turn:
                 if isinstance(heard, TurnOutcome):
                     return heard
                 pieces.append(heard)
-            elif message.kind is not MessageKind.TEXT:  # IMAGE before S10b's photos
+            elif message.kind is MessageKind.IMAGE:
+                if message.media is not None and message.media.blob_id is not None:
+                    self.heard_blobs.append(message.media.blob_id)  # a web photo: deleted with it
+                if self.steps.photos is None:
+                    has_unsupported = True  # PHOTO_INPUT_ENABLED is off
+                else:
+                    self.photos.append(message)
+                    if message.text and message.text.strip():
+                        pieces.append(message.text.strip())  # the caption is the parent's words
+            elif message.kind is not MessageKind.TEXT:
                 has_unsupported = True
         self.user_text = "\n".join(pieces)
         return interactive_ids, has_unsupported
+
+    # --- photos (s10b §4.14) -----------------------------------------------------------------
+
+    async def _photo_for(
+        self, route: Route, *, has_words: bool
+    ) -> "PhotoFindings | TurnOutcome | None":
+        """The counts from the turn's latest photo, or the fixed reply that ends the turn. None:
+        no khoj is open, so the photo isn't needed; the parent's words are answered as usual."""
+        photos = self.steps.photos
+        phrases = self.steps.journey.photo_phrases(self.ctx) if route is Route.JOURNEY else None
+        if photos is None or phrases is None:
+            await self._record_skipped(StepName.ANALYZE_IMAGE, "photo_not_needed")
+            if has_words:
+                return None
+            return self._fixed(
+                _FixedChoice(FixedReplyKind.PHOTO_NOT_NEEDED, FixedReplyVariant.DEFAULT, route)
+            )
+        return await self._look(photos, self.photos[-1], phrases)
+
+    async def _look(
+        self, photos: PhotoSteps, message: InboundMessage, phrases: list[str]
+    ) -> "PhotoFindings | TurnOutcome":
+        """Fetch, the person check, then Llama Guard ‖ counting. A photo that can't be checked
+        is dropped (empty findings: the reflection thanks the parent without numbers). The image
+        lives only in this call."""
+        dropped = PhotoFindings(counts=[])
+        image = await self._fetch_photo(photos, message)
+        if image is None:
+            return dropped
+        started = self.steps.clock.now()
+        try:
+            people, usage = await self._bounded(
+                photos.segmenter.count(image, PERSON_PHRASES), self.settings.analyze_image_timeout
+            )
+        except (ProviderError, TimeoutError) as error:
+            await self._record_failure(StepName.ANALYZE_IMAGE, started, error, "photo_dropped")
+            return dropped
+        if any(found.count > 0 for found in people):
+            await self._record(
+                _StepRecord(StepName.ANALYZE_IMAGE, started, None, usage, "person_check=reject")
+            )
+            return self._fixed(
+                _FixedChoice(
+                    FixedReplyKind.PHOTO_HAS_PERSON, FixedReplyVariant.DEFAULT, Route.JOURNEY
+                )
+            )
+        await self._record(
+            _StepRecord(StepName.ANALYZE_IMAGE, started, None, usage, "person_check=pass")
+        )
+        return await self._checked_counts(photos, image, message.text, phrases)
+
+    async def _fetch_photo(self, photos: PhotoSteps, message: InboundMessage) -> ImageClip | None:
+        started = self.steps.clock.now()
+        if message.media is None:
+            error = MediaUnsupported("image message without media")
+            await self._record_failure(StepName.FETCH_IMAGE, started, error, "photo_dropped")
+            return None
+        try:
+            image = await self._bounded(
+                photos.fetcher.fetch_image(message.media), self.settings.fetch_image_timeout
+            )
+        except (ProviderError, MediaError, TimeoutError) as error:
+            await self._record_failure(StepName.FETCH_IMAGE, started, error, "photo_dropped")
+            return None
+        await self._record(
+            _StepRecord(StepName.FETCH_IMAGE, started, None, None, f"bytes={len(image.data)}")
+        )
+        return image
+
+    async def _checked_counts(
+        self, photos: PhotoSteps, image: ImageClip, caption: str | None, phrases: list[str]
+    ) -> "PhotoFindings | TurnOutcome":
+        """Llama Guard on the image while SAM counts; the counts are used only if it allows."""
+        dropped = PhotoFindings(counts=[])
+        counting = asyncio.create_task(self._count(photos, image, phrases)) if phrases else None
+        started = self.steps.clock.now()
+        try:
+            check = await self._bounded(
+                self.steps.gate.check_photo(image, caption), self.settings.safety_in_timeout
+            )
+        except (SafetyUnavailable, TimeoutError) as error:
+            await self._discard_counting(counting)
+            await self._record_failure(StepName.SAFETY_IN, started, error, "photo_dropped")
+            return dropped
+        detail = f"photo {_verdict_detail(check.verdict, guard_down=False)}"
+        await self._record(
+            _StepRecord(
+                StepName.SAFETY_IN,
+                started,
+                check.verdict,
+                check.usage,
+                detail,
+                check.verdict.decision,
+            )
+        )
+        if check.verdict.decision is not SafetyDecision.ALLOW:
+            await self._discard_counting(counting)
+            return self._fixed(
+                _FixedChoice(FixedReplyKind.REFUSE, FixedReplyVariant.GENERIC, Route.REFUSE)
+            )
+        if counting is None:
+            return dropped
+        started = self.steps.clock.now()
+        try:
+            counts, usage = await counting
+        except (ProviderError, TimeoutError) as error:
+            await self._record_failure(StepName.ANALYZE_IMAGE, started, error, "counts_dropped")
+            return dropped
+        found = " ".join(f"{count.phrase.replace(' ', '_')}={count.count}" for count in counts)
+        await self._record(_StepRecord(StepName.ANALYZE_IMAGE, started, None, usage, found))
+        return PhotoFindings(counts=counts)
+
+    async def _count(
+        self, photos: PhotoSteps, image: ImageClip, phrases: list[str]
+    ) -> tuple[list[ObjectCount], StepUsage]:
+        return await self._bounded(
+            photos.segmenter.count(image, phrases), self.settings.analyze_image_timeout
+        )
+
+    @staticmethod
+    async def _discard_counting(
+        counting: "asyncio.Task[tuple[list[ObjectCount], StepUsage]] | None",
+    ) -> None:
+        if counting is None:
+            return
+        counting.cancel()
+        await asyncio.gather(counting, return_exceptions=True)
 
     # --- voice (s06) ----------------------------------------------------------------------------
 

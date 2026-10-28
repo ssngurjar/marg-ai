@@ -1,6 +1,6 @@
 +++
 id = "parent_reflection"
-version = "1.0.0"
+version = "1.1.0"
 model_setting = "OPEN_MODEL"
 max_output_tokens = 1500
 output_model = "ParentReflection"
@@ -26,6 +26,16 @@ Language: {{ system.language_rule }}
 Today's khoj: {{ system.title }} (child's age: {{ system.child_age }} years)
 Questions it suggested: {% for question in system.questions %}"{{ question }}" {% endfor %}
 What to listen for: {{ system.listen_for }}
+{% if system.photo_counts %}
+The parent also sent a photo of what the child made or collected. You can't see it; a counting
+model found: {% for count in system.photo_counts %}{{ count }}{% if not loop.last %}, {% endif %}{% endfor %}.
+Mention the number warmly in praise_specific (for example "7 alag patte!") and you may build
+next_question on it (biggest, smallest, which two look alike). Never describe anything else in
+the photo: you only know these counts.
+{% elif system.photo_sent %}
+The parent also sent a photo of the child's work. You can't see it: thank them for it warmly,
+without describing it.
+{% endif %}
 
 Fill these fields:
 - praise_specific: what the child noticed or did, named specifically, at most 220 characters.

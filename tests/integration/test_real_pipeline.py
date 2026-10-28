@@ -24,6 +24,8 @@ from app.core.types import JsonValue
 from app.domain.enums import Channel, PartKind, SafetyCategory
 from app.domain.models.base import UserHash
 from app.layers.khoj_card_maker import KhojCardMaker
+from app.pipeline.channel_media_fetcher import ChannelMediaFetcher
+from app.pipeline.orchestrator import PhotoSteps
 from app.providers.http import RetryPolicy, RetryTiming
 from app.providers.ports import ChannelSender, SafetyRequest
 from app.store.db import create_engine, create_session_factory
@@ -35,7 +37,7 @@ from app.wiring import EngineParts, OrchestratorPorts, build_orchestrator, build
 from app.worker.turn_dispatcher import TurnDispatcher
 from tests.fakes.clock import FixedClock
 from tests.fakes.domain_policy import CLEAR, REPLY_CLEAR, policy_answer
-from tests.fakes.image import TINY_PNG, FakeImageGenerator
+from tests.fakes.image import TINY_PNG, FakeImageGenerator, FakeImageSegmenter
 from tests.fakes.language_model import (
     FakeLanguageModel,
     PromptRoutedLanguageModel,
@@ -44,7 +46,7 @@ from tests.fakes.language_model import (
 from tests.fakes.safety_classifier import FakeSafetyClassifier
 from tests.fakes.sender import FakeSender
 from tests.fakes.sleeper import FakeSleeper
-from tests.fakes.voice import VOICE_NOTE, FakeTranscriber, FakeVoice
+from tests.fakes.voice import VOICE_NOTE, FakeMediaFetcher, FakeTranscriber, FakeVoice
 from tests.support import whatsapp_payloads as wa
 from tests.support.app_factory import TEST_PHONE_NUMBER_ID, make_identity, make_settings
 from tests.support.child_talk import CHILD_ANSWER, CHILD_REPLY
@@ -122,8 +124,12 @@ def wire(
     )
     media = MediaBlobRepository(sessions)  # the real table: voice notes stored and loaded
     voice_steps = dataclasses.replace((voice or FakeVoice()).steps(), audio_store=media)
+    photos = PhotoSteps(
+        fetcher=ChannelMediaFetcher({Channel.WHATSAPP: FakeMediaFetcher(), Channel.WEB: media}),
+        segmenter=FakeImageSegmenter(),
+    )
     orchestrator = build_orchestrator(
-        settings, OrchestratorPorts(language_model, classifier, voice_steps), clock
+        settings, OrchestratorPorts(language_model, classifier, voice_steps, photos), clock
     )
     dispatcher = build_turn_dispatcher(
         settings=settings,

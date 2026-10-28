@@ -26,7 +26,7 @@ from app.domain.models.message import ImageClip
 from app.domain.models.reply import LocalisedReply
 from app.providers.ports import SafetyRequest
 from app.safety.domain_policy import DomainPolicy, HarmKind
-from app.safety.safety_gate import SafeReply, SafetyGate
+from app.safety.safety_gate import PHOTO_WITHOUT_CAPTION, SafeReply, SafetyGate
 from tests.fakes.domain_policy import (
     policy_answer,
     reply_answer,
@@ -544,3 +544,38 @@ async def test_a_caption_breaking_a_rule_is_blocked_before_any_call(
     check = await gate_with(classifier).check_card(bad, CARD_IMAGE)
     assert check.verdict.categories == [category]
     assert classifier.requests == []
+
+
+# --- a parent's photo (s10b §4.14, C7) ----------------------------------------------------------
+
+PHOTO = ImageClip(data=b"\xff\xd8\xff a photo of stones", mime_type="image/jpeg")
+
+
+async def test_an_allowed_photo_was_seen_by_llama_guard_with_its_caption() -> None:
+    classifier = FakeSafetyClassifier()
+    check = await gate_with(classifier).check_photo(PHOTO, "  Munni ka minar  ")
+    assert check.verdict.decision is SafetyDecision.ALLOW
+    [request] = classifier.requests
+    assert (request.speaker, request.text, request.image) == ("user", "Munni ka minar", PHOTO)
+
+
+@pytest.mark.parametrize("caption", [None, "", "   "])
+async def test_a_photo_without_a_caption_goes_with_the_fixed_text(caption: str | None) -> None:
+    classifier = FakeSafetyClassifier()
+    await gate_with(classifier).check_photo(PHOTO, caption)
+    assert classifier.requests[0].text == PHOTO_WITHOUT_CAPTION
+
+
+async def test_any_flag_on_a_photo_blocks_it() -> None:
+    flag_all = FakeSafetyClassifier(flag=lambda _request: [C.SEXUAL_CONTENT, C.CHILD_EXPLOITATION])
+    check = await gate_with(flag_all).check_photo(PHOTO, None)
+    assert check.verdict.decision is SafetyDecision.BLOCK
+    assert check.verdict.categories == [C.SEXUAL_CONTENT, C.CHILD_EXPLOITATION]
+
+
+@pytest.mark.parametrize("error", GUARD_FAILURES, ids=lambda error: type(error).__name__)
+async def test_llama_guard_down_means_the_photo_is_dropped_there_is_no_backup(
+    error: ProviderError,
+) -> None:
+    with pytest.raises(SafetyUnavailable, match="llama_guard is down for a photo"):
+        await gate_with(FakeSafetyClassifier(error=error)).check_photo(PHOTO, None)

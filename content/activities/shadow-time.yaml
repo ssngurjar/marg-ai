@@ -1,5 +1,5 @@
 id: shadow-time
-version: 1
+version: 2
 status: enabled
 age_min: 4
 age_max: 8
@@ -8,6 +8,7 @@ setting: outdoors
 season: any
 duration_minutes: 5
 materials: [stick, stones]
+photo_count_phrases: [stone]
 title: "Parchhai ka khel"
 steps:
   - "In the morning, push a stick into the ground in an open sunny spot with your child."

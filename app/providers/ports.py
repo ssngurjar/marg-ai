@@ -4,7 +4,7 @@ Each step adds the ports it introduces. Adapters implement them; tests use fakes
 The `Clock` protocol lives in app/core/clock.py (core infrastructure, importable by every layer).
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from datetime import datetime
 from typing import Literal, Protocol
 from uuid import UUID
@@ -15,6 +15,7 @@ from app.core.types import ReasoningEffort
 from app.domain.enums import Channel, Language
 from app.domain.models.base import UserHash
 from app.domain.models.message import AudioClip, ImageClip, MediaRef, Transcript
+from app.domain.models.photo import ObjectCount
 from app.domain.models.reply import OutboundPart
 from app.domain.models.safety import SafetyVerdict
 from app.domain.models.usage import StepUsage
@@ -146,9 +147,19 @@ class AudioConverter(Protocol):
 
 
 class MediaFetcher(Protocol):
-    """A user's media, downloaded for this turn only: never stored (s06 §4.8)."""
+    """A user's media, downloaded for this turn only: never stored (s06 §4.8, s10b §4.14)."""
 
     async def fetch(self, ref: MediaRef) -> AudioClip: ...
+
+    async def fetch_image(self, ref: MediaRef) -> ImageClip: ...
+
+
+class ImageSegmenter(Protocol):
+    """SAM 3.1 (s10b activity photos, C7): how many of each noun phrase are in a photo."""
+
+    async def count(
+        self, image: ImageClip, phrases: Sequence[str]
+    ) -> tuple[list[ObjectCount], StepUsage]: ...
 
 
 class ReplyAudioStore(Protocol):

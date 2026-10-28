@@ -36,6 +36,7 @@ LIMITS = DemoLimits(
     per_ip_per_hour=90,
     sessions_per_ip_per_hour=20,
     max_audio_bytes=1_000_000,
+    max_image_bytes=1_000_000,
     daily_cost_cap_usd=Decimal(5),
 )
 
@@ -167,12 +168,53 @@ async def test_a_web_voice_note_is_heard_answered_and_then_deleted(engine: Async
     ) == [(0,)]
 
 
+async def test_a_web_photo_is_answered_and_then_deleted(site: Demo, engine: AsyncEngine) -> None:
+    await site.client.get("/demo/session")
+    encoded = base64.b64encode(b"\xff\xd8\xff\xe0 a photo of stones").decode("ascii")
+    view = await say(site, {"image_base64": encoded, "image_type": "image/jpeg"})
+    turn = view["turn"]
+    assert isinstance(turn, dict)
+    assert turn["status"] != "processing"  # answered (a new visitor is asked for consent first)
+    assert await rows(
+        engine, "SELECT count(*) FROM media_blobs WHERE purpose = 'inbound_photo'"
+    ) == [(0,)]
+
+
+async def test_a_mislabelled_photo_is_refused_and_nothing_is_stored(
+    site: Demo, engine: AsyncEngine
+) -> None:
+    await site.client.get("/demo/session")
+    fake = base64.b64encode(b"<svg onload=alert(1)>").decode("ascii")
+    response = await site.client.post(
+        "/demo/messages", json={"image_base64": fake, "image_type": "image/png"}, headers=ORIGIN
+    )
+    assert response.status_code == 422
+    assert response.json() == {
+        "error": "invalid_message",
+        "field": "image",
+        "reason": "type_mismatch",
+    }
+    assert await rows(engine, "SELECT count(*) FROM media_blobs") == [(0,)]
+
+
+async def test_a_photo_that_isnt_base64_is_refused(site: Demo) -> None:
+    await site.client.get("/demo/session")
+    response = await site.client.post(
+        "/demo/messages",
+        json={"image_base64": "not base64!!", "image_type": "image/jpeg"},
+        headers=ORIGIN,
+    )
+    assert response.status_code == 422
+    assert response.json()["field"] == "image"
+
+
 async def test_over_the_hourly_limit_is_429_and_counts_nothing(engine: AsyncEngine) -> None:
     tight = DemoLimits(
         per_session_per_hour=1,
         per_ip_per_hour=90,
         sessions_per_ip_per_hour=20,
         max_audio_bytes=1_000_000,
+        max_image_bytes=1_000_000,
         daily_cost_cap_usd=Decimal(5),
     )
     async for site in demo_for(engine, limits=tight):
@@ -190,6 +232,7 @@ async def test_past_the_daily_budget_the_demo_rests(engine: AsyncEngine) -> None
         per_ip_per_hour=90,
         sessions_per_ip_per_hour=20,
         max_audio_bytes=1_000_000,
+        max_image_bytes=1_000_000,
         daily_cost_cap_usd=Decimal(0),
     )
     async for site in demo_for(engine, limits=broke):

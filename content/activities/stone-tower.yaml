@@ -1,5 +1,5 @@
 id: stone-tower
-version: 1
+version: 2
 status: enabled
 age_min: 3
 age_max: 8
@@ -8,6 +8,7 @@ setting: courtyard
 season: any
 duration_minutes: 10
 materials: [stones]
+photo_count_phrases: [stone]
 title: "Pattharon ka minar"
 steps:
   - "Collect flat stones of different sizes with your child."

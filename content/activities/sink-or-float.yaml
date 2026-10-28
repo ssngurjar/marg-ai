@@ -1,5 +1,5 @@
 id: sink-or-float
-version: 1
+version: 2
 status: enabled
 age_min: 3
 age_max: 8
@@ -8,6 +8,7 @@ setting: home
 season: any
 duration_minutes: 10
 materials: [bowl, water in a bowl, stones, leaves, spoon, bottle caps, twigs]
+photo_count_phrases: [stone, leaf, bottle cap]
 title: "Doobega ya tairega?"
 steps:
   - "Put some water in a bowl and keep it on the floor between you and your child."

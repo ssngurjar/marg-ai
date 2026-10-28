@@ -83,6 +83,35 @@ _PLAIN_TEXTS: Final[dict[tuple[FixedReplyKind, FixedReplyVariant], dict[Language
         _HINDI: "इस तरह का संदेश अभी समझ नहीं पाते। कृपया अपनी बात लिखकर भेजिए।",
         _ENGLISH: "I can't read this kind of message yet. Please type what you'd like to say.",
     },
+    # Activity photos (s10b §4.14, C7; owner 2026-10-28: any person, a hand too, is refused).
+    (_K.PHOTO_HAS_PERSON, _V.DEFAULT): {
+        _HINGLISH: (
+            "Is photo mein koi insaan dikh raha hai, isliye humne ise turant hata diya. Kripya sirf"
+            " bachche ki banayi ya ikatthi cheezon ki photo bhejiye, kisi ka chehra ya haath nahi."
+        ),
+        _HINDI: (
+            "इस फ़ोटो में कोई इंसान दिख रहा है, इसलिए हमने इसे तुरंत हटा दिया। कृपया सिर्फ़ बच्चे की"
+            " बनाई या इकट्ठी चीज़ों की फ़ोटो भेजिए, किसी का चेहरा या हाथ नहीं।"
+        ),
+        _ENGLISH: (
+            "This photo shows a person, so we deleted it right away. Please send a photo of only"
+            " the things your child made or collected, without anyone's face or hands."
+        ),
+    },
+    (_K.PHOTO_NOT_NEEDED, _V.DEFAULT): {
+        _HINGLISH: (
+            "Photo ke liye shukriya! Photo tab kaam aati hai jab aap khoj ke baad bachche ki banayi"
+            ' ya ikatthi cheezein dikhate hain. Nayi khoj ke liye "Aaj ki khoj" likhiye.'
+        ),
+        _HINDI: (
+            "फ़ोटो के लिए धन्यवाद! फ़ोटो तब काम आती है जब आप खोज के बाद बच्चे की बनाई या इकट्ठी"
+            ' चीज़ें दिखाते हैं। नई खोज के लिए "आज की खोज" लिखिए।'
+        ),
+        _ENGLISH: (
+            "Thanks for the photo! Photos help after a khoj, to show what your child made or"
+            ' collected. Type "Aaj ki khoj" to start one.'
+        ),
+    },
     # The daily nudge template's body, recorded on the NUDGE turn (s10b §4.11). Must match the
     # templates submitted in WhatsApp Manager word for word.
     (_K.NUDGE, _V.DEFAULT): {

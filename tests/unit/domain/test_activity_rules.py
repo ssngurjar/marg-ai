@@ -347,3 +347,38 @@ def test_the_only_child_is_chosen_and_several_without_a_signal_ask() -> None:
 def test_a_button_for_someone_elses_child_is_ignored() -> None:
     stranger = str(UUID(int=99))
     assert LearnerChooser.choose([MUNNI], stranger, "", [], NOW) == MUNNI
+
+
+# --- what a photo counts (s10b §4.14; owner, 2026-10-28) -----------------------------------------
+
+
+@pytest.mark.parametrize("phrases", [[], ["leaf"], ["stone", "leaf", "bottle cap"]])
+def test_count_phrases_are_optional_singular_lowercase_nouns(phrases: list[str]) -> None:
+    assert validate(raw(photo_count_phrases=phrases)).photo_count_phrases == phrases
+
+
+def test_an_activity_without_count_phrases_counts_nothing() -> None:
+    data = raw()
+    data.pop("photo_count_phrases", None)
+    assert validate(data).photo_count_phrases == []
+
+
+@pytest.mark.parametrize(
+    "phrases",
+    [["Leaf"], ["leaves!"], ["a big round flat stone"], [""], ["leaf", "stone", "twig", "seed"]],
+    ids=["capitalised", "punctuation", "four_words", "empty", "four_phrases"],
+)
+def test_a_count_phrase_sam_cant_take_is_rejected(phrases: list[str]) -> None:
+    with pytest.raises(CorpusValidationError, match="photo_count_phrases"):
+        validate(raw(photo_count_phrases=phrases))
+
+
+def test_the_shipped_count_phrases_are_the_reviewed_ones() -> None:
+    catalogue = {
+        activity.id: activity.photo_count_phrases for activity in ActivityCatalogue.load().enabled
+    }
+    assert catalogue["leaf-families"] == ["leaf"]
+    assert catalogue["stone-tower"] == ["stone"]
+    assert catalogue["sink-or-float"] == ["stone", "leaf", "bottle cap"]
+    assert catalogue["shadow-time"] == ["stone"]
+    assert catalogue["yesterday-story"] == []

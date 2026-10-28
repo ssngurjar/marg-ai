@@ -3,16 +3,17 @@ data-model `media_blobs`)."""
 
 import os
 from collections.abc import AsyncIterator
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from app.core.errors import MediaTooLarge
+from app.core.errors import MediaTooLarge, MediaUnsupported
+from app.domain.enums import Channel
 from app.domain.models.base import UserHash
-from app.domain.models.message import AudioClip
+from app.domain.models.message import AudioClip, ImageClip, MediaRef
 from app.store.db import create_engine, create_session_factory
 from app.store.repositories.media_blob_repository import MediaBlobRepository
 from app.store.tables import MEDIA_BLOB_MAX_BYTES
@@ -142,3 +143,64 @@ async def test_an_outbox_part_loses_its_link_when_the_audio_is_deleted(
     )
     await run_sql(engine, "DELETE FROM media_blobs WHERE id = :b", b=blob_id)
     assert await run_sql(engine, "SELECT audio_blob_id FROM outbox_messages") == [(None,)]
+
+
+# --- web photos (s10b §4.14): kept only until their turn has looked at them -----------------------
+
+PHOTO = ImageClip(data=b"\xff\xd8\xff a photo of stones", mime_type="image/jpeg")
+
+
+def web_ref(blob_id: UUID) -> MediaRef:
+    return MediaRef(
+        channel=Channel.WEB, provider_media_id=None, blob_id=blob_id, mime_type="image/jpeg"
+    )
+
+
+async def test_a_web_photo_is_stored_for_ten_minutes_and_loads_back(
+    media: MediaBlobRepository, engine: AsyncEngine
+) -> None:
+    blob_id = await media.save_inbound_photo(PARENT, PHOTO)
+    assert await media.fetch_image(web_ref(blob_id)) == PHOTO
+    [(lifetime_ok,)] = await run_sql(
+        engine,
+        "SELECT expires_at - created_at BETWEEN interval '9 minutes' AND interval '11 minutes'"
+        " FROM media_blobs WHERE id = :id",
+        id=blob_id,
+    )
+    assert lifetime_ok is True
+
+
+async def test_an_expired_or_unknown_photo_is_unsupported(
+    media: MediaBlobRepository, engine: AsyncEngine
+) -> None:
+    blob_id = await media.save_inbound_photo(PARENT, PHOTO)
+    await run_sql(engine, "UPDATE media_blobs SET expires_at = now() - interval '1 second'")
+    with pytest.raises(MediaUnsupported, match="the photo has expired"):
+        await media.fetch_image(web_ref(blob_id))
+    with pytest.raises(MediaUnsupported, match="the photo has expired"):
+        await media.fetch_image(web_ref(uuid4()))
+
+
+async def test_a_voice_note_cant_be_read_as_a_photo(media: MediaBlobRepository) -> None:
+    blob_id = await media.save_inbound_audio(PARENT, NOTE)
+    with pytest.raises(MediaUnsupported, match="the photo has expired"):
+        await media.fetch_image(web_ref(blob_id))
+
+
+async def test_a_photo_over_2_mb_is_refused(media: MediaBlobRepository) -> None:
+    too_big = PHOTO.model_copy(update={"data": b"x" * (MEDIA_BLOB_MAX_BYTES + 1)})
+    with pytest.raises(MediaTooLarge, match="photo is"):
+        await media.save_inbound_photo(PARENT, too_big)
+
+
+async def test_finalize_deletes_a_looked_at_photo_but_never_reply_audio(
+    media: MediaBlobRepository, engine: AsyncEngine
+) -> None:
+    photo_id = await media.save_inbound_photo(PARENT, PHOTO)
+    reply_id = await media.save(PARENT, NOTE)
+    sessions = create_session_factory(engine)
+    async with sessions() as session, session.begin():
+        await MediaBlobRepository.delete_inbound(session, PARENT, photo_id)
+        await MediaBlobRepository.delete_inbound(session, PARENT, reply_id)
+    remaining = await run_sql(engine, "SELECT purpose FROM media_blobs")
+    assert remaining == [("reply_audio",)]

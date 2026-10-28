@@ -56,6 +56,8 @@ from app.safety.safety_decision_mapper import SafetyDecisionMapper
 
 _SEAL: Final = object()
 DEFAULT_GUARD_TIMEOUT: Final = timedelta(seconds=1.5)  # TIMEOUT_GUARD_S; wiring passes the setting
+PHOTO_WITHOUT_CAPTION: Final = "A photo of something a young child made or collected."
+"""Sent with a photo that has no caption: Llama Guard's host takes an image only with text."""
 
 logger = get_logger(__name__)
 
@@ -95,6 +97,14 @@ class OutputCheck:
     usage: StepUsage | None  # None when the d7 rule blocked before any provider call
     guard_down: bool = False  # Llama Guard failed and the Muse Spark reply check decided
     overruled: tuple[SafetyCategory, ...] = ()  # Llama Guard codes the second opinion cleared
+
+
+@dataclass(frozen=True, slots=True)
+class PhotoCheck:
+    """Llama Guard's verdict on a parent's photo: ALLOW, or BLOCK with its codes."""
+
+    verdict: SafetyVerdict
+    usage: StepUsage
 
 
 @dataclass(frozen=True, slots=True)
@@ -288,6 +298,21 @@ class SafetyGate:
             _seal=_SEAL,
         )
         return OutputCheck(verdict=verdict, safe_reply=safe, usage=guard.usage)
+
+    async def check_photo(self, image: ImageClip, caption: str | None) -> PhotoCheck:
+        """A parent's photo of the child's work (s10b §4.14, C7), after the person check. Llama
+        Guard sees it with its caption (the host needs a text part with an image). A photo is
+        optional, so there's no backup: if Llama Guard is down, SafetyUnavailable, and the photo
+        is dropped (fail closed); any flag blocks it."""
+        text = caption.strip() if caption and caption.strip() else PHOTO_WITHOUT_CAPTION
+        request = SafetyRequest(speaker="user", text=text, prior_user_text=None, image=image)
+        guard = await self._guard(request)
+        if guard is None:
+            raise SafetyUnavailable("llama_guard is down for a photo; no backup for images")
+        categories = list(guard.verdict.categories)
+        decision = SafetyDecision.BLOCK if categories else SafetyDecision.ALLOW
+        verdict = SafetyVerdict(decision=decision, categories=categories, source="llama_guard")
+        return PhotoCheck(verdict=verdict, usage=guard.usage)
 
     @staticmethod
     def _child_rule(classified_text: str, speaker: Speaker) -> SafetyCategory | None:

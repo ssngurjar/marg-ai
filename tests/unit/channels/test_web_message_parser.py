@@ -6,7 +6,9 @@ from hypothesis import strategies as st
 
 from app.channels.web.web_message_parser import (
     WebButton,
+    WebLimits,
     WebMessageParser,
+    WebPhoto,
     WebText,
     WebUpload,
     WebVoice,
@@ -31,7 +33,7 @@ def upload(
 
 
 def parse(sent: WebUpload, offered: set[str] | None = None) -> object:
-    return WebMessageParser.parse(sent, CAP, offered or set())
+    return WebMessageParser.parse(sent, WebLimits(CAP, CAP), offered or set())
 
 
 def refused(sent: WebUpload, field: str, reason: str, offered: set[str] | None = None) -> None:
@@ -111,3 +113,61 @@ def test_any_non_blank_text_up_to_the_limit_is_taken(text: str) -> None:
     parsed = parse(upload(text=text))
     assert isinstance(parsed, WebText)
     assert parsed.text == text.strip()
+
+
+# --- photos (s10b §4.14) --------------------------------------------------------------------------
+
+JPEG = b"\xff\xd8\xff\xe0" + b"\x00" * 20
+PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 20
+WEBP = b"RIFF\x00\x00\x00\x00WEBPVP8 " + b"\x00" * 10
+
+
+def photo_upload(data: bytes, declared: str | None) -> WebUpload:
+    return WebUpload(
+        text=None, audio=None, audio_type=None, button_id=None, image=data, image_type=declared
+    )
+
+
+@pytest.mark.parametrize(
+    ("data", "declared"),
+    [(JPEG, "image/jpeg"), (PNG, "image/png"), (WEBP, "image/webp"), (JPEG, "IMAGE/JPEG; q=1")],
+)
+def test_each_photo_format_is_taken(data: bytes, declared: str) -> None:
+    taken = parse(photo_upload(data, declared))
+    expected_type = declared.split(";", maxsplit=1)[0].strip().lower()
+    assert taken == WebPhoto(data=data, mime_type=expected_type)
+
+
+def test_a_photo_at_the_cap_is_taken_and_one_byte_more_refused() -> None:
+    at_cap = JPEG + b"\x00" * (CAP - len(JPEG))
+    assert isinstance(parse(photo_upload(at_cap, "image/jpeg")), WebPhoto)
+    refused(photo_upload(at_cap + b"\x00", "image/jpeg"), "image", "too_large")
+
+
+@pytest.mark.parametrize(
+    ("data", "declared", "reason"),
+    [
+        (b"", "image/jpeg", "empty"),
+        (JPEG, "image/gif", "unsupported_type"),
+        (JPEG, None, "unsupported_type"),
+        (PNG, "image/jpeg", "type_mismatch"),
+        (b"<svg onload=alert(1)>", "image/png", "type_mismatch"),
+        (WEBM, "image/webp", "type_mismatch"),
+    ],
+)
+def test_wrong_or_mislabelled_photos_are_refused(
+    data: bytes, declared: str | None, reason: str
+) -> None:
+    refused(photo_upload(data, declared), "image", reason)
+
+
+def test_a_photo_with_anything_else_is_refused() -> None:
+    both = WebUpload(
+        text="Munni ka minar",
+        audio=None,
+        audio_type=None,
+        button_id=None,
+        image=JPEG,
+        image_type="image/jpeg",
+    )
+    refused(both, "message", "multiple_provided")

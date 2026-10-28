@@ -1,10 +1,10 @@
 """Activities: reviewed catalogue entries and what was offered to a learner (s10b §4.3, §5)."""
 
 from datetime import date, datetime
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import Field, StringConstraints
 
 from app.domain.enums import ActivityStatus, CuriosityDomain
 from app.domain.models.base import DomainModel
@@ -28,6 +28,11 @@ class Activity(DomainModel):
     season: Season
     duration_minutes: int = Field(ge=1, le=30)
     materials: list[str]
+    # What SAM 3.1 counts in a photo of the child's work (owner, 2026-10-28): reviewed with the
+    # activity. Empty: a photo is welcomed but nothing is counted.
+    photo_count_phrases: list[
+        Annotated[str, StringConstraints(pattern=r"^[a-z]+( [a-z]+){0,2}$", max_length=40)]
+    ] = Field(default_factory=list, max_length=3)
     title: str = Field(min_length=1, max_length=60)
     steps: list[str] = Field(min_length=1, max_length=6)
     questions_to_ask: list[str] = Field(min_length=2, max_length=4)

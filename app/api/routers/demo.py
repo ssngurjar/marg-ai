@@ -1,8 +1,9 @@
 """The web demo (s14; exception E2): a page, a session, messages in, and polling for the reply.
 
 Thin, like the webhook: the WebDemoIngestor does the checks and the inbox insert; the worker
-runs the same pipeline as for WhatsApp. Messages are JSON (a voice note as base64), so there's no
-form-parsing dependency. Every response under /demo carries the security headers of s14 §4.10.
+runs the same pipeline as for WhatsApp. Messages are JSON (a voice note or photo as base64), so
+there's no form-parsing dependency. Every response under /demo carries the security headers of
+s14 §4.10.
 """
 
 import base64
@@ -31,10 +32,11 @@ logger = get_logger(__name__)
 
 PAGE: Final = Path(__file__).resolve().parents[2] / "static" / "demo" / "index.html"
 COOKIE: Final = "marg_session"
-MAX_BODY_BYTES: Final = 1_500_000  # a 1 MB voice note as base64, plus a little
+MAX_BODY_BYTES: Final = 1_500_000  # a 1 MB voice note or photo as base64, plus a little
 SECURITY_HEADERS: Final = {
     "Content-Security-Policy": (
-        "default-src 'self'; media-src 'self' blob:; connect-src 'self'; img-src 'self' data:; "
+        "default-src 'self'; media-src 'self' blob:; connect-src 'self'; "
+        "img-src 'self' data: blob:; "
         "style-src 'self'; script-src 'self'; frame-ancestors 'none'"
     ),
     "X-Content-Type-Options": "nosniff",
@@ -47,13 +49,16 @@ CookieDep = Annotated[str | None, Cookie(alias=COOKIE)]
 
 
 class MessageIn(BaseModel):
-    """Exactly one of text, a voice note (base64) or a button id (checked by WebMessageParser)."""
+    """Exactly one of text, a voice note or photo (base64), or a button id (checked by
+    WebMessageParser)."""
 
     model_config = ConfigDict(extra="forbid")
 
     text: str | None = Field(default=None, max_length=4000)
     audio_base64: str | None = None
     audio_type: str | None = Field(default=None, max_length=64)
+    image_base64: str | None = None
+    image_type: str | None = Field(default=None, max_length=64)
     button_id: str | None = Field(default=None, max_length=300)
 
 
@@ -85,7 +90,8 @@ async def post_message(
         return _error(status.HTTP_413_CONTENT_TOO_LARGE, {"error": "too_large"})
     try:
         user_hash = demo.known_visitor(cookie)
-        audio = _decoded_audio(body.audio_base64)
+        audio = _decoded(body.audio_base64, "audio")
+        image = _decoded(body.image_base64, "image")
         message_id = await demo.submit(
             user_hash,
             _client_ip(request),
@@ -94,6 +100,8 @@ async def post_message(
                 audio=audio,
                 audio_type=body.audio_type,
                 button_id=body.button_id,
+                image=image,
+                image_type=body.image_type,
             ),
         )
     except DemoRefused as refused:
@@ -202,13 +210,14 @@ def _message_json(view: MessageView) -> dict[str, object]:
     }
 
 
-def _decoded_audio(encoded: str | None) -> bytes | None:
+def _decoded(encoded: str | None, field: str) -> bytes | None:
+    """A base64 voice note or photo; anything that isn't base64 is refused for that field."""
     if encoded is None:
         return None
     try:
         return base64.b64decode(encoded, validate=True)
     except (binascii.Error, ValueError) as exc:
-        raise WebInputInvalid("audio", "type_mismatch") from exc
+        raise WebInputInvalid(field, "type_mismatch") from exc
 
 
 def _same_origin(request: Request) -> bool:

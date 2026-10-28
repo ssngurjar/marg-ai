@@ -113,9 +113,10 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
   per reply; a harm only in the spoken text now blocks the reply.
 - [ ] **Phone test**: send a voice note in Hinglish and in Hindi; check the transcript in the
   reply, the voice reply's sound, and a silent or 1-second note ("please repeat").
-- [ ] **Voice for the demo**: rent a GPU for Indic Parler-TTS, run marg-ai-tts there with
-  `TTS_ENGINE=indic_parler`, and point `SIDECAR_BASE_URL` at it. MMS-TTS (CC-BY-NC) is for local
-  testing only and must not be in the submission.
+- [x] **Voice for the demo** (decided 2026-10-28, s06 log): MMS-TTS is the voice in the video and
+  the submission; Indic Parler-TTS is on hold (no GPU host) and stays switchable with `TTS_ENGINE`.
+- [ ] **Ask the organisers** in #office-hours whether MMS-TTS (CC-BY-NC 4.0) is fine in a
+  hackathon submission, and keep the answer (C8).
 
 ## 2e. Curiosity moment, C11 (from 2026-10-27)
 
@@ -204,7 +205,31 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
   wants a web variant saying a cookie identifies the browser).
 - [ ] **Limits**: 30 messages per visitor per hour, 90 per IP, 20 new sessions per IP, and
   $5 of web spend per India day (`DAILY_COST_CAP_USD`).
-- [ ] **Not in this build**: photos on the web (C7, item 7) and the admin dashboard (S13).
+- [ ] **Not in this build**: the admin dashboard (S13). Photos on the web are built (2j).
+
+## 2j. Activity photos, C7 (from 2026-10-28)
+
+- [x] **Decided 2026-10-28** (s10b log): any person refuses a photo, a hand too; web photos are
+  held only until their turn has looked at them (≤ 10 minutes); a reviewed list of what to count
+  per activity.
+- [ ] **What each activity counts** (`photo_count_phrases` in `content/activities/*.yaml`, each
+  bumped to version 2): leaf-families `leaf`, stone-tower `stone`, shadow-time `stone`,
+  sink-or-float `stone, leaf, bottle cap`; the other six count nothing (a photo is welcomed and
+  thanked without a number).
+- [ ] **Photo copy**, `app/constants/fixed_replies.py`: PHOTO_HAS_PERSON ("Is photo mein koi
+  insaan dikh raha hai, isliye humne ise turant hata diya…") and PHOTO_NOT_NEEDED, in three
+  languages.
+- [ ] **Prompt** `parent_reflection.md.j2` v1.1.0: the counts (never the photo) are given to the
+  model, which may say "5 patthar!" and build its question on them.
+- [ ] Known behaviour to accept or change: a photo sent with a report that contains a person ends
+  the turn with PHOTO_HAS_PERSON; the khoj stays open and the parent can send the report again.
+- [ ] Known behaviour: a photo with no words gets no curiosity signals and so no khoj card (both
+  need the parent's words).
+- [ ] **Phone test:** during a khoj (e.g. "Pattharon ka minar"), send a photo of the stones with no
+  people; then a photo with a hand in it (should be refused); then a photo with no khoj open.
+- [ ] **Web test:** the 📷 button on `/demo`, the same three cases.
+- [ ] **Real photos** (`samples.md` set B) to measure the person check and counting beyond the 15
+  synthetic test pictures (`docs/spikes/images.md`).
 
 ## 3. Decisions log entries marked "pending owner review"
 
@@ -221,8 +246,9 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
 - [ ] Spike F images: GO at `low` effort (0.2 s over the latency bar). Recommended GO.
 - [ ] Khoj cards: GO (`KHOJ_CARD_ENABLED=true`).
 - [ ] Muse Spark Open: a cap of about 7 s per attempt.
-- [ ] Spike F SAM 3.1 (person check and counting): waiting for photos (see
-  `docs/spikes/sample-collection-hi.md`).
+- [x] Spike F SAM 3.1: call format verified and a first reading on 15 synthetic photos (6/6
+  people caught, 0 false alarms, 4/4 counts exact; `docs/spikes/images.md`). Real photos still
+  to come (`samples.md` set B).
 - [ ] Spikes A (speech-to-text) and C (text-to-speech): waiting for voice samples.
 - [ ] **Voice sample spec:** `docs/spikes/samples.md` was written for students and teachers
   (grades 6–12), before the MVP became the parent journey (children 3–8). Should some of the

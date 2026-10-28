@@ -20,12 +20,14 @@ from app.core.errors import ProviderError, ProviderResponseInvalid, ProviderUnav
 from app.domain.enums import ActivityStatus, Language, StepOutcome
 from app.domain.models.activity import OfferRecord
 from app.domain.models.learner import Learner
+from app.domain.models.photo import ObjectCount, PhotoFindings
 from app.domain.models.writes import ActivityOffered, ActivityReported, NudgePreference
 from app.layers.activity_catalogue import CatalogueActivitySource
 from app.layers.journey_layer import (
     ActivityPersonalisation,
     JourneyLayer,
     JourneySettings,
+    ParentMessage,
     ParentReflection,
     _KhojChecks,
     _ReflectionChecks,
@@ -95,7 +97,7 @@ async def khoj(
     message = button_reply(button) if button else text_message(text)
     ctx = turn_context(message, learners=learners or [MUNNI], open_activity=open_activity)
     ids = [button] if button else []
-    return await journey.handle(ctx, text, ids, NOW, H)
+    return await journey.handle(ctx, ParentMessage(text, ids), NOW, H)
 
 
 def offered(result: LayerResult) -> ActivityOffered:
@@ -222,7 +224,7 @@ async def test_a_report_gets_a_specific_reflection_and_is_recorded_done() -> Non
         )
     ]
     assert [button.id for button in result.reply.buttons] == ["onb:add-child"]
-    assert result.prompt_versions == {"parent_reflection": "1.0.0"}
+    assert result.prompt_versions == {"parent_reflection": "1.1.0"}
 
 
 async def test_done_button_with_an_open_activity_reflects() -> None:
@@ -449,3 +451,60 @@ async def test_asking_to_change_the_time_offers_the_choice_again(text: str) -> N
 async def test_stop_alone_is_neither_deletion_nor_turning_off() -> None:
     result = await khoj(text="stop", button=None)
     assert not any(isinstance(write, NudgePreference) for write in result.writes)
+
+
+# --- a photo of the child's work (s10b §4.14) ----------------------------------------------------
+
+STONES = PhotoFindings(counts=[ObjectCount(phrase="stone", count=5)])
+
+
+def test_photo_phrases_are_the_open_activitys_or_none_when_nothing_is_open() -> None:
+    layer, _ = layer_with()
+    tower = next(item for item in shipped_catalogue().enabled if item.id == "stone-tower")
+    open_ctx = turn_context(learners=[MUNNI], open_activity=offer(tower, MUNNI))
+    assert layer.photo_phrases(open_ctx) == ["stone"]
+    assert layer.photo_phrases(turn_context(learners=[MUNNI])) is None
+
+
+async def test_a_photo_alone_is_a_report_and_its_counts_reach_the_prompt_and_the_record() -> None:
+    open_one = offer(FIRST, MUNNI)
+    layer, llm = layer_with()
+    ctx = turn_context(learners=[MUNNI], open_activity=open_one)
+    result = await layer.handle(ctx, ParentMessage("", [], STONES), NOW, H)
+    assert result.reply.body.startswith(REFLECTION_PRAISE)
+    [prompt] = llm.by_prompt["parent_reflection"].prompts
+    assert "a counting\nmodel found: 5 stone." in prompt.system
+    assert "Ho gaya" in prompt.user  # a photo without words reports "done"
+    [report] = result.writes
+    assert isinstance(report, ActivityReported)
+    assert report.photo_counts == [ObjectCount(phrase="stone", count=5)]
+
+
+async def test_a_photo_with_nothing_counted_is_thanked_without_numbers() -> None:
+    layer, llm = layer_with()
+    ctx = turn_context(learners=[MUNNI], open_activity=offer(FIRST, MUNNI))
+    result = await layer.handle(ctx, ParentMessage("dekhiye", [], PhotoFindings(counts=[])), NOW, H)
+    [prompt] = llm.by_prompt["parent_reflection"].prompts
+    assert "You can't see it: thank them for it warmly" in prompt.system
+    assert "a counting\nmodel found" not in prompt.system
+    [report] = result.writes
+    assert isinstance(report, ActivityReported)
+    assert report.photo_counts == []
+
+
+async def test_a_report_without_a_photo_says_nothing_about_photos() -> None:
+    layer, llm = layer_with()
+    ctx = turn_context(learners=[MUNNI], open_activity=offer(FIRST, MUNNI))
+    await layer.handle(ctx, ParentMessage("Munni ne kaha parchhai ghoomti hai", []), NOW, H)
+    [prompt] = llm.by_prompt["parent_reflection"].prompts
+    assert "photo" not in prompt.system
+
+
+async def test_if_the_reflection_fails_the_photo_counts_are_still_recorded() -> None:
+    layer, _ = layer_with(reflect=ProviderUnavailable("503", provider="baseten"))
+    ctx = turn_context(learners=[MUNNI], open_activity=offer(FIRST, MUNNI))
+    result = await layer.handle(ctx, ParentMessage("", [], STONES), NOW, H)
+    assert result.outcome is StepOutcome.DEGRADED
+    [report] = result.writes
+    assert isinstance(report, ActivityReported)
+    assert report.photo_counts == [ObjectCount(phrase="stone", count=5)]

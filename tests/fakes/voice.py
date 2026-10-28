@@ -61,18 +61,31 @@ def wav_of(spoken_ms: int, silence_ms: int = 0, amplitude: int = 8000) -> AudioC
 SPOKEN_WAV = wav_of(3000)
 
 
-class FakeMediaFetcher:
-    """Satisfies `MediaFetcher`."""
+PHOTO_JPEG = b"\xff\xd8\xff\xe0 a parent's photo of leaves"
 
-    def __init__(self, error: MargError | None = None) -> None:
+
+class FakeMediaFetcher:
+    """Satisfies `MediaFetcher`. `image_error` fails photos only."""
+
+    def __init__(
+        self, error: MargError | None = None, image_error: MargError | None = None
+    ) -> None:
         self.refs: list[MediaRef] = []
+        self.image_refs: list[MediaRef] = []
         self._error = error
+        self._image_error = image_error
 
     async def fetch(self, ref: MediaRef) -> AudioClip:
         self.refs.append(ref)
         if self._error is not None:
             raise self._error
         return AudioClip(data=b"OggS user voice note", mime_type=ref.mime_type, duration_ms=None)
+
+    async def fetch_image(self, ref: MediaRef) -> ImageClip:
+        self.image_refs.append(ref)
+        if self._image_error is not None:
+            raise self._image_error
+        return ImageClip(data=PHOTO_JPEG, mime_type="image/jpeg")
 
 
 class FakeAudioConverter:

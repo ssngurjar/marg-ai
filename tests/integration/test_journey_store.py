@@ -16,6 +16,7 @@ from app.domain.enums import ActivityStatus, Channel, InboxStatus, MessageKind
 from app.domain.models.base import TurnId, UserHash
 from app.domain.models.learner import LearnerId
 from app.domain.models.message import InboundMessage
+from app.domain.models.photo import ObjectCount
 from app.domain.models.turn import QueuedMessage
 from app.domain.models.writes import ActivityOffered, ActivityReported
 from app.store.db import create_engine, create_session_factory
@@ -128,6 +129,34 @@ async def test_an_offer_commits_with_the_turn_and_a_report_closes_it(
     await turns.finalize(await started(engine), FINISHED, None, [report])
     assert await scalar(engine, "SELECT status FROM learner_activities") == "done"
     assert await scalar(engine, "SELECT reported_at IS NOT NULL FROM learner_activities") is True
+
+
+async def test_a_reports_photo_counts_are_stored_and_never_the_photo(
+    engine: AsyncEngine, turns: TurnRepository
+) -> None:
+    offer = offered()
+    await turns.finalize(await started(engine), FINISHED, None, [offer])
+    report = ActivityReported(
+        learner_activity_id=offer.learner_activity_id,
+        status=ActivityStatus.DONE,
+        summary="Munni built a tower of stones.",
+        photo_counts=[ObjectCount(phrase="stone", count=5)],
+    )
+    await turns.finalize(await started(engine), FINISHED, None, [report])
+    stored = await scalar(engine, "SELECT photo_findings FROM learner_activities")
+    assert stored == [{"phrase": "stone", "count": 5}]
+
+
+async def test_a_report_without_a_photo_stores_no_findings(
+    engine: AsyncEngine, turns: TurnRepository
+) -> None:
+    offer = offered()
+    await turns.finalize(await started(engine), FINISHED, None, [offer])
+    report = ActivityReported(
+        learner_activity_id=offer.learner_activity_id, status=ActivityStatus.DONE, summary=None
+    )
+    await turns.finalize(await started(engine), FINISHED, None, [report])
+    assert await scalar(engine, "SELECT photo_findings FROM learner_activities") is None
 
 
 async def test_an_offer_for_someone_elses_child_is_refused_and_nothing_commits(

@@ -1,9 +1,11 @@
-"""WhatsAppMediaFetcher: a user's voice note, downloaded for this turn only (s06 §4.2).
+"""WhatsAppMediaFetcher: a user's voice note or photo, downloaded for this turn only (s06 §4.2,
+s10b §4.14).
 
 1. GET /{media_id} → url, mime type, sha256, size. Too big → MediaTooLarge, before downloading.
+   Voice notes and photos have their own size caps; a photo must be a JPEG, PNG or WebP.
 2. GET url with the same token (it expires after 5 minutes; a 404 re-asks for a fresh url once).
 3. Streamed, and stopped past the size cap, so a wrong declared size can't exhaust memory.
-4. The SHA-256 must match. The audio is never stored (data-model §4).
+4. The SHA-256 must match. Neither the audio nor the photo is ever stored (data-model §4).
 
 The whole flow runs under the shared retry policy: a 5xx, a timeout or a checksum mismatch is
 tried again (a mismatch once), a 4xx or a file over the cap is not.
@@ -12,7 +14,7 @@ tried again (a mismatch once), a 4xx or a file over the cap is not.
 import hashlib
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import ClassVar
+from typing import ClassVar, Final
 
 import httpx
 from pydantic import BaseModel, ConfigDict, SecretStr, ValidationError
@@ -22,12 +24,15 @@ from app.constants.whatsapp import PROVIDER
 from app.core.clock import Clock
 from app.core.errors import (
     MediaTooLarge,
+    MediaUnsupported,
     ProviderResponseInvalid,
     ProviderTimeout,
     ProviderUnavailable,
 )
-from app.domain.models.message import AudioClip, MediaRef
+from app.domain.models.message import AudioClip, ImageClip, MediaRef
 from app.providers.http import RetryPolicy
+
+PHOTO_TYPES: Final = frozenset({"image/jpeg", "image/png", "image/webp"})
 
 
 class _MediaInfo(BaseModel):
@@ -45,6 +50,7 @@ class MediaFetchConfig:
     access_token: SecretStr
     timeout_s: float
     max_bytes: int  # MAX_INBOUND_AUDIO_BYTES
+    max_image_bytes: int  # MAX_INBOUND_IMAGE_BYTES
 
 
 class WhatsAppMediaFetcher:
@@ -69,27 +75,41 @@ class WhatsAppMediaFetcher:
         await self._http.aclose()
 
     async def fetch(self, ref: MediaRef) -> AudioClip:
+        download = await self._fetch(ref, self._config.max_bytes, "voice note")
+        return AudioClip(data=download.data, mime_type=download.mime_type, duration_ms=None)
+
+    async def fetch_image(self, ref: MediaRef) -> ImageClip:
+        """Raises MediaUnsupported for anything but a JPEG, PNG or WebP."""
+        download = await self._fetch(ref, self._config.max_image_bytes, "photo")
+        mime_type = download.mime_type.split(";")[0].strip().lower()
+        if mime_type not in PHOTO_TYPES:
+            raise MediaUnsupported(f"photo type {mime_type} is not accepted")
+        return ImageClip(data=download.data, mime_type=mime_type)
+
+    async def _fetch(self, ref: MediaRef, max_bytes: int, what: str) -> "_Download":
         media_id = ref.provider_media_id
         if media_id is None:
             raise ValueError("WhatsAppMediaFetcher needs a WhatsApp media id")
         deadline = self._clock.now() + timedelta(seconds=self._config.timeout_s)
-        return await self._retry.run(lambda: self._fetch_once(media_id), deadline=deadline)
+        return await self._retry.run(
+            lambda: self._fetch_once(media_id, max_bytes, what), deadline=deadline
+        )
 
-    async def _fetch_once(self, media_id: str) -> AudioClip:
+    async def _fetch_once(self, media_id: str, max_bytes: int, what: str) -> "_Download":
         info = await self._info(media_id)
-        if info.file_size > self._config.max_bytes:
-            raise MediaTooLarge(f"voice note is {info.file_size} bytes")
+        if info.file_size > max_bytes:
+            raise MediaTooLarge(f"{what} is {info.file_size} bytes")
         try:
-            data = await self._download(info.url)
+            data = await self._download(info.url, max_bytes, what)
         except _UrlExpired:
             info = await self._info(media_id)
             try:
-                data = await self._download(info.url)
+                data = await self._download(info.url, max_bytes, what)
             except _UrlExpired as exc:
                 raise ProviderUnavailable("media url expired twice", provider=PROVIDER) from exc
         if hashlib.sha256(data).hexdigest() != info.sha256.lower():
-            raise ProviderResponseInvalid("voice note checksum mismatch", provider=PROVIDER)
-        return AudioClip(data=data, mime_type=info.mime_type, duration_ms=None)
+            raise ProviderResponseInvalid(f"{what} checksum mismatch", provider=PROVIDER)
+        return _Download(data=data, mime_type=info.mime_type)
 
     async def _info(self, media_id: str) -> _MediaInfo:
         response = await self._get(f"{self._config.graph_base_url.rstrip('/')}/{media_id}")
@@ -100,7 +120,7 @@ class WhatsAppMediaFetcher:
                 "graph api media info unexpected", provider=PROVIDER
             ) from exc
 
-    async def _download(self, url: str) -> bytes:
+    async def _download(self, url: str, max_bytes: int, what: str) -> bytes:
         headers = self._headers()
         try:
             async with self._http.stream(
@@ -115,8 +135,8 @@ class WhatsAppMediaFetcher:
                 received = bytearray()
                 async for chunk in response.aiter_bytes():
                     received.extend(chunk)
-                    if len(received) > self._config.max_bytes:
-                        raise MediaTooLarge("voice note exceeded the size cap while downloading")
+                    if len(received) > max_bytes:
+                        raise MediaTooLarge(f"{what} exceeded the size cap while downloading")
                 return bytes(received)
         except httpx.TimeoutException as exc:
             raise ProviderTimeout("media download timed out", provider=PROVIDER) from exc
@@ -142,6 +162,12 @@ class WhatsAppMediaFetcher:
 
     def _headers(self) -> dict[str, str]:
         return {"Authorization": f"Bearer {self._config.access_token.get_secret_value()}"}
+
+
+@dataclass(frozen=True, slots=True)
+class _Download:
+    data: bytes
+    mime_type: str
 
 
 class _UrlExpired(Exception):

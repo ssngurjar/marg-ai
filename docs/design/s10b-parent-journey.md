@@ -410,15 +410,18 @@ be specific ("Munni ne 7 alag patte dhoondhe! Sabse bada kaunsa hai?").
 ```
 inbound IMAGE (WhatsApp "image" message, or a web upload)
   1. fetch_image (WhatsApp media download, size cap MAX_INBOUND_IMAGE_BYTES); kept in memory only
-  2. PERSON CHECK FIRST: ImageSegmenter.count(image, ["person", "face", "hand"])
-       person or face count > 0 → drop the image at once, fixed reply PHOTO_HAS_PERSON
-       ("Bachche ki photo mat bhejiye; sirf unki banayi ya ikatthi cheezein"), no further processing
-       ("hand" alone is allowed: holding leaves is normal; it's recorded, not rejected)
+  2. PERSON CHECK FIRST: ImageSegmenter.count(image, ["person", "face"])
+       any person or face → drop the image at once, fixed reply PHOTO_HAS_PERSON, no further
+       processing. A hand counts: SAM's "person" finds a hand on its own (spike F), and a child's
+       hand is still a child (owner, 2026-10-28; this replaces "a hand alone is allowed")
   3. safety_in on the image (Llama Guard 4 multimodal) → BLOCK → REFUSE, image dropped
-  4. analyze_image: count the activity's materials as noun phrases (from the catalogue's
-       `materials`, e.g. ["leaf", "stone"]) → PhotoFindings(counts) → TurnWrite onto learner_activities.photo_findings
+  4. analyze_image: count the activity's reviewed `photo_count_phrases` (e.g. ["leaf"]; owner,
+       2026-10-28: a reviewed list per activity, not the materials) → PhotoFindings(counts) →
+       ActivityReported.photo_counts → learner_activities.photo_findings
+       (3 and 4 run together; the counts are used only if Llama Guard allows the image)
   5. the reflection prompt receives the counts (as data), never the image
-  the image bytes are discarded at the end of the turn; nothing is stored
+  the image bytes are discarded at the end of the turn; WhatsApp photos are never stored, and a
+  web photo waits in media_blobs only until its turn has looked at it (owner, 2026-10-28)
 ```
 
 - Photos are only accepted when there's an **open activity** for the learner. Otherwise the reply
@@ -677,3 +680,5 @@ specificity, no careers for a 5-year-old, medical refusal, register).
 | 2026-10-27 | **Child talk built (§4.16).** Writes `ChildSessionStart`, `ChildTalkTurn` (new: counts a turn and records its topic as a `CuriosityDomain`) and `ChildSessionEnd`. At most one open session per **account** (the design said per learner): one phone, one child talking. The parent's summary goes in the same message as the child's goodbye, written only (never spoken), instead of a post-turn task; a session the child leaves without "bye" is closed as EXPIRED by maintenance and its summary waits for a turn-less sender (nudges). A start message that also asks something is answered as turn 1. Child turns use the family's onboarding language rather than re-detecting each short message. With `CHILD_TALK_ENABLED=false` a `kid:` button gets REPEAT_PLEASE and journey replies don't offer it. Fixed child copy (`child_talk_copy.py`) is spoken from Hindi for Hinglish, without the nickname (Roman letters can't be spoken by the Hindi voice) | Build choices | pending owner review |
 | 2026-10-27 | **Nudges built (§4.11).** The opt-in question comes as its own message after the first khoj (a message holds at most 3 buttons, and the khoj already uses up to 3). Sending runs in the worker's maintenance pass (`NudgeSender`, every 30 s) rather than a separate 60 s loop, with `now` from the worker's clock. Three templates: `marg_daily_khoj` in hi and en, `marg_daily_khoj_hinglish` submitted as en (Meta has no Hinglish code). `NUDGES_ENABLED` (default false) keeps sending off until Meta approves them; opt-ins are recorded either way. The "Main khud poochunga" button is "Khud poochhenge" (gender-neutral, like all copy) | Build choices | pending owner review |
 | 2026-10-27 | **Khoj card built (§4.13).** The card is a post-turn task after the signals (the same turn's engagement decides, ≥ 2), at most one per child per India day. The image style and per-activity scenes are reviewed constants (`app/constants/khoj_card_style.py`, from spike F), not a prompt file: they're a fixed string, never rendered. Muse Image's PNG (about 5 MB live) is re-encoded by ffmpeg to an 800-pixel JPEG (about 210 KB): over the 2 MB `media_blobs` cap otherwise, and no new dependency. Safety on the card: the caption gets d8 and d7, then Llama Guard sees caption and image together in one user turn (spike B); there is no backup for images, so Llama Guard down or any flag means no card. Live 2026-10-27: card made in 18 s (caption + image), safety 2.6-4.9 s, allowed; the image was a textless folk-art triptych of the shadow through the day | Build choices | pending owner review |
+| 2026-10-28 | **Photos: three owner decisions after spike F (SAM 3.1).** (1) Any person refuses a photo, a hand included: SAM's `person` finds a hand alone (0.93), so "a hand alone is allowed" couldn't hold. (2) Web photos are held in `media_blobs` (purpose `inbound_photo`) only until their turn has looked at them, deleted in finalize, at most 10 minutes; the rule becomes "never kept beyond its turn". (3) What to count is a reviewed `photo_count_phrases` list per activity (leaf-families, stone-tower, shadow-time: stone/leaf; sink-or-float: stone, leaf, bottle cap; the rest count nothing), not the materials | Spike F findings, docs/spikes/images.md | owner |
+| 2026-10-28 | **Photos built (§4.14).** A photo is looked at only on the journey route with a khoj open; otherwise PHOTO_NOT_NEEDED (photo alone) or the words are answered and the photo ignored (with a caption). A parent's photo with no words routes to the journey (`TurnFacts.has_photo`), and counts as the report ("Ho gaya"). The caption is the parent's words (safety_in like any text). Only the latest photo of a burst is looked at. Any failure (fetch, the person check, Llama Guard down, counting) drops the photo and the report goes on: the reflection thanks the parent without a number (`photo_counts == []`). A Llama Guard flag on the image → the generic REFUSE. Counts reach `parent_reflection` (v1.1.0) as system data, never the image. Step rows: FETCH_IMAGE, ANALYZE_IMAGE (`person_check=pass/reject`, then `stone=5`), SAFETY_IN (`photo decision=…`) | S10b photo build | pending owner review |

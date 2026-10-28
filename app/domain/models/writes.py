@@ -23,6 +23,7 @@ from app.domain.enums import (
 )
 from app.domain.models.base import DomainModel
 from app.domain.models.learner import LearnerId
+from app.domain.models.photo import ObjectCount
 
 
 class ProfileChange(DomainModel):
@@ -81,12 +82,14 @@ class ActivityOffered(DomainModel):
 
 
 class ActivityReported(DomainModel):
-    """s10b: the parent reported back (DONE, with a neutral ≤ 200-char summary) or skipped it."""
+    """s10b: the parent reported back (DONE, with a neutral ≤ 200-char summary) or skipped it.
+    `photo_counts`: what SAM 3.1 counted in a photo of the child's work (§4.14); never the photo."""
 
     kind: Literal["activity_reported"] = "activity_reported"
     learner_activity_id: UUID
     status: ActivityStatus
     summary: str | None = Field(max_length=200)
+    photo_counts: list[ObjectCount] | None = None
 
 
 class ChildSessionStart(DomainModel):
@@ -124,8 +127,9 @@ class NudgePreference(DomainModel):
 
 
 class DeleteInboundMedia(DomainModel):
-    """s06: a web voice note this turn has heard; deleted with the reply (raw audio isn't kept
-    after transcription, CLAUDE.md §11)."""
+    """s06: a web voice note this turn has heard, or a web photo it has looked at; deleted with
+    the reply (raw audio isn't kept after transcription, CLAUDE.md §11; photos are kept no longer
+    than their turn, s10b §4.14)."""
 
     kind: Literal["delete_inbound_media"] = "delete_inbound_media"
     blob_id: UUID

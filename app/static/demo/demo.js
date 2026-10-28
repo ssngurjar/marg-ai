@@ -5,6 +5,8 @@
 const POLL_MS = 1000;
 const MAX_POLLS = 120; // two minutes
 const MAX_RECORDING_MS = 60000;
+const PHOTO_MAX_SIDE = 1024; // the page sends a JPEG of at most 1024 px (DEMO_MAX_IMAGE_BYTES)
+const PHOTO_QUALITY = 0.82;
 const OUTCOME_ICONS = { ok: "✓", degraded: "◐", failed: "✗", skipped: "–" };
 const ERROR_TEXT = {
   rate_limited: "Too many messages for now. Please try again later.",
@@ -19,6 +21,8 @@ const composer = document.getElementById("composer");
 const textInput = document.getElementById("text");
 const micButton = document.getElementById("mic");
 const micNote = document.getElementById("mic-note");
+const photoButton = document.getElementById("photo");
+const photoFile = document.getElementById("photo-file");
 const banner = document.getElementById("banner");
 const trace = document.getElementById("trace");
 const traceSummary = document.getElementById("trace-summary");
@@ -65,11 +69,18 @@ async function startSession() {
   addBubble("bot", "Namaste! Type Hi (or send a voice note) to begin.");
 }
 
-async function send(payload, label) {
+async function send(payload, label, previewUrl) {
   if (busy) return;
   busy = true;
   showBanner("");
   const mine = addBubble("you", label);
+  if (previewUrl) {
+    // Shown from the visitor's own browser only; the server never serves a photo back.
+    const preview = document.createElement("img");
+    preview.src = previewUrl;
+    preview.alt = "Your photo";
+    mine.appendChild(preview);
+  }
   setState(mine, "sending…");
   try {
     const response = await fetch("/demo/messages", {
@@ -252,6 +263,42 @@ function blobToBase64(blob) {
 }
 
 micButton.addEventListener("click", toggleRecording);
+
+function loadImage(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => resolve({ image, url });
+    image.onerror = () => reject(new Error("unreadable image"));
+    image.src = url;
+  });
+}
+
+async function shrinkToJpeg(file) {
+  const { image, url } = await loadImage(file);
+  const scale = Math.min(1, PHOTO_MAX_SIDE / Math.max(image.width, image.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(image.width * scale);
+  canvas.height = Math.round(image.height * scale);
+  canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", PHOTO_QUALITY));
+  return { blob, url };
+}
+
+photoButton.addEventListener("click", () => photoFile.click());
+
+photoFile.addEventListener("change", async () => {
+  const file = photoFile.files && photoFile.files[0];
+  photoFile.value = "";
+  if (!file) return;
+  try {
+    const { blob, url } = await shrinkToJpeg(file);
+    const base64 = await blobToBase64(blob);
+    send({ image_base64: base64, image_type: "image/jpeg" }, "📷 photo", url);
+  } catch (error) {
+    showBanner("That photo couldn't be read. Please try another one.");
+  }
+});
 
 document.getElementById("reset").addEventListener("click", async () => {
   if (!window.confirm("Delete everything about this conversation and start again?")) return;

@@ -57,6 +57,11 @@ class JourneyRepository:
             .values(
                 status=write.status.value,
                 child_response_summary=write.summary,
+                photo_findings=(
+                    [count.model_dump() for count in write.photo_counts]
+                    if write.photo_counts is not None
+                    else None
+                ),
                 reported_at=func.now(),
             )
         )

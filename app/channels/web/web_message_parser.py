@@ -1,8 +1,9 @@
 """WebMessageParser: what a web demo visitor sent, validated once at the edge (s14 §4.3).
 
-Exactly one of: typed text, a recorded voice note, or a button from the visitor's latest reply.
-A voice note's declared type must agree with its first bytes, so a mislabelled file is refused
-here, not by ffmpeg later. Nothing is repaired: bad input is refused with a fixed reason.
+Exactly one of: typed text, a recorded voice note, a photo (s10b §4.14), or a button from the
+visitor's latest reply. A voice note's or photo's declared type must agree with its first bytes,
+so a mislabelled file is refused here, not by ffmpeg or SAM later. Nothing is repaired: bad input
+is refused with a fixed reason.
 """
 
 import re
@@ -26,11 +27,17 @@ class WebVoice:
 
 
 @dataclass(frozen=True, slots=True)
+class WebPhoto:
+    data: bytes
+    mime_type: str  # "image/jpeg", "image/png" or "image/webp"
+
+
+@dataclass(frozen=True, slots=True)
 class WebButton:
     button_id: str
 
 
-type WebMessage = WebText | WebVoice | WebButton
+type WebMessage = WebText | WebVoice | WebPhoto | WebButton
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,6 +48,14 @@ class WebUpload:
     audio: bytes | None
     audio_type: str | None
     button_id: str | None
+    image: bytes | None = None
+    image_type: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class WebLimits:
+    max_audio_bytes: int
+    max_image_bytes: int
 
 
 class WebMessageParser:
@@ -50,15 +65,21 @@ class WebMessageParser:
         "audio/ogg": (0, b"OggS"),
         "audio/mp4": (4, b"ftyp"),  # Safari records AAC in MP4
     }
+    IMAGE_SIGNATURES: ClassVar[dict[str, tuple[int, bytes]]] = {
+        "image/jpeg": (0, b"\xff\xd8\xff"),
+        "image/png": (0, b"\x89PNG\r\n\x1a\n"),
+        "image/webp": (8, b"WEBP"),
+    }
 
     @staticmethod
-    def parse(upload: WebUpload, max_audio_bytes: int, offered_buttons: set[str]) -> WebMessage:
+    def parse(upload: WebUpload, limits: WebLimits, offered_buttons: set[str]) -> WebMessage:
         """Raises WebInputInvalid(field, reason)."""
         given = [
             name
             for name, value in (
                 ("text", upload.text),
                 ("audio", upload.audio),
+                ("image", upload.image),
                 ("button_id", upload.button_id),
             )
             if value is not None
@@ -70,7 +91,9 @@ class WebMessageParser:
         if upload.text is not None:
             return WebMessageParser._text(upload.text)
         if upload.audio is not None:
-            return WebMessageParser._voice(upload.audio, upload.audio_type, max_audio_bytes)
+            return WebMessageParser._voice(upload.audio, upload.audio_type, limits.max_audio_bytes)
+        if upload.image is not None:
+            return WebMessageParser._photo(upload.image, upload.image_type, limits.max_image_bytes)
         return WebMessageParser._button(upload.button_id or "", offered_buttons)
 
     @staticmethod
@@ -96,6 +119,21 @@ class WebMessageParser:
         if data[offset : offset + len(magic)] != magic:
             raise WebInputInvalid("audio", "type_mismatch")
         return WebVoice(data=data, mime_type=mime_type)
+
+    @staticmethod
+    def _photo(data: bytes, declared: str | None, max_bytes: int) -> WebPhoto:
+        if not data:
+            raise WebInputInvalid("image", "empty")
+        if len(data) > max_bytes:
+            raise WebInputInvalid("image", "too_large")
+        mime_type = (declared or "").split(";")[0].strip().lower()
+        signature = WebMessageParser.IMAGE_SIGNATURES.get(mime_type)
+        if signature is None:
+            raise WebInputInvalid("image", "unsupported_type")
+        offset, magic = signature
+        if data[offset : offset + len(magic)] != magic:
+            raise WebInputInvalid("image", "type_mismatch")
+        return WebPhoto(data=data, mime_type=mime_type)
 
     @staticmethod
     def _button(button_id: str, offered: set[str]) -> WebButton:

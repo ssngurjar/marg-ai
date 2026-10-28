@@ -2,7 +2,8 @@
 
 Flows, picked deterministically (mvp-scope C3b):
   A. today's khoj     `jrn:today[:<child>]`, or "aaj ki khoj", or right after onboarding
-  B. report back      `jrn:done`, or any message while an activity is open
+  B. report back      `jrn:done`, or any message or photo while an activity is open; a photo's
+                      counts (SAM 3.1, read by the pipeline, s10b §4.14) reach the reflection
   C. another khoj     `jrn:other`: the open one is marked skipped, then A without it
   E. nudge settings   `nudge:08` / `nudge:18` / `nudge:off`, or "roz ka message band karo" /
                       "time badlo": NudgePreference and a fixed confirmation (s10b §4.11)
@@ -55,6 +56,7 @@ from app.domain.enums import ActivityStatus, AgeBand, Language, StepOutcome
 from app.domain.models.activity import Activity, OfferedActivity, PastActivity
 from app.domain.models.curiosity import CuriositySource, CuriositySourceKind
 from app.domain.models.learner import Learner
+from app.domain.models.photo import PhotoFindings
 from app.domain.models.reply import CanonicalReply, ReplyButton
 from app.domain.models.turn import TurnContext
 from app.domain.models.usage import StepUsage
@@ -112,6 +114,17 @@ PARENT_REFLECTION: Final = PromptSpec(prompt_id="parent_reflection", output_type
 
 
 @dataclass(frozen=True, slots=True)
+class ParentMessage:
+    """What the parent sent this turn: their words (typed, spoken or a caption), the buttons
+    they tapped, and a checked photo of the child's work, only ever set while an activity is open
+    (see `JourneyLayer.photo_phrases`)."""
+
+    text: str
+    interactive_ids: Sequence[str]
+    photo: PhotoFindings | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class JourneySettings:
     repeat_window: timedelta  # ACTIVITY_REPEAT_DAYS
     child_talk_enabled: bool = True  # CHILD_TALK_ENABLED: offer the "Main bachcha hoon" button
@@ -149,15 +162,12 @@ class JourneyLayer:
         self._settings = settings
 
     async def handle(
-        self,
-        ctx: TurnContext,
-        user_text: str,
-        interactive_ids: Sequence[str],
-        now: datetime,
-        register: Language,
+        self, ctx: TurnContext, message: ParentMessage, now: datetime, register: Language
     ) -> LayerResult:
         """Raises ProviderError only from flow D (the parent question); A to C fall back to
         reviewed text instead."""
+        user_text, photo = message.text, message.photo
+        interactive_ids = message.interactive_ids
         button = interactive_ids[-1] if interactive_ids else None
         nudge_settings = self._nudge_settings(button, user_text, register)
         if nudge_settings is not None:
@@ -168,12 +178,21 @@ class JourneyLayer:
         asks_for_khoj = PhraseFinder.contains_any(user_text, self.KHOJ_PHRASES)
         if (button is not None and button.startswith(KHOJ_TODAY)) or asks_for_khoj:
             return await self._today(ctx, ctx.active_learner, now, register, skipped=None)
-        if open_activity is not None and (button == KHOJ_DONE or user_text.strip()):
-            return await self._reflect(ctx, open_activity, user_text, register)
+        reported = button == KHOJ_DONE or bool(user_text.strip()) or photo is not None
+        if open_activity is not None and reported:
+            return await self._reflect(ctx, open_activity, user_text, register, photo)
         if button == KHOJ_DONE:
             # Nothing is open (it expired or was reported): offer today's khoj instead.
             return await self._today(ctx, ctx.active_learner, now, register, skipped=None)
         return await self._question(ctx, user_text, now, register)
+
+    def photo_phrases(self, ctx: TurnContext) -> list[str] | None:
+        """What to count in a photo of the open activity, or None when no activity is open (a
+        photo is then not needed, s10b §4.14)."""
+        open_activity = self._offered(ctx)
+        if open_activity is None:
+            return None
+        return list(open_activity.activity.photo_count_phrases)
 
     async def _question(
         self, ctx: TurnContext, user_text: str, now: datetime, register: Language
@@ -365,7 +384,12 @@ class JourneyLayer:
     # --- B: report back ----------------------------------------------------------------------
 
     async def _reflect(
-        self, ctx: TurnContext, open_activity: OfferedActivity, report: str, register: Language
+        self,
+        ctx: TurnContext,
+        open_activity: OfferedActivity,
+        report: str,
+        register: Language,
+        photo: PhotoFindings | None,
     ) -> LayerResult:
         activity = open_activity.activity
         learner = _learner_named(ctx.learners, open_activity)
@@ -379,6 +403,10 @@ class JourneyLayer:
                 "child_age": child_age,
                 "questions": activity.questions_to_ask,
                 "listen_for": activity.listen_for,
+                "photo_sent": photo is not None,
+                "photo_counts": [
+                    f"{found.count} {found.phrase}" for found in (photo.counts if photo else [])
+                ],
             },
             user_vars={"child": learner.nickname or "", "parent_report": report or "Ho gaya"},
             semantic_check=lambda output: _ReflectionChecks.problems(output, register),
@@ -395,7 +423,7 @@ class JourneyLayer:
                     "prompt_versions": versions,
                     "outcome": StepOutcome.DEGRADED,
                     "degraded_reason": f"reflection_failed={type(exc).__name__}",
-                    "writes": [_done(open_activity, summary=None)],
+                    "writes": [_done(open_activity, summary=None, photo=photo)],
                     "hazard_rule": frozenset(activity.hazards),
                 }
             )
@@ -416,7 +444,7 @@ class JourneyLayer:
             prompt_versions=versions,
             outcome=StepOutcome.OK,
             degraded_reason=None,
-            writes=[_done(open_activity, summary=reflection.summary_for_record)],
+            writes=[_done(open_activity, summary=reflection.summary_for_record, photo=photo)],
             hazard_rule=frozenset(activity.hazards),
             curiosity=CuriositySource(
                 learner_id=learner.id,
@@ -571,11 +599,14 @@ def _kid_buttons(learner: Learner, register: Language) -> tuple[ReplyButton, ...
     return (kid_start_button(str(learner.id), register),)
 
 
-def _done(open_activity: OfferedActivity, summary: str | None) -> TurnWrite:
+def _done(
+    open_activity: OfferedActivity, summary: str | None, photo: PhotoFindings | None = None
+) -> TurnWrite:
     return ActivityReported(
         learner_activity_id=open_activity.learner_activity_id,
         status=ActivityStatus.DONE,
         summary=summary,
+        photo_counts=list(photo.counts) if photo is not None else None,
     )
 
 

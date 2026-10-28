@@ -14,6 +14,7 @@ from pydantic import SecretStr
 from app.channels.whatsapp.whatsapp_media_fetcher import MediaFetchConfig, WhatsAppMediaFetcher
 from app.core.errors import (
     MediaTooLarge,
+    MediaUnsupported,
     ProviderRateLimited,
     ProviderRejected,
     ProviderResponseInvalid,
@@ -64,7 +65,9 @@ async def fetcher() -> AsyncIterator[WhatsAppMediaFetcher]:
         sleeper=FakeSleeper(clock),
         rng=random.Random(7),  # noqa: S311  # deterministic jitter for tests, not cryptography
     )
-    config = MediaFetchConfig(BASE, SecretStr("token-for-tests"), timeout_s=5, max_bytes=CAP)
+    config = MediaFetchConfig(
+        BASE, SecretStr("token-for-tests"), timeout_s=5, max_bytes=CAP, max_image_bytes=CAP
+    )
     built = WhatsAppMediaFetcher(config=config, retry=retry, clock=clock, http=httpx.AsyncClient())
     yield built
     await built.aclose()
@@ -221,3 +224,95 @@ async def test_a_ref_without_a_whatsapp_media_id_is_refused(fetcher: WhatsAppMed
     )
     with pytest.raises(ValueError, match="needs a WhatsApp media id"):
         await fetcher.fetch(stored)
+
+
+# --- photos (s10b §4.14) --------------------------------------------------------------------------
+
+IMAGE_CAP = 2000  # photos have their own cap, separate from voice notes'
+JPEG = b"\xff\xd8\xff\xe0" + bytes(range(200))
+PHOTO_REF = REF.model_copy(update={"mime_type": "image/jpeg"})
+
+
+def photo_info(mime_type: str, data: bytes = JPEG, size: int | None = None) -> httpx.Response:
+    return httpx.Response(
+        200,
+        json={
+            "messaging_product": "whatsapp",
+            "url": DOWNLOAD_URL,
+            "mime_type": mime_type,
+            "sha256": hashlib.sha256(data).hexdigest(),
+            "file_size": len(data) if size is None else size,
+            "id": MEDIA_ID,
+        },
+    )
+
+
+@pytest.fixture
+async def photo_fetcher() -> AsyncIterator[WhatsAppMediaFetcher]:
+    clock = FixedClock(NOW)
+    retry = RetryPolicy(
+        timing=RetryTiming(),
+        clock=clock,
+        sleeper=FakeSleeper(clock),
+        rng=random.Random(7),  # noqa: S311  # deterministic jitter for tests, not cryptography
+    )
+    config = MediaFetchConfig(
+        BASE, SecretStr("token-for-tests"), timeout_s=5, max_bytes=CAP, max_image_bytes=IMAGE_CAP
+    )
+    built = WhatsAppMediaFetcher(config=config, retry=retry, clock=clock, http=httpx.AsyncClient())
+    yield built
+    await built.aclose()
+
+
+@pytest.mark.parametrize("mime_type", ["image/jpeg", "image/png", "IMAGE/WEBP", "image/jpeg; q=1"])
+@respx.mock
+async def test_a_photo_is_downloaded_the_same_way_and_typed(
+    photo_fetcher: WhatsAppMediaFetcher, mime_type: str
+) -> None:
+    respx.get(INFO_URL).mock(return_value=photo_info(mime_type))
+    respx.get(DOWNLOAD_URL).mock(return_value=httpx.Response(200, content=JPEG))
+    image = await photo_fetcher.fetch_image(PHOTO_REF)
+    assert image.data == JPEG
+    assert image.mime_type == mime_type.split(";", maxsplit=1)[0].strip().lower()
+
+
+@pytest.mark.parametrize("mime_type", ["image/gif", "video/mp4", "application/pdf", ""])
+@respx.mock
+async def test_anything_but_a_jpeg_png_or_webp_photo_is_unsupported(
+    photo_fetcher: WhatsAppMediaFetcher, mime_type: str
+) -> None:
+    respx.get(INFO_URL).mock(return_value=photo_info(mime_type))
+    respx.get(DOWNLOAD_URL).mock(return_value=httpx.Response(200, content=JPEG))
+    with pytest.raises(MediaUnsupported, match="is not accepted"):
+        await photo_fetcher.fetch_image(PHOTO_REF)
+
+
+@respx.mock
+async def test_the_photo_cap_is_exact_and_separate_from_the_voice_cap(
+    photo_fetcher: WhatsAppMediaFetcher,
+) -> None:
+    exactly = b"\xff\xd8\xff" + b"x" * (IMAGE_CAP - 3)  # over the voice cap, at the photo cap
+    respx.get(INFO_URL).mock(return_value=photo_info("image/jpeg", data=exactly))
+    respx.get(DOWNLOAD_URL).mock(return_value=httpx.Response(200, content=exactly))
+    assert len((await photo_fetcher.fetch_image(PHOTO_REF)).data) == IMAGE_CAP
+
+
+@respx.mock
+async def test_a_photo_over_its_cap_is_never_downloaded(
+    photo_fetcher: WhatsAppMediaFetcher,
+) -> None:
+    respx.get(INFO_URL).mock(return_value=photo_info("image/jpeg", size=IMAGE_CAP + 1))
+    download_route = respx.get(DOWNLOAD_URL).mock(return_value=httpx.Response(200, content=JPEG))
+    with pytest.raises(MediaTooLarge, match=f"photo is {IMAGE_CAP + 1} bytes"):
+        await photo_fetcher.fetch_image(PHOTO_REF)
+    assert download_route.call_count == 0
+
+
+@respx.mock
+async def test_a_photo_with_a_wrong_checksum_is_invalid(
+    photo_fetcher: WhatsAppMediaFetcher,
+) -> None:
+    respx.get(INFO_URL).mock(return_value=photo_info("image/jpeg"))
+    respx.get(DOWNLOAD_URL).mock(return_value=httpx.Response(200, content=JPEG + b"tampered"))
+    with pytest.raises(ProviderResponseInvalid, match="photo checksum mismatch"):
+        await photo_fetcher.fetch_image(PHOTO_REF)

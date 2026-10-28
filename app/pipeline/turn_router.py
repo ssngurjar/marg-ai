@@ -7,6 +7,7 @@ onboarding.
 """
 
 from collections.abc import Sequence
+from dataclasses import dataclass
 from typing import Final
 
 from app.domain.enums import ConversationState, Role, Route
@@ -21,17 +22,29 @@ JOURNEY_BUTTON_PREFIX: Final = "jrn:"
 NUDGE_BUTTON_PREFIX: Final = "nudge:"
 
 
+@dataclass(frozen=True, slots=True)
+class TurnFacts:
+    """What the router knows about the turn besides its words and buttons. `has_photo`: a
+    parent's photo with no words is a report for the journey, not a blank message (s10b §4.14)."""
+
+    learners: Sequence[Learner] = ()
+    child_session_open: bool = False
+    has_photo: bool = False
+
+
+NO_FACTS: Final = TurnFacts()
+
+
 class TurnRouter:
     @staticmethod
     def decide(  # noqa: PLR0911  # one return per routing rule, in s08 §4.6's order
         profile: UserProfile,
         user_text: str,
         interactive_ids: Sequence[str],
-        *,
-        learners: Sequence[Learner] = (),
-        child_session_open: bool = False,
+        facts: TurnFacts = NO_FACTS,
     ) -> RouteDecision:
-        if child_session_open:
+        learners = facts.learners
+        if facts.child_session_open:
             # Rule 1a (C13): a child is talking. Nothing they send reaches deletion or settings.
             return _to(Route.CHILD_TALK, "open child session")
         if not interactive_ids and OnboardingAnswerParser.asks_for_deletion(user_text):
@@ -58,6 +71,8 @@ class TurnRouter:
             return _to(Route.ONBOARDING, "language switch")
         if profile.role is Role.PARENT and OnboardingAnswerParser.asks_to_add_child(user_text):
             return _to(Route.ONBOARDING, "add a child")
+        if profile.role is Role.PARENT and facts.has_photo and not user_text.strip():
+            return _to(Route.JOURNEY, "parent photo")
         if not user_text.strip():
             return _to(Route.REPEAT_PLEASE, "blank message")
         return _to(Route.JOURNEY, "parent default")

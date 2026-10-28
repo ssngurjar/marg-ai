@@ -2,7 +2,8 @@
 
 Thin by design, like the webhook: identify the visitor by their signed cookie, refuse what the
 demo shouldn't take (a foreign origin, a rate limit, today's budget), validate the message once,
-store a voice note, insert into the inbox and wake the visitor's turn. All model calls happen in
+store a voice note or photo (until its turn has used it), insert into the inbox and wake the
+visitor's turn. All model calls happen in
 the worker, through the one pipeline.
 """
 
@@ -16,8 +17,10 @@ from uuid import uuid4
 from app.api.turn_waker import TurnWaker
 from app.channels.web.web_message_parser import (
     WebButton,
+    WebLimits,
     WebMessage,
     WebMessageParser,
+    WebPhoto,
     WebText,
     WebUpload,
     WebVoice,
@@ -28,7 +31,7 @@ from app.core.signed_token_codec import SignedTokenCodec
 from app.core.user_identity import UserIdentity
 from app.domain.enums import Channel, MessageKind
 from app.domain.models.base import UserHash
-from app.domain.models.message import AudioClip, InboundMessage, MediaRef
+from app.domain.models.message import AudioClip, ImageClip, InboundMessage, MediaRef
 from app.domain.rules.nudge_schedule import NudgeSchedule
 from app.store.repositories.demo_repository import DemoRepository, MessageView, RateLimit
 from app.store.repositories.inbox_repository import InboundRecord, InboxRepository
@@ -44,6 +47,7 @@ class DemoLimits:
     per_ip_per_hour: int  # DEMO_IP_RATE_LIMIT_PER_HOUR
     sessions_per_ip_per_hour: int  # DEMO_SESSIONS_PER_IP_PER_HOUR
     max_audio_bytes: int  # DEMO_MAX_AUDIO_BYTES
+    max_image_bytes: int  # DEMO_MAX_IMAGE_BYTES
     daily_cost_cap_usd: Decimal  # DAILY_COST_CAP_USD
 
 
@@ -119,7 +123,8 @@ class WebDemoIngestor:
         )
         await self._check_budget(now)
         offered = await self._deps.demo.offered_buttons(user_hash) if upload.button_id else set()
-        message = WebMessageParser.parse(upload, self._limits.max_audio_bytes, offered)
+        limits = WebLimits(self._limits.max_audio_bytes, self._limits.max_image_bytes)
+        message = WebMessageParser.parse(upload, limits, offered)
         await self._deps.inbox.ensure_web_user(user_hash)  # e.g. a cookie that outlived a reset
         inbound = await self._inbound(user_hash, message, now)
         await self._deps.inbox.save(
@@ -144,6 +149,17 @@ class WebDemoIngestor:
                 blob_id = await self._deps.media.save_inbound_audio(
                     user_hash,
                     AudioClip(data=message.data, mime_type=message.mime_type, duration_ms=None),
+                )
+                media = MediaRef(
+                    channel=Channel.WEB,
+                    provider_media_id=None,
+                    blob_id=blob_id,
+                    mime_type=message.mime_type,
+                )
+            case WebPhoto():
+                kind = MessageKind.IMAGE
+                blob_id = await self._deps.media.save_inbound_photo(
+                    user_hash, ImageClip(data=message.data, mime_type=message.mime_type)
                 )
                 media = MediaRef(
                     channel=Channel.WEB,

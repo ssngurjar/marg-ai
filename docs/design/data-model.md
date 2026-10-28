@@ -195,9 +195,9 @@ Constraints: `UNIQUE (turn_id, part_no)`. Index: `(status, available_at)` partia
 | `mime_type` | `text` | |
 | `data` | `bytea` | `CHECK (size_bytes <= 2097152)` |
 | `size_bytes` | `integer` | |
-| `created_at` / `expires_at` | `timestamptz` | inbound (web) audio: deleted by `DeleteInboundMedia` once transcribed, at most 24 h; reply audio: 24 h; khoj card: 7 days |
+| `created_at` / `expires_at` | `timestamptz` | inbound (web) audio: deleted by `DeleteInboundMedia` once transcribed, at most 24 h; inbound (web) photo: deleted by `DeleteInboundMedia` with the turn that looked at it, at most 10 minutes; reply audio: 24 h; khoj card: 7 days |
 
-Index: `(expires_at)`. WhatsApp inbound audio is never stored, and **inbound photos are never stored on any channel** (s10b §4.14).
+Index: `(expires_at)`. WhatsApp inbound audio and photos are never stored. **A photo is never kept beyond its turn on any channel** (s10b §4.14): a web visitor's photo waits here (purpose `inbound_photo`) only until its turn has looked at it, and is deleted in that turn's finalize, used or refused (owner, 2026-10-28).
 
 ### `profile_memory` (S12)
 
@@ -335,7 +335,8 @@ One row per turn: `turn_id`, `user_hash`, `route`, `status`, `fixed_reply_kind`,
   transcribed and never stored (WhatsApp audio is never persisted). **Photos (C7):** a parent may
   send a photo of what the child made or collected. It is checked for people **first**; a photo
   containing a person is rejected and dropped without any other processing. Otherwise only object
-  counts are kept. **No photo is ever stored.** Khoj cards are generated illustrations with no
+  counts are kept. **No photo is ever kept beyond its turn** (a web photo waits in `media_blobs`
+  until its turn has looked at it, at most 10 minutes). Khoj cards are generated illustrations with no
   photo of the child. `child_response_summary` is
   capped at 200 characters and follows turn-text retention.
 - Personal data here: `address_ciphertext`, `pending_question`, `turns.user_text`, `turns.reply_text`,
@@ -375,3 +376,4 @@ upgrade → downgrade → upgrade against `docker-compose.test.yml`.
 | 2026-10-27 | `s13_curiosity_signals`: adds `source` (parent_report, child_words, relayed_question) so child-talk and relayed questions can be told apart from reports | S13 build | pending owner review |
 | 2026-10-27 | `s10b_khoj_cards`: `learner_activities.card_blob_id` (FK media_blobs SET NULL); card images kept 7 days | S10b build | pending owner review |
 | 2026-10-27 | `s14_web_demo`: `inbox_messages.media_blob_id` (web voice notes) and `rate_limit_counters` | S14 build | pending owner review |
+| 2026-10-28 | `s10b_photos`: `learner_activities.photo_findings` (jsonb, `list[ObjectCount]`) and the `media_blobs` purpose `inbound_photo`; the photo rule becomes "never kept beyond its turn": a web photo is held until its turn has looked at it (≤ 10 min) and deleted in that turn's finalize | Owner decision (web photos, 2026-10-28) | owner |

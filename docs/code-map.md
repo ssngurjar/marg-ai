@@ -34,7 +34,7 @@ line of the module's docstring.
 
 | Module | Classes | What it does |
 |---|---|---|
-| `web_message_parser.py` | `WebText`, `WebVoice`, `WebButton`, `WebUpload`, `WebMessageParser` | WebMessageParser: what a web demo visitor sent, validated once at the edge (s14 §4.3). |
+| `web_message_parser.py` | `WebText`, `WebVoice`, `WebPhoto`, `WebButton`, `WebUpload`, `WebLimits`, `WebMessageParser` | WebMessageParser: what a web demo visitor sent, validated once at the edge (s14 §4.3). |
 | `web_sender.py` | `WebSender` | WebSender: delivery to a web demo visitor (s14 §4.8). |
 
 ## `channels/whatsapp`
@@ -47,7 +47,7 @@ line of the module's docstring.
 | `payloads.py` | `ExternalModel`, `WaMetadata`, `WaContactProfile`, `WaContact`, `WaText`, `WaAudio`, `WaImage`, `WaButtonReply`, `WaListReply`, `WaInteractive`, `WaButton`, `WaContext`, `WaErrorData`, `WaError`, `WaMessage`, `WaStatus`, `WaMessageEnvelope`, `WaValue`, `WaMessagesChange`, `WaOtherChange`, `WaEntry`, `WebhookBody`, `GraphSentMessage`, `GraphSendResponse`, `GraphMediaUploadResponse`, `GraphErrorDetail`, `GraphErrorEnvelope` | Typed models of WhatsApp Cloud API webhooks and Graph API responses (s03 §5.2). |
 | `webhook_parser.py` | `WhatsAppWebhookParser` | WhatsAppWebhookParser: a verified webhook into typed messages and statuses (s03 §4.4). |
 | `webhook_signature.py` | `WebhookSignatureVerifier` | WebhookSignatureVerifier: is this request really from Meta? (s03 §4.2, §4.3). |
-| `whatsapp_media_fetcher.py` | `MediaFetchConfig`, `WhatsAppMediaFetcher` | WhatsAppMediaFetcher: a user's voice note, downloaded for this turn only (s06 §4.2). |
+| `whatsapp_media_fetcher.py` | `MediaFetchConfig`, `WhatsAppMediaFetcher` | WhatsAppMediaFetcher: a user's voice note or photo, downloaded for this turn only (s06 §4.2, |
 | `whatsapp_sender.py` | `WhatsAppConfig`, `WhatsAppSender` | WhatsAppSender: sending parts to WhatsApp through the Graph API (s03 §4.9, §4.10). |
 
 ## `app`
@@ -73,6 +73,7 @@ line of the module's docstring.
 | `khoj_card_style.py` | — | What a khoj card looks like (s10b §4.13, C6): the fixed style and a scene per activity. |
 | `model_prices.py` | `ModelPrice` | Model prices per million tokens, for cost accounting (s05 §4.1, s07 §4.3). |
 | `onboarding_copy.py` | `CopyEntry` | Onboarding copy: fixed, reviewed text in Hinglish, Hindi and English (s08 §4.8). |
+| `photo_check.py` | — | What SAM 3.1 looks for before a photo is used (s10b §4.14; owner, 2026-10-28). |
 | `stt_keywords.py` | — | Speech-to-text hints: words Muse Voice Transcribe might mishear (s06 §4.5). Reviewed copy. |
 | `whatsapp.py` | — | WhatsApp Cloud API limits and error codes (s03 §4.9, §4.10). |
 
@@ -107,6 +108,7 @@ line of the module's docstring.
 | `delivery.py` | `PartState` | Where an outbound part stands in its delivery (s04 §4.10). |
 | `learner.py` | `Learner` | Learners: the child or student whose journey Marg.ai follows (contracts §2.2, data-model). |
 | `message.py` | `MediaRef`, `InboundMessage`, `AudioClip`, `ImageClip`, `Transcript` | What users send us: messages and the media they carry (contracts.md §2.1). |
+| `photo.py` | `ObjectCount`, `PhotoFindings` | What a parent's photo of the child's work tells us: counts only, never the image (s10b §4.14). |
 | `reply.py` | `ReplyButton`, `TemplateRef`, `OutboundPart`, `Citation`, `LocalisedReply`, `CanonicalReply` | What we send back (contracts.md §2.6): reply content and the outbound parts that carry it. |
 | `routing.py` | `RouteDecision` | Where a turn goes (contracts §2.5). |
 | `safety.py` | `SafetyVerdict`, `CrisisLexicon` | A safety check's result (contracts.md §2.5). Produced by s07's gate; read by the trace. |
@@ -148,7 +150,7 @@ line of the module's docstring.
 | `activity_catalogue.py` | `ActivityCatalogue`, `CatalogueActivitySource` | ActivityCatalogue: the reviewed khoj catalogue, loaded and checked at startup (s10b §4.3). |
 | `child_talk_layer.py` | `ChildReply`, `ChildTalkLayer` | ChildTalkLayer: a child talks to Marg.ai directly, with the parent's consent (s10b §4.16, C13). |
 | `curiosity_moment_layer.py` | `CuriosityMoment`, `NotAChildQuestion`, `CuriosityMomentLayer` | CuriosityMomentLayer: the child's own question, answered through the parent (s10b §4.15, C11). |
-| `journey_layer.py` | `ActivityPersonalisation`, `ParentReflection`, `JourneySettings`, `JourneyLayer` | JourneyLayer: "Aaj ki Khoj" for parents of children aged 3-8 (s10b §4.4 to §4.9). |
+| `journey_layer.py` | `ActivityPersonalisation`, `ParentReflection`, `ParentMessage`, `JourneySettings`, `JourneyLayer` | JourneyLayer: "Aaj ki Khoj" for parents of children aged 3-8 (s10b §4.4 to §4.9). |
 | `khoj_card_maker.py` | `KhojCardText`, `CardRequest`, `KhojCard`, `KhojCardMaker` | KhojCardMaker: an illustrated card of a child's discovery (s10b §4.13, C6). |
 | `layer_result.py` | `LayerResult` | LayerResult: what every layer's generate step returns (s12 §4, s05 §4.4a). |
 | `onboarding_layer.py` | `ProfileExtraction`, `FirstKhojHandoff`, `PendingQuestionHandoff`, `OnboardingResult`, `OnboardingLayer` | OnboardingLayer: a message during onboarding → a state-machine event → fixed copy and writes |
@@ -158,15 +160,15 @@ line of the module's docstring.
 
 | Module | Classes | What it does |
 |---|---|---|
-| `channel_media_fetcher.py` | `ChannelMediaFetcher` | ChannelMediaFetcher: a voice note from wherever its channel keeps it (s06 §4.2, s14). |
+| `channel_media_fetcher.py` | `ChannelMediaFetcher` | ChannelMediaFetcher: a voice note or photo from wherever its channel keeps it (s06 §4.2, |
 | `failure_policy.py` | `FailurePolicy` | FailurePolicy: what a failed step becomes (s05 §4.5 "StepFailure → reply"; contracts §4). |
 | `fixed_reply_service.py` | `FixedReplyService` | FixedReplyService: the fixed reply for a kind, in the user's language (contracts §6). |
 | `null_turn_observer.py` | `NullTurnObserver` | The turn pipeline's entry point (s05 §4.5). |
-| `orchestrator.py` | `OrchestratorSettings`, `VoiceSteps`, `PipelineSteps`, `Orchestrator` | Orchestrator: one turn from the user's messages to a sealed reply (s05 §4.5, mvp-scope §4.2). |
+| `orchestrator.py` | `OrchestratorSettings`, `VoiceSteps`, `PhotoSteps`, `PipelineSteps`, `Orchestrator` | Orchestrator: one turn from the user's messages to a sealed reply (s05 §4.5, mvp-scope §4.2). |
 | `reply_parts_builder.py` | `ReplyDelivery`, `ReplyPartsBuilder` | ReplyPartsBuilder: a sealed reply into ordered outbound parts (s05 §4.7, s07 §4.2). |
 | `step_models.py` | `StepModel`, `StepFailure`, `StepSuccess`, `TurnOutcome` | What a turn and its steps produce (contracts §2.3). Data only. |
 | `turn_protocols.py` | `StepRecorder`, `TurnObserver` | The two hooks every step reports through (contracts §3): StepRecorder and TurnObserver. |
-| `turn_router.py` | `TurnRouter` | TurnRouter: which layer handles a turn (s05 §4.4; s08 §4.6; MVP rules, mvp-scope §4.3). |
+| `turn_router.py` | `TurnFacts`, `TurnRouter` | TurnRouter: which layer handles a turn (s05 §4.4; s08 §4.6; MVP rules, mvp-scope §4.3). |
 
 ## `prompts`
 
@@ -180,7 +182,7 @@ line of the module's docstring.
 |---|---|---|
 | `http.py` | `Sleeper`, `AsyncioSleeper`, `RetryTiming`, `RetryPolicy` | The one retry policy every external call uses (contracts §5, s05 §4.2). |
 | `openai_error_mapper.py` | `OpenAiErrorMapper` | OpenAiErrorMapper: an openai SDK exception → our ProviderError (s05 §4.1, contracts §4). |
-| `ports.py` | `ChannelAddress`, `DeliveryReceipt`, `ChannelSender`, `RenderedPrompt`, `GenerationRequest`, `GenerationResult`, `LanguageModel`, `SafetyRequest`, `SafetyClassifier`, `TranscriptionHints`, `Transcriber`, `Synthesizer`, `ImageGenerator`, `ReplyImageStore`, `AudioConverter`, `MediaFetcher`, `ReplyAudioStore` | Protocols the pipeline and layers depend on (contracts.md §3). |
+| `ports.py` | `ChannelAddress`, `DeliveryReceipt`, `ChannelSender`, `RenderedPrompt`, `GenerationRequest`, `GenerationResult`, `LanguageModel`, `SafetyRequest`, `SafetyClassifier`, `TranscriptionHints`, `Transcriber`, `Synthesizer`, `ImageGenerator`, `ReplyImageStore`, `AudioConverter`, `MediaFetcher`, `ImageSegmenter`, `ReplyAudioStore` | Protocols the pipeline and layers depend on (contracts.md §3). |
 
 ## `providers/image`
 
@@ -188,6 +190,8 @@ line of the module's docstring.
 |---|---|---|
 | `image_compressor.py` | `ImageCompressor` | ImageCompressor: a khoj card small enough to keep and send (s10b §4.13). |
 | `muse_image_generator.py` | `ImageModelConfig`, `MuseImageGenerator` | MuseImageGenerator: khoj card illustrations from Muse Image (s10b §4.13, spike F). |
+| `sam_image_segmenter.py` | `SegmentModelConfig`, `SamImageSegmenter` | SamImageSegmenter: how many of each thing are in a photo, from SAM 3.1 (s10b §4.14, spike F). |
+| `segmentation_output_parser.py` | `SegmentationOutputParser` | SegmentationOutputParser: SAM 3.1's answer text → how many objects it found (spike F). |
 
 ## `providers/llm`
 
@@ -217,7 +221,7 @@ line of the module's docstring.
 |---|---|---|
 | `domain_policy.py` | `MinorPolicyCheck`, `ReplyPolicyCheck`, `PolicyModel`, `PolicyFindings`, `DomainPolicy` | DomainPolicy: what Llama Guard misses about our users (s07 §4.5), on the user's message. |
 | `safety_decision_mapper.py` | `SafetyDecisionMapper` | SafetyDecisionMapper: flagged categories → ALLOW / BLOCK / CRISIS, and which reply (s07 §4.4). |
-| `safety_gate.py` | `SafeReply`, `InputCheck`, `OutputCheck`, `SafetyGate` | SafetyGate: every message in and every reply out is checked, and its sealed `SafeReply` |
+| `safety_gate.py` | `SafeReply`, `InputCheck`, `OutputCheck`, `PhotoCheck`, `SafetyGate` | SafetyGate: every message in and every reply out is checked, and its sealed `SafeReply` |
 
 ## `store`
 

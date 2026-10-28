@@ -5,7 +5,7 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 from app.domain.enums import ConversationState, Role, Route
-from app.pipeline.turn_router import TurnRouter
+from app.pipeline.turn_router import TurnFacts, TurnRouter
 from tests.support.child_talk import consented_child
 from tests.support.turn_context import user_profile
 
@@ -29,6 +29,29 @@ def test_an_active_parents_text_goes_to_the_journey(text: str) -> None:
 def test_a_blank_message_asks_the_parent_to_repeat(text: str) -> None:
     decision = TurnRouter.decide(PARENT, text, [])
     assert (decision.route, decision.reason) == (Route.REPEAT_PLEASE, "blank message")
+
+
+@pytest.mark.parametrize("text", ["", " ", "\n"])
+def test_a_parents_photo_without_words_is_a_journey_report_not_a_blank(text: str) -> None:
+    decision = TurnRouter.decide(PARENT, text, [], TurnFacts(has_photo=True))
+    assert (decision.route, decision.reason) == (Route.JOURNEY, "parent photo")
+
+
+def test_a_photo_never_skips_onboarding_or_a_childs_session() -> None:
+    onboarding = user_profile(state=ConversationState.NEW, role=None, consented=False)
+    assert (
+        TurnRouter.decide(onboarding, "", [], TurnFacts(has_photo=True)).route is Route.ONBOARDING
+    )
+    assert TurnRouter.decide(TEACHER, "", [], TurnFacts(has_photo=True)).route is Route.ONBOARDING
+    child_talking = TurnRouter.decide(
+        PARENT, "", [], TurnFacts(has_photo=True, child_session_open=True)
+    )
+    assert child_talking.route is Route.CHILD_TALK
+
+
+def test_a_captioned_photo_is_routed_by_its_words() -> None:
+    decision = TurnRouter.decide(PARENT, "mera data hatao", [], TurnFacts(has_photo=True))
+    assert decision.route is Route.DATA_DELETION
 
 
 @pytest.mark.parametrize("state", ONBOARDING_STATES)
@@ -102,7 +125,9 @@ MUNNI = consented_child()
 def test_inside_a_child_session_everything_goes_to_child_talk(
     text: str, buttons: list[str]
 ) -> None:
-    decision = TurnRouter.decide(PARENT, text, buttons, learners=[MUNNI], child_session_open=True)
+    decision = TurnRouter.decide(
+        PARENT, text, buttons, TurnFacts(learners=[MUNNI], child_session_open=True)
+    )
     assert decision.route is Route.CHILD_TALK
 
 
@@ -113,19 +138,19 @@ def test_inside_a_child_session_everything_goes_to_child_talk(
 def test_a_parent_account_starts_child_talk_with_the_button_or_a_name(
     text: str, buttons: list[str]
 ) -> None:
-    decision = TurnRouter.decide(PARENT, text, buttons, learners=[MUNNI])
+    decision = TurnRouter.decide(PARENT, text, buttons, TurnFacts(learners=[MUNNI]))
     assert decision.route is Route.CHILD_TALK
 
 
 def test_a_teacher_cant_start_child_talk() -> None:
-    assert TurnRouter.decide(TEACHER, "", ["kid:start"], learners=[MUNNI]).route is not (
+    assert TurnRouter.decide(TEACHER, "", ["kid:start"], TurnFacts(learners=[MUNNI])).route is not (
         Route.CHILD_TALK
     )
 
 
 def test_child_talk_never_starts_before_onboarding_is_done() -> None:
     onboarding = user_profile(state=ConversationState.AWAITING_CONSENT, role=None, consented=False)
-    decision = TurnRouter.decide(onboarding, "Main Munni hoon", [], learners=[MUNNI])
+    decision = TurnRouter.decide(onboarding, "Main Munni hoon", [], TurnFacts(learners=[MUNNI]))
     assert decision.route is Route.ONBOARDING
 
 

@@ -48,6 +48,7 @@ from app.pipeline.fixed_reply_service import FixedReplyService
 from app.pipeline.orchestrator import (
     Orchestrator,
     OrchestratorSettings,
+    PhotoSteps,
     PipelineSteps,
     VoiceSteps,
 )
@@ -55,13 +56,14 @@ from app.prompts.prompt_registry import PromptRegistry, PromptSettings
 from app.providers.http import AsyncioSleeper, RetryPolicy, RetryTiming
 from app.providers.image.image_compressor import ImageCompressor
 from app.providers.image.muse_image_generator import ImageModelConfig, MuseImageGenerator
+from app.providers.image.sam_image_segmenter import SamImageSegmenter, SegmentModelConfig
 from app.providers.llm.fallback_language_model import FallbackLanguageModel, FallbackRoute
 from app.providers.llm.meta_model_api_language_model import (
     MetaModelApiLanguageModel,
     ModelApiConfig,
 )
 from app.providers.llm.model_pricing import ModelPricing
-from app.providers.ports import ChannelSender, LanguageModel, SafetyClassifier
+from app.providers.ports import ChannelSender, ImageSegmenter, LanguageModel, SafetyClassifier
 from app.providers.safety.llama_guard_classifier import LlamaGuardClassifier, SafetyHostConfig
 from app.providers.speech.muse_voice_transcriber import MuseVoiceTranscriber, TranscriberConfig
 from app.providers.speech.sidecar_synthesizer import SidecarConfig, SidecarSynthesizer
@@ -120,6 +122,7 @@ class Container:
     safety_classifier: LlamaGuardClassifier
     voice_adapters: "VoiceAdapters"
     image_generator: MuseImageGenerator
+    image_segmenter: SamImageSegmenter
     turn_dispatcher: TurnDispatcher
     web_demo: WebDemoIngestor
     user_repository: UserRepository
@@ -130,6 +133,7 @@ class OrchestratorPorts:
     language_model: LanguageModel
     safety_classifier: SafetyClassifier
     voice: VoiceSteps
+    photos: PhotoSteps | None = None  # None while PHOTO_INPUT_ENABLED is false
 
 
 @dataclass(frozen=True, slots=True)
@@ -212,6 +216,16 @@ def build_container(settings: Settings) -> Container:
         clock=clock,
         compressor=ImageCompressor(FfmpegRunner(timeout_s=settings.transcode_timeout_s)),
     )
+    image_segmenter = SamImageSegmenter(
+        config=SegmentModelConfig(
+            base_url=str(settings.model_api_base_url),
+            api_key=settings.model_api_key,
+            model=settings.model_segment,
+            timeout_s=settings.timeout_analyze_image_s,
+        ),
+        retry=retry,
+        clock=clock,
+    )
     inbox = InboxRepository(session_factory)
     outbox = OutboxRepository(session_factory)
     dispatcher = build_turn_dispatcher(
@@ -225,7 +239,10 @@ def build_container(settings: Settings) -> Container:
             orchestrator=build_orchestrator(
                 settings,
                 OrchestratorPorts(
-                    language_model, safety_classifier, voice_steps(settings, voice_adapters)
+                    language_model,
+                    safety_classifier,
+                    voice_steps(settings, voice_adapters),
+                    photo_steps(settings, voice_adapters, image_segmenter),
                 ),
                 clock,
                 catalogue=catalogue,
@@ -260,6 +277,7 @@ def build_container(settings: Settings) -> Container:
         safety_classifier=safety_classifier,
         voice_adapters=voice_adapters,
         image_generator=image_generator,
+        image_segmenter=image_segmenter,
         turn_dispatcher=dispatcher,
         web_demo=WebDemoIngestor(
             DemoDeps(
@@ -278,6 +296,7 @@ def build_container(settings: Settings) -> Container:
                 per_ip_per_hour=settings.demo_ip_rate_limit_per_hour,
                 sessions_per_ip_per_hour=settings.demo_sessions_per_ip_per_hour,
                 max_audio_bytes=settings.demo_max_audio_bytes,
+                max_image_bytes=settings.demo_max_image_bytes,
                 daily_cost_cap_usd=settings.daily_cost_cap_usd,
             ),
         ),
@@ -301,6 +320,7 @@ def build_voice_adapters(
                 access_token=settings.whatsapp_access_token,
                 timeout_s=settings.timeout_fetch_media_s,
                 max_bytes=settings.max_inbound_audio_bytes,
+                max_image_bytes=settings.max_inbound_image_bytes,
             ),
             retry=retry,
             clock=clock,
@@ -346,6 +366,20 @@ def voice_steps(settings: Settings, adapters: VoiceAdapters) -> VoiceSteps:
             max_duration_ms=settings.max_voice_note_seconds * 1000,
         ),
         reply_audio_for_text_input=settings.reply_audio_for_text_input,
+    )
+
+
+def photo_steps(
+    settings: Settings, adapters: VoiceAdapters, segmenter: ImageSegmenter
+) -> PhotoSteps | None:
+    """Activity photos (s10b §4.14): the same per-channel fetcher as voice notes, and SAM 3.1."""
+    if not settings.photo_input_enabled:
+        return None
+    return PhotoSteps(
+        fetcher=ChannelMediaFetcher(
+            {Channel.WHATSAPP: adapters.fetcher, Channel.WEB: adapters.media}
+        ),
+        segmenter=segmenter,
     )
 
 
@@ -398,6 +432,7 @@ def build_orchestrator(
                 else None
             ),
             clock=clock,
+            photos=ports.photos,
         ),
         OrchestratorSettings(
             turn_budget=timedelta(seconds=settings.turn_budget_s),
@@ -407,6 +442,8 @@ def build_orchestrator(
             fetch_media_timeout=timedelta(seconds=settings.timeout_fetch_media_s),
             transcribe_timeout=timedelta(seconds=settings.timeout_transcribe_s),
             synthesize_timeout=timedelta(seconds=settings.timeout_synthesize_s),
+            fetch_image_timeout=timedelta(seconds=settings.timeout_fetch_image_s),
+            analyze_image_timeout=timedelta(seconds=settings.timeout_analyze_image_s),
         ),
     )
 
@@ -566,4 +603,5 @@ async def close_container(container: Container) -> None:
     await container.voice_adapters.transcriber.aclose()
     await container.voice_adapters.synthesizer.aclose()
     await container.image_generator.aclose()
+    await container.image_segmenter.aclose()
     await container.engine.dispose()

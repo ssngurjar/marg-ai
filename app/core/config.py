@@ -131,6 +131,13 @@ class Settings(DatabaseSettings):
     image_reasoning_strength: Literal["low", "high"] = "low"
     timeout_make_card_s: float = Field(default=30.0, gt=0)
 
+    # Added in S10b for activity photos (C7): SAM 3.1 checks for people, then counts (spike F)
+    photo_input_enabled: bool = True
+    model_segment: str = Field(default="sam-3.1", min_length=1)
+    max_inbound_image_bytes: int = Field(default=5_242_880, gt=0)
+    timeout_fetch_image_s: float = Field(default=5.0, gt=0)
+    timeout_analyze_image_s: float = Field(default=6.0, gt=0)
+
     # Added in S14 for the web demo (s14; exception E2: polling, no SSE)
     session_signing_key: SecretStr
     session_signing_key_previous: SecretStr | None = None
@@ -138,6 +145,7 @@ class Settings(DatabaseSettings):
     demo_ip_rate_limit_per_hour: int = Field(default=90, ge=1)
     demo_sessions_per_ip_per_hour: int = Field(default=20, ge=1)
     demo_max_audio_bytes: int = Field(default=1_000_000, gt=0)
+    demo_max_image_bytes: int = Field(default=1_000_000, gt=0)  # the page sends a 1024-px JPEG
     daily_cost_cap_usd: Decimal = Field(default=Decimal(5), ge=0)  # web only, IST day
 
     # Added in S10b for child talk (C13; contracts §7)
