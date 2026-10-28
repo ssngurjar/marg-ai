@@ -24,10 +24,23 @@ platform by **Wed Nov 4, 9:00 PM ET = Thu Nov 5, 07:30 IST**. Our target: **Nov 
 - [ ] Safety and children's privacy: no screen for the child, consent, no photos stored, crisis path,
       medical questions referred.
 - [ ] Eval scorecard and `/status` latency numbers.
+- [ ] **Impact, with sources** (reach and cost, never "lives changed"): ASER 2024 p. 48 (almost
+      90% of rural 14–16-year-olds have a smartphone at home); UDISE+ 2024-25 students, teachers
+      and schools (check the Ministry of Education report itself); Meta's own WhatsApp India
+      figure (find the primary statement); the Lancet 2016 series (250 million children under 5
+      in low- and middle-income countries at risk of not reaching their developmental potential,
+      2010 data, <https://pmc.ncbi.nlm.nih.gov/articles/PMC5884058>); model cost under one US cent
+      per reply from our eval runs (state what it excludes: WhatsApp fees, hosting).
+- [ ] **Not a banned category:** say plainly why Marg isn't an "AI for education" chatbot, a basic
+      RAG app or medical advice (the child's discovery is offline; the parent is coached; the
+      mentor is one part, with claims, citations and an honest "I don't know"; health questions
+      are referred).
 - [ ] Licences of every model and library used (the rules require them to be followed).
 - [ ] How to try it: the WhatsApp number / QR and the `/demo` link.
 
 ## Demo video (3 minutes; the final round watches it live)
+
+Superseded by [video-script.md](video-script.md) for the structure and timings; the points below still hold.
 
 - [ ] 0:00–0:20 the problem, in the village, in one line. Not "an AI tutor".
 - [ ] 0:20–1:50 a real parent and child doing a khoj: the voice prompt, the activity offline, the

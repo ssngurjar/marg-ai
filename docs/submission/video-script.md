@@ -4,7 +4,7 @@ For: Santram (voice-over) and the editor. Length: **3:00 at most**; the final ju
 
 The video has four voice-over parts and one part with **no voice-over at all**: the field test,
 which is shown raw. Read at a calm pace (about 130 words a minute). The word counts are there so
-the parts fit their time; if a part runs long, drop the line marked *(cut first)*.
+the parts fit their time; time each part when recording and trim words, never the captions' facts.
 
 Everything the script names is built and working as of Oct 28 (see
 [features.md](features.md) for how each part works). The video may only claim what the
@@ -81,7 +81,7 @@ time. Short captions on screen name each moment:
 
 ---
 
-## 2:06 – 2:42 · How it works (voice-over, ~80 words after the cuts)
+## 2:06 – 2:33 · How it works (voice-over, ~65 words)
 
 *Visuals: the architecture diagram (built up part by part as each is named), the `/demo` page with
 its live trace filling in step by step, the eval scorecard, the GitHub repository.*
@@ -95,25 +95,33 @@ its live trace filling in step by step, the eval scorecard, the GitHub repositor
 >
 > Every message, in and out, passes Llama Guard 4, a second Muse Spark check and our own
 > child-safety rules. If safety is down, nothing unchecked is sent.
->
-> *(cut first)* Every change is scored on seventy-three test cases; every crisis case must pass.
->
-> *(cut second)* The core is a hexagon: pure rules in the middle, and WhatsApp, the web and every
-> model plugged in at the edges.
+
+*Caption over the scorecard (shown, not said): "Every change scored on 78 test cases by the
+real pipeline. Every crisis case must pass."*
 
 ---
 
-## 2:42 – 3:00 · Where it goes (voice-over, ~40 words)
+## 2:33 – 3:00 · Impact (voice-over, ~60 words)
 
-*Visuals: a student's WhatsApp question answered with its official source links, a teacher's
-chapter turned into three fields (shown, not said, to keep the part short), then the village at
-dusk. No dashboard on screen.*
+This part answers the Impact criterion (30%): who benefits, how much it matters, and could
+people really use it. It claims reach, never lives changed: nothing in the repository measures
+that yet.
 
-> Every khoj adds to the child's record, and as the child grows, it carries on into Marg's
-> mentor for students, built on official sources.
+*Visuals: a row of village houses; a teacher's chapter turned into three fields on WhatsApp; a
+student's answer with its official source links (each shown, not said); the village at dusk.
+No dashboard on screen.*
+
+> Almost nine in ten rural teenagers already have a smartphone at home. That phone is Marg's
+> reach: no app, no reading, just a voice note.
+>
+> One parent, one child, every day. One teacher, a whole class. And wherever WhatsApp works,
+> Marg can learn the next language, the way it learned Braj.
 >
 > From a child's first *why* to their first career decision: one guide that grows with them.
 > Thank you.
+
+*Caption while the first line is spoken: "ASER 2024: almost 90% of rural 14–16-year-olds have a
+smartphone at home"*
 
 ---
 
@@ -130,8 +138,14 @@ dusk. No dashboard on screen.*
 - [ ] The ASER figure is shown with its source on screen.
 - [ ] Total length 3:00 or less, checked on the exported file.
 - [ ] The "[if it happens]" Braj line is in the cut only if the field test shows it.
-- [ ] The "seventy-three test cases" line matches the newest scorecard in `evals/results/`
-      (78 golden cases as of Oct 28 evening: update after the next full run).
+- [ ] The "78 test cases" caption matches the newest scorecard in `evals/results/`.
+- [ ] The Braj clause in the impact part ("the way it learned Braj") stays only if the field
+      test or a recorded demo shows a Braj reply; otherwise end that sentence at "language".
+- [ ] **MMS-TTS licence (C8):** the organisers' answer on CC-BY-NC is in hand before the video
+      names "Meta's MMS model" (rules: no assets we don't have the rights to).
+- [ ] Nothing on screen or in a caption calls Marg a chatbot, a tutor or "AI for education",
+      and the student mentor never leads a scene: the rules ban basic RAG apps and AI-for-
+      education chatbots, so the parent's offline discovery is the story.
 - [ ] Never call Marg "AI for education" or a tutor on screen or in captions: it closes the
       exposure gap by coaching the adults around a child.
 - [ ] "Eight models" stays true: Muse Spark, Muse Spark Open, Muse Voice Transcribe, Muse Image,
@@ -142,8 +156,9 @@ dusk. No dashboard on screen.*
 
 ## Sources for the facts spoken
 
-- ASER 2024, National findings (ASER Centre), Std III children in rural government schools who
-  can read a Std II level text: 23.4% (16.3% in 2022).
+- ASER 2024, National findings (ASER Centre), p. 47: Std III children in rural government
+  schools who can read a Std II level text: 23.4% (16.3% in 2022). P. 48 (digital literacy,
+  ages 14–16): "Almost 90% of both girls and boys report having a smartphone at home."
   <https://asercentre.org/wp-content/uploads/2022/12/ASER-2024-National-findings.pdf>
   Retrieved 2026-10-28. Also reported at
   <https://www.drishtiias.com/daily-updates/daily-news-analysis/aser-2024-and-elementary-education>.
