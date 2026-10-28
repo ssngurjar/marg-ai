@@ -40,20 +40,26 @@ repository shows; one line marked **[if it happens]** goes in only if the field 
 
 ---
 
-## 0:40 – 1:05 · What Marg.ai is (voice-over, ~65 words)
+## 0:40 – 1:12 · What Marg.ai is (voice-over, ~70 words)
 
-*Visuals: a parent's hands holding a phone; WhatsApp open on the Marg.ai chat.*
+*Visuals: children's hands sorting leaves in a courtyard (no faces), then a parent's hands
+holding a phone, WhatsApp open on the Marg.ai chat.*
 
-> So I built Marg.ai. *Marg* means path. It is not a chatbot for children: the child never
-> touches a screen. Marg coaches the parent, by voice, on the WhatsApp they already use, to do a
-> two-minute discovery with their child every day. We call it *Aaj ki Khoj*, today's discovery.
+> Children here don't lack talent. They lack exposure: someone to ask them *why*, and anyone
+> who's walked a path beyond the village.
 >
-> Big words. Does it actually work? This is a real field test, in my village. No narration. Just
-> what happened.
+> So I built Marg.ai. *Marg* means path. It isn't a tutor, and the child never touches a screen.
+> It coaches the people already around a child, by voice, on WhatsApp. The world is the
+> curriculum; the phone is the coach.
+>
+> Does it work? Here's a real field test, in my village.
+
+*Caption while "the world is the curriculum" is spoken: "Aaj ki Khoj: a two-minute discovery,
+every day"*
 
 ---
 
-## 1:05 – 2:05 · Field test (NO voice-over, ~60 s)
+## 1:12 – 2:06 · Field test (NO voice-over, ~54 s)
 
 Raw footage and screen recording only. **No background music over the voices**: the judges must
 hear the real voice notes and the real Marg voice replies (Meta MMS-TTS), with the real waiting
@@ -75,13 +81,13 @@ time. Short captions on screen name each moment:
 
 ---
 
-## 2:05 – 2:42 · How it works (voice-over, ~80 words after the cuts)
+## 2:06 – 2:42 · How it works (voice-over, ~80 words after the cuts)
 
 *Visuals: the architecture diagram (built up part by part as each is named), the `/demo` page with
 its live trace filling in step by step, the eval scorecard, the GitHub repository.*
 
-> From the outside, it's just a WhatsApp contact, the way Instagram is just a photo app. Inside,
-> it's a production system.
+> From the outside, it's just a WhatsApp contact. Under the hood, it's a compound AI system:
+> eight models, each with one job, and safety around every message.
 >
 > Muse Voice Transcribe hears the parent. Muse Spark plans the khoj and replies in the family's
 > language. Muse Spark Open, an open-weights model, reflects on what the child did.
@@ -97,17 +103,17 @@ its live trace filling in step by step, the eval scorecard, the GitHub repositor
 
 ---
 
-## 2:42 – 3:00 · Where it goes (voice-over, ~45 words)
+## 2:42 – 3:00 · Where it goes (voice-over, ~40 words)
 
 *Visuals: a student's WhatsApp question answered with its official source links, a teacher's
 chapter turned into three fields (shown, not said, to keep the part short), then the village at
 dusk. No dashboard on screen.*
 
-> Every khoj adds to the child's curiosity record. As the child grows, it carries on into Marg's
-> mentor for students, where every fact comes from an official source.
+> Every khoj adds to the child's record, and as the child grows, it carries on into Marg's
+> mentor for students, built on official sources.
 >
-> A path from a curious three-year-old to a confident first choice, for every family that has a
-> phone. Thank you.
+> From a child's first *why* to their first career decision: one guide that grows with them.
+> Thank you.
 
 ---
 
@@ -124,7 +130,13 @@ dusk. No dashboard on screen.*
 - [ ] The ASER figure is shown with its source on screen.
 - [ ] Total length 3:00 or less, checked on the exported file.
 - [ ] The "[if it happens]" Braj line is in the cut only if the field test shows it.
-- [ ] The "seventy-three test cases" line matches the newest scorecard in `evals/results/`.
+- [ ] The "seventy-three test cases" line matches the newest scorecard in `evals/results/`
+      (78 golden cases as of Oct 28 evening: update after the next full run).
+- [ ] Never call Marg "AI for education" or a tutor on screen or in captions: it closes the
+      exposure gap by coaching the adults around a child.
+- [ ] "Eight models" stays true: Muse Spark, Muse Spark Open, Muse Voice Transcribe, Muse Image,
+      SAM 3.1, Llama Guard 4, MMS-TTS and the multilingual-e5 embedding model (see
+      [features.md](features.md)).
 - [ ] **No admin dashboard on screen** unless blurred: it shows counts from a single child, and the
       video names the village. `/status` and the `/demo` trace are safe to show.
 
