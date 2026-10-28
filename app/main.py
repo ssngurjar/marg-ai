@@ -1,5 +1,6 @@
 """App factory, used by `uvicorn app.main:create_app --factory` and by tests."""
 
+import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -45,13 +46,21 @@ def create_app(settings: Settings | None = None, container: Container | None = N
         app.state.media_repository = active_container.voice_adapters.media
         app.state.user_repository = active_container.user_repository
         app.state.telemetry_pages = active_container.telemetry_pages
+        app.state.turn_progress_hub = active_container.turn_progress_hub
+        app.state.turn_event_stream = active_container.turn_event_stream
         # RUN_WORKER_IN_API=false: `python -m app.worker` runs the turns; this only stores them.
         run_worker = active_container.settings.run_worker_in_api
         if run_worker:
             await active_container.worker.start()
+        stop_listening = asyncio.Event()
+        progress = asyncio.create_task(
+            active_container.progress_listener.run(stop_listening), name="turn-progress"
+        )
         try:
             yield
         finally:
+            stop_listening.set()
+            await progress
             if run_worker:
                 await active_container.worker.stop()
             if container is None:

@@ -9,9 +9,12 @@ line of the module's docstring.
 | Module | Classes | What it does |
 |---|---|---|
 | `dashboard_page_renderer.py` | `DashboardPageRenderer` | DashboardPageRenderer: /status and /dashboard as plain HTML (s13 §4.7). |
+| `demo_view_serializer.py` | `DemoViewSerializer` | DemoViewSerializer: a visitor's turn as the JSON the demo page renders (s14 §4.4, §4.5). |
 | `deps.py` | — | FastAPI dependencies that read what the app factory put on `app.state`. |
 | `readiness.py` | `ProbeResult`, `ReadinessProbe` | Readiness probes: what `/readyz` checks, and how one check is run. |
 | `telemetry_pages.py` | `TelemetryPages` | TelemetryPages: what the /status and /dashboard routes need, built once in wiring. |
+| `turn_event_stream.py` | `StreamSettings`, `TurnEventStream` | TurnEventStream: one visitor's live trace as Server-Sent Events (s14 §4.4). |
+| `turn_progress_hub.py` | `StreamLimits`, `Subscription`, `TurnProgressHub` | TurnProgressHub: routes `turn_progress` notifications to web visitors' open streams (s14 §4.4). |
 | `turn_waker.py` | `TurnWaker` | TurnWaker: what an ingress needs from the worker (s04 §4.3): look for this user's turn now. |
 | `web_demo_ingestor.py` | `DemoLimits`, `Visitor`, `DemoDeps`, `WebDemoIngestor` | WebDemoIngestor: a web visitor's message into the same inbox as WhatsApp's (s14 §4.2-§4.7). |
 | `whatsapp_webhook_ingestor.py` | `WhatsAppWebhookIngestor` | WhatsAppWebhookIngestor: an authentic webhook body stored and applied (s03 §4.1, §4.8). |
@@ -21,7 +24,7 @@ line of the module's docstring.
 | Module | Classes | What it does |
 |---|---|---|
 | `dashboard.py` | — | /status (public, admin extras) and /dashboard (admin, signed link) (s13 §4.7, §4.9). |
-| `demo.py` | `MessageIn` | The web demo (s14; exception E2): a page, a session, messages in, and polling for the reply. |
+| `demo.py` | `MessageIn` | The web demo (s14): a page, a session, messages in, and a live trace of each turn. |
 | `health.py` | `HealthResponse`, `ReadinessResponse` | Liveness and readiness endpoints. |
 | `whatsapp_webhook.py` | — | The WhatsApp webhook routes (s03 §4.1). Thin: verify, then hand off to the ingestor. |
 
@@ -265,6 +268,7 @@ line of the module's docstring.
 | `db.py` | — | Async database engine and sessions. The only place a connection is opened. |
 | `notification_listener.py` | `ListenerSettings`, `NotificationListener` | NotificationListener: Postgres `LISTEN` on one dedicated connection (s04 §4.11; s14 §4.6). |
 | `tables.py` | — | Table definitions (data-model.md). Each table is created by its step's Alembic migration. |
+| `turn_progress_notifier.py` | `TurnProgressNotifier` | TurnProgressNotifier: `NOTIFY turn_progress` with a turn id (s04 §4.6, s14 §4.4). |
 | `vector_column.py` | `VectorColumn` | VectorColumn: pgvector's `vector(n)` column type, for table definitions only (s11 §6). |
 
 ## `store/repositories`

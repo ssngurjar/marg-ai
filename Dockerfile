@@ -17,4 +17,5 @@ USER marg
 EXPOSE 8000
 # --no-access-log: uvicorn's access log bypasses our redaction and would print query strings
 # (e.g. the WhatsApp verify token). Requests are logged through app.core.logging instead.
-CMD [".venv/bin/uvicorn", "app.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]
+# Open live-trace streams (up to DEMO_SSE_MAX_S) must not hold a deploy: close them after 25 s.
+CMD [".venv/bin/uvicorn", "app.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000", "--no-access-log", "--timeout-graceful-shutdown", "25"]

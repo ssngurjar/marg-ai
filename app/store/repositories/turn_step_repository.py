@@ -1,8 +1,9 @@
 """turn_steps rows and the turn columns written while a turn runs (s04 §4.6).
 
 Each write is its own short transaction, outside the turn's finalize: the steps are telemetry,
-and an abandoned turn's steps stay because they happened. The worker's step recorder maps the
-pipeline's types onto `StepRow`.
+and an abandoned turn's steps stay because they happened. Each write notifies `turn_progress`,
+so the web trace updates live. The worker's step recorder maps the pipeline's types onto
+`StepRow`.
 """
 
 from dataclasses import dataclass
@@ -17,6 +18,7 @@ from app.core.errors import StoreError
 from app.domain.enums import FailureKind, Route, SafetyDecision, StepName, StepOutcome
 from app.domain.models.base import TurnId
 from app.store.tables import turn_steps, turns
+from app.store.turn_progress_notifier import TurnProgressNotifier
 
 
 @dataclass(frozen=True, slots=True)
@@ -61,6 +63,7 @@ class TurnStepRepository:
         try:
             async with self._session_factory() as session, session.begin():
                 await session.execute(turn_steps.insert().values(values))
+                await TurnProgressNotifier.notify(session, row.turn_id)
         except (SQLAlchemyError, OSError) as exc:
             raise StoreError(f"could not record a turn step: {type(exc).__name__}") from exc
 
@@ -74,5 +77,6 @@ class TurnStepRepository:
         try:
             async with self._session_factory() as session, session.begin():
                 await session.execute(update(turns).where(turns.c.id == turn_id).values(values))
+                await TurnProgressNotifier.notify(session, turn_id)
         except (SQLAlchemyError, OSError) as exc:
             raise StoreError(f"could not update the turn: {type(exc).__name__}") from exc

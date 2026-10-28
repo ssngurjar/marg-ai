@@ -6,6 +6,8 @@ from fastapi import Request
 
 from app.api.readiness import ReadinessProbe
 from app.api.telemetry_pages import TelemetryPages
+from app.api.turn_event_stream import TurnEventStream
+from app.api.turn_progress_hub import TurnProgressHub
 from app.api.turn_waker import TurnWaker
 from app.api.web_demo_ingestor import WebDemoIngestor
 from app.core.clock import Clock
@@ -102,3 +104,17 @@ def get_telemetry_pages(request: Request) -> TelemetryPages:
     if not isinstance(pages, TelemetryPages):
         raise ConfigError("app.state.telemetry_pages is not set; build the app with create_app()")
     return pages
+
+
+def get_turn_progress_hub(request: Request) -> TurnProgressHub:
+    hub = request.app.state.turn_progress_hub
+    if not isinstance(hub, TurnProgressHub):
+        raise ConfigError("app.state.turn_progress_hub is not set; build the app with create_app()")
+    return hub
+
+
+def get_turn_event_stream(request: Request) -> TurnEventStream:
+    stream = request.app.state.turn_event_stream
+    if not isinstance(stream, TurnEventStream):
+        raise ConfigError("app.state.turn_event_stream is not set; build the app with create_app()")
+    return stream

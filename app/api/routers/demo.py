@@ -1,9 +1,10 @@
-"""The web demo (s14; exception E2): a page, a session, messages in, and polling for the reply.
+"""The web demo (s14): a page, a session, messages in, and a live trace of each turn.
 
 Thin, like the webhook: the WebDemoIngestor does the checks and the inbox insert; the worker
 runs the same pipeline as for WhatsApp. Messages are JSON (a voice note or photo as base64), so
-there's no form-parsing dependency. Every response under /demo carries the security headers of
-s14 §4.10.
+there's no form-parsing dependency. The page follows its turns on `GET /demo/events` (SSE) and
+falls back to polling `GET /demo/messages/{id}` when the stream is down. Every response under
+/demo carries the security headers of s14 §4.10.
 """
 
 import base64
@@ -14,16 +15,24 @@ from urllib.parse import urlsplit
 from uuid import UUID
 
 from fastapi import APIRouter, Cookie, Depends, Request, Response, status
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.api.deps import get_media_repository, get_user_repository, get_web_demo
+from app.api.demo_view_serializer import DemoViewSerializer
+from app.api.deps import (
+    get_media_repository,
+    get_turn_event_stream,
+    get_turn_progress_hub,
+    get_user_repository,
+    get_web_demo,
+)
+from app.api.turn_event_stream import TurnEventStream
+from app.api.turn_progress_hub import TurnProgressHub
 from app.api.web_demo_ingestor import SESSION_TTL, WebDemoIngestor
 from app.channels.web.web_message_parser import WebUpload
 from app.core.errors import DemoRefused, WebInputInvalid
 from app.core.logging import get_logger
 from app.domain.enums import MediaPurpose
-from app.store.repositories.demo_repository import MessageView
 from app.store.repositories.media_blob_repository import MediaBlobRepository
 from app.store.repositories.user_repository import UserRepository
 
@@ -125,7 +134,26 @@ async def get_message(message_id: str, demo: DemoDep, cookie: CookieDep = None) 
     view = await demo.message_view(user_hash, message_id)
     if view is None:
         return _error(status.HTTP_404_NOT_FOUND, {"error": "not_found"})
-    return JSONResponse(_message_json(view), headers=SECURITY_HEADERS)
+    return JSONResponse(DemoViewSerializer.message(view), headers=SECURITY_HEADERS)
+
+
+@router.get("/events")
+async def events(
+    demo: DemoDep,
+    hub: Annotated[TurnProgressHub, Depends(get_turn_progress_hub)],
+    stream: Annotated[TurnEventStream, Depends(get_turn_event_stream)],
+    cookie: CookieDep = None,
+) -> Response:
+    """The visitor's live trace (s14 §4.4): their own turns only, at most two streams each."""
+    try:
+        user_hash = demo.known_visitor(cookie)
+        subscription = hub.open(user_hash)
+    except DemoRefused as refused:
+        return _refused(refused)
+    headers = {**SECURITY_HEADERS, "Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
+    return StreamingResponse(
+        stream.events(subscription), media_type="text/event-stream", headers=headers
+    )
 
 
 @router.get("/media/{blob_id}")
@@ -172,45 +200,6 @@ async def reset(
 # --- helpers ---------------------------------------------------------------------------------
 
 
-def _message_json(view: MessageView) -> dict[str, object]:
-    turn = view.turn
-    if turn is None:
-        return {"status": view.message_status, "turn": None}
-    return {
-        "status": view.message_status,
-        "turn": {
-            "turn_id": str(turn.turn_id),
-            "status": turn.status,
-            "route": turn.route,
-            "steps": [
-                {
-                    "step": step.step,
-                    "outcome": step.outcome,
-                    "duration_ms": step.duration_ms,
-                    "detail": step.detail,
-                    "cost_usd": str(step.cost_usd) if step.cost_usd is not None else None,
-                    "model": step.model,
-                }
-                for step in turn.steps
-            ],
-            "parts": [
-                {
-                    "kind": part.kind,
-                    "text": part.text,
-                    "buttons": [{"id": b.id, "title": b.title} for b in part.buttons],
-                    "audio_url": f"/demo/media/{part.audio_blob_id}"
-                    if part.audio_blob_id
-                    else None,
-                    "image_url": f"/demo/media/{part.image_blob_id}"
-                    if part.image_blob_id
-                    else None,
-                }
-                for part in turn.parts
-            ],
-        },
-    }
-
-
 def _decoded(encoded: str | None, field: str) -> bytes | None:
     """A base64 voice note or photo; anything that isn't base64 is refused for that field."""
     if encoded is None:
@@ -253,6 +242,7 @@ def _refused(refused: DemoRefused) -> Response:
     codes: dict[str, int] = {
         "no_session": status.HTTP_401_UNAUTHORIZED,
         "rate_limited": status.HTTP_429_TOO_MANY_REQUESTS,
+        "stream_limit": status.HTTP_429_TOO_MANY_REQUESTS,
         "daily_budget_reached": status.HTTP_503_SERVICE_UNAVAILABLE,
     }
     body: dict[str, object] = {"error": refused.reason}

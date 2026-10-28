@@ -1,21 +1,31 @@
 """The web demo against Postgres and the real pipeline (s14): a cookie session, a message in, a
-reply and its trace out by polling, web voice notes, the guards, and reset."""
+reply and its trace out (polling, and live on the SSE stream), web voice notes, the guards, and
+reset."""
 
+import asyncio
 import base64
+import json
+import os
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
+from datetime import timedelta
 from decimal import Decimal
 
 import httpx
 import pytest
 from fastapi import FastAPI
 from pydantic import SecretStr
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.api.routers import demo
+from app.api.turn_event_stream import StreamSettings, TurnEventStream
+from app.api.turn_progress_hub import StreamLimits, TurnProgressHub
 from app.api.web_demo_ingestor import DemoDeps, DemoLimits, WebDemoIngestor
 from app.core.signed_token_codec import SignedTokenCodec
-from app.store.db import create_session_factory
+from app.domain.models.base import UserHash
+from app.store.db import create_listener_engine, create_session_factory
+from app.store.notification_listener import ListenerSettings, NotificationListener
 from app.store.repositories.demo_repository import DemoRepository
 from app.store.repositories.inbox_repository import InboxRepository
 from app.store.repositories.media_blob_repository import MediaBlobRepository
@@ -41,16 +51,27 @@ LIMITS = DemoLimits(
 )
 
 
+LIVE = StreamSettings(
+    max_age=timedelta(seconds=2),  # the test client reads a stream only once it has ended
+    heartbeat=timedelta(seconds=5),
+    replay_window=timedelta(minutes=2),
+)
+
+
 @dataclass(frozen=True, slots=True)
 class Demo:
     client: httpx.AsyncClient
     pipeline: Pipeline
+    app: FastAPI
+    hub: TurnProgressHub
 
 
 async def demo_for(
     engine: AsyncEngine, limits: DemoLimits = LIMITS, voice: FakeVoice | None = None
 ) -> AsyncIterator[Demo]:
     pipeline = wire(engine, FakeSafetyClassifier(), voice=voice)
+    async with engine.begin() as connection:  # each test starts within every rate limit
+        await connection.execute(text("TRUNCATE rate_limit_counters"))
     sessions = create_session_factory(engine)
     app = FastAPI()
     app.include_router(demo.router)
@@ -68,9 +89,26 @@ async def demo_for(
     )
     app.state.media_repository = MediaBlobRepository(sessions)
     app.state.user_repository = UserRepository(sessions)
+    hub = TurnProgressHub(DemoRepository(sessions), StreamLimits(per_visitor=2, per_process=10))
+    app.state.turn_progress_hub = hub
+    app.state.turn_event_stream = TurnEventStream(hub, DemoRepository(sessions), LIVE)
+    listen_engine = create_listener_engine(SecretStr(os.environ["DATABASE_URL"]))
+    listener = NotificationListener(
+        listen_engine,
+        {"turn_progress": hub.on_notification},
+        ListenerSettings(health_check_every=timedelta(seconds=5)),
+    )
+    stop = asyncio.Event()
+    listening = asyncio.create_task(listener.run(stop))
+    await asyncio.wait_for(listener.connected.wait(), timeout=5)
     transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://demo.test") as client:
-        yield Demo(client, pipeline)
+    try:
+        async with httpx.AsyncClient(transport=transport, base_url="http://demo.test") as client:
+            yield Demo(client, pipeline, app, hub)
+    finally:
+        stop.set()
+        await listening
+        await listen_engine.dispose()
 
 
 @pytest.fixture
@@ -272,3 +310,99 @@ async def test_reset_deletes_everything_and_the_cookie(site: Demo, engine: Async
     assert response.status_code == 204
     assert await rows(engine, "SELECT count(*) FROM users WHERE channel = 'web'") == [(0,)]
     assert "marg_session" not in site.client.cookies
+
+
+# --- the live trace (s14 §4.4, E2 upgrade) ---------------------------------------------------
+
+
+def turn_events(stream_text: str) -> list[dict[str, object]]:
+    events: list[dict[str, object]] = []
+    for block in stream_text.split("\n\n"):
+        lines = block.strip().split("\n")
+        if lines[0] == "event: turn":
+            event: dict[str, object] = json.loads(lines[1].removeprefix("data: "))
+            events.append(event)
+    return events
+
+
+async def stream_opened(hub: TurnProgressHub, count: int = 1) -> None:
+    for _ in range(100):
+        if hub.open_streams >= count:
+            return
+        await asyncio.sleep(0.01)
+    pytest.fail("the stream never opened")
+
+
+async def test_the_live_stream_carries_each_step_and_then_the_reply(site: Demo) -> None:
+    await site.client.get("/demo/session")
+
+    async def talk() -> str:
+        await stream_opened(site.hub)
+        posted = await site.client.post("/demo/messages", json={"text": "Hi"}, headers=ORIGIN)
+        await site.pipeline.worker.wait_until_idle()
+        message_id: str = posted.json()["message_id"]
+        return message_id
+
+    watched, message_id = await asyncio.gather(site.client.get("/demo/events"), talk())
+    assert watched.status_code == 200
+    assert watched.headers["content-type"].startswith("text/event-stream")
+    assert watched.headers["x-accel-buffering"] == "no"
+    assert watched.text.startswith("retry: 2000")
+    events = turn_events(watched.text)
+    assert len(events) > 1  # the trace grew step by step, not once at the end
+    assert all(event["replay"] is False for event in events)
+    assert {event["turn_id"] for event in events} == {events[-1]["turn_id"]}
+    last = events[-1]
+    assert last["message_ids"] == [message_id]
+    assert last["status"] == "completed"
+    assert last["parts"]
+    step_counts: list[int] = []
+    for event in events:
+        steps = event["steps"]
+        assert isinstance(steps, list)
+        step_counts.append(len(steps))
+    assert step_counts == sorted(step_counts)
+    assert site.hub.open_streams == 0  # the stream closed at its age limit and let go
+
+
+async def test_a_reconnecting_page_gets_the_latest_turn_replayed(site: Demo) -> None:
+    await site.client.get("/demo/session")
+    await say(site, {"text": "Hi"})
+    watched = await site.client.get("/demo/events")
+    [replayed] = turn_events(watched.text)
+    assert replayed["replay"] is True
+    assert replayed["status"] == "completed"
+
+
+async def test_each_visitor_sees_only_their_own_turns(site: Demo) -> None:
+    transport = httpx.ASGITransport(app=site.app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://demo.test") as other:
+        await other.get("/demo/session")
+        await site.client.get("/demo/session")
+
+        async def other_visitor_talks() -> None:
+            await stream_opened(site.hub)
+            await other.post("/demo/messages", json={"text": "Hi"}, headers=ORIGIN)
+            await site.pipeline.worker.wait_until_idle()
+
+        watched, _ = await asyncio.gather(site.client.get("/demo/events"), other_visitor_talks())
+    assert watched.status_code == 200
+    assert turn_events(watched.text) == []
+
+
+async def test_the_live_stream_needs_a_session(site: Demo) -> None:
+    response = await site.client.get("/demo/events")
+    assert (response.status_code, response.json()) == (401, {"error": "no_session"})
+    assert site.hub.open_streams == 0
+
+
+async def test_a_third_stream_for_one_visitor_is_refused(site: Demo, engine: AsyncEngine) -> None:
+    await site.client.get("/demo/session")
+    [(visitor,)] = await rows(engine, "SELECT user_hash FROM users WHERE channel = 'web'")
+    site.hub.open(UserHash(str(visitor)))
+    site.hub.open(UserHash(str(visitor)))  # two tabs already open
+    response = await site.client.get("/demo/events")
+    assert (response.status_code, response.json()) == (
+        429,
+        {"error": "stream_limit", "scope": "streams"},
+    )

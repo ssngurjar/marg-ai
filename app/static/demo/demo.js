@@ -1,9 +1,10 @@
-// Marg.ai web demo (s14): the same pipeline as WhatsApp, with a trace of every step.
-// Vanilla JS, no build step. Messages are JSON; a voice note goes as base64.
+// Marg.ai web demo (s14): the same pipeline as WhatsApp, with a live trace of every step.
+// Vanilla JS, no build step. Messages are JSON; a voice note goes as base64. Turns arrive on
+// the /demo/events stream (SSE); while it's down, the page polls instead.
 "use strict";
 
-const POLL_MS = 1000;
-const MAX_POLLS = 120; // two minutes
+const POLL_MS = 2000; // only while the live stream is down
+const MAX_WAIT_MS = 120000; // two minutes
 const MAX_RECORDING_MS = 60000;
 const PHOTO_MAX_SIDE = 1024; // the page sends a JPEG of at most 1024 px (DEMO_MAX_IMAGE_BYTES)
 const PHOTO_QUALITY = 0.82;
@@ -26,10 +27,15 @@ const photoFile = document.getElementById("photo-file");
 const banner = document.getElementById("banner");
 const trace = document.getElementById("trace");
 const traceSummary = document.getElementById("trace-summary");
+const live = document.getElementById("live");
 
 let busy = false;
 let recorder = null;
 let recordingTimer = null;
+let streamOpen = false;
+let tracedTurnId = null; // the turn the trace panel shows; its later steps keep updating it
+const waiters = new Map(); // message id → { mine, resolve, deadline }
+const repliedTurns = new Set(); // a turn's reply is shown once, however often it arrives
 
 function showBanner(text) {
   banner.textContent = text;
@@ -67,6 +73,7 @@ async function startSession() {
     return;
   }
   addBubble("bot", "Namaste! Type Hi (or send a voice note) to begin.");
+  openStream();
 }
 
 async function send(payload, label, previewUrl) {
@@ -107,24 +114,68 @@ async function send(payload, label, previewUrl) {
   }
 }
 
-async function follow(messageId, mine) {
-  for (let poll = 0; poll < MAX_POLLS; poll += 1) {
+function openStream() {
+  if (!window.EventSource) return; // polling only
+  const stream = new EventSource("/demo/events");
+  stream.addEventListener("open", () => {
+    streamOpen = true;
+    live.hidden = true;
+  });
+  stream.addEventListener("error", () => {
+    streamOpen = false; // EventSource reconnects by itself; polling covers the gap
+    live.hidden = waiters.size === 0;
+  });
+  stream.addEventListener("turn", (event) => handleTurn(JSON.parse(event.data)));
+}
+
+// A turn arrived (stream or poll), whole: render it again; repeats and replays are harmless.
+function handleTurn(turn) {
+  const waiting = turn.message_ids.filter((id) => waiters.has(id));
+  const isCard = turn.message_ids.length === 0 && turn.route === "khoj_card";
+  if (waiting.length || turn.turn_id === tracedTurnId) {
+    tracedTurnId = turn.turn_id;
+    renderTrace(turn);
+  } else if (!isCard || turn.replay) {
+    return; // an earlier turn of this visitor's, from before this page was opened
+  }
+  const done = turn.parts.length > 0 && turn.status !== "processing";
+  if (!done || repliedTurns.has(turn.turn_id)) return;
+  repliedTurns.add(turn.turn_id);
+  for (const id of waiting) {
+    const waiter = waiters.get(id);
+    waiters.delete(id);
+    setState(waiter.mine, "");
+    waiter.resolve();
+  }
+  renderReply(turn);
+}
+
+function follow(messageId, mine) {
+  return new Promise((resolve) => {
+    waiters.set(messageId, { mine, resolve, deadline: Date.now() + MAX_WAIT_MS });
+    pollWhileStreamIsDown(messageId);
+  });
+}
+
+async function pollWhileStreamIsDown(messageId) {
+  while (waiters.has(messageId)) {
     await new Promise((resolve) => setTimeout(resolve, POLL_MS));
+    const waiter = waiters.get(messageId);
+    if (!waiter) return;
+    if (Date.now() > waiter.deadline) {
+      waiters.delete(messageId);
+      setState(waiter.mine, "no reply yet");
+      waiter.resolve();
+      return;
+    }
+    if (streamOpen) continue;
     const response = await fetch(`/demo/messages/${encodeURIComponent(messageId)}`, {
       credentials: "same-origin",
     });
     if (!response.ok) continue;
     const view = await response.json();
-    if (!view.turn) continue;
-    renderTrace(view.turn);
-    const sent = view.turn.parts.length > 0 && view.turn.status !== "processing";
-    if (sent) {
-      setState(mine, "");
-      renderReply(view.turn);
-      return;
-    }
+    if (view.turn) handleTurn({ ...view.turn, replay: false });
   }
-  setState(mine, "no reply yet");
 }
 
 function renderReply(turn) {

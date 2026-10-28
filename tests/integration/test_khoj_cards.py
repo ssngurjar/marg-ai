@@ -141,9 +141,10 @@ def card_sender(
     sessions: async_sessionmaker[AsyncSession],
     sender: FakeSender,
     classifier: FakeSafetyClassifier | None = None,
+    channel: Channel = Channel.WHATSAPP,
 ) -> KhojCardSender:
     clock = FixedClock(SystemClock().now())  # today, as the database sees it
-    senders: dict[Channel, ChannelSender] = {Channel.WHATSAPP: sender}
+    senders: dict[Channel, ChannelSender] = {channel: sender}
     media = MediaBlobRepository(sessions)
     deliverer = ReplyDeliverer(
         DeliveryDeps(
@@ -248,3 +249,25 @@ async def test_with_llama_guard_down_no_card_goes_out(
         await card_sender(sessions, sender, down).send(task)
     assert sender.sent == []
     assert await count(engine, "SELECT count(*) FROM media_blobs") == 0
+
+
+async def test_a_web_parents_card_goes_to_their_page_not_to_whatsapp(
+    engine: AsyncEngine, sessions: async_sessionmaker[AsyncSession]
+) -> None:
+    """Regression: cards were queued on WhatsApp whatever the parent's channel, so a web
+    visitor's card failed for want of a phone address."""
+    async with engine.begin() as connection:
+        await connection.execute(
+            text(
+                "UPDATE users SET channel = 'web', address_ciphertext = NULL WHERE user_hash = :h"
+            ),
+            {"h": PARENT},
+        )
+    task = await reported(engine, sessions, engagement=2)
+    sender = FakeSender(FixedClock(SystemClock().now()))
+    outcome = await card_sender(sessions, sender, channel=Channel.WEB).send(task)
+    assert outcome.sent
+    [card] = sender.sent
+    assert card.part.kind is PartKind.IMAGE
+    assert await count(engine, "SELECT count(*) FROM outbox_messages WHERE channel = 'web'") == 1
+    assert await count(engine, "SELECT count(*) FROM outbox_messages WHERE status = 'sent'") == 1

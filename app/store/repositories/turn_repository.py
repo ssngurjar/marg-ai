@@ -65,6 +65,7 @@ from app.store.repositories.profile_memory_repository import ProfileMemoryReposi
 from app.store.repositories.roadmap_repository import RoadmapRepository
 from app.store.repositories.user_repository import UserRepository
 from app.store.tables import inbox_messages, learner_activities, turns, users
+from app.store.turn_progress_notifier import TurnProgressNotifier
 
 RETENTION_BATCH = 1000
 
@@ -242,6 +243,7 @@ class TurnRepository:
                 await _release_lease(session, started)
                 if parts:
                     await session.execute(text("SELECT pg_notify('outbox_new', '')"))
+                await TurnProgressNotifier.notify(session, started.turn_id)
         except (SQLAlchemyError, OSError) as exc:
             raise StoreError(f"could not finalize the turn: {type(exc).__name__}") from exc
         return FinalizeResult(parts_enqueued=parts, more_pending=more_pending)

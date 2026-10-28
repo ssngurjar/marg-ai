@@ -304,6 +304,16 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
   then send a WhatsApp message: one reply. Kill one worker with `kill -9` mid-turn: the other
   answers within about a minute.
 
+## 2o. The web demo's live trace (E2 upgrade, s14, from 2026-10-28)
+
+- [ ] **Try it:** open `/demo`, send "Hi": the trace on the right fills in step by step while the
+  reply is being made (no one-second jumps). Stop the database for a moment: a small
+  "reconnecting…" pill shows, and replies still arrive by polling.
+- [ ] **Decide:** the stream sends the whole turn each time (one `turn` event) rather than the
+  three event types the design named. Recommended: keep it (simpler, and replays are harmless).
+- [ ] **Bug fixed on the way:** a web visitor's khoj card was sent to WhatsApp and failed; it
+  now goes to their page, live.
+
 ## 3. Decisions log entries marked "pending owner review"
 
 - [ ] `docs/design/s05-llm-orchestrator.md`, 2026-10-27 (S5 build choices).
@@ -312,6 +322,7 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
 - [ ] `docs/design/s07-safety.md`, 2026-10-27 (crisis copy pulled forward; safety host).
 - [ ] `docs/design/contracts.md`, 2026-10-27 (S5 ports, `SaveResult`, `MODEL_REASONING_EFFORT`).
 - [ ] `docs/design/s04-queue-worker.md` and `mvp-scope.md`, 2026-10-28 (E1 upgrade: leases, loops, listener).
+- [ ] `docs/design/s14-web-channel.md` and `mvp-scope.md`, 2026-10-28 (E2 upgrade: the live trace).
 - [ ] `docs/design/contracts.md`, 2026-10-25 (`TurnObserver.on_step` result, `GoldenLearner`,
   `SignedTokenCodec`, the `ExtractSignals`/`UpdateMemory` fields).
 

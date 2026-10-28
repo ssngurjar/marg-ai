@@ -1,10 +1,10 @@
 """The web demo's reads and counters (s14 §4.3 to §4.7): rate limits, today's web cost, what
-became of a message, and which buttons the visitor was offered.
+became of a message, a visitor's turns for the live trace, and which buttons they were offered.
 """
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from uuid import UUID
 
@@ -64,6 +64,7 @@ class TurnView:
     route: str | None
     steps: list[TraceStep]
     parts: list[ReplyPartView]
+    message_ids: list[str]  # the visitor's messages this turn answers; [] for a khoj card
 
 
 @dataclass(frozen=True, slots=True)
@@ -131,6 +132,48 @@ class DemoRepository:
             raise StoreError(f"could not read a demo message: {type(exc).__name__}") from exc
         return MessageView(message_status=message.status, turn=turn)
 
+    async def turn_owner(self, turn_id: UUID) -> UserHash | None:
+        """Whose turn this is, for routing a progress notification to their stream."""
+        try:
+            async with self._session_factory() as session:
+                owner: str | None = (
+                    await session.execute(select(turns.c.user_hash).where(turns.c.id == turn_id))
+                ).scalar_one_or_none()
+        except (SQLAlchemyError, OSError) as exc:
+            raise StoreError(f"could not read a turn's owner: {type(exc).__name__}") from exc
+        return UserHash(owner) if owner is not None else None
+
+    async def visitor_turn(self, user_hash: UserHash, turn_id: UUID) -> TurnView | None:
+        """One of this visitor's turns; None for anyone else's (the same answer as none)."""
+        try:
+            async with self._session_factory() as session:
+                owned = (
+                    await session.execute(
+                        select(turns.c.id).where(
+                            and_(turns.c.id == turn_id, turns.c.user_hash == user_hash)
+                        )
+                    )
+                ).first()
+                return await _turn_view(session, turn_id) if owned is not None else None
+        except (SQLAlchemyError, OSError) as exc:
+            raise StoreError(f"could not read a demo turn: {type(exc).__name__}") from exc
+
+    async def latest_turn(self, user_hash: UserHash, within: timedelta) -> TurnView | None:
+        """The visitor's newest turn if it started less than `within` ago: what a stream
+        replays when it (re)connects (s14 §4.4)."""
+        query = (
+            select(turns.c.id)
+            .where(and_(turns.c.user_hash == user_hash, turns.c.started_at > func.now() - within))
+            .order_by(turns.c.started_at.desc())
+            .limit(1)
+        )
+        try:
+            async with self._session_factory() as session:
+                turn_id: UUID | None = (await session.execute(query)).scalar_one_or_none()
+                return await _turn_view(session, turn_id) if turn_id is not None else None
+        except (SQLAlchemyError, OSError) as exc:
+            raise StoreError(f"could not read the latest demo turn: {type(exc).__name__}") from exc
+
     async def offered_buttons(self, user_hash: UserHash) -> set[str]:
         """Button ids in the visitor's latest reply: a button press must be one of them."""
         latest_turn = (
@@ -196,6 +239,17 @@ async def _turn_view(session: AsyncSession, turn_id: UUID) -> TurnView | None:
             .order_by(outbox_messages.c.part_no)
         )
     ).all()
+    message_ids = (
+        (
+            await session.execute(
+                select(inbox_messages.c.external_id)
+                .where(inbox_messages.c.turn_id == turn_id)
+                .order_by(inbox_messages.c.id)
+            )
+        )
+        .scalars()
+        .all()
+    )
     return TurnView(
         turn_id=turn_id,
         status=turn.status,
@@ -215,4 +269,5 @@ async def _turn_view(session: AsyncSession, turn_id: UUID) -> TurnView | None:
             )
             for row in parts
         ],
+        message_ids=list(message_ids),
     )

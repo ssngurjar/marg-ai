@@ -159,6 +159,9 @@ class Settings(DatabaseSettings):
     demo_sessions_per_ip_per_hour: int = Field(default=20, ge=1)
     demo_max_audio_bytes: int = Field(default=1_000_000, gt=0)
     demo_max_image_bytes: int = Field(default=1_000_000, gt=0)  # the page sends a 1024-px JPEG
+    # E2 upgrade (s14 §4.4): the live trace. A stream closes after this and the browser reconnects
+    demo_sse_max_s: float = Field(default=600.0, gt=0)
+    demo_sse_max_connections: int = Field(default=200, ge=1)  # open streams per api process
     daily_cost_cap_usd: Decimal = Field(default=Decimal(5), ge=0)  # web only, IST day
 
     # Added in S13 for /status and the admin dashboard (s13 §4.7, §4.9). The admin view shows

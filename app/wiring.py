@@ -19,6 +19,8 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from app.api.readiness import ReadinessProbe
 from app.api.telemetry_pages import TelemetryPages
+from app.api.turn_event_stream import StreamSettings, TurnEventStream
+from app.api.turn_progress_hub import StreamLimits, TurnProgressHub
 from app.api.web_demo_ingestor import DemoDeps, DemoLimits, WebDemoIngestor
 from app.audio.audio_transcoder import AudioTranscoder
 from app.audio.ffmpeg_runner import FfmpegRunner
@@ -98,6 +100,7 @@ from app.store.repositories.telemetry_repository import TelemetryRepository
 from app.store.repositories.turn_repository import TurnRepository
 from app.store.repositories.turn_step_repository import TurnStepRepository
 from app.store.repositories.user_repository import UserRepository
+from app.store.turn_progress_notifier import CHANNEL as TURN_PROGRESS
 from app.telemetry.aspiration_signal_extractor import ASPIRATION_EXTRACT, AspirationSignalExtractor
 from app.telemetry.curiosity_signal_extractor import CURIOSITY_EXTRACT, CuriositySignalExtractor
 from app.telemetry.dashboard_builder import DashboardBuilder
@@ -117,6 +120,9 @@ from app.worker.turn_processor import TurnDeps, TurnProcessor, TurnSettings
 
 WORKER_ERROR_BACKOFF = timedelta(seconds=5)
 LISTENER_HEALTH_CHECK = timedelta(seconds=15)
+STREAM_HEARTBEAT = timedelta(seconds=15)  # s14 §4.4: a ping keeps proxies from closing the stream
+STREAM_REPLAY_WINDOW = timedelta(minutes=2)
+STREAMS_PER_VISITOR = 2
 PROMPT_SPECS: Final = (
     PARENT_ANSWER,
     MINOR_POLICY,
@@ -161,6 +167,9 @@ class Container:
     web_demo: WebDemoIngestor
     user_repository: UserRepository
     telemetry_pages: TelemetryPages
+    turn_progress_hub: TurnProgressHub  # the web visitors' live traces (s14 §4.4)
+    turn_event_stream: TurnEventStream
+    progress_listener: NotificationListener  # LISTEN turn_progress for this api process
 
 
 @dataclass(frozen=True, slots=True)
@@ -264,6 +273,13 @@ def build_container(settings: Settings) -> Container:
     inbox = InboxRepository(session_factory)
     outbox = OutboxRepository(session_factory)
     listener_engine = create_listener_engine(settings.database_listen_url or settings.database_url)
+    demo_repository = DemoRepository(session_factory)
+    progress_hub = TurnProgressHub(
+        demo_repository,
+        StreamLimits(
+            per_visitor=STREAMS_PER_VISITOR, per_process=settings.demo_sse_max_connections
+        ),
+    )
     worker = build_worker(
         settings=settings,
         session_factory=session_factory,
@@ -327,7 +343,7 @@ def build_container(settings: Settings) -> Container:
                 codec=SignedTokenCodec(
                     settings.session_signing_key, settings.session_signing_key_previous
                 ),
-                demo=DemoRepository(session_factory),
+                demo=demo_repository,
                 media=voice_adapters.media,
                 inbox=inbox,
                 waker=worker,
@@ -344,6 +360,21 @@ def build_container(settings: Settings) -> Container:
         ),
         user_repository=UserRepository(session_factory),
         telemetry_pages=build_telemetry_pages(settings, session_factory, clock),
+        turn_progress_hub=progress_hub,
+        turn_event_stream=TurnEventStream(
+            progress_hub,
+            demo_repository,
+            StreamSettings(
+                max_age=timedelta(seconds=settings.demo_sse_max_s),
+                heartbeat=STREAM_HEARTBEAT,
+                replay_window=STREAM_REPLAY_WINDOW,
+            ),
+        ),
+        progress_listener=NotificationListener(
+            listener_engine,
+            {TURN_PROGRESS: progress_hub.on_notification},
+            ListenerSettings(health_check_every=LISTENER_HEALTH_CHECK),
+        ),
     )
 
 

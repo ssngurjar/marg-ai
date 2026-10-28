@@ -24,7 +24,9 @@ from app.store.tables import (
     learners,
     media_blobs,
     turns,
+    users,
 )
+from app.store.turn_progress_notifier import TurnProgressNotifier
 
 
 @dataclass(frozen=True, slots=True)
@@ -77,9 +79,10 @@ class KhojCardRepository:
             raise MediaTooLarge(f"khoj card is {size} bytes")
         try:
             async with self._session_factory() as session, session.begin():
-                owner = await _owner_of(session, card.learner_activity_id)
-                if owner is None:
+                recipient = await _owner_of(session, card.learner_activity_id)
+                if recipient is None:
                     return None
+                owner = recipient.user_hash
                 await session.execute(
                     media_blobs.insert().values(
                         id=card.image_blob_id,
@@ -109,20 +112,31 @@ class KhojCardRepository:
                         completed_at=func.now(),
                     )
                 )
+                # The parent's own channel: a web visitor's card goes to their page (s14).
                 await OutboxRepository.enqueue(
-                    session, turn_id, owner, Channel.WHATSAPP, card.delivery
+                    session, turn_id, owner, recipient.channel, card.delivery
                 )
+                await TurnProgressNotifier.notify(session, turn_id)
                 return turn_id
         except (SQLAlchemyError, OSError) as exc:
             raise StoreError(f"could not queue a khoj card: {type(exc).__name__}") from exc
 
 
-async def _owner_of(session: AsyncSession, learner_activity_id: UUID) -> UserHash | None:
-    owner: str | None = (
+@dataclass(frozen=True, slots=True)
+class _Recipient:
+    user_hash: UserHash
+    channel: Channel
+
+
+async def _owner_of(session: AsyncSession, learner_activity_id: UUID) -> _Recipient | None:
+    row = (
         await session.execute(
-            select(learners.c.owner_user_hash)
+            select(users.c.user_hash, users.c.channel)
+            .join(learners, learners.c.owner_user_hash == users.c.user_hash)
             .join(learner_activities, learner_activities.c.learner_id == learners.c.id)
             .where(learner_activities.c.id == learner_activity_id)
         )
-    ).scalar_one_or_none()
-    return UserHash(owner) if owner is not None else None
+    ).first()
+    if row is None:
+        return None
+    return _Recipient(user_hash=UserHash(row.user_hash), channel=Channel(row.channel))

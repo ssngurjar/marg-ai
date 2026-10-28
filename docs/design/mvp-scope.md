@@ -284,6 +284,7 @@ stretch (S10) first, then SAM photos (C7), then the khoj card (C6). The hard lin
 
 | Date | Change | Why | Approved |
 |---|---|---|---|
+| 2026-10-28 | **Exception E2 lifted:** the web demo's live SSE trace is built (s14 decisions log, 2026-10-28); polling stays only as the fallback when the stream is down. §4.6 describes the retired polling design and is kept for history | Owner's build order (step 5) | pending owner review |
 | 2026-10-28 | **Exception E1 lifted:** s04's leases, takeover, outbox loop, maintenance loop and `LISTEN/NOTIFY` are built (s04 decisions log, 2026-10-28). Several api or worker instances may now share one database. §4.1 describes the retired single-process design and is kept for history | Owner's build order (step 5), with time to spare before the freeze | pending owner review |
 | 2026-10-27 | Build order after S5: S8 onboarding → S10b core (so a parent's onboarding ends in the first khoj) → child talk (C13), ahead of S6/S7's remaining work; voice waits for the samples | Owner, at the S8 design review | owner |
 | 2026-10-26 | C11 curiosity moment, C12 gentle exposure, C13 direct child talk, C14 nothing dropped | Owner: Marg.ai mentors the child too | owner |
