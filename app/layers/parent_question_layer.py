@@ -43,7 +43,8 @@ class ParentQuestionLayer:
     }
     SHORT_SPOKEN: ClassVar[str] = (
         "Short sentences in spoken_text, about 12 words or fewer, one idea each: it is heard once,"
-        " often on a phone speaker, by someone who may not read."
+        " often on a phone speaker, by someone who may not read. Shorter sentences, not less"
+        ' content: keep every name the text gives (say "National Scholarship Portal" in words).'
     )
     SPOKEN_RULES: ClassVar[dict[Language, str]] = {
         Language.HINDI: f"Write spoken_text in Hindi, in Devanagari script. {SHORT_SPOKEN}",

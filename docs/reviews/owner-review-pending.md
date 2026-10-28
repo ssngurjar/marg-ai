@@ -374,6 +374,14 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
 - [ ] Is the Braj district list right (Mathura, Agra, Bharatpur, Dholpur, Karauli, Aligarh,
   Hathras, Firozabad, Etah, Kasganj, Mainpuri, Deeg, Palwal)?
 
+## 2v. Eval rounds (from 2026-10-28)
+
+- [ ] **Refusal copy changed** (`app/constants/fixed_replies.py`, REFUSE/HARMFUL): it said "bachche
+  ki padhai…" to students too; now "Padhai, khel, career ya bachchon ki seekh ke baare mein
+  poochhiye" (and Hindi, English).
+- [ ] **Decide:** should student mentor replies also get more time (like teachers' 18 s)? Two
+  mentor turns timed out at 12 s in the last run.
+
 ## 3. Decisions log entries marked "pending owner review"
 
 - [ ] `docs/design/s05-llm-orchestrator.md`, 2026-10-27 (S5 build choices).

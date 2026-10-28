@@ -149,8 +149,14 @@ class EvalJudge:
         """The text sent, and the spoken version: what went to TTS, or for a typed message
         (answered in text only) the spoken text the layer prepared and the output check read."""
         spoken = " ".join(record.spoken_texts)
-        if not spoken and record.generated is not None and record.generated.spoken_text:
-            spoken = record.generated.spoken_text
+        generated = record.generated
+        sent_as_generated = (
+            generated is not None
+            and record.fixed_reply is None
+            and record.reply_text.startswith(generated.body[:40])
+        )  # a blocked reply's spoken text never went out: the fallback did
+        if not spoken and sent_as_generated and generated is not None and generated.spoken_text:
+            spoken = generated.spoken_text
         text = record.reply_text or "(no reply)"
         buttons = [title for part in record.snapshot.parts for title in part.button_titles]
         tapped = f"\n\nButtons shown: {', '.join(buttons)}" if buttons else ""

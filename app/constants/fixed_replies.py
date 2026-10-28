@@ -121,11 +121,13 @@ _PLAIN_TEXTS: Final[dict[tuple[FixedReplyKind, FixedReplyVariant], dict[Language
     },
     (_K.REFUSE, _V.HARMFUL): {
         _HINGLISH: (
-            "Is baare mein madad nahi kar sakte. Bachche ki padhai, khel aur seekhne ke baare "
-            "mein poochhiye."
+            "Is baare mein madad nahi kar sakte. Padhai, khel, career ya bachchon ki seekh ke "
+            "baare mein poochhiye."
         ),
-        _HINDI: "इस बारे में मदद नहीं कर सकते। बच्चे की पढ़ाई, खेल और सीखने के बारे में पूछिए।",
-        _ENGLISH: "I can't help with that. Ask me about your child's learning, play and curiosity.",
+        _HINDI: ("इस बारे में मदद नहीं कर सकते। पढ़ाई, खेल, करियर या बच्चों की सीख के बारे में पूछिए।"),
+        _ENGLISH: (
+            "I can't help with that. Ask me about studies, play, careers or children's learning."
+        ),
     },
     (_K.REFUSE, _V.PRIVACY): {
         _HINGLISH: (

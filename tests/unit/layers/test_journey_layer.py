@@ -119,7 +119,7 @@ async def test_todays_khoj_is_the_chosen_activity_personalised_with_the_supervis
     assert offered(result).activity_id == FIRST.id
     assert offered(result).learner_id == MUNNI.id
     assert result.hazard_rule == frozenset(FIRST.hazards)
-    assert result.prompt_versions == {"activity_personalise": "1.0.4"}
+    assert result.prompt_versions == {"activity_personalise": "1.0.5"}
 
 
 async def test_the_reviewed_text_is_kept_as_the_fallback_reply() -> None:
