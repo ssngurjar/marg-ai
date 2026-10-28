@@ -1,0 +1,63 @@
+{
+  // Run and debug Marg.ai from VS Code (Run and Debug panel, or F5).
+  // Assumes marg-ai-tts is checked out next to this repo: ../marg-ai-tts
+  // Both servers read this repo's .env (TTS_ENGINE, SIDECAR_TOKEN and HF_TOKEN are shared).
+  // Needs the "Python Debugger" extension (it brings debugpy; nothing to install in the venvs).
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Marg.ai API + worker",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": [
+        "app.main:create_app",
+        "--factory",
+        "--host", "127.0.0.1",
+        "--port", "8000",
+        "--no-access-log"
+      ],
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "preLaunchTask": "postgres: up",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "Voice server (marg-ai-tts)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": [
+        "server.tts_server:app",
+        "--host", "127.0.0.1",
+        "--port", "8100",
+        "--no-access-log"
+      ],
+      "python": "${workspaceFolder}/../marg-ai-tts/.venv/bin/python",
+      "cwd": "${workspaceFolder}/../marg-ai-tts",
+      "envFile": "${workspaceFolder}/.env",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "Tests: current file",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": ["${file}", "-q"],
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": false
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Marg.ai: API + voice server",
+      "configurations": ["Voice server (marg-ai-tts)", "Marg.ai API + worker"],
+      "stopAll": true
+    }
+  ]
+}
