@@ -118,10 +118,10 @@ class Settings(DatabaseSettings):
     # 6 s: Llama Guard (≤ 1.5 s), then the Muse Spark backup reply check when it's down (~2.5 s)
     timeout_safety_out_s: float = Field(default=6.0, gt=0)
 
-    # Added in S6 for voice (s06 §7). TTS_ENGINE picks the voice server's model: mms on the Mac
-    # for testing, indic_parler on a GPU for the demo and final tests (owner, 2026-10-27).
+    # Added in S6 for voice (s06 §7). TTS_ENGINE picks the voice server's model: kokoro for the
+    # submission (owner, 2026-10-29), mms for local testing, indic_parler on a GPU.
     model_stt: str = Field(default="muse-voice-transcribe-1.0", min_length=1)
-    tts_engine: TtsEngine = "mms"
+    tts_engine: TtsEngine = "kokoro"
     sidecar_base_url: HttpUrl
     sidecar_token: SecretStr
     timeout_fetch_media_s: float = Field(default=5.0, gt=0)

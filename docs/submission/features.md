@@ -31,8 +31,8 @@ encrypted address for replying. Never names, schools or exact birth dates.
 2. If the transcript comes back in Gujarati, Punjabi, Bengali or Oriya script (a recognition
    slip), it's put back into Devanagari letter by letter.
 3. The raw audio is deleted as soon as it's transcribed.
-4. The reply comes as text, and as a voice note when the user spoke, read by **Meta MMS-TTS**
-   on our own voice server.
+4. The reply comes as text, and as a voice note when the user spoke, read by **Kokoro-82M**
+   (open weights, Apache-2.0) on our own voice server.
 
 ### The family's language, and a village voice
 - Replies come in Hindi (Devanagari), Hinglish (Roman) or English. Writing in Devanagari means
@@ -208,7 +208,7 @@ recorded for the dashboards.
 | Muse Spark 1.3 | planning the khoj, parent answers, the mentor and plans, teacher bridges, child talk, the policy safety check, the eval judge |
 | Muse Spark Open (open weights) | the reflection on a child's report, signals and memory extraction (Spark is its fallback) |
 | Muse Voice Transcribe | voice notes to text |
-| Meta MMS-TTS (self-hosted) | the voice replies |
+| Kokoro-82M (self-hosted, not Meta's) | the voice replies |
 | Muse Image | khoj cards |
 | SAM 3.1 | the person check and object counts on photos |
 | Llama Guard 4 | the safety check on every message and reply |

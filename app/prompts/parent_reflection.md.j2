@@ -1,6 +1,6 @@
 +++
 id = "parent_reflection"
-version = "1.2.1"
+version = "1.2.2"
 model_setting = "OPEN_MODEL"
 max_output_tokens = 1500
 output_model = "ParentReflection"
@@ -51,7 +51,11 @@ Fill these fields:
 - summary_for_record: in English, neutral, third person, using only the home name if given: what
   the child said or did, at most 200 characters. No labels, no judgement.
 - spoken_text: praise_specific, next_question and parent_tip as one passage to be read aloud: no
-  emoji, no symbols. {{ system.spoken_rule }}
+  emoji, no symbols. {{ system.spoken_rule }} Read aloud, it should sound delighted, like an
+  elder who is truly happy about what the child found: open with the praise word and an
+  exclamation ("वाह! मुन्नी ने तो कमाल कर दिया!"), keep the sentences short, and use "!" where
+  the joy is real. If the child didn't want to or it didn't work, keep it warm and gentle
+  instead.
 === USER ===
 {{ user.child }}
 {{ user.parent_report }}

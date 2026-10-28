@@ -93,12 +93,12 @@ Everything that runs was built between **Oct 26 and Nov 4, 2026**. The git tag
 sources**. All code, prompts, the activity catalogue, the corpus files, the web demo, the eval
 harness and the voice server came after it; `git log pre-kickoff..main` shows each step.
 
-The voice server (MMS-TTS and the embedding model) is a small separate service,
+The voice server (Kokoro-82M for speech and the embedding model) is a small separate service,
 `marg-ai-tts`, built on Oct 27–28 *(link added at submission)*.
 
 ---
 
-## Meta models: eight models, each with one job
+## The models: eight, each with one job (six from Meta)
 
 Marg is a **compound AI system**: several models and components working together behind a
 deterministic router, rather than one chatbot.
@@ -111,7 +111,7 @@ deterministic router, rather than one chatbot.
 | **Muse Image** | Meta Model API | The khoj card. No child and no name ever go into the image prompt |
 | **SAM 3.1** | Meta Model API | First proves no person is in a child's photo (otherwise it's dropped unseen), then counts the leaves or stones the child collected. Photos are never stored |
 | **Llama Guard 4** | DeepInfra | Every message and every reply, written and spoken, with Muse Spark as the second opinion and the backup |
-| **MMS-TTS** (open weights) | self-hosted voice server | Spoken replies in Hindi and English |
+| Kokoro-82M (open weights) | self-hosted voice server | Spoken replies in Hindi and English (not a Meta model; chosen by ear and by a transcription check against MMS-TTS) |
 | multilingual-e5-small | self-hosted voice server | Embeddings for the official-source search (not a Meta model) |
 
 Every generative call returns **structured output** validated into a typed model, with one
@@ -219,7 +219,7 @@ The checks: `make check` (format, lint, types, unit tests) and `make test-int` (
 |---|---|
 | Muse Spark, Muse Voice Transcribe, Muse Image, SAM 3.1 (Meta Model API) | Meta Model API terms |
 | Muse Spark Open, Llama Guard 4 | Meta's open-weights licences |
-| MMS-TTS | CC-BY-NC 4.0 (non-commercial; used here for a hackathon demo) |
+| Kokoro-82M | Apache-2.0 (its phonemiser uses espeak-ng, GPL-3.0, only on our voice server) |
 | multilingual-e5-small | MIT |
 | FastAPI, Pydantic, SQLAlchemy, Alembic, PyYAML, structlog | MIT (structlog MIT or Apache-2.0) |
 | asyncpg, openai, cryptography | Apache-2.0 (cryptography Apache-2.0 or BSD-3-Clause) |

@@ -75,21 +75,22 @@ scorecard, and that the field test happened.)*
 >   then counts the leaves or stones the child collected. Photos are never stored.
 > - **Llama Guard 4:** every message and every reply, text and spoken text, with Muse Spark as a
 >   second opinion and as the backup when it is down.
-> - **Meta MMS-TTS, open weights, self-hosted:** the spoken replies.
 > - **Muse Code:** wrote parts of the code under our review.
+>
+> The other two models aren't Meta's: Kokoro-82M (Apache-2.0, self-hosted) speaks the replies,
+> and multilingual-e5-small finds passages in our official sources.
 >
 > An LLM judge (Muse Spark) scores 78 golden cases through the real pipeline on every change;
 > crisis and adversarial cases are hard gates.
 
-*(Before submitting: the MMS-TTS line needs the organisers' answer on its CC-BY-NC licence, C8.
-Muse Code: keep only if it really wrote committed code.)*
+*(Before submitting: Muse Code: keep only if it really wrote committed code.)*
 
 ---
 
 ## Why are Meta's models important to your solution?
 
 > Because the families I build for speak, they don't type. Muse Voice Transcribe hears a
-> parent's Hindi voice note on a cheap phone, and MMS-TTS speaks back, so a parent who can't
+> parent's Hindi voice note on a cheap phone, and the reply comes back as a voice note, so a parent who can't
 > read a long message still gets the whole discovery.
 >
 > Because children are involved, safety can't be one model's guess. Llama Guard 4 and a Muse

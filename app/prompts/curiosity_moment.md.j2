@@ -1,6 +1,6 @@
 +++
 id = "curiosity_moment"
-version = "1.0.3"
+version = "1.0.4"
 model_setting = "MODEL_TEXT"
 max_output_tokens = 1500
 output_model = "CuriosityMoment"
@@ -68,7 +68,10 @@ Fill these fields:
 - spoken_text: say_to_child (only when confident), the mini-activity, ask_back and
   who_explores_this as one passage to be read aloud to the parent: no lists, no emoji, no
   symbols. {{ system.spoken_rule }} This holds even when the other fields are in Roman script:
-  the voice that reads it can only read its own script.
+  the voice that reads it can only read its own script. Make it sound alive, like an elder
+  delighted by the child's question: open with real wonder ("अरे वाह, क्या सवाल पूछा है!"),
+  keep the sentences short, and use "!" where the wonder is real. Keep it calm when the
+  question is about something dangerous.
 === USER ===
 {{ user.child }}
 {{ user.parent_message }}

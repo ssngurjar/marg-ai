@@ -62,7 +62,7 @@ every day"*
 ## 1:12 – 2:06 · Field test (NO voice-over, ~54 s)
 
 Raw footage and screen recording only. **No background music over the voices**: the judges must
-hear the real voice notes and the real Marg voice replies (Meta MMS-TTS), with the real waiting
+hear the real voice notes and the real Marg voice replies (Kokoro, self-hosted), with the real waiting
 time. Short captions on screen name each moment:
 
 | Moment | Caption on screen |
@@ -91,7 +91,7 @@ its live trace filling in step by step, the eval scorecard, the GitHub repositor
 >
 > Muse Voice Transcribe hears the parent. Muse Spark plans the khoj and replies in the family's
 > language. Muse Spark Open, an open-weights model, reflects on what the child did.
-> Meta's MMS model, self-hosted, speaks the reply. Muse Image draws the card.
+> An open-weights voice on our own server speaks the reply. Muse Image draws the card.
 >
 > Every message, in and out, passes Llama Guard 4, a second Muse Spark check and our own
 > child-safety rules. If safety is down, nothing unchecked is sent.
@@ -141,15 +141,15 @@ smartphone at home"*
 - [ ] The "78 test cases" caption matches the newest scorecard in `evals/results/`.
 - [ ] The Braj clause in the impact part ("the way it learned Braj") stays only if the field
       test or a recorded demo shows a Braj reply; otherwise end that sentence at "language".
-- [ ] **MMS-TTS licence (C8):** the organisers' answer on CC-BY-NC is in hand before the video
-      names "Meta's MMS model" (rules: no assets we don't have the rights to).
+- [ ] The voice replies are Kokoro (`TTS_ENGINE=kokoro` on both the app and the voice server),
+      not MMS: Kokoro is Apache-2.0, so C8 is closed (s06 log, 2026-10-29).
 - [ ] Nothing on screen or in a caption calls Marg a chatbot, a tutor or "AI for education",
       and the student mentor never leads a scene: the rules ban basic RAG apps and AI-for-
       education chatbots, so the parent's offline discovery is the story.
 - [ ] Never call Marg "AI for education" or a tutor on screen or in captions: it closes the
       exposure gap by coaching the adults around a child.
 - [ ] "Eight models" stays true: Muse Spark, Muse Spark Open, Muse Voice Transcribe, Muse Image,
-      SAM 3.1, Llama Guard 4, MMS-TTS and the multilingual-e5 embedding model (see
+      SAM 3.1, Llama Guard 4, Kokoro-82M (the voice) and the multilingual-e5 embedding model (see
       [features.md](features.md)).
 - [ ] **No admin dashboard on screen** unless blurred: it shows counts from a single child, and the
       video names the village. `/status` and the `/demo` trace are safe to show.

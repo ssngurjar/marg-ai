@@ -67,7 +67,7 @@ class Harness:
 @pytest.fixture
 async def harness_for() -> AsyncIterator[dict[TtsEngine, Harness]]:
     built: dict[TtsEngine, Harness] = {}
-    for engine in ("mms", "indic_parler"):
+    for engine in ("mms", "indic_parler", "kokoro"):
         clock = FixedClock(NOW)
         sleeper = FakeSleeper(clock)
         retry = RetryPolicy(
@@ -102,6 +102,9 @@ def harness(harness_for: dict[TtsEngine, Harness]) -> Harness:
         ("mms", Language.ENGLISH, "eng", "facebook/mms-tts-eng"),
         ("indic_parler", Language.HINGLISH, "hin", "ai4bharat/indic-parler-tts"),
         ("indic_parler", Language.ENGLISH, "eng", "ai4bharat/indic-parler-tts"),
+        ("kokoro", Language.HINDI, "hin", "hexgrad/Kokoro-82M"),
+        ("kokoro", Language.HINGLISH, "hin", "hexgrad/Kokoro-82M"),
+        ("kokoro", Language.ENGLISH, "eng", "hexgrad/Kokoro-82M"),
     ],
 )
 @respx.mock

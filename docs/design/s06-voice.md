@@ -268,12 +268,13 @@ These are the replacement for CLAUDE.md §3's "audio/transliterate" properties; 
 
 **Engine choice (decision C8).** Two adapters implement the same `Synthesizer` port and call the
 same sidecar `/tts` endpoint shape. `app/wiring.py` picks one by the setting
-`TTS_ENGINE: Literal["mms", "indic_parler"]` (**requested**, not yet in contracts §7):
+`TTS_ENGINE: Literal["mms", "indic_parler", "kokoro"]` (**requested**, not yet in contracts §7):
 
 | Engine | Model | Licence | Hardware | Used when |
 |---|---|---|---|---|
 | `mms` | `facebook/mms-tts-hin`, `facebook/mms-tts-eng` | CC-BY-NC 4.0 (non-commercial) | CPU | the organisers confirm on Discord that it's fine for a hackathon submission (C8) |
 | `indic_parler` | `ai4bharat/indic-parler-tts` (Hindi and English speakers) | Apache 2.0 | GPU (L4/A10G) | otherwise; also the commercial-safe path for Phase 2 |
+| `kokoro` | `hexgrad/Kokoro-82M`: Hindi is `hf_alpha` and `hf_beta` blended at 1.1× speed, English is `af_heart` | Apache 2.0 (its phonemiser uses espeak-ng, GPL-3.0, on the voice server only) | CPU | **the submission's voice** (owner, 2026-10-29; see the decisions log) |
 
 The S2 spike C findings decide the default and record the organisers' answer. Everything above the
 port (`prepare_tts_text`, `to_voice_note`, storage, the step) is identical for both engines.
@@ -354,7 +355,8 @@ services/ml_sidecar/app.py`.
   (non-commercial), and the Official Rules require every open-source licence to be followed. MMS is
   used only if the organisers confirm it's acceptable; otherwise Indic Parler-TTS (Apache 2.0). Either
   way MMS is replaced before any commercial use, and the README states the licences of every model.
-  The sidecar's `/tts` interface stays the same when the engine changes.
+  The sidecar's `/tts` interface stays the same when the engine changes. Since 2026-10-29 the
+  submission uses Kokoro-82M (Apache 2.0), so MMS is for local testing only.
 - **Typing.** CLAUDE.md §6 applies here too. `torch` and `transformers` objects stay inside small
   typed wrapper functions, because those libraries are partially untyped. Dependencies live in
   the sidecar image definition, never in the API image (CLAUDE.md §8).
@@ -454,8 +456,8 @@ New (C9):
 | `TTS_MAX_SPOKEN_CHARS` | 1200 |
 | `REPLY_AUDIO_FOR_TEXT_INPUT` | false |
 
-Requested (C8, not yet in contracts §7): `TTS_ENGINE: Literal["mms", "indic_parler"]`, default set
-from spike C's outcome.
+Requested (C8, not yet in contracts §7): `TTS_ENGINE: Literal["mms", "indic_parler", "kokoro"]`,
+default `kokoro` (2026-10-29).
 
 **Images reuse the media fetcher (C7, s10b §4.14).** The `FETCH_IMAGE` step uses
 `WhatsAppMediaFetcher` (and the web path in s14) with the same two-step download, Bearer auth,
@@ -645,3 +647,4 @@ aren't billed. New points:
 | 2026-10-27 | **Voice server hosting:** the voice server is the separate `marg-ai-tts` project (FastAPI, the §4.9 `/tts` contract), not a Modal app: the Baseten key can't deploy and no Modal account exists. `TTS_ENGINE` in `.env` picks the engine, and the voice server must run the same one (it answers 422 otherwise). **`mms` for local testing on the Mac** (CPU: a 3-sentence, 12 s reply in 1.2 s; never in the submission, CC-BY-NC), **`indic_parler` for the demo and final tests** on a rented GPU (on this Mac it took 38 s for 12 s of audio on the CPU, and went to 19 GB on the GPU). One `SidecarSynthesizer` serves both engines instead of two classes: the flow is identical, only the request's `engine` and the recorded model differ. The speech-to-text `sessionId` is a fresh uuid per call, because `Transcriber.transcribe` has no turn id | Owner, after the local measurements (spike C) | owner |
 | 2026-10-27 | **Build choices.** `AudioAnalyser` is a pure rule in `app/domain/rules/` (with `AudioVerdict` in `enums.py`, `AudioStats`/`VoiceLimits` in `domain/models/voice.py`) so the pipeline can use it; ffmpeg reaches the pipeline through a new `AudioConverter` port. ffmpeg writes raw PCM and the WAV header is written in Python (ffmpeg's header on a pipe has no length). `TranscodeTimeout(TranscodeFailed)` tells a hang (REPEAT_PLEASE) from unreadable audio (UNSUPPORTED_MEDIA). `ReplyAudioStore` gains `load_audio` for the deliverer. Filler-only transcripts ("umm", "hmm") are `EMPTY_INPUT` → REPEAT_PLEASE, with the paid call recorded. Hinglish fixed replies are spoken from the reviewed Hindi text; REPEAT_PLEASE v2 drops "write it"; TOO_LONG copy added. A voice reply is made for the main reply only (an onboarding preamble stays text) | Implementation choices the doc left open; copy pending owner review | pending owner review |
 | 2026-10-28 | **MMS-TTS is the voice for the demo video and the submission; Indic Parler-TTS is on hold** (no GPU host). This changes C8's condition ("MMS only if the organisers confirm"): the owner accepts the CC-BY-NC risk for a hackathon entry, reasoning that Meta itself is the licensor and the use is non-commercial. Still to do: ask the organisers in #office-hours and keep their answer; the README states MMS's licence; MMS is replaced before any commercial use. `TTS_ENGINE=indic_parler` stays built and switchable. MMS is not Muse Glimmer or Muse Spark Open, so it does not enter the open-weights bonus; C9 does. | No GPU host for Indic Parler; the video is filmed from 2026-10-28 | owner |
+| 2026-10-29 | **Kokoro-82M replaces MMS-TTS as the submission's voice** (`TTS_ENGINE=kokoro`, the new default; a third engine in `marg-ai-tts`). Hindi and Hinglish use Kokoro's two female Hindi voices `hf_alpha` and `hf_beta` blended half and half at 1.1× speed; English uses `af_heart` at normal speed. MMS stays for local testing and Indic Parler stays switchable. This closes C8: Kokoro is Apache 2.0, the licence the office-hours reply named as fine. New voice-server dependencies: `kokoro==0.9.4`, `misaki[en]==0.9.4` and the pinned spaCy `en_core_web_sm` 3.8.0 wheel; the phonemiser's espeak-ng (GPL-3.0) runs only on our server and isn't distributed | Spike on six Marg sentences, each sent back through Muse Voice Transcribe: Kokoro's male Hindi voice scored 0.97 for similarity to the original text, the female 0.95 and MMS 0.86. MMS said "पछाई" for "परछाई" every time, and that word is the shadow khoj's key word. Kokoro takes about 1 s for 8 s of speech on this Mac's CPU, about as fast as MMS. The owner listened and chose the female voice. For the livelier sound, the owner picked the blend at 1.1× (option 5 of 6) by ear; every option scored 0.97–0.98 | owner |

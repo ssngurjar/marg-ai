@@ -115,7 +115,13 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
   reply, the voice reply's sound, and a silent or 1-second note ("please repeat").
 - [x] **Voice for the demo** (decided 2026-10-28, s06 log): MMS-TTS is the voice in the video and
   the submission; Indic Parler-TTS is on hold (no GPU host) and stays switchable with `TTS_ENGINE`.
-- [ ] **Ask the organisers** in #office-hours whether MMS-TTS (CC-BY-NC 4.0) is fine in a
+  **Superseded 2026-10-29:** Kokoro-82M (Apache-2.0) is the voice, the female Hindi blend at 1.1×
+  (owner's pick by ear, s06 log). Set `TTS_ENGINE=kokoro` in `.env` and start marg-ai-tts with it.
+- [ ] **Excited spoken wording** (2026-10-29): parent_reflection 1.2.2, child_talk 1.0.4 and
+  curiosity_moment 1.0.4 open the spoken text with real wonder ("वाह! … कमाल कर दिया!", "अरे
+  वाह, क्या बढ़िया सवाल है!"), short sentences and "!", calm for anything dangerous. Listen on
+  the phone.
+- [x] **Ask the organisers** (no longer needed: Kokoro replaced MMS, C8 closed 2026-10-29) in #office-hours whether MMS-TTS (CC-BY-NC 4.0) is fine in a
   hackathon submission, and keep the answer (C8).
   - 2026-10-28, #office-hours auto-reply: an Apache-2.0 TTS model alongside the Meta models is
     fine ("None of the listed Meta models do text-to-speech"); whether CC-BY-NC fits a
