@@ -367,7 +367,7 @@ class _Turn:
                     self.steps.gate.check_input(self.user_text), self.settings.safety_in_timeout
                 )
             except (SafetyUnavailable, TimeoutError) as error:
-                return await self._failed(StepName.SAFETY_IN, started, error)
+                return await self._failed(StepName.SAFETY_IN, started, error, route)
             await self._record(self._input_record(started, input_check))
             if input_check.verdict.decision is not SafetyDecision.ALLOW:
                 return self._fixed(self._refusal_for(input_check))
@@ -380,7 +380,7 @@ class _Turn:
                 self.settings.generate_timeout,
             )
         except (DomainError, TimeoutError) as error:
-            return await self._failed(StepName.GENERATE, started, error)
+            return await self._failed(StepName.GENERATE, started, error, route)
         self.prompt_versions = dict(result.prompt_versions)
         await self._record(
             _StepRecord(
@@ -584,7 +584,7 @@ class _Turn:
                 )
             except (SafetyUnavailable, TimeoutError) as error:
                 await self._discard(generation)
-                return await self._failed(StepName.SAFETY_IN, started, error)
+                return await self._failed(StepName.SAFETY_IN, started, error, route)
             await self._record(self._input_record(started, input_check))
             if input_check.verdict.decision is not SafetyDecision.ALLOW:
                 await self._discard(generation)
@@ -592,7 +592,7 @@ class _Turn:
         try:
             layer_result = await generation
         except (ProviderError, StoreError, DomainError, TimeoutError) as error:
-            return await self._failed(StepName.GENERATE, started, error)
+            return await self._failed(StepName.GENERATE, started, error, route)
         self.prompt_versions = dict(layer_result.prompt_versions)
         await self._record(
             _StepRecord(
@@ -679,7 +679,7 @@ class _Turn:
                 )
             except (SafetyUnavailable, TimeoutError) as error:
                 await self._discard(generation)
-                return await self._failed(StepName.SAFETY_IN, started, error)
+                return await self._failed(StepName.SAFETY_IN, started, error, Route.CHILD_TALK)
             await self._record(self._input_record(started, input_check))
             if input_check.verdict.decision is not SafetyDecision.ALLOW:
                 await self._discard(generation)
@@ -687,7 +687,7 @@ class _Turn:
         try:
             layer_result = await generation
         except (ProviderError, TimeoutError) as error:
-            return await self._failed(StepName.GENERATE, started, error)
+            return await self._failed(StepName.GENERATE, started, error, Route.CHILD_TALK)
         self.prompt_versions = dict(layer_result.prompt_versions)
         await self._record(
             _StepRecord(
@@ -750,7 +750,7 @@ class _Turn:
     async def _check_and_seal(
         self, layer_result: LayerResult, route: Route = Route.JOURNEY
     ) -> TurnOutcome:
-        checked = await self._checked(layer_result)
+        checked = await self._checked(layer_result, route)
         if isinstance(checked, TurnOutcome):
             return checked
         if checked is None:
@@ -829,7 +829,9 @@ class _Turn:
             reply_register=self.register,
         )
 
-    async def _checked(self, layer_result: LayerResult) -> "_Sent | TurnOutcome | None":
+    async def _checked(
+        self, layer_result: LayerResult, route: Route = Route.JOURNEY
+    ) -> "_Sent | TurnOutcome | None":
         """safety_out on the layer's reply; if it's blocked and the layer has reviewed text to
         fall back on (s10b §4.10), that is checked instead. A safety failure is the HOLDING
         outcome; None means nothing may be sent."""
@@ -849,7 +851,7 @@ class _Turn:
                     self.settings.safety_out_timeout,
                 )
             except (SafetyUnavailable, TimeoutError) as error:
-                return await self._failed(StepName.SAFETY_OUT, started, error)
+                return await self._failed(StepName.SAFETY_OUT, started, error, route)
             await self._record(self._output_record(started, output_check))
             if output_check.safe_reply is not None:
                 return _Sent(output_check.safe_reply, tuple(layer_result.writes))
@@ -1148,11 +1150,18 @@ class _Turn:
             return _FixedChoice(FixedReplyKind.CRISIS, variant, Route.CRISIS)
         return _FixedChoice(FixedReplyKind.REFUSE, variant, Route.REFUSE)
 
-    async def _failed(self, step: StepName, started: datetime, error: BaseException) -> TurnOutcome:
-        """Record the failure and answer with the step's fallback (s05 §4.5 table)."""
+    async def _failed(
+        self,
+        step: StepName,
+        started: datetime,
+        error: BaseException,
+        route: Route = Route.JOURNEY,
+    ) -> TurnOutcome:
+        """Record the failure and answer with the step's fallback (s05 §4.5 table). `route` is
+        the turn's own route, so a failed mentor or teacher turn isn't counted as a parent's."""
         fallback = FailurePolicy.reply_for(step)
         await self._record_failure(step, started, error, f"fallback={fallback.value}")
-        return self._fixed(_FixedChoice(fallback, FixedReplyVariant.DEFAULT, Route.JOURNEY))
+        return self._fixed(_FixedChoice(fallback, FixedReplyVariant.DEFAULT, route))
 
     async def _record_failure(
         self, step: StepName, started: datetime, error: BaseException, detail: str

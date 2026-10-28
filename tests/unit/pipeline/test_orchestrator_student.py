@@ -188,6 +188,8 @@ async def test_a_mentor_that_fails_gets_try_again_later_and_no_memory(
     result = await run_student(student_ctx(QUESTION), {"mentor": [failure]})
     assert result.outcome.fixed_reply_kind is FixedReplyKind.TRY_AGAIN_LATER
     assert result.outcome.post_turn == []
+    # regression (the eval's translation-006): it was recorded as a parent's journey turn
+    assert result.outcome.route is Route.MENTOR
 
 
 async def test_a_corpus_that_cant_be_read_gets_try_again_later_not_a_crash() -> None:

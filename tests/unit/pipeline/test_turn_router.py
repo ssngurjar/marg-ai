@@ -1,7 +1,7 @@
 """TurnRouter: deterministic routing, no model call (s05 §4.4, s08 §4.6)."""
 
 import pytest
-from hypothesis import given
+from hypothesis import assume, given
 from hypothesis import strategies as st
 
 from app.domain.enums import ConversationState, Role, Route
@@ -113,12 +113,23 @@ def test_adding_a_child_is_onboarding_for_parents() -> None:
     assert TurnRouter.decide(PARENT, "ek aur bachcha", []).route is Route.ONBOARDING
 
 
+KNOWN_PREFIXES = ("onb:", "jrn:", "nudge:", "kid:")
+
+
 @given(text=st.text(max_size=50), button_id=st.text(min_size=1, max_size=40))
 def test_unknown_buttons_from_active_parents_ask_to_repeat(text: str, button_id: str) -> None:
-    if button_id.startswith("onb:"):
-        return
+    assume(not button_id.startswith(KNOWN_PREFIXES))  # those are routed (test below)
     decision = TurnRouter.decide(PARENT, text, [button_id])
     assert decision.route is Route.REPEAT_PLEASE
+
+
+@pytest.mark.parametrize(
+    ("button_id", "route"), [("jrn:", Route.JOURNEY), ("nudge:", Route.JOURNEY)]
+)
+def test_a_bare_known_prefix_still_goes_to_its_layer(button_id: str, route: Route) -> None:
+    """Hypothesis found "jrn:" (2026-10-28): the prefix alone is a journey button, and the
+    journey answers an id it doesn't know."""
+    assert TurnRouter.decide(PARENT, "", [button_id]).route is route
 
 
 # --- child talk (C13, rules 1a and 6a) -----------------------------------------------------------
