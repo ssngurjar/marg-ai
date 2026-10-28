@@ -6,8 +6,9 @@ from uuid import UUID
 from pydantic import Field
 
 from app.domain.enums import CuriosityDomain, Language
-from app.domain.models.base import DomainModel, TurnId
+from app.domain.models.base import DomainModel, TurnId, UserHash
 from app.domain.models.learner import LearnerId
+from app.domain.models.student import ProfileMemory
 
 type CuriositySourceKind = Literal["parent_report", "child_words", "relayed_question"]
 
@@ -61,4 +62,17 @@ class MakeKhojCard(DomainModel):
     reply_register: Language
 
 
-type PostTurnTask = Annotated[ExtractSignals | MakeKhojCard, Field(discriminator="kind")]
+class UpdateMemory(DomainModel):
+    """s12 §4.7: refresh the student's memory from this turn, after the reply is sent."""
+
+    kind: Literal["update_memory"] = "update_memory"
+    turn_id: TurnId
+    user_hash: UserHash
+    previous: ProfileMemory | None
+    user_text: str
+    reply_text: str
+
+
+type PostTurnTask = Annotated[
+    ExtractSignals | MakeKhojCard | UpdateMemory, Field(discriminator="kind")
+]

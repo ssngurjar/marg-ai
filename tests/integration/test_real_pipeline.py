@@ -24,6 +24,7 @@ from app.core.types import JsonValue
 from app.domain.enums import Channel, PartKind, SafetyCategory
 from app.domain.models.base import UserHash
 from app.layers.khoj_card_maker import KhojCardMaker
+from app.layers.memory_layer import MemoryLayer
 from app.pipeline.channel_media_fetcher import ChannelMediaFetcher
 from app.pipeline.orchestrator import PhotoSteps
 from app.providers.http import RetryPolicy, RetryTiming
@@ -144,6 +145,7 @@ def wire(
             media=media,
             signals=CuriositySignalExtractor(language_model, shipped_registry()),
             cards=KhojCardMaker(language_model, FakeImageGenerator(), shipped_registry()),
+            memory=MemoryLayer(language_model, shipped_registry()),
         ),
     )
     return Pipeline(dispatcher, InboxRepository(sessions), sender)

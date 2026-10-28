@@ -46,6 +46,8 @@ from app.domain.enums import (
     MessageKind,
     OutboxStatus,
     PartKind,
+    RoadmapStatus,
+    RoadmapStepStatus,
     Role,
     Route,
     SafetyDecision,
@@ -450,4 +452,60 @@ corpus_chunks = Table(
         postgresql_ops={"embedding": "vector_cosine_ops"},
     ),
     Index("ix_corpus_chunks_tsv", "tsv", postgresql_using="gin"),
+)
+
+profile_memory = Table(
+    "profile_memory",
+    metadata,
+    Column("user_hash", Text, ForeignKey("users.user_hash", ondelete="CASCADE"), primary_key=True),
+    Column("summary", Text, nullable=False),
+    Column("ambitions", ARRAY(Text), nullable=False),
+    Column("constraints", ARRAY(Text), nullable=False),
+    Column("source_turn_id", UUID(as_uuid=True), nullable=True),
+    Column("prompt_version", Text, nullable=False),
+    Column("updated_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    CheckConstraint("char_length(summary) <= 600", name="summary_length"),
+    CheckConstraint(
+        "cardinality(ambitions) <= 5 AND cardinality(constraints) <= 5", name="at_most_five"
+    ),
+)
+
+roadmaps = Table(
+    "roadmaps",
+    metadata,
+    Column("id", UUID(as_uuid=True), primary_key=True),
+    Column("user_hash", Text, ForeignKey("users.user_hash", ondelete="CASCADE"), nullable=False),
+    Column("goal", Text, nullable=False),
+    Column("status", Text, nullable=False),
+    Column("prompt_version", Text, nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    Column("updated_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    allowed_values("status", RoadmapStatus),
+    Index(
+        "ux_roadmaps_one_active_per_user",
+        "user_hash",
+        unique=True,
+        postgresql_where=text("status = 'active'"),
+    ),
+)
+
+roadmap_steps = Table(
+    "roadmap_steps",
+    metadata,
+    Column("id", UUID(as_uuid=True), primary_key=True),
+    Column(
+        "roadmap_id",
+        UUID(as_uuid=True),
+        ForeignKey("roadmaps.id", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    Column("position", SmallInteger, nullable=False),
+    Column("action", Text, nullable=False),
+    Column("timeframe", Text, nullable=False),
+    Column("cost_inr", Numeric(12, 2), nullable=True),
+    Column("source_url", Text, nullable=True),
+    Column("status", Text, nullable=False),
+    Column("completed_at", DateTime(timezone=True), nullable=True),
+    UniqueConstraint("roadmap_id", "position"),
+    allowed_values("status", RoadmapStepStatus),
 )

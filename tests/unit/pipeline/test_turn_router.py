@@ -161,3 +161,46 @@ def test_a_parents_nudge_button_goes_to_the_journey(button: str) -> None:
 
 def test_a_teachers_nudge_button_is_not_routed_to_the_journey() -> None:
     assert TurnRouter.decide(TEACHER, "", ["nudge:08"]).route is not Route.JOURNEY
+
+
+# --- students (s12 §4.6) -------------------------------------------------------------------------
+
+STUDENT = user_profile(role=Role.STUDENT)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "10vi ke baad kya karun?",
+        "क्लास 8 में कोई स्कॉलरशिप मिलती है क्या",
+        "mujhe ek gaana sunao",
+        "plan",
+    ],
+)
+def test_a_students_message_goes_to_the_mentor(text: str) -> None:
+    decision = TurnRouter.decide(STUDENT, text, [])
+    assert (decision.route, decision.reason) == (Route.MENTOR, "student default")
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["doctor banna hai, plan bana do", "mera plan dikhao", "naya plan", "नया प्लान", "roadmap"],
+)
+def test_a_plan_request_goes_to_the_roadmap(text: str) -> None:
+    assert TurnRouter.decide(STUDENT, text, []).route is Route.ROADMAP
+
+
+def test_the_plan_button_goes_to_the_roadmap_and_other_buttons_ask_again() -> None:
+    assert TurnRouter.decide(STUDENT, "", ["rm:create"]).route is Route.ROADMAP
+    assert TurnRouter.decide(STUDENT, "", ["jrn:today"]).route is Route.REPEAT_PLEASE
+    assert TurnRouter.decide(PARENT, "", ["rm:create"]).route is Route.REPEAT_PLEASE
+
+
+@pytest.mark.parametrize("text", ["", "   "])
+def test_a_students_blank_message_asks_again(text: str) -> None:
+    assert TurnRouter.decide(STUDENT, text, []).route is Route.REPEAT_PLEASE
+
+
+def test_a_student_can_still_delete_their_data_and_switch_language() -> None:
+    assert TurnRouter.decide(STUDENT, "mera data hatao", []).route is Route.DATA_DELETION
+    assert TurnRouter.decide(STUDENT, "english", []).route is Route.ONBOARDING

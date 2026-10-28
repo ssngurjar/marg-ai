@@ -78,6 +78,7 @@ line of the module's docstring.
 | `onboarding_copy.py` | `CopyEntry` | Onboarding copy: fixed, reviewed text in Hinglish, Hindi and English (s08 §4.8). |
 | `photo_check.py` | — | What SAM 3.1 looks for before a photo is used (s10b §4.14; owner, 2026-10-28). |
 | `stt_keywords.py` | — | Speech-to-text hints: words Muse Voice Transcribe might mishear (s06 §4.5). Reviewed copy. |
+| `student_copy.py` | — | Fixed copy for students (s12): labels the mentor's reply uses, its plan button and the |
 | `whatsapp.py` | — | WhatsApp Cloud API limits and error codes (s03 §4.9, §4.10). |
 
 ## `core`
@@ -97,7 +98,7 @@ line of the module's docstring.
 
 | Module | Classes | What it does |
 |---|---|---|
-| `enums.py` | `Channel`, `MessageKind`, `ConversationState`, `InboxStatus`, `OutboxStatus`, `AudioVerdict`, `Speaker`, `ChildSessionEndReason`, `MediaPurpose`, `PartKind`, `Language`, `Route`, `StepName`, `StepOutcome`, `FailureKind`, `TurnStatus`, `SafetyDecision`, `SafetyCategory`, `FixedReplyKind`, `FixedReplyVariant`, `Mode`, `Role`, `ConsentEventKind`, `LearnerRelation`, `CopyKey`, `CuriosityDomain`, `ActivityStatus`, `AgeBand`, `EmbedPurpose`, `CorpusTopic` | Closed sets of values shared across the app (contracts.md §1). |
+| `enums.py` | `Channel`, `MessageKind`, `ConversationState`, `InboxStatus`, `OutboxStatus`, `AudioVerdict`, `Speaker`, `ChildSessionEndReason`, `MediaPurpose`, `PartKind`, `Language`, `Route`, `StepName`, `StepOutcome`, `FailureKind`, `TurnStatus`, `SafetyDecision`, `SafetyCategory`, `FixedReplyKind`, `FixedReplyVariant`, `Mode`, `Role`, `ConsentEventKind`, `LearnerRelation`, `CopyKey`, `CuriosityDomain`, `ActivityStatus`, `AgeBand`, `EmbedPurpose`, `CorpusTopic`, `RoadmapStatus`, `RoadmapStepStatus` | Closed sets of values shared across the app (contracts.md §1). |
 
 ## `domain/models`
 
@@ -107,7 +108,7 @@ line of the module's docstring.
 | `base.py` | `DomainModel` | Identifiers and the base every domain model shares (contracts.md §2.1). |
 | `child_session.py` | `ChildSession` | A child talking to Marg.ai directly on the parent's phone (s10b §4.16, C13). |
 | `conversation.py` | `ProfileUpdate`, `FirstContact`, `ConsentGiven`, `ConsentDeclined`, `RoleChosen`, `RoleUnavailable`, `GuardianConfirmed`, `GuardianDeclined`, `ProfileAnswered`, `ChildAnswered`, `ChildInvalid`, `AddChild`, `ChildTalkAnswered`, `TeacherAsked`, `LanguageSwitched`, `QuestionNoted`, `Unrecognised`, `DeletionRequested`, `DeletionConfirmed`, `DeletionCancelled`, `SendCopy`, `RecordConsent`, `UpsertLearner`, `SetChildTalk`, `PurgeAfterDelivery`, `HandoffPendingQuestion`, `HandoffFirstKhoj`, `Transition` | The onboarding conversation's events and effects (s08 §4.2). Pure data. |
-| `curiosity.py` | `CuriositySignals`, `CuriositySource`, `ExtractSignals`, `MakeKhojCard` | What a child engaged with, for the young-learner trajectory (s13 §4.4). Never a label. |
+| `curiosity.py` | `CuriositySignals`, `CuriositySource`, `ExtractSignals`, `MakeKhojCard`, `UpdateMemory` | What a child engaged with, for the young-learner trajectory (s13 §4.4). Never a label. |
 | `delivery.py` | `PartState` | Where an outbound part stands in its delivery (s04 §4.10). |
 | `learner.py` | `Learner` | Learners: the child or student whose journey Marg.ai follows (contracts §2.2, data-model). |
 | `message.py` | `MediaRef`, `InboundMessage`, `AudioClip`, `ImageClip`, `Transcript` | What users send us: messages and the media they carry (contracts.md §2.1). |
@@ -116,10 +117,11 @@ line of the module's docstring.
 | `retrieval.py` | `RetrievalQuery`, `RetrievedChunk`, `RetrievalResult` | What retrieval is asked and what it finds (s11 §4.6, §4.7; contracts §2.7). |
 | `routing.py` | `RouteDecision` | Where a turn goes (contracts §2.5). |
 | `safety.py` | `SafetyVerdict`, `CrisisLexicon` | A safety check's result (contracts.md §2.5). Produced by s07's gate; read by the trace. |
+| `student.py` | `RoadmapStep`, `Roadmap`, `ProfileMemory`, `MemoryUpdate` | A student's plan and what Marg remembers about them (s12 §4.4, §4.7; contracts §2.2). |
 | `turn.py` | `UserProfile`, `Exchange`, `TurnContext`, `QueuedMessage` | A turn and what it knows about the user (contracts.md §2.2; s04 §4.4, §4.5). |
 | `usage.py` | `StepUsage` | What a provider call cost (contracts §2.3). Attached to every turn_steps row. |
 | `voice.py` | `AudioStats`, `VoiceLimits` | What a voice note measures, and the limits it's checked against (s06 §4.4). |
-| `writes.py` | `ProfileChange`, `LearnerUpsert`, `MarkPurgeAfterDelivery`, `ChildTalkConsent`, `ActivityOffered`, `ActivityReported`, `ChildSessionStart`, `ChildTalkTurn`, `ChildSessionEnd`, `NudgePreference`, `DeleteInboundMedia` | State changes that commit with the reply (contracts §2.4). |
+| `writes.py` | `ProfileChange`, `LearnerUpsert`, `MarkPurgeAfterDelivery`, `ChildTalkConsent`, `ActivityOffered`, `ActivityReported`, `ChildSessionStart`, `ChildTalkTurn`, `ChildSessionEnd`, `NudgePreference`, `ResolvedRoadmapStep`, `SaveRoadmap`, `DeleteInboundMedia` | State changes that commit with the reply (contracts §2.4). |
 
 ## `domain/rules`
 
@@ -158,9 +160,13 @@ line of the module's docstring.
 | `journey_layer.py` | `ActivityPersonalisation`, `ParentReflection`, `ParentMessage`, `JourneySettings`, `JourneyLayer` | JourneyLayer: "Aaj ki Khoj" for parents of children aged 3-8 (s10b §4.4 to §4.9). |
 | `khoj_card_maker.py` | `KhojCardText`, `CardRequest`, `KhojCard`, `KhojCardMaker` | KhojCardMaker: an illustrated card of a child's discovery (s10b §4.13, C6). |
 | `layer_result.py` | `LayerResult` | LayerResult: what every layer's generate step returns (s12 §4, s05 §4.4a). |
+| `memory_layer.py` | `MemoryLayer` | MemoryLayer: a student's rolling memory, refreshed after each mentor or roadmap turn (s12 §4.7). |
+| `mentor_context.py` | `LabelledChunk`, `MentorContext`, `MentorContextBuilder` | MentorContext: what every mentor and roadmap prompt is given, within a token budget (s12 §4.2). |
+| `mentor_layer.py` | `MentorClaim`, `MentorAnswer`, `MentorSettings`, `MentorLayer` | MentorLayer: a student's question answered only from official sources, or honestly not |
 | `onboarding_layer.py` | `ProfileExtraction`, `FirstKhojHandoff`, `PendingQuestionHandoff`, `OnboardingResult`, `OnboardingLayer` | OnboardingLayer: a message during onboarding → a state-machine event → fixed copy and writes |
 | `parent_question_layer.py` | `ParentAnswer`, `ParentQuestionLayer` | ParentQuestionLayer: a parent's question answered warmly and practically (s10b §4.9, flow D). |
 | `query_rewriter.py` | `RewrittenQuery`, `QueryRewriter` | QueryRewriter: a student's question as an English search with exam and scheme names |
+| `roadmap_layer.py` | `RoadmapDraftStep`, `RoadmapDraft`, `RoadmapLayer` | RoadmapLayer: a student's goal as 3-6 concrete, sourced steps (s12 §4.4). |
 
 ## `pipeline`
 
@@ -170,7 +176,7 @@ line of the module's docstring.
 | `failure_policy.py` | `FailurePolicy` | FailurePolicy: what a failed step becomes (s05 §4.5 "StepFailure → reply"; contracts §4). |
 | `fixed_reply_service.py` | `FixedReplyService` | FixedReplyService: the fixed reply for a kind, in the user's language (contracts §6). |
 | `null_turn_observer.py` | `NullTurnObserver` | The turn pipeline's entry point (s05 §4.5). |
-| `orchestrator.py` | `OrchestratorSettings`, `VoiceSteps`, `PhotoSteps`, `PipelineSteps`, `Orchestrator` | Orchestrator: one turn from the user's messages to a sealed reply (s05 §4.5, mvp-scope §4.2). |
+| `orchestrator.py` | `OrchestratorSettings`, `VoiceSteps`, `PhotoSteps`, `StudentSteps`, `PipelineSteps`, `Orchestrator` | Orchestrator: one turn from the user's messages to a sealed reply (s05 §4.5, mvp-scope §4.2). |
 | `reply_parts_builder.py` | `ReplyDelivery`, `ReplyPartsBuilder` | ReplyPartsBuilder: a sealed reply into ordered outbound parts (s05 §4.7, s07 §4.2). |
 | `step_models.py` | `StepModel`, `StepFailure`, `StepSuccess`, `TurnOutcome` | What a turn and its steps produce (contracts §2.3). Data only. |
 | `turn_protocols.py` | `StepRecorder`, `TurnObserver` | The two hooks every step reports through (contracts §3): StepRecorder and TurnObserver. |
@@ -268,6 +274,8 @@ line of the module's docstring.
 | `media_blob_repository.py` | `OwnedMedia`, `MediaBlobRepository` | MediaBlobRepository: reply audio kept until the sender uploads it (s06 §4.7, §4.8). |
 | `nudge_repository.py` | `NudgeBatch`, `NudgeResult`, `NudgeRepository` | Daily khoj messages: who opted in, and the NUDGE turns that send them (s10b §4.11). |
 | `outbox_repository.py` | `OutboxRow`, `OutboxRepository` | OutboxRepository: queued reply parts and their delivery (s04 §4.7, §4.10; s03 §4.8). |
+| `profile_memory_repository.py` | `ProfileMemoryRepository` | ProfileMemoryRepository: what Marg remembers about a student (s12 §4.7). |
+| `roadmap_repository.py` | `RoadmapRepository` | RoadmapRepository: a student's plan (s12 §4.4; data-model `roadmaps`, `roadmap_steps`). |
 | `telemetry_repository.py` | `StepLatencyRow`, `TurnSummaryRow`, `JourneyCountsRow`, `FailureCountRow`, `ActivityCounts`, `ChildTalkCounts`, `YoungLearnerData`, `TelemetryRepository` | TelemetryRepository: the aggregate reads behind /status and the dashboard (s13 §4.6). |
 | `turn_repository.py` | `StartedTurn`, `FinishedTurn`, `FinalizeResult`, `TurnRepository` | Turns: claiming a user's pending messages, loading the context, finalizing (s04 §4.4 to §4.7). |
 | `turn_step_repository.py` | `StepRow`, `TurnStepRepository` | turn_steps rows and the turn columns written while a turn runs (s04 §4.6). |

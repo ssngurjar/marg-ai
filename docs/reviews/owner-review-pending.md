@@ -242,6 +242,39 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
 - [ ] Build choices in the s13 log (pages built without Jinja2, 503 instead of a partial status,
   admin-only claims for now).
 
+## 2l. The Aspirational engine: corpus, mentor, roadmap, memory (S11, S12, from 2026-10-28)
+
+- [ ] **Run `make migrate`** (now four new migrations: `s10b_photos`, `s13_turn_metrics`,
+  `s11_corpus_tables`, `s12_roadmaps_memory`), start the voice server (it now also serves
+  `/embed`; first start downloads multilingual-e5-small, about 470 MB), then
+  `.venv/bin/python -m app.cli ingest-corpus`.
+- [ ] **Review the corpus: 50 documents in `corpus/`** (scholarships 18, sports 7, exams 10,
+  public service 5, exposure fields 6, entrepreneurship 3, skilling 1). Drafted by agents from the
+  official pages, and every file passes the validator, **but check every number from India before
+  trusting it**: WebFetch returns a model's reading of a page, not the raw text (the scholarship
+  amounts were checked against page images; most others weren't). Use the s11 §4.2 checklist.
+- [ ] **Things the agents flagged:** several scholarship guideline periods end with 2025-26 (still
+  the documents the portals link); PMS-SC allowances may now be higher than the 2021 figures; the
+  Pragati guideline is dated 2020-21; `rajasthan-scholarship-documents.md` was translated from a
+  Hindi PDF; ISRO YUVIKA 2026 is over; `sai-selection-trials.md` lists October 2026 trials (stale
+  soon); INSPIRE-MANAK 2026-27 nominations closed; `sainikschoolsociety.in` is not a .gov.in
+  domain (check it's official); a few generic advice lines in the sports docs aren't from pages.
+- [ ] **The biggest gaps, which only a fetch from India can fill:** NEET, JEE Main, Navodaya
+  (class 6 and 9), UPSC / NDA, SSC, Agniveer, PMKVY, ITI and apprenticeships, AICTE, NSS, ST and
+  minority scholarships. Their sites refused us from abroad. Until then the mentor honestly says
+  it doesn't know (e.g. "doctor banna hai").
+- [ ] Fix in `corpus/SOURCES.md`: `pmegp.in` is a domain-for-sale page; `kviconline.gov.in` and
+  `pmkvyofficial.org` don't resolve.
+- [ ] **Prompts:** `mentor.md.j2`, `roadmap.md.j2`, `memory.md.j2`, `query_rewrite.md.j2` (all
+  1.0.0). **Copy:** `app/constants/student_copy.py` (sources label, "Plan banao", the don't-know
+  and no-plan texts, the child-protection line with 1098) and the onboarding change (third role
+  button, `onb-2026-10-28.1`).
+- [ ] **Decide later:** the 0.80 relevance threshold (10/11 right; the kabaddi question just
+  missed, s11 log); whether to turn on query rewriting after the S15 eval.
+- [ ] **Phone test:** "Main student hoon" → guardian → class → district; then "क्लास 8 में कोई
+  स्कॉलरशिप मिलती है क्या", "Marine biologist kaise bante hain", "ISRO scientist banna hai, plan
+  bana do", "mera plan dikhao".
+
 ## 3. Decisions log entries marked "pending owner review"
 
 - [ ] `docs/design/s05-llm-orchestrator.md`, 2026-10-27 (S5 build choices).

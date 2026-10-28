@@ -152,7 +152,11 @@ async def test_consent_by_button_records_the_event_with_the_copy_version() -> No
     assert change.consented_at == NOW
     assert change.consent_events == [ConsentEventKind.GRANTED]
     assert change.consent_prompt_version == COPY_VERSION
-    assert [button.id for button in result.reply.buttons] == ["onb:role:parent", "onb:role:teacher"]
+    assert [button.id for button in result.reply.buttons] == [
+        "onb:role:parent",
+        "onb:role:student",
+        "onb:role:teacher",
+    ]
 
 
 async def test_declining_consent_says_nothing_was_saved_and_purges_after_the_reply() -> None:
@@ -164,10 +168,19 @@ async def test_declining_consent_says_nothing_was_saved_and_purges_after_the_rep
 # --- roles ---------------------------------------------------------------------------------------
 
 
-async def test_a_student_hears_it_is_coming_soon_and_is_asked_again() -> None:
-    result, _ = await handle(at(S.AWAITING_ROLE), text_message("student"))
-    assert result.reply.body == f"{body(CopyKey.STUDENT_COMING_SOON)}\n\n{body(CopyKey.ASK_ROLE)}"
-    assert profile_change(result).new_state is S.AWAITING_ROLE
+@pytest.mark.parametrize(
+    "said",
+    [
+        text_message("student"),
+        text_message("main vidyarthi hoon"),
+        button_reply("onb:role:student"),
+    ],
+)
+async def test_a_student_is_asked_whether_a_guardian_knows(said: InboundMessage) -> None:
+    result, _ = await handle(at(S.AWAITING_ROLE), said)
+    change = profile_change(result)
+    assert (change.role, change.new_state) == (Role.STUDENT, S.AWAITING_GUARDIAN)
+    assert result.reply.body == body(CopyKey.ASK_GUARDIAN)
 
 
 async def test_a_role_the_parser_cant_read_goes_to_the_model() -> None:

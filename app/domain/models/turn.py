@@ -9,6 +9,7 @@ from app.domain.models.base import DomainModel, TurnId, UserHash
 from app.domain.models.child_session import ChildSession
 from app.domain.models.learner import Learner
 from app.domain.models.message import InboundMessage
+from app.domain.models.student import ProfileMemory, Roadmap
 
 
 class UserProfile(DomainModel):
@@ -56,6 +57,9 @@ class TurnContext(DomainModel):
     # the cooldown). Speaker is LEARNER exactly when a session is open.
     child_session: ChildSession | None = None
     last_child_session_ended_at: datetime | None = None
+    # S12 (students): what Marg remembers about them, and their active plan
+    memory: ProfileMemory | None = None
+    active_roadmap: Roadmap | None = None
 
     @property
     def speaker(self) -> Speaker:

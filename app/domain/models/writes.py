@@ -6,10 +6,11 @@ what they change.
 """
 
 from datetime import datetime, time
+from decimal import Decimal
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import Field, HttpUrl
 
 from app.domain.enums import (
     ActivityStatus,
@@ -126,6 +127,25 @@ class NudgePreference(DomainModel):
     local_time: time | None  # IST; None when turning off
 
 
+class ResolvedRoadmapStep(DomainModel):
+    """A drafted step with its source resolved from a chunk label to the page's address."""
+
+    action: str = Field(max_length=160)
+    timeframe: str = Field(max_length=40)
+    cost_inr: Decimal | None = Field(ge=0)
+    source_url: HttpUrl | None
+
+
+class SaveRoadmap(DomainModel):
+    """s12: store a new active roadmap; the one it replaces (if any) is abandoned."""
+
+    kind: Literal["save_roadmap"] = "save_roadmap"
+    goal: str = Field(max_length=80)
+    steps: list[ResolvedRoadmapStep] = Field(min_length=3, max_length=6)
+    abandon_roadmap_id: UUID | None
+    prompt_version: str
+
+
 class DeleteInboundMedia(DomainModel):
     """s06: a web voice note this turn has heard, or a web photo it has looked at; deleted with
     the reply (raw audio isn't kept after transcription, CLAUDE.md §11; photos are kept no longer
@@ -146,6 +166,7 @@ type TurnWrite = Annotated[
     | ChildTalkTurn
     | ChildSessionEnd
     | NudgePreference
+    | SaveRoadmap
     | DeleteInboundMedia,
     Field(discriminator="kind"),
 ]

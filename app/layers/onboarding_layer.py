@@ -29,6 +29,7 @@ from app.constants.onboarding_copy import (
     GUARDIAN_NO,
     GUARDIAN_YES,
     ROLE_PARENT,
+    ROLE_STUDENT,
     ROLE_TEACHER,
 )
 from app.core.errors import ConfigError, InvalidProfileValue, ProviderError
@@ -63,7 +64,6 @@ from app.domain.models.conversation import (
     QuestionNoted,
     RecordConsent,
     RoleChosen,
-    RoleUnavailable,
     SendCopy,
     SetChildTalk,
     TeacherAsked,
@@ -155,7 +155,7 @@ class OnboardingLayer:
         CONSENT_NO: ConsentDeclined(),
         ROLE_PARENT: RoleChosen(Role.PARENT),
         ROLE_TEACHER: RoleChosen(Role.TEACHER),
-        "onb:role:student": RoleUnavailable(Role.STUDENT),
+        ROLE_STUDENT: RoleChosen(Role.STUDENT),
         GUARDIAN_YES: GuardianConfirmed(),
         GUARDIAN_NO: GuardianDeclined(),
         DELETE_YES: DeletionConfirmed(),
@@ -272,7 +272,7 @@ class OnboardingLayer:
             return AddChild()
         return None
 
-    def _answer_event(  # noqa: PLR0911  # one return per state's answer
+    def _answer_event(  # one return per state's answer
         self, ctx: TurnContext, user_text: str, now: datetime
     ) -> ConversationEvent | None:
         state = ctx.profile.state
@@ -283,8 +283,6 @@ class OnboardingLayer:
             return _YES_NO_EVENTS[state][said]
         if state is _S.AWAITING_ROLE:
             role = _P.role_named(user_text)
-            if role is Role.STUDENT:
-                return RoleUnavailable(Role.STUDENT)
             return RoleChosen(role) if role else None
         if state is _S.AWAITING_CHILD:
             return self._child_event(user_text, now.year)
@@ -466,8 +464,7 @@ class _ExtractionMapper:
         if extraction.language is not None:
             return LanguageSwitched(_EXTRACTED_LANGUAGES[extraction.language])
         if state is _S.AWAITING_ROLE and extraction.role is not None:
-            role = Role(extraction.role)
-            return RoleUnavailable(role) if role is Role.STUDENT else RoleChosen(role)
+            return RoleChosen(Role(extraction.role))
         if state is _S.AWAITING_PROFILE:
             update = _ExtractionMapper._profile_update(extraction)
             if update is not None and not update.is_empty:

@@ -8,6 +8,7 @@ child"), {invite_link} (the teacher's ready-to-forward wa.me link).
 
 COPY_VERSION is recorded on every consent event: bump it on any text change.
 v onb-2026-10-27.1: written for the MVP (parent and teacher roles); pending the owner's review.
+v onb-2026-10-28.1: the student role opens (S12): ASK_ROLE names students, a third role button.
 """
 
 from dataclasses import dataclass
@@ -16,7 +17,7 @@ from typing import Final
 from app.domain.enums import CopyKey, Language
 from app.domain.models.reply import ReplyButton
 
-COPY_VERSION: Final = "onb-2026-10-27.1"
+COPY_VERSION: Final = "onb-2026-10-28.1"
 
 _HINGLISH = Language.HINGLISH
 _HINDI = Language.HINDI
@@ -37,6 +38,7 @@ CONSENT_YES = "onb:consent:yes"
 CONSENT_NO = "onb:consent:no"
 ROLE_PARENT = "onb:role:parent"
 ROLE_TEACHER = "onb:role:teacher"
+ROLE_STUDENT = "onb:role:student"
 GUARDIAN_YES = "onb:guardian:yes"
 GUARDIAN_NO = "onb:guardian:no"
 DELETE_YES = "onb:delete:yes"
@@ -51,9 +53,21 @@ _CONSENT_BUTTONS: Final = {
     _ENGLISH: _buttons((CONSENT_YES, "Yes, I agree"), (CONSENT_NO, "No")),
 }
 _ROLE_BUTTONS: Final = {
-    _HINGLISH: _buttons((ROLE_PARENT, "Main parent hoon"), (ROLE_TEACHER, "Main teacher hoon")),
-    _HINDI: _buttons((ROLE_PARENT, "मैं माता-पिता हूँ"), (ROLE_TEACHER, "मैं शिक्षक हूँ")),
-    _ENGLISH: _buttons((ROLE_PARENT, "I'm a parent"), (ROLE_TEACHER, "I'm a teacher")),
+    _HINGLISH: _buttons(
+        (ROLE_PARENT, "Main parent hoon"),
+        (ROLE_STUDENT, "Main student hoon"),
+        (ROLE_TEACHER, "Main teacher hoon"),
+    ),
+    _HINDI: _buttons(
+        (ROLE_PARENT, "मैं माता-पिता हूँ"),
+        (ROLE_STUDENT, "मैं विद्यार्थी हूँ"),
+        (ROLE_TEACHER, "मैं शिक्षक हूँ"),
+    ),
+    _ENGLISH: _buttons(
+        (ROLE_PARENT, "I'm a parent"),
+        (ROLE_STUDENT, "I'm a student"),
+        (ROLE_TEACHER, "I'm a teacher"),
+    ),
 }
 _GUARDIAN_BUTTONS: Final = {
     _HINGLISH: _buttons((GUARDIAN_YES, "Haan, unhe pata hai"), (GUARDIAN_NO, "Abhi nahi")),
@@ -120,9 +134,9 @@ _TEXTS: Final[dict[CopyKey, dict[Language, str]]] = {
         _ENGLISH: "No problem. We haven't saved anything about you. Send 'Hi' whenever you like.",
     },
     CopyKey.ASK_ROLE: {
-        _HINGLISH: "Aap kisi chhote bachche ke mummy-papa hain, ya teacher?",
-        _HINDI: "आप किसी छोटे बच्चे के माता-पिता हैं, या शिक्षक?",
-        _ENGLISH: "Are you a parent of a young child, or a teacher?",
+        _HINGLISH: "Aap kisi chhote bachche ke mummy-papa hain, student hain, ya teacher?",
+        _HINDI: "आप किसी छोटे बच्चे के माता-पिता हैं, विद्यार्थी हैं, या शिक्षक?",
+        _ENGLISH: "Are you a parent of a young child, a student, or a teacher?",
     },
     CopyKey.STUDENT_COMING_SOON: {
         _HINGLISH: (

@@ -331,3 +331,15 @@ class CorpusTopic(StrEnum):
     PUBLIC_SERVICE = "public_service"
     SKILLING = "skilling"
     EXPOSURE_FIELDS = "exposure_fields"
+
+
+class RoadmapStatus(StrEnum):
+    ACTIVE = "active"
+    COMPLETED = "completed"
+    ABANDONED = "abandoned"
+
+
+class RoadmapStepStatus(StrEnum):
+    TODO = "todo"
+    DONE = "done"
+    SKIPPED = "skipped"

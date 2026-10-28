@@ -1,7 +1,8 @@
 """PostTurnRunner: work after the reply is sent, off its critical path (s04 §4.16, s13 §4.2).
 
 Curiosity signals (EXTRACT_SIGNALS), then a khoj card (MAKE_CARD, s10b §4.13) when one was asked
-for: the card needs the signals' engagement, so tasks run in order. Each is recorded as a step
+for: the card needs the signals' engagement, so tasks run in order. A student's memory
+(UPDATE_MEMORY, s12 §4.7) is refreshed after mentor and roadmap turns. Each is recorded as a step
 of the turn that asked for it; a failure never touches the reply, which has already gone out.
 """
 
@@ -15,12 +16,14 @@ from app.core.clock import Clock
 from app.core.errors import MediaError, ProviderError, SafetyUnavailable, StoreError
 from app.core.logging import get_logger
 from app.domain.enums import StepName, StepOutcome
-from app.domain.models.curiosity import ExtractSignals, MakeKhojCard, PostTurnTask
+from app.domain.models.curiosity import ExtractSignals, MakeKhojCard, PostTurnTask, UpdateMemory
 from app.domain.models.usage import StepUsage
+from app.layers.memory_layer import MemoryLayer
 from app.pipeline.failure_policy import FailurePolicy
 from app.pipeline.step_models import StepFailure
 from app.pipeline.turn_protocols import StepRecorder
 from app.store.repositories.curiosity_signal_repository import CuriositySignalRepository
+from app.store.repositories.profile_memory_repository import ProfileMemoryRepository
 from app.telemetry.curiosity_signal_extractor import CuriositySignalExtractor
 from app.worker.khoj_card_sender import KhojCardSender
 
@@ -35,6 +38,8 @@ class PostTurnDeps:
     clock: Clock
     timeout: timedelta  # each task's limit
     cards: KhojCardSender | None  # None while KHOJ_CARD_ENABLED is false
+    memory: MemoryLayer
+    memories: ProfileMemoryRepository
 
 
 class PostTurnRunner:
@@ -45,6 +50,8 @@ class PostTurnRunner:
         self._clock = deps.clock
         self._timeout = deps.timeout
         self._cards = deps.cards
+        self._memory = deps.memory
+        self._memories = deps.memories
 
     async def run(self, tasks: Sequence[PostTurnTask]) -> None:
         for task in tasks:
@@ -53,8 +60,52 @@ class PostTurnRunner:
                     await self._extract(task)
                 case MakeKhojCard():
                     await self._card(task)
+                case UpdateMemory():
+                    await self._remember(task)
                 case _:
                     assert_never(task)
+
+    async def _remember(self, task: UpdateMemory) -> None:
+        started = self._clock.now()
+        try:
+            async with asyncio.timeout(self._timeout.total_seconds()):
+                update, usage, version = await self._memory.update(
+                    task.previous, task.user_text, task.reply_text
+                )
+            saved = await self._memories.upsert(task.user_hash, update, task.turn_id, version)
+        except (ProviderError, TimeoutError, StoreError) as exc:
+            logger.warning("memory_update_failed", turn_id=str(task.turn_id), exc_info=exc)
+            failure = StepFailure(
+                step=StepName.UPDATE_MEMORY,
+                kind=FailurePolicy.kind_of(exc),
+                detail=type(exc).__name__,
+                retryable=False,
+            )
+            await self._record(
+                task,
+                StepName.UPDATE_MEMORY,
+                started,
+                StepOutcome.FAILED,
+                _Recorded(failure=failure),
+            )
+            return
+        if not saved:
+            await self._record(
+                task,
+                StepName.UPDATE_MEMORY,
+                started,
+                StepOutcome.SKIPPED,
+                _Recorded(detail="user_gone"),
+            )
+            return
+        detail = f"ambitions={len(update.ambitions)} constraints={len(update.constraints)}"
+        await self._record(
+            task,
+            StepName.UPDATE_MEMORY,
+            started,
+            StepOutcome.OK,
+            _Recorded(detail=detail, usage=usage),
+        )
 
     async def _card(self, task: MakeKhojCard) -> None:
         if self._cards is None:

@@ -70,6 +70,7 @@ from app.domain.models.curiosity import (
     ExtractSignals,
     MakeKhojCard,
     PostTurnTask,
+    UpdateMemory,
 )
 from app.domain.models.learner import Learner
 from app.domain.models.message import ImageClip, InboundMessage
@@ -84,6 +85,7 @@ from app.domain.models.writes import (
     ActivityReported,
     ChildSessionEnd,
     DeleteInboundMedia,
+    ProfileChange,
     TurnWrite,
 )
 from app.domain.rules.audio_analyser import AudioAnalyser
@@ -93,7 +95,14 @@ from app.domain.rules.stage_rules import StageRules
 from app.layers.child_talk_layer import ChildTalkLayer
 from app.layers.journey_layer import JourneyLayer, ParentMessage
 from app.layers.layer_result import LayerResult
-from app.layers.onboarding_layer import FirstKhojHandoff, OnboardingLayer, OnboardingResult
+from app.layers.mentor_layer import MentorLayer
+from app.layers.onboarding_layer import (
+    FirstKhojHandoff,
+    OnboardingLayer,
+    OnboardingResult,
+    PendingQuestionHandoff,
+)
+from app.layers.roadmap_layer import RoadmapLayer
 from app.pipeline.failure_policy import FailurePolicy
 from app.pipeline.fixed_reply_service import FixedReplyService
 from app.pipeline.reply_parts_builder import ReplyDelivery, ReplyPartsBuilder
@@ -154,6 +163,14 @@ class PhotoSteps:
 
 
 @dataclass(frozen=True, slots=True)
+class StudentSteps:
+    """The Aspirational layer (s12): the mentor and the roadmap."""
+
+    mentor: MentorLayer
+    roadmap: RoadmapLayer
+
+
+@dataclass(frozen=True, slots=True)
 class PipelineSteps:
     gate: SafetyGate
     journey: JourneyLayer
@@ -162,6 +179,7 @@ class PipelineSteps:
     child_talk: ChildTalkLayer | None  # None when CHILD_TALK_ENABLED is false
     clock: Clock
     photos: PhotoSteps | None = None  # None when PHOTO_INPUT_ENABLED is false
+    student: StudentSteps | None = None  # None: students hear the parent journey's fallback
 
 
 @dataclass(frozen=True, slots=True)
@@ -304,6 +322,8 @@ class _Turn:
             return await self._onboarding(decision.route, interactive_ids)
         if decision.route is Route.CHILD_TALK and self.steps.child_talk is not None:
             return await self._child_talk(self.steps.child_talk, interactive_ids)
+        if decision.route in {Route.MENTOR, Route.ROADMAP} and self.steps.student is not None:
+            return await self._student(self.steps.student, decision.route, interactive_ids)
         return await self._journey(interactive_ids, photo)
 
     async def _onboarding(self, route: Route, interactive_ids: list[str]) -> TurnOutcome:
@@ -357,6 +377,10 @@ class _Turn:
             if khoj is not None:
                 delivery = self._delivery(khoj.safe, preamble=safe, trailer=self._nudge_ask())
                 writes.extend(khoj.writes)
+        elif isinstance(result.handoff, PendingQuestionHandoff):
+            answer = await self._pending_answer(result.handoff, writes, safe.reply_register)
+            if answer is not None:
+                delivery = self._delivery(answer.safe, preamble=safe)
         return TurnOutcome(
             turn_id=self.ctx.turn_id,
             route=route,
@@ -369,6 +393,49 @@ class _Turn:
             first_failure=self.first_failure,
             writes=writes,
         )
+
+    async def _pending_answer(
+        self, handoff: PendingQuestionHandoff, writes: Sequence[TurnWrite], register: Language
+    ) -> "_Sent | None":
+        """A student's first question, asked before onboarding, answered once their profile is
+        complete (s08 §4.7). It passed safety_in in the turn that asked it. If it fails,
+        onboarding still completes and the student can ask again."""
+        student = self.steps.student
+        if student is None:
+            return None
+        profile = self.ctx.profile
+        for write in writes:
+            if isinstance(write, ProfileChange):
+                changed = {
+                    "state": write.new_state,
+                    "role": write.role or profile.role,
+                    "grade": write.grade or profile.grade,
+                    "district": write.district or profile.district,
+                }
+                profile = profile.model_copy(update=changed)
+        ctx = self.ctx.model_copy(update={"profile": profile})
+        started = self.steps.clock.now()
+        try:
+            layer_result = await self._bounded(
+                student.mentor.answer(ctx, handoff.question, register),
+                self.settings.generate_timeout,
+            )
+        except (ProviderError, StoreError, TimeoutError) as error:
+            await self._record_failure(StepName.GENERATE, started, error, "pending_question")
+            return None
+        self.prompt_versions.update(layer_result.prompt_versions)
+        await self._record(
+            _StepRecord(
+                StepName.GENERATE,
+                started,
+                layer_result,
+                StepUsage.total(layer_result.usages),
+                layer_result.degraded_reason or "pending_question",
+                outcome=layer_result.outcome,
+            )
+        )
+        checked = await self._checked(layer_result)
+        return checked if isinstance(checked, _Sent) else None
 
     async def _first_khoj(self, handoff: FirstKhojHandoff, register: Language) -> "_Sent | None":
         learner = handoff.learner
@@ -439,6 +506,62 @@ class _Turn:
         )
         await self._record_skipped(StepName.TRANSLATE, "direct localisation (C3c)")
         return await self._check_and_seal(layer_result)
+
+    async def _student(
+        self, student: StudentSteps, route: Route, interactive_ids: list[str]
+    ) -> TurnOutcome:
+        """A student's question or plan (s12): like the journey, safety_in alongside the layer;
+        then the memory is refreshed after the reply."""
+        started = self.steps.clock.now()
+        generation = asyncio.create_task(self._student_generate(student, route, interactive_ids))
+        if self.user_text:
+            try:
+                input_check = await self._bounded(
+                    self.steps.gate.check_input(self.user_text), self.settings.safety_in_timeout
+                )
+            except (SafetyUnavailable, TimeoutError) as error:
+                await self._discard(generation)
+                return await self._failed(StepName.SAFETY_IN, started, error)
+            await self._record(self._input_record(started, input_check))
+            if input_check.verdict.decision is not SafetyDecision.ALLOW:
+                await self._discard(generation)
+                return self._fixed(self._refusal_for(input_check))
+        try:
+            layer_result = await generation
+        except (ProviderError, StoreError, TimeoutError) as error:
+            return await self._failed(StepName.GENERATE, started, error)
+        self.prompt_versions = dict(layer_result.prompt_versions)
+        await self._record(
+            _StepRecord(
+                StepName.GENERATE,
+                started,
+                layer_result,
+                StepUsage.total(layer_result.usages),
+                layer_result.degraded_reason,
+                outcome=layer_result.outcome,
+            )
+        )
+        await self._record_skipped(StepName.TRANSLATE, "direct localisation (C3c)")
+        outcome = await self._check_and_seal(layer_result, route)
+        if outcome.fixed_reply_kind is not None or outcome.reply_text is None:
+            return outcome
+        remember = UpdateMemory(
+            turn_id=self.ctx.turn_id,
+            user_hash=self.ctx.profile.user_hash,
+            previous=self.ctx.memory,
+            user_text=self.user_text,
+            reply_text=outcome.reply_text,
+        )
+        return outcome.model_copy(update={"post_turn": [*outcome.post_turn, remember]})
+
+    async def _student_generate(
+        self, student: StudentSteps, route: Route, interactive_ids: list[str]
+    ) -> LayerResult:
+        if route is Route.ROADMAP:
+            work = student.roadmap.handle(self.ctx, self.user_text, interactive_ids, self.register)
+        else:
+            work = student.mentor.answer(self.ctx, self.user_text, self.register)
+        return await self._bounded(work, self.settings.generate_timeout)
 
     async def _child_talk(self, layer: ChildTalkLayer, interactive_ids: list[str]) -> TurnOutcome:
         """A child talking (C13): like the journey, with the child as the speaker."""

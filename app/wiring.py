@@ -42,9 +42,12 @@ from app.layers.journey_layer import (
     JourneySettings,
 )
 from app.layers.khoj_card_maker import KHOJ_CARD_TEXT, KhojCardMaker
+from app.layers.memory_layer import MEMORY, MemoryLayer
+from app.layers.mentor_layer import MENTOR, MentorLayer, MentorSettings
 from app.layers.onboarding_layer import PROFILE_EXTRACTION, OnboardingLayer
 from app.layers.parent_question_layer import PARENT_ANSWER, ParentQuestionLayer
 from app.layers.query_rewriter import QUERY_REWRITE
+from app.layers.roadmap_layer import ROADMAP, RoadmapLayer
 from app.pipeline.channel_media_fetcher import ChannelMediaFetcher
 from app.pipeline.fixed_reply_service import FixedReplyService
 from app.pipeline.orchestrator import (
@@ -52,6 +55,7 @@ from app.pipeline.orchestrator import (
     OrchestratorSettings,
     PhotoSteps,
     PipelineSteps,
+    StudentSteps,
     VoiceSteps,
 )
 from app.prompts.prompt_registry import PromptRegistry, PromptSettings
@@ -83,6 +87,7 @@ from app.store.repositories.khoj_card_repository import KhojCardRepository
 from app.store.repositories.media_blob_repository import MediaBlobRepository
 from app.store.repositories.nudge_repository import NudgeRepository
 from app.store.repositories.outbox_repository import OutboxRepository
+from app.store.repositories.profile_memory_repository import ProfileMemoryRepository
 from app.store.repositories.telemetry_repository import TelemetryRepository
 from app.store.repositories.turn_repository import TurnRepository
 from app.store.repositories.turn_step_repository import TurnStepRepository
@@ -112,6 +117,9 @@ PROMPT_SPECS: Final = (
     CURIOSITY_EXTRACT,
     KHOJ_CARD_TEXT,
     QUERY_REWRITE,
+    MEMORY,
+    MENTOR,
+    ROADMAP,
 )
 """Every prompt the app renders; the registry refuses a template without a spec."""
 INVITE_GREETING: Final = "Namaste Marg"
@@ -133,6 +141,7 @@ class Container:
     voice_adapters: "VoiceAdapters"
     image_generator: MuseImageGenerator
     image_segmenter: SamImageSegmenter
+    rag: "RagParts"
     turn_dispatcher: TurnDispatcher
     web_demo: WebDemoIngestor
     user_repository: UserRepository
@@ -145,6 +154,7 @@ class OrchestratorPorts:
     safety_classifier: SafetyClassifier
     voice: VoiceSteps
     photos: PhotoSteps | None = None  # None while PHOTO_INPUT_ENABLED is false
+    retriever: Retriever | None = None  # None: students get no mentor (tests that don't need it)
 
 
 @dataclass(frozen=True, slots=True)
@@ -213,6 +223,7 @@ def build_container(settings: Settings) -> Container:
         clock=clock,
     )
     voice_adapters = build_voice_adapters(settings, session_factory, retry, clock)
+    rag = build_rag(settings, session_factory, retry, clock)
     image_generator = MuseImageGenerator(
         config=ImageModelConfig(
             base_url=str(settings.model_api_base_url),
@@ -252,6 +263,7 @@ def build_container(settings: Settings) -> Container:
                     safety_classifier,
                     voice_steps(settings, voice_adapters),
                     photo_steps(settings, voice_adapters, image_segmenter),
+                    rag.retriever,
                 ),
                 clock,
                 catalogue=catalogue,
@@ -264,6 +276,7 @@ def build_container(settings: Settings) -> Container:
                 if settings.khoj_card_enabled
                 else None
             ),
+            memory=MemoryLayer(spark, prompt_registry(settings)),
         ),
     )
     return Container(
@@ -287,6 +300,7 @@ def build_container(settings: Settings) -> Container:
         voice_adapters=voice_adapters,
         image_generator=image_generator,
         image_segmenter=image_segmenter,
+        rag=rag,
         turn_dispatcher=dispatcher,
         web_demo=WebDemoIngestor(
             DemoDeps(
@@ -463,6 +477,24 @@ def photo_steps(
     )
 
 
+def student_steps(
+    settings: Settings,
+    language_model: LanguageModel,
+    registry: PromptRegistry,
+    retriever: Retriever | None,
+) -> StudentSteps | None:
+    """The Aspirational layer (s12): the mentor and roadmap, over the corpus retriever."""
+    if retriever is None:
+        return None
+    mentor = MentorLayer(
+        language_model,
+        registry,
+        retriever,
+        MentorSettings(query_rewrite_enabled=settings.query_rewrite_enabled),
+    )
+    return StudentSteps(mentor=mentor, roadmap=RoadmapLayer(language_model, registry, mentor))
+
+
 def check_startup(settings: Settings) -> None:
     """Fail the deploy, not a turn: raises ConfigError naming what's wrong."""
     ModelPricing.require_allowed_for_user_content(settings.model_text, "MODEL_TEXT")
@@ -513,6 +545,7 @@ def build_orchestrator(
             ),
             clock=clock,
             photos=ports.photos,
+            student=student_steps(settings, language_model, registry, ports.retriever),
         ),
         OrchestratorSettings(
             turn_budget=timedelta(seconds=settings.turn_budget_s),
@@ -563,6 +596,7 @@ class EngineParts:
     media: MediaBlobRepository
     signals: CuriositySignalExtractor
     cards: KhojCardMaker | None  # None while KHOJ_CARD_ENABLED is false
+    memory: MemoryLayer
 
 
 def build_turn_dispatcher(
@@ -640,6 +674,8 @@ def build_turn_dispatcher(
                         if engine_parts.cards is not None
                         else None
                     ),
+                    memory=engine_parts.memory,
+                    memories=ProfileMemoryRepository(session_factory),
                 )
             ),
             nudges=(
@@ -684,4 +720,5 @@ async def close_container(container: Container) -> None:
     await container.voice_adapters.synthesizer.aclose()
     await container.image_generator.aclose()
     await container.image_segmenter.aclose()
+    await container.rag.embedder.aclose()
     await container.engine.dispose()

@@ -33,6 +33,7 @@ from app.domain.models.base import UserHash
 from app.domain.models.reply import ReplyButton
 from app.domain.models.turn import QueuedMessage
 from app.domain.models.usage import StepUsage
+from app.layers.memory_layer import MemoryLayer
 from app.providers.http import RetryPolicy, RetryTiming
 from app.providers.ports import ChannelSender
 from app.safety.safety_gate import SafetyGate
@@ -42,6 +43,7 @@ from app.store.repositories.curiosity_signal_repository import CuriositySignalRe
 from app.store.repositories.inbox_repository import InboundRecord, InboxRepository
 from app.store.repositories.media_blob_repository import MediaBlobRepository
 from app.store.repositories.outbox_repository import OutboxRepository
+from app.store.repositories.profile_memory_repository import ProfileMemoryRepository
 from app.store.repositories.turn_repository import TurnRepository
 from app.store.repositories.turn_step_repository import TurnStepRepository
 from app.store.repositories.user_repository import UserRepository
@@ -163,6 +165,8 @@ def build(
                     clock=clock,
                     timeout=timedelta(seconds=5),
                     cards=None,
+                    memory=MemoryLayer(FakeLanguageModel([]), shipped_registry()),
+                    memories=ProfileMemoryRepository(sessions),
                 )
             ),
             nudges=None,

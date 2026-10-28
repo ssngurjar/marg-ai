@@ -46,6 +46,7 @@ from app.domain.models.writes import (
     MarkPurgeAfterDelivery,
     NudgePreference,
     ProfileChange,
+    SaveRoadmap,
     TurnWrite,
 )
 from app.domain.rules.learner_chooser import LearnerChooser, RecentOffer
@@ -58,6 +59,8 @@ from app.store.repositories.learner_repository import LearnerRepository
 from app.store.repositories.media_blob_repository import MediaBlobRepository
 from app.store.repositories.nudge_repository import NudgeRepository
 from app.store.repositories.outbox_repository import OutboxRepository
+from app.store.repositories.profile_memory_repository import ProfileMemoryRepository
+from app.store.repositories.roadmap_repository import RoadmapRepository
 from app.store.repositories.user_repository import UserRepository
 from app.store.tables import inbox_messages, learner_activities, turns, users
 
@@ -145,6 +148,8 @@ class TurnRepository:
                 last_child_session_end = await ChildSessionRepository.last_ended_at(
                     session, started.user_hash
                 )
+                memory = await ProfileMemoryRepository.get(session, started.user_hash)
+                active_roadmap = await RoadmapRepository.active_for(session, started.user_hash)
         except (SQLAlchemyError, OSError) as exc:
             raise StoreError(f"could not load the turn context: {type(exc).__name__}") from exc
         messages = [queued.message for queued in started.queued]
@@ -172,6 +177,8 @@ class TurnRepository:
             ),
             child_session=child_session,
             last_child_session_ended_at=last_child_session_end,
+            memory=memory,
+            active_roadmap=active_roadmap,
         )
 
     async def finalize(
@@ -427,29 +434,63 @@ def _queued_message(row: Row[tuple[object, ...]]) -> QueuedMessage:
 
 async def _apply(session: AsyncSession, started: StartedTurn, write: TurnWrite) -> None:
     """One write, in list order, inside the finalize transaction."""
+    owner = started.user_hash
     match write:
         case ProfileChange():
-            await UserRepository.apply_profile_change(session, started.user_hash, write)
+            await UserRepository.apply_profile_change(session, owner, write)
         case LearnerUpsert():
-            await LearnerRepository.upsert(session, started.user_hash, write)
+            await LearnerRepository.upsert(session, owner, write)
         case ChildTalkConsent():
-            await LearnerRepository.set_child_talk(session, started.user_hash, write)
+            await LearnerRepository.set_child_talk(session, owner, write)
         case MarkPurgeAfterDelivery():
-            await UserRepository.mark_purge_after(session, started.user_hash, started.turn_id)
-        case ActivityOffered():
-            await JourneyRepository.record_offer(session, started.user_hash, started.turn_id, write)
-        case ActivityReported():
-            await JourneyRepository.record_report(session, started.user_hash, write)
-        case ChildSessionStart():
-            await ChildSessionRepository.start(session, started.user_hash, write)
-        case ChildTalkTurn():
-            await ChildSessionRepository.count_turn(session, started.user_hash, write)
-        case ChildSessionEnd():
-            await ChildSessionRepository.end(session, started.user_hash, write)
-        case NudgePreference():
-            await NudgeRepository.set_preference(session, started.user_hash, write)
+            await UserRepository.mark_purge_after(session, owner, started.turn_id)
         case DeleteInboundMedia():
-            await MediaBlobRepository.delete_inbound(session, started.user_hash, write.blob_id)
+            await MediaBlobRepository.delete_inbound(session, owner, write.blob_id)
+        case (
+            ActivityOffered()
+            | ActivityReported()
+            | ChildSessionStart()
+            | ChildTalkTurn()
+            | ChildSessionEnd()
+            | NudgePreference()
+            | SaveRoadmap()
+        ):
+            await _apply_learning(session, started, write)
+        case _:
+            assert_never(write)
+
+
+type _LearningWrite = (
+    ActivityOffered
+    | ActivityReported
+    | ChildSessionStart
+    | ChildTalkTurn
+    | ChildSessionEnd
+    | NudgePreference
+    | SaveRoadmap
+)
+
+
+async def _apply_learning(
+    session: AsyncSession, started: StartedTurn, write: _LearningWrite
+) -> None:
+    """The writes about a learner's journey: activities, child talk, nudges and plans."""
+    owner = started.user_hash
+    match write:
+        case ActivityOffered():
+            await JourneyRepository.record_offer(session, owner, started.turn_id, write)
+        case ActivityReported():
+            await JourneyRepository.record_report(session, owner, write)
+        case ChildSessionStart():
+            await ChildSessionRepository.start(session, owner, write)
+        case ChildTalkTurn():
+            await ChildSessionRepository.count_turn(session, owner, write)
+        case ChildSessionEnd():
+            await ChildSessionRepository.end(session, owner, write)
+        case NudgePreference():
+            await NudgeRepository.set_preference(session, owner, write)
+        case SaveRoadmap():
+            await RoadmapRepository.save(session, owner, write)
         case _:
             assert_never(write)
 
