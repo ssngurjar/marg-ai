@@ -9,6 +9,7 @@ import pytest
 from app.constants.onboarding_copy import COPY, COPY_VERSION
 from app.core.errors import ProviderUnavailable
 from app.domain.enums import (
+    Channel,
     ConsentEventKind,
     ConversationState,
     CopyKey,
@@ -135,6 +136,41 @@ async def test_a_first_question_is_remembered_and_the_intro_says_so() -> None:
     change = profile_change(result)
     assert change.pending_question == "Mujhe pilot banna hai"
     assert change.language is Language.HINGLISH
+
+
+@pytest.mark.parametrize(
+    ("first_message", "whatsapp_key", "web_key"),
+    [
+        ("Hi", CopyKey.INTRO_CONSENT, CopyKey.INTRO_CONSENT_WEB),
+        (
+            "Mujhe pilot banna hai",
+            CopyKey.INTRO_CONSENT_WITH_QUESTION,
+            CopyKey.INTRO_CONSENT_WITH_QUESTION_WEB,
+        ),
+    ],
+)
+async def test_a_web_visitor_is_told_it_is_a_demo_with_a_cookie_and_a_reset(
+    first_message: str, whatsapp_key: CopyKey, web_key: CopyKey
+) -> None:
+    """s14 §4.9: the same state machine; only the consent wording differs by channel."""
+    on_web, _ = await handle(at(S.NEW, channel=Channel.WEB), text_message(first_message))
+    on_whatsapp, _ = await handle(at(S.NEW), text_message(first_message))
+    assert on_web.reply.body == body(web_key)
+    assert on_whatsapp.reply.body == body(whatsapp_key)
+    assert "cookie" in on_web.reply.body
+    assert "Reset" in on_web.reply.body
+    assert "cookie" not in on_whatsapp.reply.body
+    assert [button.id for button in on_web.reply.buttons] == ["onb:consent:yes", "onb:consent:no"]
+    assert profile_change(on_web).new_state is profile_change(on_whatsapp).new_state
+
+
+@pytest.mark.parametrize("language", list(Language))
+def test_the_web_consent_wording_says_what_a_demo_keeps_in_every_language(
+    language: Language,
+) -> None:
+    web = body(CopyKey.INTRO_CONSENT_WEB, language)
+    assert "Reset" in web
+    assert any(word in web for word in ("cookie", "कुकी"))
 
 
 async def test_a_hindi_first_message_gets_hindi_copy() -> None:

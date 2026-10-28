@@ -17,6 +17,7 @@ from pydantic import BaseModel, ConfigDict
 
 from app.constants.onboarding_copy import (
     ADD_CHILD,
+    CHANNEL_VARIANTS,
     CHILD_FALLBACK,
     CHILD_TALK_NO,
     CHILD_TALK_YES,
@@ -408,7 +409,8 @@ class OnboardingLayer:
         if CopyKey.CONSENT_DECLINED in copy_keys:
             fixed_kind = FixedReplyKind.CONSENT_DECLINED
         language = transition.profile.language or Language.HINGLISH
-        reply = self._reply(copy_keys, language, child_named, new_learner, fixed_kind)
+        shown_keys = [CHANNEL_VARIANTS.get((key, ctx.profile.channel), key) for key in copy_keys]
+        reply = self._reply(shown_keys, language, child_named, new_learner, fixed_kind)
         return OnboardingResult(
             reply=reply,
             writes=writes,

@@ -37,11 +37,12 @@ def user_profile(  # noqa: PLR0913  # one keyword per onboarding field a test se
     consented: bool = True,
     pending_question: str | None = None,
     user_hash: UserHash = USER,
+    channel: Channel = Channel.WHATSAPP,
 ) -> UserProfile:
     """An active, consented parent by default: the user most pipeline tests talk to."""
     return UserProfile(
         user_hash=user_hash,
-        channel=Channel.WHATSAPP,
+        channel=channel,
         state=state,
         role=role,
         grade=None,

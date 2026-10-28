@@ -254,6 +254,8 @@ class CopyKey(StrEnum):
 
     INTRO_CONSENT = "intro_consent"
     INTRO_CONSENT_WITH_QUESTION = "intro_consent_with_question"
+    INTRO_CONSENT_WEB = "intro_consent_web"  # s14 §4.9: the web demo's consent wording
+    INTRO_CONSENT_WITH_QUESTION_WEB = "intro_consent_with_question_web"
     CONSENT_DECLINED = "consent_declined"
     ASK_ROLE = "ask_role"
     STUDENT_COMING_SOON = "student_coming_soon"

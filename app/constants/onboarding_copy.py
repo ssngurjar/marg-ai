@@ -10,15 +10,17 @@ COPY_VERSION is recorded on every consent event: bump it on any text change.
 v onb-2026-10-27.1: written for the MVP (parent and teacher roles); pending the owner's review.
 v onb-2026-10-28.1: the student role opens (S12): ASK_ROLE names students, a third role button.
 v onb-2026-10-28.2: teachers get the Exposure layer (S10): PROFILE_DONE_TEACHER asks for a chapter.
+v onb-2026-10-28.3: the web demo's own consent wording (s14 §4.9): a demo, a cookie, no name or
+  number, Reset deletes everything. WhatsApp's wording is unchanged.
 """
 
 from dataclasses import dataclass
 from typing import Final
 
-from app.domain.enums import CopyKey, Language
+from app.domain.enums import Channel, CopyKey, Language
 from app.domain.models.reply import ReplyButton
 
-COPY_VERSION: Final = "onb-2026-10-28.2"
+COPY_VERSION: Final = "onb-2026-10-28.3"
 
 _HINGLISH = Language.HINGLISH
 _HINDI = Language.HINDI
@@ -116,6 +118,29 @@ _INTRO: Final = {
         "type it.)"
     ),
 }
+_INTRO_WEB: Final = {
+    _HINGLISH: (
+        "Namaste! Main Marg hoon — padhai, career aur bachchon ki seekh mein aapka saathi. Yeh ek "
+        "demo hai: is browser ko sirf ek cookie se pehchana jata hai, aapka naam ya phone number "
+        "nahi liya jata. Aapki madad ke liye hum sirf zaroori jaankari save karenge (jaise class, "
+        "zila, ya bachche ki umar). Upar 'Reset' dabakar kabhi bhi sab delete kar sakte hain. Kya "
+        "aap sahmat hain? (English ya हिंदी mein baat karni ho toh bas wahi likhiye.)"
+    ),
+    _HINDI: (
+        "नमस्ते! मैं मार्ग हूँ — पढ़ाई, करियर और बच्चों की सीख में आपका साथी। यह एक डेमो है: इस "
+        "ब्राउज़र को सिर्फ़ एक कुकी से पहचाना जाता है, आपका नाम या फ़ोन नंबर नहीं लिया जाता। आपकी "
+        "मदद के लिए हम सिर्फ़ ज़रूरी जानकारी सेव करेंगे (जैसे कक्षा, ज़िला, या बच्चे की उम्र)। ऊपर "
+        "'Reset' दबाकर कभी भी सब डिलीट कर सकते हैं। क्या आप सहमत हैं? (Hinglish या English में "
+        "बात करनी हो तो बस वही लिखिए।)"
+    ),
+    _ENGLISH: (
+        "Hi! I'm Marg — your guide for studies, careers and children's learning. This is a demo: "
+        "a cookie identifies this browser, and no name or phone number is collected. To help you, "
+        "we only save what's needed (like class, district, or a child's age). Press 'Reset' at "
+        "the top any time to erase everything. Do you agree? (To talk in Hindi or Hinglish, just "
+        "type it.)"
+    ),
+}
 _QUESTION_REMEMBERED: Final = {
     _HINGLISH: "Aapka sawaal yaad hai — bas 2-3 chhote sawaalon ke baad jawab doonga.",
     _HINDI: "आपका सवाल याद है — बस 2-3 छोटे सवालों के बाद जवाब दूँगा।",
@@ -126,6 +151,11 @@ _TEXTS: Final[dict[CopyKey, dict[Language, str]]] = {
     CopyKey.INTRO_CONSENT: _INTRO,
     CopyKey.INTRO_CONSENT_WITH_QUESTION: {
         language: f"{_QUESTION_REMEMBERED[language]}\n\n{_INTRO[language]}" for language in _INTRO
+    },
+    CopyKey.INTRO_CONSENT_WEB: _INTRO_WEB,
+    CopyKey.INTRO_CONSENT_WITH_QUESTION_WEB: {
+        language: f"{_QUESTION_REMEMBERED[language]}\n\n{_INTRO_WEB[language]}"
+        for language in _INTRO_WEB
     },
     CopyKey.CONSENT_DECLINED: {
         _HINGLISH: (
@@ -355,6 +385,8 @@ _TEXTS: Final[dict[CopyKey, dict[Language, str]]] = {
 _BUTTONS_FOR: Final[dict[CopyKey, dict[Language, tuple[ReplyButton, ...]]]] = {
     CopyKey.INTRO_CONSENT: _CONSENT_BUTTONS,
     CopyKey.INTRO_CONSENT_WITH_QUESTION: _CONSENT_BUTTONS,
+    CopyKey.INTRO_CONSENT_WEB: _CONSENT_BUTTONS,
+    CopyKey.INTRO_CONSENT_WITH_QUESTION_WEB: _CONSENT_BUTTONS,
     CopyKey.ASK_ROLE: _ROLE_BUTTONS,
     CopyKey.ASK_GUARDIAN: _GUARDIAN_BUTTONS,
     CopyKey.GUARDIAN_NEEDED: _GUARDIAN_BUTTONS,
@@ -367,3 +399,10 @@ COPY: Final[dict[tuple[CopyKey, Language], CopyEntry]] = {
     for key, texts in _TEXTS.items()
     for language, text in texts.items()
 }
+
+CHANNEL_VARIANTS: Final[dict[tuple[CopyKey, Channel], CopyKey]] = {
+    (CopyKey.INTRO_CONSENT, Channel.WEB): CopyKey.INTRO_CONSENT_WEB,
+    (CopyKey.INTRO_CONSENT_WITH_QUESTION, Channel.WEB): CopyKey.INTRO_CONSENT_WITH_QUESTION_WEB,
+}
+"""Copy whose wording depends on the channel (s14 §4.9): the key the state machine chose, and
+the channel, give the key whose text is shown. Everything else reads the same everywhere."""

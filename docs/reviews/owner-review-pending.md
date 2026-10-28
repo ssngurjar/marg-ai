@@ -322,6 +322,13 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
 - [ ] **Phone test:** start child talk, ask one question, then stop replying for 10 minutes:
   the parent gets "Mummy-Papa ke liye: aaj Munni ne … ke baare mein baatein ki" once.
 
+## 2q. The web demo's consent wording (s08, s14 §4.9, from 2026-10-28)
+
+- [ ] **Review the legal copy:** `_INTRO_WEB` in `app/constants/onboarding_copy.py` (Hinglish,
+  Hindi, English): "Yeh ek demo hai: is browser ko sirf ek cookie se pehchana jata hai, aapka
+  naam ya phone number nahi liya jata … Upar 'Reset' dabakar kabhi bhi sab delete kar sakte
+  hain." WhatsApp's wording is unchanged. Copy version `onb-2026-10-28.3`.
+
 ## 3. Decisions log entries marked "pending owner review"
 
 - [ ] `docs/design/s05-llm-orchestrator.md`, 2026-10-27 (S5 build choices).
@@ -332,6 +339,7 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
 - [ ] `docs/design/s04-queue-worker.md` and `mvp-scope.md`, 2026-10-28 (E1 upgrade: leases, loops, listener).
 - [ ] `docs/design/s14-web-channel.md` and `mvp-scope.md`, 2026-10-28 (E2 upgrade: the live trace).
 - [ ] `docs/design/s10b-parent-journey.md`, 2026-10-28 (summary for a session the child left).
+- [ ] `docs/design/s08-onboarding.md`, 2026-10-28 (web consent wording).
 - [ ] `docs/design/contracts.md`, 2026-10-25 (`TurnObserver.on_step` result, `GoldenLearner`,
   `SignedTokenCodec`, the `ExtractSignals`/`UpdateMemory` fields).
 

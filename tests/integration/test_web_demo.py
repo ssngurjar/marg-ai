@@ -141,6 +141,8 @@ async def test_a_visitor_gets_a_cookie_and_onboarding_with_a_trace(site: Demo) -
     assert any(step["step"] == "route" for step in turn["steps"])
     [first] = turn["parts"]
     assert "consent" in str(first["buttons"]).lower() or first["buttons"]
+    assert "cookie" in str(first["text"])  # the web's own consent wording (s14 §4.9)
+    assert "Reset" in str(first["text"])
 
 
 async def test_the_trace_names_the_model_behind_each_step(site: Demo) -> None:
