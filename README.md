@@ -224,7 +224,8 @@ lint, types and unit tests, the sidecar's included) and `make test-int` (Postgre
 | Component | Licence |
 |---|---|
 | Muse Spark, Muse Voice Transcribe, Muse Image, SAM 3.1 (Meta Model API) | Meta Model API terms |
-| Muse Spark Open, Llama Guard 4 | Meta's open-weights licences |
+| Muse Spark Open | Muse Model License (Meta) |
+| Llama Guard 4 | Llama 4 Community License (Meta) |
 | Kokoro-82M, kokoro, misaki, transformers | Apache-2.0 |
 | PyTorch | BSD-3-Clause |
 | spaCy, en_core_web_sm | MIT |
@@ -233,5 +234,8 @@ lint, types and unit tests, the sidecar's included) and `make test-int` (Postgre
 | FastAPI, Pydantic, SQLAlchemy, Alembic, PyYAML, structlog | MIT (structlog MIT or Apache-2.0) |
 | asyncpg, openai, cryptography | Apache-2.0 (cryptography Apache-2.0 or BSD-3-Clause) |
 | httpx, Jinja2, uvicorn | BSD-3-Clause |
+
+**Built with Muse Spark Open. Built with Llama.** (The attributions the Muse Model License and
+the Llama 4 Community License ask for.)
 
 Marg's own licence: *(to be chosen by the owner before the repository goes public)*.

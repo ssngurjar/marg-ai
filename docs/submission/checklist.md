@@ -36,8 +36,10 @@ platform by **Wed Nov 4, 9:00 PM ET = Thu Nov 5, 07:30 IST**. Our target: **Nov 
       mentor is one part, with claims, citations and an honest "I don't know"; health questions
       are referred).
 - [ ] Licences of every model and library used (the rules require them to be followed): the
-      README's Licences section lists them, the sidecar's included. Still open: the exact licence
-      names for Muse Spark Open and Llama Guard 4 (from their model pages), and Marg's own
+      README's Licences section lists them, the sidecar's included, with the "Built with Muse
+      Spark Open" and "Built with Llama" attributions. Muse Spark Open: Muse Model License; Llama
+      Guard 4: Llama 4 Community License (from their Hugging Face model cards, 2026-10-29; the
+      licence texts themselves are gated, read them once when logged in). Still open: Marg's own
       licence. The sidecar's Hindi phonemiser (phonemizer-fork, espeak-ng) is GPL-3.0, installed
       as packages and not copied into the repo; check that the licence you choose is fine with
       that.
