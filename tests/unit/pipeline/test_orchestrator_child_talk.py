@@ -7,8 +7,12 @@ nothing; the parent is never shown the child's words.
 
 import pytest
 
-from app.constants.child_talk_copy import CHILD_FALLBACK, CHILD_REFUSE
-from app.core.errors import ProviderResponseInvalid
+from app.constants.child_talk_copy import (
+    CHILD_FALLBACK,
+    CHILD_REFUSE_DANGER,
+    CHILD_REFUSE_OTHER,
+)
+from app.core.errors import ProviderResponseInvalid, ProviderUnavailable
 from app.domain.enums import (
     ChildSessionEndReason,
     CuriosityDomain,
@@ -103,20 +107,94 @@ async def test_after_an_abuse_disclosure_the_parent_is_told_nothing() -> None:
     ]
 
 
-async def test_a_blocked_question_from_a_child_gets_the_child_refusal() -> None:
+REDIRECT_ANSWER = "Bandook se chot lagti hai. Isliye bade hi sambhalte hain."
+REDIRECT_REPLY: dict[str, object] = {
+    "confident": True,
+    "answer": REDIRECT_ANSWER,
+    "find_out": "Taali bajao aur aawaz suno.",
+    "ask_back": "Aawaz kitni door jaati hai?",
+    "who_explores_this": "",
+    "topic": "art_music",
+    "spoken_text": "बंदूक से चोट लगती है। इसलिए बड़े ही संभालते हैं। ताली बजाओ और आवाज़ सुनो।",
+}
+
+
+async def test_a_curious_question_about_weapons_gets_a_redirect_not_a_flat_refusal() -> None:
+    """Owner, 2026-10-28: a blocked child message gets what a kind elder would say: why, and
+    something safe to wonder about. The blocked answer itself is never used."""
+    llm = FakeLanguageModel([REDIRECT_REPLY])
     result = await run(
         in_session("bandook kaise chalate hain?"),
         classifier=flagging(user=[SafetyCategory.INDISCRIMINATE_WEAPONS]),
+        llm=llm,
+    )
+    assert result.outcome.route is Route.CHILD_TALK
+    assert result.outcome.fixed_reply_kind is None
+    assert REDIRECT_ANSWER in result.delivered
+    assert llm.prompts[-1].prompt_id == "child_redirect"
+    assert result.classifier.speakers() == ["user", "assistant"]  # sealed by safety_out
+    assert result.outcome.writes == [ChildTalkTurn(session_id=SESSION_ID, topic=None)] or (
+        result.outcome.writes
+        == [ChildTalkTurn(session_id=SESSION_ID, topic=CuriosityDomain.ART_MUSIC)]
+    )
+
+
+@pytest.mark.parametrize(
+    ("category", "fixed"),
+    [
+        (SafetyCategory.SEXUAL_CONTENT, CHILD_REFUSE_OTHER),
+        (SafetyCategory.PRIVACY, CHILD_REFUSE_OTHER),
+    ],
+)
+async def test_other_blocked_messages_keep_the_fixed_child_refusal(
+    category: SafetyCategory, fixed: dict[Language, str]
+) -> None:
+    llm = FakeLanguageModel([CHILD_REPLY], delay_s=5)
+    result = await run(in_session("kuch bhi"), classifier=flagging(user=[category]), llm=llm)
+    assert result.outcome.fixed_reply_kind is FixedReplyKind.REFUSE
+    assert fixed[Language.HINGLISH] in result.delivered
+    assert all(prompt.prompt_id != "child_redirect" for prompt in llm.prompts)
+    assert result.outcome.writes == []
+
+
+async def test_weapons_with_sexual_content_keeps_the_fixed_refusal() -> None:
+    """A redirect only when every flagged category allows one."""
+    result = await run(
+        in_session("kuch bhi"),
+        classifier=flagging(
+            user=[SafetyCategory.INDISCRIMINATE_WEAPONS, SafetyCategory.SEXUAL_CONTENT]
+        ),
         llm=FakeLanguageModel([CHILD_REPLY], delay_s=5),
     )
     assert result.outcome.fixed_reply_kind is FixedReplyKind.REFUSE
-    assert CHILD_REFUSE[Language.HINGLISH] in result.delivered
-    assert result.outcome.writes == []
+
+
+async def test_a_redirect_the_model_cant_write_falls_back_to_the_fixed_refusal() -> None:
+    down = ProviderUnavailable("down", provider="meta_model_api")
+    result = await run(
+        in_session("bandook kaise chalate hain?"),
+        classifier=flagging(user=[SafetyCategory.INDISCRIMINATE_WEAPONS]),
+        llm=FakeLanguageModel([down]),
+    )
+    assert result.outcome.fixed_reply_kind is FixedReplyKind.REFUSE
+    assert CHILD_REFUSE_DANGER[Language.HINGLISH] in result.delivered
+    assert "child_redirect" in [step.detail for step in result.recorder.steps]
+
+
+async def test_a_redirect_that_fails_its_checks_twice_sends_the_fixed_text_for_its_reason() -> None:
+    gave_up = ProviderResponseInvalid("after repair", provider="meta_model_api", retryable=False)
+    result = await run(
+        in_session("bandook kaise chalate hain?"),
+        classifier=flagging(user=[SafetyCategory.INDISCRIMINATE_WEAPONS]),
+        llm=FakeLanguageModel([gave_up]),
+    )
+    assert CHILD_REFUSE_DANGER[Language.HINGLISH] in result.delivered
+    assert REDIRECT_ANSWER not in result.delivered
 
 
 async def test_a_reply_that_fails_its_child_checks_twice_is_never_sent() -> None:
     """The model's reply kept asking the child's school (the repair didn't fix it): the adapter
-    gives up, and the child gets the kind fixed reply instead."""
+    gives up, the redirect gives up too, and the child gets the kind fixed reply instead."""
     gave_up = ProviderResponseInvalid("after repair", provider="meta_model_api", retryable=False)
     result = await run(in_session(), llm=FakeLanguageModel([gave_up]))
     assert CHILD_FALLBACK[Language.HINGLISH] in result.delivered
@@ -134,7 +212,7 @@ async def test_a_reply_the_guard_flags_is_replaced_by_the_child_refusal() -> Non
     assert result.outcome.fixed_reply_kind is FixedReplyKind.REFUSE
     assert result.outcome.route is Route.CHILD_TALK
     assert CHILD_ANSWER not in result.delivered
-    assert CHILD_REFUSE[Language.HINGLISH] in result.delivered
+    assert CHILD_REFUSE_OTHER[Language.HINGLISH] in result.delivered  # our reply: GENERIC
 
 
 async def test_with_child_talk_switched_off_the_button_goes_to_the_journey() -> None:

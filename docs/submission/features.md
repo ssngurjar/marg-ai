@@ -114,7 +114,11 @@ picture prompt), with a one-line caption checked like any reply. One card per ch
    always "tell Mummy and Papa too".
 4. A session ends after 6 exchanges or 10 minutes, with something to go and look for; then a
    30-minute break.
-5. The parent gets a summary of the **topics** (never the child's words), also when the child
+5. When Marg won't answer something directly (how a gun works, "I'll hit Raju"), it replies
+   like a kind elder: why, gently, and something safe to wonder about or a way to calm down,
+   never a flat "I can't tell you". The blocked answer itself is never used; the redirect is
+   checked like any reply.
+6. The parent gets a summary of the **topics** (never the child's words), also when the child
    just walks away. A child in distress gets a child-worded crisis reply with Childline 1098.
 
 ### Questions about the child

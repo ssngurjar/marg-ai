@@ -36,6 +36,9 @@ from app.constants.child_talk_copy import (
     CHILD_FALLBACK,
     CHILD_GOODBYE,
     CHILD_HELLO,
+    CHILD_REFUSE_DANGER,
+    CHILD_REFUSE_HURTING,
+    CHILD_REFUSE_OTHER,
     CHILD_TALK_COOLDOWN,
     CHILD_TALK_NOT_ENABLED,
     CHILD_TALK_ON_BUTTON,
@@ -49,7 +52,13 @@ from app.constants.child_talk_copy import (
 from app.constants.journey_words import CAREER_WORDS, EXPOSURE_PUSH_WORDS, LABEL_WORDS
 from app.constants.onboarding_copy import CHILD_TALK_YES
 from app.core.errors import ProviderResponseInvalid
-from app.domain.enums import ChildSessionEndReason, CuriosityDomain, Language, StepOutcome
+from app.domain.enums import (
+    ChildSessionEndReason,
+    CuriosityDomain,
+    Language,
+    SafetyCategory,
+    StepOutcome,
+)
 from app.domain.models.child_session import ChildSession
 from app.domain.models.curiosity import CuriositySource
 from app.domain.models.learner import Learner
@@ -88,6 +97,8 @@ class ChildReply(BaseModel):
 
 
 CHILD_TALK: Final = PromptSpec(prompt_id="child_talk", output_type=ChildReply)
+CHILD_REDIRECT: Final = PromptSpec(prompt_id="child_redirect", output_type=ChildReply)
+type RedirectReason = Literal["hurting", "weapons", "rules", "unanswered"]
 YOUNGEST_BAND_MAX_AGE: Final = 5  # 3-5: at most 8 words a sentence; 6-8: at most 12
 
 
@@ -102,6 +113,15 @@ class _Answer:
 
 class ChildTalkLayer:
     WORDS_PER_SENTENCE: ClassVar[dict[Literal["young", "older"], int]] = {"young": 8, "older": 12}
+    REDIRECT_REASONS: ClassVar[dict[SafetyCategory, RedirectReason]] = {
+        SafetyCategory.VIOLENT_CRIMES: "hurting",
+        SafetyCategory.INDISCRIMINATE_WEAPONS: "weapons",
+        SafetyCategory.NON_VIOLENT_CRIMES: "rules",
+    }
+    """A child's message blocked only for these gets a model-written redirect instead of a fixed
+    refusal (owner, 2026-10-28: "think of how a human mentor would reply"). Everything else
+    blocked (sexual content, medical, privacy…) keeps the fixed child refusal."""
+    _REASON_ORDER: ClassVar[tuple[RedirectReason, ...]] = ("hurting", "weapons", "rules")
 
     def __init__(
         self, llm: LanguageModel, registry: PromptRegistry, limits: ChildSessionLimits
@@ -110,18 +130,24 @@ class ChildTalkLayer:
         self._registry = registry
         self._limits = limits
 
-    async def handle(
+    async def handle(  # noqa: PLR0913  # plus the input check's verdict (owner, 2026-10-28)
         self,
         ctx: TurnContext,
         user_text: str,
         interactive_ids: Sequence[str],
         now: datetime,
         register: Language,
+        *,
+        blocked: frozenset[SafetyCategory] = frozenset(),
     ) -> LayerResult:
-        """Raises ProviderError when the model can't be reached (the orchestrator answers)."""
+        """Raises ProviderError when the model can't be reached (the orchestrator answers).
+        `blocked`: the input check blocked the child's message for these (all in
+        REDIRECT_REASONS): the turn gets a redirect, never an answer to what was asked."""
         session = ctx.child_session
         if session is None:
-            return await self._start(ctx, user_text, interactive_ids, now, register)
+            return await self._start(
+                ctx, user_text, interactive_ids, now, register, blocked=blocked
+            )
         learner = _learner(ctx.learners, session.learner_id)
         if ChildTalkLayer._is_account_action(user_text, interactive_ids):
             return _fixed(ASK_A_GROWNUP, register)
@@ -130,17 +156,26 @@ class ChildTalkLayer:
         if ChildSessionRules.says_goodbye(user_text):
             return self._goodbye(session, learner, register, ChildSessionEndReason.CHILD_ENDED, ())
         voice = LocalVoice.for_turn(register, ctx, user_text)
-        return await self._turn(session, learner, user_text, now, register, voice=voice)
+        return await self._turn(
+            session, learner, user_text, now, register, voice=voice, blocked=blocked
+        )
+
+    @staticmethod
+    def redirects(categories: frozenset[SafetyCategory]) -> bool:
+        """A blocked child message gets a redirect only when every category allows one."""
+        return bool(categories) and categories <= frozenset(ChildTalkLayer.REDIRECT_REASONS)
 
     # --- start --------------------------------------------------------------------------------
 
-    async def _start(
+    async def _start(  # noqa: PLR0913  # handle's inputs, passed on
         self,
         ctx: TurnContext,
         user_text: str,
         interactive_ids: Sequence[str],
         now: datetime,
         register: Language,
+        *,
+        blocked: frozenset[SafetyCategory],
     ) -> LayerResult:
         learner = ChildSessionRules.chosen_learner(interactive_ids, user_text, ctx.learners)
         if learner is None:
@@ -157,11 +192,13 @@ class ChildTalkLayer:
             id=uuid4(), learner_id=learner.id, started_at=now, turns_count=0, topics=[]
         )
         start = ChildSessionStart(session_id=session.id, learner_id=learner.id)
-        if not ChildQuestionDetector.asks(user_text):
+        if not blocked and not ChildQuestionDetector.asks(user_text):
             hello = _fixed(CHILD_HELLO, register, name=name)
             return hello.model_copy(update={"writes": [start]})
         voice = LocalVoice.for_turn(register, ctx, user_text)
-        result = await self._turn(session, learner, user_text, now, register, voice=voice)
+        result = await self._turn(
+            session, learner, user_text, now, register, voice=voice, blocked=blocked
+        )
         return result.model_copy(update={"writes": [start, *result.writes]})
 
     # --- a turn and the goodbye -------------------------------------------------------------------
@@ -175,8 +212,15 @@ class ChildTalkLayer:
         register: Language,
         *,
         voice: str,
+        blocked: frozenset[SafetyCategory] = frozenset(),
     ) -> LayerResult:
-        answer = await self._answer(learner, user_text, now, register, voice)
+        if blocked:
+            reason = ChildTalkLayer._reason(blocked)
+            answer = await self._redirect(
+                learner, user_text, now, register, voice=voice, reason=reason
+            )
+        else:
+            answer = await self._answer(learner, user_text, now, register, voice)
         counted = ChildTalkTurn(session_id=session.id, topic=answer.topic)
         source = CuriositySource(
             learner_id=learner.id, kind="child_words", hint_domains=[], activity_title=None
@@ -267,11 +311,92 @@ class ChildTalkLayer:
         try:
             result = await self._llm.generate(rendered.request)
         except ProviderResponseInvalid:
-            # Twice-failed checks: a kind fixed reply, never an unchecked one (DEGRADED)
-            fallback = _child_reply_text(CHILD_FALLBACK[register], None, register)
-            return _Answer(fallback, None, [], versions, "child_fallback=ProviderResponseInvalid")
+            # Twice-failed checks: a redirect instead (owner, 2026-10-28), then fixed text
+            redirect = await self._redirect(
+                learner, user_text, now, register, voice=voice, reason="unanswered"
+            )
+            return _Answer(
+                redirect.text,
+                redirect.topic,
+                redirect.usages,
+                {**versions, **redirect.prompt_versions},
+                redirect.degraded_reason or "child_redirect_after=ProviderResponseInvalid",
+            )
         reply = _ChildText.reply(result.output, register)
         return _Answer(reply, result.output.topic, [result.usage], versions, None)
+
+    async def _redirect(  # noqa: PLR0913  # the same inputs as an answer, plus the reason
+        self,
+        learner: Learner,
+        user_text: str,
+        now: datetime,
+        register: Language,
+        *,
+        voice: str,
+        reason: RedirectReason,
+    ) -> _Answer:
+        """What a kind elder says when they won't answer directly: why, gently, and something
+        safe to wonder about instead. Fixed text if it fails its checks twice."""
+        age = StageRules.age_on(learner.birth_year, now.date())
+        band: Literal["young", "older"] = "young" if age <= YOUNGEST_BAND_MAX_AGE else "older"
+        max_words = self.WORDS_PER_SENTENCE[band]
+        rendered = self._registry.render(
+            CHILD_REDIRECT,
+            system_vars={
+                "language_rule": ParentQuestionLayer.LANGUAGE_RULES[register].replace(
+                    "answer and try_this", "answer, find_out and ask_back"
+                )
+                + f" {voice}",
+                "spoken_rule": ParentQuestionLayer.SPOKEN_RULES[register],
+                "child_age": age,
+                "max_words": max_words,
+                "reason": reason,
+                "topics": ", ".join(domain.value for domain in CuriosityDomain),
+            },
+            user_vars={"child": learner.nickname or "", "child_message": user_text},
+            semantic_check=lambda reply: _ChildChecks.problems(reply, register, max_words),
+        )
+        versions = {rendered.request.prompt.prompt_id: rendered.request.prompt.prompt_version}
+        try:
+            result = await self._llm.generate(rendered.request)
+        except ProviderResponseInvalid:
+            # Twice-failed checks: a kind fixed reply, never an unchecked one (DEGRADED)
+            return _Answer(
+                ChildTalkLayer._redirect_fallback(reason, register),
+                None,
+                [],
+                versions,
+                "child_fallback=ProviderResponseInvalid",
+            )
+        reply = _ChildText.reply(result.output, register)
+        return _Answer(reply, result.output.topic, [result.usage], versions, None)
+
+    @staticmethod
+    def _redirect_fallback(reason: RedirectReason, register: Language) -> CanonicalReply:
+        if reason == "unanswered":
+            return _child_reply_text(CHILD_FALLBACK[register], None, register)
+        copy = {
+            "hurting": CHILD_REFUSE_HURTING,
+            "weapons": CHILD_REFUSE_DANGER,
+            "rules": CHILD_REFUSE_OTHER,
+        }[reason]
+        voice = _voice_language(register)  # these already send the child to Mummy-Papa
+        return CanonicalReply(
+            body=copy[register],
+            body_language=register,
+            spoken_text=copy[voice],
+            citations=[],
+            buttons=[],
+            fixed_kind=None,
+        )
+
+    @staticmethod
+    def _reason(blocked: frozenset[SafetyCategory]) -> RedirectReason:
+        reasons = {ChildTalkLayer.REDIRECT_REASONS[category] for category in blocked}
+        for reason in ChildTalkLayer._REASON_ORDER:
+            if reason in reasons:
+                return reason
+        raise ValueError("a redirect needs a category from REDIRECT_REASONS")
 
     @staticmethod
     def parent_summary(

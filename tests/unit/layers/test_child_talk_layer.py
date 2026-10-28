@@ -1,6 +1,7 @@
 """ChildTalkLayer: a child talking to Marg.ai directly (s10b §4.16, C13)."""
 
 from datetime import timedelta
+from pathlib import Path
 
 import pytest
 from hypothesis import given
@@ -23,7 +24,13 @@ from app.constants.child_talk_copy import (
     WHICH_CHILD_IS_TALKING,
 )
 from app.core.errors import ProviderResponseInvalid, ProviderUnavailable
-from app.domain.enums import ChildSessionEndReason, CuriosityDomain, Language, StepOutcome
+from app.domain.enums import (
+    ChildSessionEndReason,
+    CuriosityDomain,
+    Language,
+    SafetyCategory,
+    StepOutcome,
+)
 from app.domain.models.child_session import ChildSession
 from app.domain.models.learner import Learner
 from app.domain.models.writes import ChildSessionEnd, ChildSessionStart, ChildTalkTurn
@@ -367,3 +374,98 @@ async def test_the_reply_check_lets_any_hazard_but_medicine_be_talked_about() ->
     result, _ = await talk("Saanp ke kaan hote hain kya?", session=open_session(MUNNI), output=told)
     assert result.hazard_rule == TALKABLE_HAZARDS
     assert "medicine" not in TALKABLE_HAZARDS
+
+
+# --- the redirect (owner, 2026-10-28: "think of how a human mentor would reply") ---------------
+
+C = SafetyCategory
+
+
+async def redirect(
+    blocked: frozenset[SafetyCategory],
+    outputs: list[ScriptedOutput],
+    *,
+    starting: bool = False,
+    text: str = "bandook kaise chalti hai?",
+) -> tuple[LayerResult, FakeLanguageModel]:
+    llm = FakeLanguageModel(outputs)
+    layer = ChildTalkLayer(llm, shipped_registry(), LIMITS)
+    ctx = turn_context(text_message(text), learners=[MUNNI]).model_copy(
+        update={"child_session": None if starting else open_session(MUNNI)}
+    )
+    result = await layer.handle(ctx, text, [], NOW, H, blocked=blocked)
+    return result, llm
+
+
+@pytest.mark.parametrize(
+    ("blocked", "reason_line"),
+    [
+        (frozenset({C.INDISCRIMINATE_WEAPONS}), "weapons, bombs or firecrackers"),
+        (frozenset({C.VIOLENT_CRIMES}), "about hurting someone"),
+        (frozenset({C.NON_VIOLENT_CRIMES}), "stealing, cheating or breaking rules"),
+        (frozenset({C.VIOLENT_CRIMES, C.INDISCRIMINATE_WEAPONS}), "about hurting someone"),
+    ],
+)
+async def test_a_blocked_message_gets_the_redirect_prompt_for_its_reason(
+    blocked: frozenset[SafetyCategory], reason_line: str
+) -> None:
+    result, llm = await redirect(blocked, [CHILD_REPLY])
+    prompt = llm.prompts[-1]
+    assert [sent.prompt_id for sent in llm.prompts] == ["child_redirect"]
+    assert reason_line in prompt.system
+    assert result.outcome is StepOutcome.OK
+    assert result.hazard_rule == TALKABLE_HAZARDS
+    assert result.writes == [ChildTalkTurn(session_id=SESSION_ID, topic=CuriosityDomain.EARTH_SKY)]
+
+
+def test_hurting_never_scripts_words_for_the_other_child() -> None:
+    """Owner: "Raju can say 'ohh dar gaya'": no lines to say back, tell Mummy-Papa instead."""
+    template = Path("app/prompts/child_redirect.md.j2").read_text(encoding="utf-8")
+    assert "Never give the child words to say back to the other child" in template
+
+
+@pytest.mark.parametrize("blocked", [frozenset(), frozenset({C.SEXUAL_CONTENT, C.VIOLENT_CRIMES})])
+def test_a_redirect_needs_every_category_to_allow_one(blocked: frozenset[SafetyCategory]) -> None:
+    assert not ChildTalkLayer.redirects(blocked)
+
+
+@pytest.mark.parametrize(
+    "blocked", [frozenset({C.INDISCRIMINATE_WEAPONS}), frozenset({C.VIOLENT_CRIMES})]
+)
+def test_weapons_and_violence_allow_a_redirect(blocked: frozenset[SafetyCategory]) -> None:
+    assert ChildTalkLayer.redirects(blocked)
+
+
+@pytest.mark.parametrize(
+    ("blocked", "fixed"),
+    [
+        (frozenset({C.INDISCRIMINATE_WEAPONS}), copy.CHILD_REFUSE_DANGER),
+        (frozenset({C.VIOLENT_CRIMES}), copy.CHILD_REFUSE_HURTING),
+        (frozenset({C.NON_VIOLENT_CRIMES}), copy.CHILD_REFUSE_OTHER),
+    ],
+)
+async def test_a_redirect_that_fails_twice_is_the_fixed_text_for_its_reason(
+    blocked: frozenset[SafetyCategory], fixed: dict[Language, str]
+) -> None:
+    gave_up = ProviderResponseInvalid("after repair", provider="meta_model_api", retryable=False)
+    result, _ = await redirect(blocked, [gave_up])
+    assert result.reply.body == fixed[H]
+    assert result.outcome is StepOutcome.DEGRADED
+
+
+async def test_an_answer_that_fails_its_checks_twice_is_tried_again_as_a_redirect() -> None:
+    gave_up = ProviderResponseInvalid("after repair", provider="meta_model_api", retryable=False)
+    result, llm = await redirect(frozenset(), [gave_up, CHILD_REPLY], text="aag kyun jalti hai?")
+    assert [sent.prompt_id for sent in llm.prompts] == ["child_talk", "child_redirect"]
+    assert "couldn't give a direct answer" in llm.prompts[-1].system
+    assert result.reply.body.startswith(CHILD_ANSWER)
+    assert result.degraded_reason == "child_redirect_after=ProviderResponseInvalid"
+
+
+async def test_a_blocked_first_message_is_redirected_not_greeted() -> None:
+    """ "Main Munni hoon, main Raju ko maarunga" has no question mark, but it isn't a hello."""
+    result, llm = await redirect(
+        frozenset({C.VIOLENT_CRIMES}), [CHILD_REPLY], starting=True, text="Main Munni hoon"
+    )
+    assert [sent.prompt_id for sent in llm.prompts] == ["child_redirect"]
+    assert any(isinstance(write, ChildSessionStart) for write in result.writes)

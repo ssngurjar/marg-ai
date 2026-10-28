@@ -425,3 +425,13 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
   mentor 1.1.3) and the round-tip scissors phrases in `app/constants/child_hazards.py`.
 - [ ] The weapons and explosives redirect copy (`REFUSE`/`DANGEROUS_MAKING` in
   `app/constants/fixed_replies.py`), in Hinglish, Hindi and English.
+
+## Child talk redirects (2026-10-28)
+
+- [ ] Which blocks get a model-written redirect: S1 (violence), S9 (weapons), S2 (crime) only;
+  sexual content, hate, privacy and medical keep fixed text. Say if hate should be redirected
+  too ("everyone deserves respect").
+- [ ] The redirect prompt `app/prompts/child_redirect.md.j2`, and the fixed child refusals
+  `CHILD_REFUSE_DANGER`, `CHILD_REFUSE_HURTING`, `CHILD_REFUSE_OTHER` in
+  `app/constants/child_talk_copy.py` (ideally with a teacher or counsellor from the village).
+

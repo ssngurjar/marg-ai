@@ -5,7 +5,13 @@ The copy itself lives in app/constants/fixed_replies.py. Fixed replies are seale
 """
 
 from app.constants import fixed_replies
-from app.constants.child_talk_copy import CHILD_CRISIS_SPOKEN, CHILD_CRISIS_TEXTS, CHILD_REFUSE
+from app.constants.child_talk_copy import (
+    CHILD_CRISIS_SPOKEN,
+    CHILD_CRISIS_TEXTS,
+    CHILD_REFUSE,
+    CHILD_REFUSE_BY_VARIANT,
+    CHILD_REFUSE_OTHER,
+)
 from app.constants.fixed_replies import FALLBACK_LANGUAGE, FixedTextKey
 from app.core.errors import ConfigError
 from app.domain.enums import FixedReplyKind, FixedReplyVariant, Language, Speaker
@@ -60,7 +66,12 @@ class FixedReplyService:
             text = CHILD_CRISIS_TEXTS.get((variant, register))
             spoken = CHILD_CRISIS_SPOKEN.get((variant, voice))
         elif kind is FixedReplyKind.REFUSE:
-            text, spoken = CHILD_REFUSE[register], CHILD_REFUSE[voice]
+            copy = (
+                CHILD_REFUSE
+                if variant is FixedReplyVariant.MEDICAL
+                else CHILD_REFUSE_BY_VARIANT.get(variant, CHILD_REFUSE_OTHER)
+            )
+            text, spoken = copy[register], copy[voice]
         else:
             return None
         if text is None or spoken is None:

@@ -88,6 +88,55 @@ CHILD_REFUSE: Final[dict[Language, str]] = {
     _HINDI: "यह बात मम्मी-पापा या डॉक्टर से पूछो। मुझसे कुछ और पूछो!",
     _ENGLISH: "Ask Mummy, Papa or a doctor about that. Ask me something else!",
 }
+# Fixed refusals by reason (owner, 2026-10-28: "ask a doctor" only fits a medical question).
+# Sent when a blocked message can't get a model-written redirect, or the redirect fails.
+CHILD_REFUSE_DANGER: Final[dict[Language, str]] = {
+    _HINGLISH: (
+        "Yeh cheez bahut khatarnak hai, isliye ise sirf bade log sambhalte hain, bachche kabhi"
+        " nahi chhoote. Mujhse poochho: aawaz kaise chalti hai, ya cheezein kaise udti hain?"
+    ),
+    _HINDI: (
+        "यह चीज़ बहुत ख़तरनाक है, इसलिए इसे सिर्फ़ बड़े लोग संभालते हैं, बच्चे कभी नहीं छूते। मुझसे"
+        " पूछो: आवाज़ कैसे चलती है, या चीज़ें कैसे उड़ती हैं?"
+    ),
+    _ENGLISH: (
+        "That is very dangerous, so only grown-ups handle it, and children never touch it. Ask"
+        " me how sound travels, or how things fly!"
+    ),
+}
+CHILD_REFUSE_HURTING: Final[dict[Language, str]] = {
+    _HINGLISH: (
+        "Gussa aana theek hai, par maarne se chot lagti hai. Mummy-Papa ya teacher ko batao,"
+        " woh madad karenge. Mujhse kuch aur poochho!"
+    ),
+    _HINDI: (
+        "गुस्सा आना ठीक है, पर मारने से चोट लगती है। मम्मी-पापा या टीचर को बताओ, वो मदद करेंगे।"
+        " मुझसे कुछ और पूछो!"
+    ),
+    _ENGLISH: (
+        "It's okay to feel angry, but hitting hurts. Tell Mummy, Papa or your teacher, they"
+        " will help. Ask me something else!"
+    ),
+}
+CHILD_REFUSE_OTHER: Final[dict[Language, str]] = {
+    _HINGLISH: (
+        "Yeh baat bade log sambhalte hain. Agar kuch tumhe pareshan kar raha hai, to"
+        " Mummy-Papa ko zaroor batao. Mujhse kuch aur poochho!"
+    ),
+    _HINDI: (
+        "यह बात बड़े लोग संभालते हैं। अगर कुछ तुम्हें परेशान कर रहा है, तो मम्मी-पापा को ज़रूर बताओ। मुझसे कुछ और पूछो!"
+    ),
+    _ENGLISH: (
+        "Grown-ups take care of that. If something is bothering you, do tell Mummy and Papa."
+        " Ask me something else!"
+    ),
+}
+CHILD_REFUSE_BY_VARIANT: Final[dict[FixedReplyVariant, dict[Language, str]]] = {
+    FixedReplyVariant.DANGEROUS_MAKING: CHILD_REFUSE_DANGER,
+    FixedReplyVariant.HARMFUL: CHILD_REFUSE_OTHER,
+}
+"""A blocked child message's fixed reply; MEDICAL keeps CHILD_REFUSE, every other variant gets
+CHILD_REFUSE_OTHER. HARMFUL covers sexual content too, so it never assumes anger."""
 CHILD_FALLBACK: Final[dict[Language, str]] = {
     _HINGLISH: "Bahut accha sawaal! Tumhe kya lagta hai? Mummy-Papa ke saath milkar socho.",
     _HINDI: "बहुत अच्छा सवाल! तुम्हें क्या लगता है? मम्मी-पापा के साथ मिलकर सोचो।",

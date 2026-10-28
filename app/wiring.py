@@ -40,7 +40,7 @@ from app.domain.models.eval_judgement import JudgeScore
 from app.domain.models.voice import VoiceLimits
 from app.domain.rules.child_session_rules import ChildSessionLimits
 from app.layers.activity_catalogue import ActivityCatalogue, CatalogueActivitySource
-from app.layers.child_talk_layer import CHILD_TALK, ChildTalkLayer
+from app.layers.child_talk_layer import CHILD_REDIRECT, CHILD_TALK, ChildTalkLayer
 from app.layers.curiosity_moment_layer import CURIOSITY_MOMENT
 from app.layers.curriculum_catalogue import ChapterCatalogue
 from app.layers.exposure_layer import EXPOSURE, ExposureLayer
@@ -159,6 +159,7 @@ PROMPT_SPECS: Final = (
     PARENT_REFLECTION,
     CURIOSITY_MOMENT,
     CHILD_TALK,
+    CHILD_REDIRECT,
     CURIOSITY_EXTRACT,
     KHOJ_CARD_TEXT,
     QUERY_REWRITE,

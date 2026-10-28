@@ -684,6 +684,11 @@ class _Turn:
             await self._record(self._input_record(started, input_check))
             if input_check.verdict.decision is not SafetyDecision.ALLOW:
                 await self._discard(generation)
+                blocked = frozenset(input_check.verdict.categories)
+                if input_check.verdict.decision is SafetyDecision.BLOCK and layer.redirects(
+                    blocked
+                ):
+                    return await self._child_redirect(layer, interactive_ids, input_check)
                 return self._child_refusal(input_check)
         try:
             layer_result = await generation
@@ -697,6 +702,41 @@ class _Turn:
                 layer_result,
                 StepUsage.total(layer_result.usages),
                 layer_result.degraded_reason,
+                outcome=layer_result.outcome,
+            )
+        )
+        await self._record_skipped(StepName.TRANSLATE, "direct localisation (C3c)")
+        return await self._check_and_seal(layer_result, Route.CHILD_TALK)
+
+    async def _child_redirect(
+        self, layer: ChildTalkLayer, interactive_ids: list[str], check: InputCheck
+    ) -> TurnOutcome:
+        """A child's message blocked for weapons, violence or crime (never a crisis): a
+        model-written redirect from its own prompt, which never answers what was asked, sealed
+        by safety_out like any reply (owner, 2026-10-28; CLAUDE.md §11). Any failure → the
+        fixed child refusal."""
+        started = self.steps.clock.now()
+        redirect = layer.handle(
+            self.ctx,
+            self.user_text,
+            interactive_ids,
+            started,
+            self.register,
+            blocked=frozenset(check.verdict.categories),
+        )
+        try:
+            layer_result = await self._bounded(redirect, self.settings.generate_timeout)
+        except (ProviderError, TimeoutError) as error:
+            await self._record_failure(StepName.GENERATE, started, error, "child_redirect")
+            return self._child_refusal(check)
+        self.prompt_versions = dict(layer_result.prompt_versions)
+        await self._record(
+            _StepRecord(
+                StepName.GENERATE,
+                started,
+                layer_result,
+                StepUsage.total(layer_result.usages),
+                layer_result.degraded_reason or "child_redirect",
                 outcome=layer_result.outcome,
             )
         )

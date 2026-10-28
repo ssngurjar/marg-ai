@@ -311,6 +311,11 @@ app/constants/  reviewed copy (fixed and onboarding replies, crisis words) and e
   may run concurrently and is discarded otherwise), and nothing is sent without `safety-out`.
   **No code path reaches the outbox without a passing `safety-out` verdict.** Tests assert this
   for every route through the pipeline.
+  One exception (owner, 2026-10-28): in child talk, a child's message blocked **only** for
+  violence, weapons or crime (S1, S9, S2; never a crisis, never anything else) gets a
+  model-written redirect from its own prompt (`child_redirect`), which says why and turns to
+  something safe, and never answers what was asked. The blocked answer itself is still
+  discarded, the redirect still needs `safety-out`, and any failure sends the fixed child refusal.
 - **Fail closed.** If Llama Guard errors or times out, the Muse Spark backup check classifies
   instead (owner, 2026-10-27); if the backup fails too, send the fixed holding reply.
   Never send unclassified generated text.

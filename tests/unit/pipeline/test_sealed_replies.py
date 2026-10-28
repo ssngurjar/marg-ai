@@ -8,6 +8,7 @@ import pytest
 
 from app.audio.tts_text_preparer import TtsTextPreparer
 from app.constants import fixed_replies
+from app.constants.child_talk_copy import CHILD_REFUSE, CHILD_REFUSE_DANGER, CHILD_REFUSE_OTHER
 from app.constants.whatsapp import MAX_INTERACTIVE_BODY_CHARS
 from app.core.errors import ConfigError
 from app.domain.enums import (
@@ -272,11 +273,19 @@ def test_a_child_in_crisis_gets_the_child_words_and_the_child_helpline(
 
 
 @pytest.mark.parametrize("variant", list(FixedReplyVariant))
-def test_any_refusal_to_a_child_is_the_child_wording(variant: FixedReplyVariant) -> None:
+def test_any_refusal_to_a_child_is_the_child_wording_for_its_reason(
+    variant: FixedReplyVariant,
+) -> None:
+    """Owner, 2026-10-28: "ask a doctor" only for a medical question."""
     reply = FixedReplyService.localise(
         FixedReplyKind.REFUSE, variant, Language.HINGLISH, Speaker.LEARNER
     )
-    assert reply.text.startswith("Yeh baat Mummy-Papa ya doctor se poochho")
+    expected = {
+        FixedReplyVariant.MEDICAL: CHILD_REFUSE,
+        FixedReplyVariant.DANGEROUS_MAKING: CHILD_REFUSE_DANGER,
+    }.get(variant, CHILD_REFUSE_OTHER)
+    assert reply.text == expected[Language.HINGLISH]
+    assert ("doctor" in reply.text) == (variant is FixedReplyVariant.MEDICAL)
 
 
 def test_other_fixed_replies_are_the_same_for_a_child() -> None:
