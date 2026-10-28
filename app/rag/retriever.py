@@ -1,10 +1,19 @@
-"""Retriever: hybrid search over the corpus, with an honest "nothing relevant" (s11 §4.7).
+"""Retriever: keyword search over the corpus, with an honest "nothing relevant" (s11 §4.7).
 
-Two candidate lists (nearest vectors, and a keyword search that boosts exact exam and scheme
-names), fused by RankFusion, top RETRIEVAL_TOP_K. `nothing_relevant` is set when the best
-vector similarity is below RETRIEVAL_MIN_SIMILARITY and no candidate matched a keyword exactly:
-then the mentor takes the don't-know path and cites nothing. If the question can't be embedded,
-the keyword half still runs (DEGRADED); a database error is raised (the turn fails).
+One candidate list: Postgres full-text search (English stemming) over each chunk's heading and
+text, with exact exam and scheme names boosted. RankFusion then applies the topic hint and at
+most two chunks per document, top RETRIEVAL_TOP_K.
+
+A result is relevant when a name the query rewrite gave (an exam, scheme or course) is exactly
+a document keyword, or when the best text rank reaches RETRIEVAL_MIN_TEXT_RANK. Names found in
+the question by `keywords_in` still boost the order but don't make a result relevant: the
+corpus keywords include generic ones ("class 12", "college") that match almost any question
+(calibrated on 22 questions, s11 decisions log 2026-10-29). Otherwise `nothing_relevant` is set,
+and the mentor takes the don't-know path and cites nothing. A database error is raised (the
+turn fails).
+
+Keyword-only since 2026-10-29: every model Marg calls must be a Meta model, and the vector half
+used multilingual-e5-small (s11 decisions log).
 """
 
 import re
@@ -14,11 +23,8 @@ from uuid import UUID
 
 from pydantic import HttpUrl
 
-from app.core.errors import ProviderError
-from app.domain.enums import EmbedPurpose
 from app.domain.models.retrieval import RetrievalQuery, RetrievalResult, RetrievedChunk
 from app.domain.rules.rank_fusion import FusedHit, RankedHit, RankFusion
-from app.providers.ports import Embedder
 from app.rag.chunk_store import ChunkStore
 from app.store.repositories.chunk_repository import Candidate
 
@@ -26,15 +32,14 @@ from app.store.repositories.chunk_repository import Candidate
 @dataclass(frozen=True, slots=True)
 class RetrieverSettings:
     top_k: int  # RETRIEVAL_TOP_K
-    min_similarity: float  # RETRIEVAL_MIN_SIMILARITY
+    min_text_rank: float  # RETRIEVAL_MIN_TEXT_RANK
 
 
 class Retriever:
     CANDIDATES: ClassVar[int] = 20
     WORD: ClassVar[re.Pattern[str]] = re.compile(r"[^\W_]{2,}")  # letters or digits, ≥ 2 long
 
-    def __init__(self, embedder: Embedder, store: ChunkStore, settings: RetrieverSettings) -> None:
-        self._embedder = embedder
+    def __init__(self, store: ChunkStore, settings: RetrieverSettings) -> None:
         self._store = store
         self._settings = settings
         self._known_keywords: frozenset[str] | None = None
@@ -43,29 +48,20 @@ class Retriever:
         """Raises StoreError when the corpus can't be read."""
         words = self.WORD.findall(query.english_query)
         if not words and not query.keywords:
-            return RetrievalResult(
-                query=query, chunks=[], nothing_relevant=True, degraded_reason=None
-            )
+            return RetrievalResult(query=query, chunks=[], nothing_relevant=True)
         keywords = list(query.keywords) or await self.keywords_in(query.english_query)
-        degraded: str | None = None
-        vector_hits: list[Candidate] = []
-        try:
-            [vector] = await self._embedder.embed([query.english_query], EmbedPurpose.QUERY)
-            vector_hits = await self._store.vector_candidates(vector, grade, self.CANDIDATES)
-        except ProviderError:
-            degraded = "query_embed_failed"
         keyword_query = " OR ".join([*words, *keywords])
         keyword_hits = await self._store.keyword_candidates(
             keyword_query, keywords, grade, self.CANDIDATES
         )
-        chunks = await self._chunks(query, vector_hits, keyword_hits)
-        best = max((hit.score for hit in vector_hits), default=0.0)
-        exact = any(hit.keyword_exact for hit in keyword_hits)
+        chunks = await self._chunks(query, keyword_hits)
+        best_text_rank = max((hit.text_rank for hit in keyword_hits), default=0.0)
+        named_exactly = bool(query.keywords) and any(hit.keyword_exact for hit in keyword_hits)
+        strong_text_match = best_text_rank >= self._settings.min_text_rank
         return RetrievalResult(
             query=query,
             chunks=chunks,
-            nothing_relevant=best < self._settings.min_similarity and not exact,
-            degraded_reason=degraded,
+            nothing_relevant=not (named_exactly or strong_text_match),
         )
 
     async def keywords_in(self, text: str) -> list[str]:
@@ -81,25 +77,19 @@ class Retriever:
         return found[:8]
 
     async def _chunks(
-        self,
-        query: RetrievalQuery,
-        vector_hits: list[Candidate],
-        keyword_hits: list[Candidate],
+        self, query: RetrievalQuery, keyword_hits: list[Candidate]
     ) -> list[RetrievedChunk]:
-        all_hits = [*vector_hits, *keyword_hits]
-        stored = await self._store.load_chunks(list({hit.chunk_id for hit in all_hits}))
+        stored = await self._store.load_chunks(list({hit.chunk_id for hit in keyword_hits}))
         topics = {chunk.document_id: chunk.topic for chunk in stored.values()}
         fused: list[FusedHit] = RankFusion.fuse(
-            [_ranked(vector_hits), _ranked(keyword_hits)],
-            topics,
-            query.topics,
-            self._settings.top_k,
+            [_ranked(keyword_hits)], topics, query.topics, self._settings.top_k
         )
-        similarity = {hit.chunk_id: hit.score for hit in vector_hits}
         keyword_rank: dict[UUID, int] = {}
+        keyword_score: dict[UUID, float] = {}
         exact: set[UUID] = set()
         for rank, keyword_hit in enumerate(keyword_hits, start=1):
             keyword_rank.setdefault(keyword_hit.chunk_id, rank)
+            keyword_score.setdefault(keyword_hit.chunk_id, keyword_hit.score)
             if keyword_hit.keyword_exact:
                 exact.add(keyword_hit.chunk_id)
         chunks: list[RetrievedChunk] = []
@@ -115,8 +105,8 @@ class Retriever:
                     source_url=HttpUrl(chunk.source_url),
                     retrieved_on=chunk.retrieved_on,
                     topic=chunk.topic,
-                    vector_similarity=similarity.get(hit.chunk_id, 0.0),
-                    keyword_rank=keyword_rank.get(hit.chunk_id),
+                    keyword_score=keyword_score[hit.chunk_id],
+                    keyword_rank=keyword_rank[hit.chunk_id],
                     keyword_exact=hit.chunk_id in exact,
                     fused_score=hit.score,
                 )

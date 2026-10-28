@@ -67,7 +67,7 @@ class Harness:
 @pytest.fixture
 async def harness_for() -> AsyncIterator[dict[TtsEngine, Harness]]:
     built: dict[TtsEngine, Harness] = {}
-    for engine in ("kokoro",):
+    for engine in ("mms",):
         clock = FixedClock(NOW)
         sleeper = FakeSleeper(clock)
         retry = RetryPolicy(
@@ -91,15 +91,15 @@ async def harness_for() -> AsyncIterator[dict[TtsEngine, Harness]]:
 
 @pytest.fixture
 def harness(harness_for: dict[TtsEngine, Harness]) -> Harness:
-    return harness_for["kokoro"]
+    return harness_for["mms"]
 
 
 @pytest.mark.parametrize(
     ("engine", "language", "voice", "model"),
     [
-        ("kokoro", Language.HINDI, "hin", "hexgrad/Kokoro-82M"),
-        ("kokoro", Language.HINGLISH, "hin", "hexgrad/Kokoro-82M"),
-        ("kokoro", Language.ENGLISH, "eng", "hexgrad/Kokoro-82M"),
+        ("mms", Language.HINDI, "hin", "facebook/mms-tts-hin"),
+        ("mms", Language.HINGLISH, "hin", "facebook/mms-tts-hin"),
+        ("mms", Language.ENGLISH, "eng", "facebook/mms-tts-eng"),
     ],
 )
 @respx.mock

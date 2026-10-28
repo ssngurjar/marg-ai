@@ -20,7 +20,8 @@ platform by **Wed Nov 4, 9:00 PM ET = Thu Nov 5, 07:30 IST**. Our target: **Nov 
       ML sidecar, the web demo. **Prepared before kickoff:** planning and design docs, golden eval
       cases (test data), the corpus source list. Point to the `pre-kickoff` tag.
 - [ ] The Meta models used and how: Muse Spark, Muse Voice Transcribe, Muse Image, SAM 3.1,
-      Llama Guard 4, Muse Spark Open (C9), Muse Code. The voice is Kokoro-82M (Apache-2.0, self-hosted; not Meta's).
+      Llama Guard 4, Muse Spark Open (C9), Muse Code. Every model called at runtime is Meta's
+      (organisers, 2026-10-29); replies are text until they rule on MMS-TTS's licence.
 - [ ] Safety and children's privacy: no screen for the child, consent, no photos stored, crisis path,
       medical questions referred.
 - [ ] Eval scorecard and `/status` latency numbers.
@@ -62,4 +63,4 @@ Superseded by [video-script.md](video-script.md) for the structure and timings; 
 - [ ] **Most Viral:** post the demo on X; submit the post link on the platform; engagement counts until Nov 8.
 - [ ] **Community Vote:** share the gallery link with our network (one vote per verified account); winner announced Nov 16.
 - [ ] **Best Creative Build:** the khoj card uses Muse Image; mention it in the submission.
-- [ ] **Best Build on Meta Open Weight Models:** C9 runs the reflection and curiosity extraction on Muse Spark Open on Baseten. Kokoro (the voice) is not a Meta model and does not count for this prize.
+- [ ] **Best Build on Meta Open Weight Models:** C9 runs the reflection and curiosity extraction on Muse Spark Open on Baseten.

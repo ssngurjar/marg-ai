@@ -48,7 +48,7 @@ costs more than a feature not shipped: the Indie track is judged on
 - `make test-db-up` / `make test-db-down` — Postgres for integration tests
   (`docker-compose.test.yml`)
 - `make test-int` — alembic upgrade/downgrade/upgrade + check, then `pytest -m integration`
-- `make sidecar` — the ML sidecar (Kokoro voice, `/embed`) on :8100 with `.env`; `make sidecar-check` — its mypy and tests
+- `make sidecar` — the ML sidecar (MMS voice, only with `VOICE_REPLIES_ENABLED=true`) on :8100 with `.env`; `make sidecar-check` — its mypy and tests
 - `make migrate` — `alembic upgrade head` against the LOCAL database only (never a deployed
   database unless asked, §8)
 - `marg eval` on the affected golden cases when a prompt or a layer changes; report the
@@ -148,7 +148,7 @@ as done without a clean run of all four stages is a failed task.
 - `pytest` by default runs `unit` and `contract` tests (hermetic). Integration tests need
   `docker compose -f docker-compose.test.yml up -d` and run with `pytest -m integration`; run them
   whenever `app/store/` or `alembic/` changed.
-- `services/ml_sidecar/` has its own Python 3.12 environment (torch, kokoro). Ruff covers it from
+- `services/ml_sidecar/` has its own Python 3.12 environment (torch, transformers). Ruff covers it from
   the root; its mypy (the same strict settings) and its tests run there: `make sidecar-check`,
   which `make check` includes. Run it whenever the sidecar changed.
 - Report the actual output. Never claim a stage passed if it did not, and never describe a stage

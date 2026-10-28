@@ -1,20 +1,24 @@
 # ML sidecar
 
-Marg's voice and search vectors, behind the contracts in
-[`docs/design/s06-voice.md`](../../docs/design/s06-voice.md) §4.9 and
-[`s11-rag.md`](../../docs/design/s11-rag.md) §4.4:
+Marg's voice for replies, behind the contract in
+[`docs/design/s06-voice.md`](../../docs/design/s06-voice.md) §4.9:
 
 | Endpoint | Model | What it does |
 |---|---|---|
-| `POST /tts` | [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M) (Apache-2.0) | A reply's prepared sentences as one 16-bit mono WAV. Hindi and Hinglish: the `hf_alpha` and `hf_beta` voices blended, at 1.1× speed; English: `af_heart` |
-| `POST /embed` | [multilingual-e5-small](https://huggingface.co/intfloat/multilingual-e5-small) (MIT) | 384-number, L2-normalised vectors for the corpus and for questions |
+| `POST /tts` | Meta's MMS-TTS: [`facebook/mms-tts-hin`](https://huggingface.co/facebook/mms-tts-hin), [`facebook/mms-tts-eng`](https://huggingface.co/facebook/mms-tts-eng) (CC-BY-NC 4.0) | A reply's prepared sentences as one 16-bit mono WAV |
 | `GET /healthz` | | The engine and the models loaded |
 
-Every endpoint but `/healthz` needs `Authorization: Bearer <SIDECAR_TOKEN>`. Requests are
-validated strictly: over-limit input gets 422, never cut.
+**Off by default.** Every model Marg calls must be a Meta model (organisers, 2026-10-29), and
+MMS-TTS is Meta's only speech model for Hindi. Its licence is non-commercial, and the organisers
+are still ruling on whether that fits a prize submission, so the app runs with
+`VOICE_REPLIES_ENABLED=false` (text replies) and never calls this service. Switching it on is
+that one setting plus `make sidecar`.
 
-It has its own Python 3.12 environment, because Kokoro supports up to 3.12 and the main
-service (3.13) never carries PyTorch. From the repository root:
+`/tts` needs `Authorization: Bearer <SIDECAR_TOKEN>`. Requests are validated strictly:
+over-limit input gets 422, never cut.
+
+It has its own Python 3.12 environment, so the main service (3.13) never carries PyTorch. From
+the repository root:
 
 ```sh
 make sidecar-setup    # once

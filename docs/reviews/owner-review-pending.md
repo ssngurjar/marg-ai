@@ -115,18 +115,26 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
   reply, the voice reply's sound, and a silent or 1-second note ("please repeat").
 - [x] **Voice for the demo** (decided 2026-10-28, s06 log): MMS-TTS is the voice in the video and
   the submission; Indic Parler-TTS is on hold (no GPU host) and stays switchable with `TTS_ENGINE`.
-  **Superseded 2026-10-29:** Kokoro-82M (Apache-2.0) is the voice, the female Hindi blend at 1.1×
-  (owner's pick by ear, s06 log). `TTS_ENGINE=kokoro` is set in `.env`; start the sidecar with `make sidecar` (it now lives in `services/ml_sidecar`).
+  **Superseded 2026-10-29 (twice):** Kokoro was chosen, then ruled out (every model must be
+  Meta's). Replies are text (`VOICE_REPLIES_ENABLED=false`) until the organisers rule on
+  MMS-TTS's CC-BY-NC licence; the MMS voice is built in `services/ml_sidecar`.
 - [ ] **Excited spoken wording** (2026-10-29): parent_reflection 1.2.2, child_talk 1.0.4 and
   curiosity_moment 1.0.4 open the spoken text with real wonder ("वाह! … कमाल कर दिया!", "अरे
   वाह, क्या बढ़िया सवाल है!"), short sentences and "!", calm for anything dangerous. Listen on
   the phone.
-- [x] **Ask the organisers** (no longer needed: Kokoro replaced MMS, C8 closed 2026-10-29) in #office-hours whether MMS-TTS (CC-BY-NC 4.0) is fine in a
+- [ ] **Ask the organisers** (open again 2026-10-29: Kokoro is ruled out, MMS is the only Meta voice) in #office-hours whether MMS-TTS (CC-BY-NC 4.0) is fine in a
   hackathon submission, and keep the answer (C8).
   - 2026-10-28, #office-hours auto-reply: an Apache-2.0 TTS model alongside the Meta models is
     fine ("None of the listed Meta models do text-to-speech"); whether CC-BY-NC fits a
     prize-winning submission "is for the organizers to rule on", question passed to them.
     Pending their answer.
+
+- [ ] **When the organisers rule on MMS-TTS:** if allowed, set `VOICE_REPLIES_ENABLED=true`,
+  run `make sidecar`, listen to a few replies on the phone, and restore the voice lines in the
+  video script and form; if not, nothing to do.
+- [ ] **Keyword-only mentor search** (2026-10-29, s11 log): check a few real student questions;
+  a question the corpus covers but Marg says it doesn't know needs that document's exam or
+  scheme name added to its `keywords`. LASER (Meta, BSD) is the next step if quality drops.
 
 ## 2e. Curiosity moment, C11 (from 2026-10-27)
 

@@ -1,30 +1,12 @@
-"""In-memory corpus fakes: an Embedder that counts calls, and a ChunkStore with scripted
-candidates."""
+"""In-memory corpus fake: a ChunkStore with scripted keyword candidates."""
 
 from collections.abc import Collection, Sequence
 from dataclasses import dataclass, field
 from datetime import date
 from uuid import UUID
 
-from app.core.errors import MargError
-from app.domain.enums import CorpusTopic, EmbedPurpose
+from app.domain.enums import CorpusTopic
 from app.store.repositories.chunk_repository import Candidate, ChunkRow, DocumentRow, StoredChunk
-
-DIMENSIONS = 384
-
-
-@dataclass
-class FakeEmbedder:
-    """Satisfies `Embedder`: a constant vector per text; records every call."""
-
-    error: MargError | None = None
-    calls: list[tuple[list[str], EmbedPurpose]] = field(default_factory=list)
-
-    async def embed(self, texts: Sequence[str], purpose: EmbedPurpose) -> list[list[float]]:
-        self.calls.append((list(texts), purpose))
-        if self.error is not None:
-            raise self.error
-        return [[0.05] * DIMENSIONS for _ in texts]
 
 
 def stored(
@@ -47,13 +29,11 @@ class FakeChunkStore:
     """Satisfies `ChunkStore`."""
 
     chunks: dict[UUID, StoredChunk] = field(default_factory=dict)
-    vector_hits: list[Candidate] = field(default_factory=list)
     keyword_hits: list[Candidate] = field(default_factory=list)
     keywords: frozenset[str] = frozenset()
     hashes: dict[str, str] = field(default_factory=dict)
     replaced: list[tuple[DocumentRow, list[ChunkRow]]] = field(default_factory=list)
     keyword_queries: list[tuple[str, list[str], int | None]] = field(default_factory=list)
-    vector_grades: list[int | None] = field(default_factory=list)
 
     async def document_hashes(self) -> dict[str, str]:
         return dict(self.hashes)
@@ -70,12 +50,6 @@ class FakeChunkStore:
 
     async def corpus_keywords(self) -> frozenset[str]:
         return self.keywords
-
-    async def vector_candidates(
-        self, vector: Sequence[float], grade: int | None, limit: int
-    ) -> list[Candidate]:
-        self.vector_grades.append(grade)
-        return self.vector_hits[:limit]
 
     async def keyword_candidates(
         self, keyword_query: str, keywords: Sequence[str], grade: int | None, limit: int

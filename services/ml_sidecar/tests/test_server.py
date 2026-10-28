@@ -1,4 +1,4 @@
-"""The sidecar's HTTP contract (s06 §4.9, s11 §4.4) over fake models."""
+"""The sidecar's HTTP contract (s06 §4.9) over a fake speech model."""
 
 import io
 import wave
@@ -7,32 +7,29 @@ from collections.abc import Iterator
 import pytest
 from fastapi.testclient import TestClient
 
-from sidecar.server import SidecarModels, create_app
+from sidecar.server import create_app
 from sidecar.server_settings import ServerSettings
-from tests.fakes import FakeEmbedder, FakeEngine
+from tests.fakes import FakeEngine
 
 pytestmark = pytest.mark.unit
 
 SHARED_KEY = "test-sidecar-token-0123"
 AUTH = {"Authorization": f"Bearer {SHARED_KEY}"}
-SETTINGS = ServerSettings(engine="kokoro", token=SHARED_KEY, device="cpu", embed_device="cpu")
+SETTINGS = ServerSettings(engine="mms", token=SHARED_KEY, device="cpu")
 
 
 class Sidecar:
-    def __init__(self, client: TestClient, engine: FakeEngine, embedder: FakeEmbedder) -> None:
+    def __init__(self, client: TestClient, engine: FakeEngine) -> None:
         self.client = client
         self.engine = engine
-        self.embedder = embedder
 
 
 def running(engine: FakeEngine) -> Iterator[Sidecar]:
-    embedder = FakeEmbedder()
-
-    def load(_: ServerSettings) -> SidecarModels:
-        return SidecarModels(engine=engine, embedder=embedder, embed_model="fake/embed")
+    def load(_: ServerSettings) -> FakeEngine:
+        return engine
 
     with TestClient(create_app(SETTINGS, load)) as client:
-        yield Sidecar(client, engine, embedder)
+        yield Sidecar(client, engine)
 
 
 @pytest.fixture
@@ -47,7 +44,7 @@ def failing_sidecar() -> Iterator[Sidecar]:
 
 def tts_body(**changes: object) -> dict[str, object]:
     body: dict[str, object] = {
-        "engine": "kokoro",
+        "engine": "mms",
         "voice": "hin",
         "sentences": ["वाह! परछाई घूमती है!", "कल सुबह देखो।"],
     }
@@ -60,8 +57,8 @@ def test_healthz_names_the_engine_and_models_without_a_token(sidecar: Sidecar) -
     assert response.status_code == 200
     assert response.json() == {
         "status": "ok",
-        "engine": "kokoro",
-        "models_loaded": ["fake/speech", "fake/embed"],
+        "engine": "mms",
+        "models_loaded": ["fake/speech"],
     }
 
 
@@ -83,21 +80,17 @@ def test_tts_returns_one_wav_with_silence_between_sentences(sidecar: Sidecar) ->
     [{}, {"Authorization": "Bearer wrong-token-0000000"}, {"Authorization": SHARED_KEY}],
     ids=["missing", "wrong", "no-bearer"],
 )
-def test_tts_and_embed_refuse_a_missing_or_wrong_token(
-    sidecar: Sidecar, headers: dict[str, str]
-) -> None:
-    for path, body in (("/tts", tts_body()), ("/embed", {"texts": ["query: NEET"]})):
-        response = sidecar.client.post(path, json=body, headers=headers)
-        assert response.status_code == 401
-        assert response.json() == {"detail": "unauthorised"}
+def test_tts_refuses_a_missing_or_wrong_token(sidecar: Sidecar, headers: dict[str, str]) -> None:
+    response = sidecar.client.post("/tts", json=tts_body(), headers=headers)
+    assert response.status_code == 401
+    assert response.json() == {"detail": "unauthorised"}
     assert sidecar.engine.spoken == []
-    assert sidecar.embedder.batches == []
 
 
 @pytest.mark.parametrize(
     "changes",
     [
-        {"engine": "mms"},
+        {"engine": "kokoro"},
         {"engine": ""},
         {"voice": "braj"},
         {"sentences": []},
@@ -141,34 +134,3 @@ def test_tts_reports_a_model_that_made_no_audio_as_a_server_error(
     response = failing_sidecar.client.post("/tts", json=tts_body(), headers=AUTH)
     assert response.status_code == 500
     assert response.json() == {"detail": "speech failed"}
-
-
-def test_embed_returns_one_vector_per_text(sidecar: Sidecar) -> None:
-    texts = ["query: डॉक्टर कैसे बनें", "passage: NEET is the entrance exam"]
-    response = sidecar.client.post("/embed", json={"texts": texts}, headers=AUTH)
-    assert response.status_code == 200
-    assert response.json() == {
-        "model": "fake/embed",
-        "dimensions": 3,
-        "vectors": [[1.0, 0.0, 0.0], [1.0, 0.0, 0.0]],
-    }
-    assert sidecar.embedder.batches == [texts]
-
-
-@pytest.mark.parametrize(
-    "body",
-    [
-        {"texts": []},
-        {"texts": [""]},
-        {"texts": ["a" * 4001]},
-        {"texts": ["query: x"] * 33},
-        {"texts": "query: x"},
-        {"texts": ["query: x"], "model": "other"},
-        {},
-    ],
-    ids=["none", "empty-text", "text-4001", "33-texts", "string", "unknown-field", "missing"],
-)
-def test_embed_refuses_invalid_requests(sidecar: Sidecar, body: dict[str, object]) -> None:
-    response = sidecar.client.post("/embed", json=body, headers=AUTH)
-    assert response.status_code == 422
-    assert sidecar.embedder.batches == []

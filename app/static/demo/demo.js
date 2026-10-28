@@ -178,8 +178,30 @@ async function pollWhileStreamIsDown(messageId) {
   }
 }
 
+// Replies are read aloud by the browser's own voice (the Web Speech API), not by a model:
+// every model Marg calls must be a Meta model, and no Meta speech model is cleared for use yet.
+const DEVANAGARI = /[\u0900-\u097F]/;
+
+function addListenButton(bubble, text) {
+  if (!("speechSynthesis" in window) || !text) return;
+  const listen = document.createElement("button");
+  listen.type = "button";
+  listen.className = "quiet listen";
+  listen.textContent = "🔊 Listen";
+  listen.addEventListener("click", () => {
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = DEVANAGARI.test(text) ? "hi-IN" : "en-IN";
+    const voice = window.speechSynthesis.getVoices().find((v) => v.lang === utterance.lang);
+    if (voice) utterance.voice = voice;
+    window.speechSynthesis.speak(utterance);
+  });
+  bubble.appendChild(listen);
+}
+
 function renderReply(turn) {
   let bubble = null;
+  const hasAudio = turn.parts.some((part) => part.kind === "audio" && part.audio_url);
   for (const part of turn.parts) {
     if (part.kind === "audio" && part.audio_url) {
       bubble = bubble || addBubble("bot", "");
@@ -208,6 +230,7 @@ function renderReply(turn) {
       continue;
     }
     bubble = addBubble("bot", part.text || "");
+    if (!hasAudio) addListenButton(bubble, part.text || "");
     if (part.buttons && part.buttons.length) {
       const row = document.createElement("div");
       row.className = "buttons";

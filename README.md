@@ -35,7 +35,7 @@ people already around them.
 
 Marg's reach is the phone already in the house. In rural India, almost 90% of 14–16-year-olds
 report having a smartphone at home ([ASER 2024, p. 48](https://asercentre.org/wp-content/uploads/2022/12/ASER-2024-National-findings.pdf)).
-Marg needs no app and no reading, only WhatsApp and a voice note.
+Marg needs no app, only WhatsApp, and anyone can ask by voice note.
 
 - **It multiplies.** One coached parent reaches a child every day; one teacher reaches a whole
   class; one record carries a child from their first *why* to their first career decision.
@@ -63,8 +63,8 @@ Consent comes first, and a user's data is deleted with one message ("mera data h
   parent one tip about how children learn. A photo of what the child collected is checked for
   people, then counted. Good discoveries become a shareable card.
 - **The child's own questions.** A parent can pass on a question ("chaand roz shape kyun badalta
-  hai?"), or, with one-time consent, the child talks to Marg directly in short, voice-only sessions
-  with strict child-safety rules. When Marg won't answer something directly (how a gun works),
+  hai?"), or, with one-time consent, the child asks Marg directly by voice note, in short
+  sessions with strict child-safety rules (the parent reads the reply aloud). When Marg won't answer something directly (how a gun works),
   it says why, kindly, and turns the curiosity to something safe.
 - **Teachers.** "Kal class 8 mein Force and Pressure padhana hai" → three real fields the chapter
   leads to (at least one outside science, one reachable without a degree), each with a
@@ -93,18 +93,22 @@ Everything that runs was built between **Oct 26 and Nov 4, 2026**. The git tag
 sources**. All code, prompts, the activity catalogue, the corpus files, the web demo, the eval
 harness and the ML sidecar came after it; `git log pre-kickoff..main` shows each step.
 
-**Everything Marg runs is in this repository.** The ML sidecar
-([`services/ml_sidecar/`](services/ml_sidecar/)) speaks the replies with Kokoro-82M and turns
-text into vectors for the source search. It began on Oct 27 as a separate project and moved in
-here on Oct 29, so the whole system can be read, checked and run from one place. It keeps its
-own Python environment because the voice model needs Python 3.12 and PyTorch, which the main
-service doesn't carry.
+**Every model Marg calls is a Meta model**, as the organisers require, and everything Marg runs
+is in this repository. Two consequences, both decided on Oct 29:
 
----
+- **Replies are text.** No Meta speech model is cleared for us yet: Meta's MMS-TTS is
+  CC-BY-NC (non-commercial), and the organisers are still ruling on whether that fits a prize
+  submission. Voice notes *in* still work (Muse Voice Transcribe), and the web demo reads replies
+  aloud with the browser's own voice, which isn't a model call. The MMS voice is built in
+  [`services/ml_sidecar/`](services/ml_sidecar/) and stays off (`VOICE_REPLIES_ENABLED=false`)
+  until they rule.
+- **The source search is keyword search in Postgres**, with Muse Spark turning a Hindi or
+  Hinglish question into English search terms first. An earlier version also used a non-Meta
+  embedding model; it was removed.
 
-## The models: eight, each with one job (six from Meta)
+## The models: six from Meta, each with one job
 
-Marg is a **compound AI system**: several models and components working together behind a
+Marg is a **compound AI system**: six Meta models and plain code working together behind a
 deterministic router, rather than one chatbot.
 
 | Model | Where it runs | What it does in Marg |
@@ -115,8 +119,6 @@ deterministic router, rather than one chatbot.
 | **Muse Image** | Meta Model API | The khoj card. No child and no name ever go into the image prompt |
 | **SAM 3.1** | Meta Model API | First proves no person is in a child's photo (otherwise it's dropped unseen), then counts the leaves or stones the child collected. Photos are never stored |
 | **Llama Guard 4** | DeepInfra | Every message and every reply, written and spoken, with Muse Spark as the second opinion and the backup |
-| Kokoro-82M (open weights) | the ML sidecar, self-hosted | Spoken replies in Hindi and English (not a Meta model; chosen by ear and by a transcription check against MMS-TTS) |
-| multilingual-e5-small | the ML sidecar, self-hosted | Embeddings for the official-source search (not a Meta model) |
 
 Every generative call returns **structured output** validated into a typed model, with one
 repair retry carrying the validation error; model ids, timeouts and cost caps live in
@@ -197,13 +199,12 @@ make setup                               # both environments from their lockfile
 cp .env.example .env                     # then fill in the keys
 docker compose up -d postgres            # the database
 make migrate                             # the schema
-make sidecar                             # in a second terminal: the voice and the search vectors
 .venv/bin/python -m app.cli ingest-corpus   # the official sources, for the mentor
 .venv/bin/uvicorn app.main:create_app --factory --port 8000
 open http://127.0.0.1:8000/demo
 ```
 
-Without the sidecar, replies are text only and the mentor can't search its sources
+The ML sidecar (`make sidecar`) is needed only with `VOICE_REPLIES_ENABLED=true`
 ([guide, §2.1](docs/guides/debugging-and-architecture.md)). The checks: `make check` (format,
 lint, types and unit tests, the sidecar's included) and `make test-int` (Postgres).
 
@@ -212,7 +213,7 @@ lint, types and unit tests, the sidecar's included) and `make test-int` (Postgre
 | Path | What's there |
 |---|---|
 | [`app/`](app/) | The service: `api`, `channels`, `pipeline`, `layers`, `safety`, `domain`, `providers`, `store`, `worker`, `rag`, `evals`, `prompts`, `constants` |
-| [`services/ml_sidecar/`](services/ml_sidecar/) | The ML sidecar: Kokoro-82M speech (`/tts`) and multilingual-e5-small vectors (`/embed`), in its own Python 3.12 environment |
+| [`services/ml_sidecar/`](services/ml_sidecar/) | The ML sidecar: Meta's MMS-TTS voice (`/tts`), off until the organisers rule on its licence; its own Python 3.12 environment |
 | [`content/activities/`](content/activities/) | The 10 reviewed discovery activities, their hazards and materials |
 | [`corpus/`](corpus/) | The official sources for the mentor, each with `source_url` and `retrieved_on` |
 | [`evals/`](evals/) | Golden cases and scorecards |
@@ -226,11 +227,8 @@ lint, types and unit tests, the sidecar's included) and `make test-int` (Postgre
 | Muse Spark, Muse Voice Transcribe, Muse Image, SAM 3.1 (Meta Model API) | Meta Model API terms |
 | Muse Spark Open | Muse Model License (Meta) |
 | Llama Guard 4 | Llama 4 Community License (Meta) |
-| Kokoro-82M, kokoro, misaki, transformers | Apache-2.0 |
-| PyTorch | BSD-3-Clause |
-| spaCy, en_core_web_sm | MIT |
-| phonemizer-fork, espeak-ng (bundled by espeakng-loader) | GPL-3.0: Kokoro's Hindi phonemiser, installed as packages (not copied here) and run only inside the sidecar |
-| multilingual-e5-small | MIT |
+| MMS-TTS (`facebook/mms-tts-hin`, `-eng`): only with `VOICE_REPLIES_ENABLED=true`, off | CC-BY-NC 4.0 |
+| PyTorch, transformers (the sidecar only) | BSD-3-Clause; Apache-2.0 |
 | FastAPI, Pydantic, SQLAlchemy, Alembic, PyYAML, structlog | MIT (structlog MIT or Apache-2.0) |
 | asyncpg, openai, cryptography | Apache-2.0 (cryptography Apache-2.0 or BSD-3-Clause) |
 | httpx, Jinja2, uvicorn | BSD-3-Clause |

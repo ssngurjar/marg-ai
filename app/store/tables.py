@@ -56,7 +56,6 @@ from app.domain.enums import (
     StepOutcome,
     TurnStatus,
 )
-from app.store.vector_column import VectorColumn
 
 metadata = MetaData(
     naming_convention={
@@ -414,8 +413,6 @@ rate_limit_counters = Table(
     Index(None, "window_start"),
 )
 
-EMBEDDING_DIMENSIONS = 384  # intfloat/multilingual-e5-small (s11 §4.4)
-
 corpus_documents = Table(
     "corpus_documents",
     metadata,
@@ -446,15 +443,13 @@ corpus_chunks = Table(
     Column("position", SmallInteger, nullable=False),
     Column("heading_path", Text, nullable=False),
     Column("text", Text, nullable=False),
-    Column("embedding", VectorColumn(EMBEDDING_DIMENSIONS), nullable=False),
-    Column("tsv", TSVECTOR, Computed("to_tsvector('simple', text)", persisted=True)),
-    UniqueConstraint("document_id", "position"),
-    Index(
-        "ix_corpus_chunks_embedding_hnsw",
-        "embedding",
-        postgresql_using="hnsw",
-        postgresql_ops={"embedding": "vector_cosine_ops"},
+    # Keyword retrieval only (s11, 2026-10-29): English stemming over the heading and the text.
+    Column(
+        "tsv",
+        TSVECTOR,
+        Computed("to_tsvector('english', heading_path || ' ' || text)", persisted=True),
     ),
+    UniqueConstraint("document_id", "position"),
     Index("ix_corpus_chunks_tsv", "tsv", postgresql_using="gin"),
 )
 

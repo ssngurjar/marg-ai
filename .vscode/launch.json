@@ -1,8 +1,8 @@
 {
   // Run and debug Marg.ai from VS Code (Run and Debug panel, or F5).
-  // The ML sidecar (Kokoro-82M speech, e5 embeddings) lives in services/ml_sidecar with its own
-  // venv: run `make sidecar-setup` once. Both servers read this repo's .env (TTS_ENGINE and
-  // SIDECAR_TOKEN are shared).
+  // The ML sidecar (Meta's MMS-TTS voice, needed only with VOICE_REPLIES_ENABLED=true) lives in
+  // services/ml_sidecar with its own venv: run `make sidecar-setup` once. Both servers read this
+  // repo's .env (TTS_ENGINE and SIDECAR_TOKEN are shared).
   // Needs the "Python Debugger" extension (it brings debugpy; nothing to install in the venvs).
   "version": "0.2.0",
   "configurations": [
@@ -26,7 +26,7 @@
       "justMyCode": true
     },
     {
-      "name": "ML sidecar (Kokoro voice + embeddings)",
+      "name": "ML sidecar (MMS voice)",
       "type": "debugpy",
       "request": "launch",
       "module": "uvicorn",
@@ -58,7 +58,7 @@
   "compounds": [
     {
       "name": "Marg.ai: API + ML sidecar",
-      "configurations": ["ML sidecar (Kokoro voice + embeddings)", "Marg.ai API + worker"],
+      "configurations": ["ML sidecar (MMS voice)", "Marg.ai API + worker"],
       "stopAll": true
     }
   ]

@@ -94,6 +94,7 @@ h2 { margin: 0 0 8px; font-size: 1rem; }
 .bubble.you { align-self: flex-end; background: var(--you); }
 .bubble .state { display: block; font-size: 0.8rem; color: var(--muted); }
 .bubble audio { display: block; margin-top: 6px; max-width: 100%; }
+.bubble .listen { display: block; margin-top: 6px; }
 .bubble img { display: block; margin-top: 6px; max-width: 100%; border-radius: 8px; }
 
 .buttons { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }

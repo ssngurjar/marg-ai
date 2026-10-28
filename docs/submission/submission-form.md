@@ -58,8 +58,8 @@ scorecard, and that the field test happened.)*
 
 ## Describe your use of Meta products to build the submitted project
 
-> Marg is a compound AI system: eight models, each with one job, behind a deterministic router
-> and a safety gate on both sides.
+> Marg is a compound AI system: six Meta models, each with one job, behind a deterministic router
+> and a safety gate on both sides. Every model it calls at runtime is a Meta model.
 >
 > - **Muse Spark 1.3 (Model API):** plans and personalises each discovery, answers parents,
 >   writes teachers' chapter bridges, the student mentor and plans, talks with children, and
@@ -77,8 +77,9 @@ scorecard, and that the field test happened.)*
 >   second opinion and as the backup when it is down.
 > - **Muse Code:** wrote parts of the code under our review.
 >
-> The other two models aren't Meta's: Kokoro-82M (Apache-2.0, self-hosted) speaks the replies,
-> and multilingual-e5-small finds passages in our official sources.
+> The official-source search is keyword search in Postgres, after Muse Spark turns a Hindi or
+> Hinglish question into English search terms. Replies are text: Meta's MMS-TTS is built in as
+> the voice, switched off until the organisers rule on its non-commercial licence.
 >
 > An LLM judge (Muse Spark) scores 78 golden cases through the real pipeline on every change;
 > crisis and adversarial cases are hard gates.
@@ -90,8 +91,8 @@ scorecard, and that the field test happened.)*
 ## Why are Meta's models important to your solution?
 
 > Because the families I build for speak, they don't type. Muse Voice Transcribe hears a
-> parent's Hindi voice note on a cheap phone, and the reply comes back as a voice note, so a
-> parent who can't read a long message still gets the whole discovery.
+> parent's Hindi, Hinglish or Braj voice note on a cheap phone, and Marg replies in the same
+> language and register.
 >
 > Because children are involved, safety can't be one model's guess. Llama Guard 4 and a Muse
 > Spark policy check read every message in parallel, and each covers the other's blind spots: on
@@ -105,8 +106,7 @@ scorecard, and that the field test happened.)*
 > cent per reply in model calls, measured in our eval runs.
 >
 > And because one family of models covers voice in, text, images, segmentation and safety, the
-> whole system speaks one structured-output contract end to end. (Meta's models don't speak, so
-> the voice out is Kokoro-82M, an Apache-2.0 open-weights model we host ourselves.)
+> whole system speaks one structured-output contract end to end.
 
 ---
 
@@ -124,6 +124,9 @@ scorecard, and that the field test happened.)*
 >   finish its JSON; the limit being shared between reasoning and output wasn't obvious.
 > - **WhatsApp Cloud API:** the messaging token can't read its own phone-number object, so there
 >   is no cheap health check for the channel.
+> - **No commercially licensed Meta text-to-speech.** Our users often can't read long messages,
+>   and MMS-TTS, the only Meta voice for Hindi, is CC-BY-NC. A Meta speech model under a
+>   permissive licence, or speech output in the Model API, would let Marg reply by voice.
 > - **Muse Image** returns a ~5 MB PNG; a size or format option would save a re-encode before
 >   sending on WhatsApp.
 

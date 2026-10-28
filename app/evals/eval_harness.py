@@ -1,7 +1,7 @@
 """EvalHarness: a disposable database and the real pipeline, wired for one eval run (s15 §4.2).
 
 On entry it creates `marg_eval_<run id>` on the TEST Postgres, migrates it with the normal
-migrations, loads the official-source corpus into it (real embeddings), and wires the production
+migrations, loads the official-source corpus into it, and wires the production
 orchestrator with real models and safety. Only text-to-speech and khoj-card pictures are
 recorded instead of made (unless asked), and replies go to the web channel, so nothing reaches
 WhatsApp. On exit it drops the database (unless keep_db), even after a crash.
@@ -28,7 +28,7 @@ from app.channels.web.web_sender import WebSender
 from app.constants.onboarding_copy import COPY_VERSION
 from app.core.clock import Clock, SystemClock
 from app.core.config import Settings
-from app.core.errors import ConfigError, CorpusValidationError, ProviderError, StoreError
+from app.core.errors import ConfigError, CorpusValidationError, StoreError
 from app.core.user_identity import UserIdentity
 from app.domain.enums import Channel, MessageKind
 from app.domain.models.base import UserHash
@@ -385,11 +385,11 @@ class EvalHarness:
         )
 
     async def _ingest_corpus(self, wired: "_Wired") -> None:
-        """The corpus with real embeddings: retrieval is part of what's measured."""
+        """The real corpus: retrieval is part of what's measured."""
         try:
             files = CorpusLoader.load(self._clock.now().date())
-            await CorpusIngestor(wired.rag.embedder, wired.rag.store).ingest(files, dry_run=False)
-        except (CorpusValidationError, ProviderError) as exc:
+            await CorpusIngestor(wired.rag.store).ingest(files, dry_run=False)
+        except CorpusValidationError as exc:
             raise StoreError(f"eval corpus: {type(exc).__name__}: {exc}") from exc
 
     async def _close(self) -> None:

@@ -16,7 +16,6 @@ class ServerSettings:
     engine: Engine  # TTS_ENGINE, the same value as the app's
     token: str  # SIDECAR_TOKEN, the same value as the app's
     device: str  # TTS_DEVICE
-    embed_device: str  # EMBED_DEVICE
 
     MIN_TOKEN_CHARS: ClassVar[int] = 16
 
@@ -40,5 +39,4 @@ class ServerSettings:
             engine=engine,
             token=token,
             device=environment.get("TTS_DEVICE", default_device),
-            embed_device=environment.get("EMBED_DEVICE", "cpu"),
         )

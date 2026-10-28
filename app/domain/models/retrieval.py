@@ -27,8 +27,8 @@ class RetrievedChunk(DomainModel):
     source_url: HttpUrl
     retrieved_on: date
     topic: CorpusTopic
-    vector_similarity: float  # 1 - cosine distance; 0 when only the keyword search found it
-    keyword_rank: int | None  # 1-based rank in the keyword list, None when not in it
+    keyword_score: float  # full-text rank, +1 when a document keyword matched exactly
+    keyword_rank: int  # 1-based rank in the keyword search
     keyword_exact: bool  # a document keyword matched one of the query's keywords exactly
     fused_score: float
 
@@ -37,4 +37,3 @@ class RetrievalResult(DomainModel):
     query: RetrievalQuery
     chunks: list[RetrievedChunk]  # at most RETRIEVAL_TOP_K, best first
     nothing_relevant: bool  # True: S12 takes the don't-know path and cites nothing
-    degraded_reason: str | None  # e.g. "query_embed_failed" when only keywords were searched

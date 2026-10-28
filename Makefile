@@ -52,9 +52,9 @@ worker:
 migrate:
 	.venv/bin/alembic upgrade head
 
-# The ML sidecar (services/ml_sidecar): Kokoro-82M speech and e5 embeddings, in its own Python
-# 3.12 environment. `make sidecar` serves it on :8100 with this repo's .env (TTS_ENGINE,
-# SIDECAR_TOKEN).
+# The ML sidecar (services/ml_sidecar): Meta's MMS-TTS voice, needed only with
+# VOICE_REPLIES_ENABLED=true, in its own Python 3.12 environment. `make sidecar` serves it on
+# :8100 with this repo's .env (TTS_ENGINE, SIDECAR_TOKEN).
 sidecar-setup:
 	cd services/ml_sidecar && uv sync
 

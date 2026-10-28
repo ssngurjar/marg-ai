@@ -52,7 +52,7 @@ class SidecarSynthesizer:
     """Satisfies `Synthesizer`."""
 
     MODELS: ClassVar[dict[TtsEngine, dict[Voice, str]]] = {
-        "kokoro": {"hin": "hexgrad/Kokoro-82M", "eng": "hexgrad/Kokoro-82M"},
+        "mms": {"hin": "facebook/mms-tts-hin", "eng": "facebook/mms-tts-eng"},
     }
     DURATION_HEADER: ClassVar[str] = "x-audio-duration-ms"
 

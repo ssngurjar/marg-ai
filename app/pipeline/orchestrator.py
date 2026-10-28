@@ -160,6 +160,7 @@ class VoiceSteps:
     synthesizer: Synthesizer
     audio_store: ReplyAudioStore
     limits: VoiceLimits
+    voice_replies_enabled: bool  # VOICE_REPLIES_ENABLED: off, the reply stays text only
     reply_audio_for_text_input: bool  # REPLY_AUDIO_FOR_TEXT_INPUT (C9)
 
 
@@ -1139,11 +1140,13 @@ class _Turn:
         return _FixedChoice(kind, FixedReplyVariant.DEFAULT, Route.REPEAT_PLEASE)
 
     async def _with_voice(self, outcome: TurnOutcome) -> TurnOutcome:
-        """The sealed reply as a voice note too, when the user spoke (or REPLY_AUDIO_FOR_TEXT_
-        INPUT). Its spoken text passed safety_out with the text. Any failure leaves the reply
-        as text only (DEGRADED, s06 §8)."""
+        """The sealed reply as a voice note too, when voice replies are on and the user spoke (or
+        REPLY_AUDIO_FOR_TEXT_INPUT). Its spoken text passed safety_out with the text. Any failure
+        leaves the reply as text only (DEGRADED, s06 §8)."""
         voice = self.steps.voice
-        if self.sealed is None or not (self.voice_turn or voice.reply_audio_for_text_input):
+        if self.sealed is None or not voice.voice_replies_enabled:
+            return outcome
+        if not (self.voice_turn or voice.reply_audio_for_text_input):
             return outcome
         safe = self.sealed.safe
         started = self.steps.clock.now()

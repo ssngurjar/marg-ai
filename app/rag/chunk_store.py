@@ -17,10 +17,6 @@ class ChunkStore(Protocol):
 
     async def corpus_keywords(self) -> frozenset[str]: ...
 
-    async def vector_candidates(
-        self, vector: Sequence[float], grade: int | None, limit: int
-    ) -> list[Candidate]: ...
-
     async def keyword_candidates(
         self, keyword_query: str, keywords: Sequence[str], grade: int | None, limit: int
     ) -> list[Candidate]: ...

@@ -69,7 +69,6 @@ from app.pipeline.orchestrator import (
     VoiceSteps,
 )
 from app.prompts.prompt_registry import PromptRegistry, PromptSettings, PromptSpec
-from app.providers.embeddings.sidecar_embedder import EmbedderConfig, SidecarEmbedder
 from app.providers.health.http_health_check import HealthEndpoint, HttpHealthCheck
 from app.providers.http import AsyncioSleeper, RetryPolicy, RetryTiming
 from app.providers.image.image_compressor import ImageCompressor
@@ -365,9 +364,10 @@ def provider_probes(
     settings: Settings, providers: "Providers", checks: HealthChecks, clock: Clock
 ) -> tuple[ReadinessProbe, ...]:
     """s16 §4.3: the model API and safety are critical (without safety every reply is a holding
-    reply); the voice server isn't (text still goes out). Each is cached so `/readyz` polling
-    never hammers a paid or rate-limited API. WhatsApp has no probe: the messaging token can't
-    read any object (owner checks a real reply instead, pre-demo checklist)."""
+    reply); the ML sidecar isn't (text still goes out), and it is probed only when voice
+    replies are on, since nothing else calls it. Each is cached so `/readyz` polling never
+    hammers a paid or rate-limited API. WhatsApp has no probe: the messaging token can't read
+    any object (owner checks a real reply instead, pre-demo checklist)."""
 
     async def safety_allows_a_greeting() -> None:
         verdict, _ = await providers.safety_classifier.classify(
@@ -376,7 +376,7 @@ def provider_probes(
         if verdict.categories:
             raise ProviderUnavailable("safety host flags a greeting", provider="llama_guard")
 
-    return (
+    probes = (
         ReadinessProbe(
             name="model_api",
             critical=True,
@@ -387,12 +387,15 @@ def provider_probes(
             critical=True,
             check=CachedCheck(safety_allows_a_greeting, PROVIDER_PROBE_TTL, clock),
         ),
-        ReadinessProbe(
-            name="sidecar",
-            critical=False,
-            check=CachedCheck(checks.sidecar.check, PROVIDER_PROBE_TTL, clock),
-        ),
     )
+    if not settings.voice_replies_enabled:
+        return probes
+    sidecar = ReadinessProbe(
+        name="sidecar",
+        critical=False,
+        check=CachedCheck(checks.sidecar.check, PROVIDER_PROBE_TTL, clock),
+    )
+    return (*probes, sidecar)
 
 
 async def schema_is_current(engine: AsyncEngine) -> None:
@@ -448,38 +451,22 @@ def build_retry(clock: Clock) -> RetryPolicy:
 
 @dataclass(frozen=True, slots=True)
 class RagParts:
-    """Retrieval over the corpus (s11): the embedder is kept so it can be closed."""
+    """Retrieval over the corpus (s11): keyword search in Postgres, no model."""
 
-    embedder: SidecarEmbedder
     store: ChunkRepository
     retriever: Retriever
 
 
-def build_rag(
-    settings: Settings,
-    session_factory: async_sessionmaker[AsyncSession],
-    retry: RetryPolicy,
-    clock: Clock,
-) -> RagParts:
-    embedder = SidecarEmbedder(
-        config=EmbedderConfig(
-            base_url=str(settings.sidecar_base_url),
-            token=settings.sidecar_token,
-            model=settings.embed_model,
-            timeout_s=settings.timeout_embed_s,
-        ),
-        retry=retry,
-        clock=clock,
-    )
+def build_rag(settings: Settings, session_factory: async_sessionmaker[AsyncSession]) -> RagParts:
     store = ChunkRepository(session_factory)
     retriever = Retriever(
-        embedder,
         store,
         RetrieverSettings(
-            top_k=settings.retrieval_top_k, min_similarity=settings.retrieval_min_similarity
+            top_k=settings.retrieval_top_k,
+            min_text_rank=settings.retrieval_min_text_rank,
         ),
     )
-    return RagParts(embedder, store, retriever)
+    return RagParts(store, retriever)
 
 
 def build_voice_adapters(
@@ -543,6 +530,7 @@ def voice_steps(settings: Settings, adapters: VoiceAdapters) -> VoiceSteps:
             min_voiced_ms=settings.min_voiced_ms,
             max_duration_ms=settings.max_voice_note_seconds * 1000,
         ),
+        voice_replies_enabled=settings.voice_replies_enabled,
         reply_audio_for_text_input=settings.reply_audio_for_text_input,
     )
 
@@ -763,7 +751,7 @@ def build_providers(
         clock=clock,
     )
     voice_adapters = build_voice_adapters(settings, session_factory, retry, clock)
-    rag = build_rag(settings, session_factory, retry, clock)
+    rag = build_rag(settings, session_factory)
     image_generator = MuseImageGenerator(
         config=ImageModelConfig(
             base_url=str(settings.model_api_base_url),
@@ -1056,7 +1044,6 @@ async def close_providers(providers: Providers) -> None:
     await providers.voice_adapters.synthesizer.aclose()
     await providers.image_generator.aclose()
     await providers.image_segmenter.aclose()
-    await providers.rag.embedder.aclose()
 
 
 async def close_container(container: Container) -> None:
@@ -1070,7 +1057,6 @@ async def close_container(container: Container) -> None:
     await container.voice_adapters.synthesizer.aclose()
     await container.image_generator.aclose()
     await container.image_segmenter.aclose()
-    await container.rag.embedder.aclose()
     await container.engine.dispose()
     await container.listener_engine.dispose()
     await container.health_checks.model_api.aclose()

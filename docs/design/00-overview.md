@@ -44,7 +44,7 @@ signals for students, keyed by learner so one child's record can span the years 
 |---|---|---|---|
 | **api** | `uvicorn app.main:create_app --factory` | Verify, parse, write `inbox_messages`, return quickly. Serve `/demo`, its SSE stream, `/dashboard`, `/status`, health. | Call a model. Process a turn. |
 | **worker** | `python -m app.worker` (package `app/worker/`) | Turn loop (lease a user, run the pipeline, finalize), outbox loop (deliver), post-turn tasks, **nudge loop** (daily parent templates), maintenance (leases, purges, retention). | Serve HTTP. |
-| **ml-sidecar** | FastAPI service in `services/ml_sidecar/` (its own Python 3.12 environment) | `/tts` (Kokoro-82M, Hindi and English), `/embed` (multilingual-e5-small). | Hold state or touch the database. |
+| **ml-sidecar** | FastAPI service in `services/ml_sidecar/` (its own Python 3.12 environment) | `/tts` (Meta's MMS-TTS, Hindi and English), only with `VOICE_REPLIES_ENABLED=true` (off: every model must be Meta's and MMS is CC-BY-NC, pending the organisers). No embeddings: retrieval is keyword search in Postgres (s11 log, 2026-10-29). | Hold state or touch the database. |
 | **PostgreSQL** | Neon (deployed), docker compose (local) | System of record, work queue (`SKIP LOCKED` + leases), notifications (`LISTEN/NOTIFY`), vectors (pgvector). | — |
 
 There's no Redis, no broker and no object store. Postgres covers all three at MVP scale.

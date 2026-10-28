@@ -32,7 +32,7 @@ STT_USAGE = StepUsage(
 )
 TTS_USAGE = StepUsage(
     provider="ml_sidecar",
-    model="hexgrad/Kokoro-82M",
+    model="facebook/mms-tts-hin",
     input_tokens=None,
     output_tokens=None,
     audio_seconds=Decimal("4.5"),
@@ -179,6 +179,7 @@ class FakeVoice:
     transcriber: FakeTranscriber = field(default_factory=FakeTranscriber)
     synthesizer: FakeSynthesizer = field(default_factory=FakeSynthesizer)
     store: MemoryReplyAudioStore = field(default_factory=MemoryReplyAudioStore)
+    voice_replies_enabled: bool = True  # on, so the voice-reply path itself is tested
     reply_audio_for_text_input: bool = False
 
     def steps(self) -> VoiceSteps:
@@ -189,5 +190,6 @@ class FakeVoice:
             synthesizer=self.synthesizer,
             audio_store=self.store,
             limits=LIMITS,
+            voice_replies_enabled=self.voice_replies_enabled,
             reply_audio_for_text_input=self.reply_audio_for_text_input,
         )

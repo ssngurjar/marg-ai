@@ -177,7 +177,7 @@ class MentorLayer:
                 usages.append(usage)
             degraded = failed
         result = await self._retriever.retrieve(query, grade)
-        return _Retrieved(result, usages, versions, degraded or result.degraded_reason)
+        return _Retrieved(result, usages, versions, degraded)
 
     @staticmethod
     def problems(answer: MentorAnswer, context: MentorContext, register: Language) -> list[str]:

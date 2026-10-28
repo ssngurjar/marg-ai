@@ -62,15 +62,14 @@ every day"*
 ## 1:12 – 2:06 · Field test (NO voice-over, ~54 s)
 
 Raw footage and screen recording only. **No background music over the voices**: the judges must
-hear the real voice notes and the real Marg voice replies (Kokoro, self-hosted), with the real waiting
-time. Short captions on screen name each moment:
+hear the real voice notes, and see Marg's real replies arrive with the real waiting time. Short captions on screen name each moment:
 
 | Moment | Caption on screen |
 |---|---|
 | The parent says Hi and gives consent | "Consent first. Marg stores a nickname and a birth year, nothing else." |
 | The morning message arrives | "Every morning, at the time the parent chose" |
 | The parent asks for today's khoj by voice | "A voice note, in Hindi or Hinglish" |
-| Marg's voice reply plays | "Marg replies by voice and text" |
+| Marg's reply arrives | "Marg replies in the family's own language" |
 | Parent and child do the activity (child from behind, or hands only) | "Two minutes, offline, with things at home" |
 | The parent reports what the child said | "The parent tells Marg what the child said" |
 | Marg's reply to that report | "Marg answers the child's idea, and asks one question back" |
@@ -87,11 +86,11 @@ time. Short captions on screen name each moment:
 its live trace filling in step by step, the eval scorecard, the GitHub repository.*
 
 > From the outside, it's just a WhatsApp contact. Under the hood, it's a compound AI system:
-> eight models, each with one job, and safety around every message.
+> six Meta models, each with one job, and safety around every message.
 >
 > Muse Voice Transcribe hears the parent. Muse Spark plans the khoj and replies in the family's
 > language. Muse Spark Open, an open-weights model, reflects on what the child did.
-> An open-weights voice on our own server speaks the reply. Muse Image draws the card.
+> SAM 3.1 counts what the child collected. Muse Image draws the card.
 >
 > Every message, in and out, passes Llama Guard 4, a second Muse Spark check and our own
 > child-safety rules. If safety is down, nothing unchecked is sent.
@@ -141,18 +140,17 @@ smartphone at home"*
 - [ ] The "78 test cases" caption matches the newest scorecard in `evals/results/`.
 - [ ] The Braj clause in the impact part ("the way it learned Braj") stays only if the field
       test or a recorded demo shows a Braj reply; otherwise end that sentence at "language".
-- [ ] The voice replies are Kokoro (`TTS_ENGINE=kokoro`, the ML sidecar started with
-      `make sidecar`), not MMS: Kokoro is Apache-2.0, so C8 is closed (s06 log, 2026-10-29).
-- [ ] Nothing says Meta's models speak the reply: the voice is Kokoro, and the script calls it
-      "an open-weights voice on our own server".
+- [ ] Replies are text (`VOICE_REPLIES_ENABLED=false`): every model called must be a Meta model,
+      and Meta's only speech model, MMS-TTS, waits on the organisers' licence ruling (C8). No
+      shot plays a spoken Marg reply unless they clear MMS and voice replies are switched on.
 - [ ] Nothing on screen or in a caption calls Marg a chatbot, a tutor or "AI for education",
       and the student mentor never leads a scene: the rules ban basic RAG apps and AI-for-
       education chatbots, so the parent's offline discovery is the story.
 - [ ] Never call Marg "AI for education" or a tutor on screen or in captions: it closes the
       exposure gap by coaching the adults around a child.
-- [ ] "Eight models" stays true: Muse Spark, Muse Spark Open, Muse Voice Transcribe, Muse Image,
-      SAM 3.1, Llama Guard 4, Kokoro-82M (the voice) and the multilingual-e5 embedding model (see
-      [features.md](features.md)).
+- [ ] "Six Meta models" stays true: Muse Spark, Muse Spark Open, Muse Voice Transcribe, Muse
+      Image, SAM 3.1 and Llama Guard 4 (see [features.md](features.md)). Add "MMS-TTS" only if
+      voice replies are cleared and on.
 - [ ] **No admin dashboard on screen** unless blurred: it shows counts from a single child, and the
       video names the village. `/status` and the `/demo` trace are safe to show.
 

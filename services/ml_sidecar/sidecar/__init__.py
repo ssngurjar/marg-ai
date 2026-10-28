@@ -1,1 +1,1 @@
-"""Marg.ai's ML sidecar: speech for replies (`/tts`) and vectors for retrieval (`/embed`)."""
+"""Marg.ai's ML sidecar: speech for voice replies (`/tts`), with Meta's MMS-TTS."""

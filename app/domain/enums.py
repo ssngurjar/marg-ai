@@ -317,13 +317,6 @@ class AgeBand(StrEnum):
     ADULT = "adult"
 
 
-class EmbedPurpose(StrEnum):
-    """What a text is embedded as (s11 §4.4): e5 needs "query: " or "passage: " in front."""
-
-    QUERY = "query"
-    PASSAGE = "passage"
-
-
 class CorpusTopic(StrEnum):
     """The corpus folders (s11 §4.1); a document's topic must equal its folder."""
 

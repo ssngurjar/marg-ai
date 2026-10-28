@@ -56,7 +56,7 @@ The build level of each step (Full, Full (scoped), Exception, Stretch, Phase 2) 
 | S9 | [s09-translation.md](s09-translation.md) | Translation layer: register, reading level, spoken text |
 | S10 | [s10-exposure.md](s10-exposure.md) | Exposure layer (teacher mode) |
 | S10b | [s10b-parent-journey.md](s10b-parent-journey.md) | Parent journey for ages 3–8: activity catalogue, daily khoj, serve-and-return, nudges |
-| S11 | [s11-rag.md](s11-rag.md) | Corpus format, chunking, embeddings, pgvector, hybrid retrieval |
+| S11 | [s11-rag.md](s11-rag.md) | Corpus format, chunking, keyword retrieval (embeddings removed 2026-10-29) |
 | S12 | [s12-mentor-roadmap-memory.md](s12-mentor-roadmap-memory.md) | Mentor answers, roadmaps, profile memory |
 | S13 | [s13-telemetry.md](s13-telemetry.md) | Turn events, aspiration signals, trajectory metrics, dashboard, teacher links |
 | S14 | [s14-web-channel.md](s14-web-channel.md) | Web channel, session auth, SSE progress, `/demo` |

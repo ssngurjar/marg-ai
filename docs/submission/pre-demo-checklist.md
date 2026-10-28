@@ -13,10 +13,12 @@ fixed or written down with its workaround before going on.
 
 ## Service health
 - [ ] `/readyz` is `200`, every probe passing: database, schema (newest migration), queue
-  (no message waiting a minute), model API, safety, ML sidecar, ffmpeg.
+  (no message waiting a minute), model API, safety, ffmpeg (and the ML sidecar when voice
+  replies are on).
 - [ ] `/status` for the last 24 h: success rate ≥ 98%, p95 within the smoke-test numbers
   (`docs/load/2026-10-28-smoke-test.md`).
-- [ ] The ML sidecar (`make sidecar`: Kokoro voice and `/embed`) is running and stays up through judging.
+- [ ] `VOICE_REPLIES_ENABLED=false` unless the organisers have cleared MMS-TTS; if it's on, the
+      ML sidecar (`make sidecar`) is running and stays up through judging.
 - [ ] The corpus is ingested (`marg ingest-corpus`): 50 documents, verified from India.
 - [ ] Nudge template approved in WhatsApp Manager in all three languages, or
   `NUDGES_ENABLED=false`.

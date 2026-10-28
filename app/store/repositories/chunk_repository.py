@@ -1,8 +1,8 @@
 """ChunkRepository: the corpus in Postgres (s11 §4.5, §4.7). No user data.
 
 A changed document is replaced in one transaction (the row, then all its chunks), so a failed
-ingest never leaves half a document. Retrieval reads two candidate lists: nearest vectors
-(cosine, HNSW) and a keyword search over the chunk text and the document's keywords, both
+ingest never leaves half a document. Retrieval is a keyword search (Postgres `english` full
+text over each chunk's heading and text) plus an exact match on the document's keywords,
 optionally limited to a grade.
 """
 
@@ -17,7 +17,6 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.errors import StoreError
 from app.domain.enums import CorpusTopic
-from app.store.vector_column import VectorColumn
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,15 +37,15 @@ class ChunkRow:
     position: int
     heading_path: str
     text: str
-    embedding: Sequence[float]
 
 
 @dataclass(frozen=True, slots=True)
 class Candidate:
     chunk_id: UUID
     document_id: UUID
-    score: float  # vector: 1 - cosine distance; keyword: text rank (+1 for an exact keyword)
+    score: float  # text rank, +1 for an exact keyword: the order of the results
     keyword_exact: bool
+    text_rank: float  # ts_rank_cd of the chunk's heading and text alone
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,8 +61,6 @@ class StoredChunk:
 
 
 class ChunkRepository:
-    EF_SEARCH = 60  # HNSW search breadth: better recall at this corpus size (s11 §4.7)
-
     def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
         self._session_factory = session_factory
 
@@ -84,9 +81,8 @@ class ChunkRepository:
                     await session.execute(
                         text(
                             "INSERT INTO corpus_chunks (id, document_id, position, heading_path,"
-                            " text, embedding)"
-                            " VALUES (:id, :document_id, :position, :heading_path, :text,"
-                            " CAST(:embedding AS vector))"
+                            " text)"
+                            " VALUES (:id, :document_id, :position, :heading_path, :text)"
                         ),
                         {
                             "id": uuid4(),
@@ -94,7 +90,6 @@ class ChunkRepository:
                             "position": chunk.position,
                             "heading_path": chunk.heading_path,
                             "text": chunk.text,
-                            "embedding": VectorColumn.literal(chunk.embedding),
                         },
                     )
         except (SQLAlchemyError, OSError) as exc:
@@ -126,35 +121,6 @@ class ChunkRepository:
         [row] = await self._rows("SELECT count(*) AS chunks FROM corpus_chunks")
         return int(row.chunks)
 
-    async def vector_candidates(
-        self, vector: Sequence[float], grade: int | None, limit: int
-    ) -> list[Candidate]:
-        try:
-            async with self._session_factory() as session, session.begin():
-                await session.execute(text(f"SET LOCAL hnsw.ef_search = {self.EF_SEARCH}"))
-                result = await session.execute(
-                    text(
-                        """
-                        SELECT c.id, c.document_id,
-                               1 - (c.embedding <=> CAST(:vector AS vector)) AS similarity
-                        FROM corpus_chunks c
-                        JOIN corpus_documents d ON d.id = c.document_id
-                        WHERE (CAST(:grade AS smallint) IS NULL OR cardinality(d.grades) = 0
-                               OR CAST(:grade AS smallint) = ANY(d.grades))
-                        ORDER BY c.embedding <=> CAST(:vector AS vector)
-                        LIMIT :limit
-                        """
-                    ),
-                    {"vector": VectorColumn.literal(vector), "grade": grade, "limit": limit},
-                )
-                rows = result.all()
-        except (SQLAlchemyError, OSError) as exc:
-            raise StoreError(f"could not search the corpus: {type(exc).__name__}") from exc
-        return [
-            Candidate(row.id, row.document_id, float(row.similarity), keyword_exact=False)
-            for row in rows
-        ]
-
     async def keyword_candidates(
         self, keyword_query: str, keywords: Sequence[str], grade: int | None, limit: int
     ) -> list[Candidate]:
@@ -162,8 +128,9 @@ class ChunkRepository:
         `keywords` exactly (case-insensitive), best first."""
         rows = await self._rows(
             """
-            WITH q AS (SELECT websearch_to_tsquery('simple', :keyword_query) AS tsq)
+            WITH q AS (SELECT websearch_to_tsquery('english', :keyword_query) AS tsq)
             SELECT c.id, c.document_id,
+                   ts_rank_cd(c.tsv, q.tsq) AS text_rank,
                    ts_rank_cd(c.tsv, q.tsq)
                      + CASE WHEN d.keywords && CAST(:keywords AS text[]) THEN 1.0 ELSE 0 END
                      AS score,
@@ -182,7 +149,13 @@ class ChunkRepository:
             limit=limit,
         )
         return [
-            Candidate(row.id, row.document_id, float(row.score), keyword_exact=bool(row.exact))
+            Candidate(
+                row.id,
+                row.document_id,
+                float(row.score),
+                keyword_exact=bool(row.exact),
+                text_rank=float(row.text_rank),
+            )
             for row in rows
         ]
 

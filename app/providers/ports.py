@@ -12,7 +12,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, SecretStr
 
 from app.core.types import ReasoningEffort
-from app.domain.enums import Channel, EmbedPurpose, Language
+from app.domain.enums import Channel, Language
 from app.domain.models.base import UserHash
 from app.domain.models.message import AudioClip, ImageClip, MediaRef, Transcript
 from app.domain.models.photo import ObjectCount
@@ -152,12 +152,6 @@ class MediaFetcher(Protocol):
     async def fetch(self, ref: MediaRef) -> AudioClip: ...
 
     async def fetch_image(self, ref: MediaRef) -> ImageClip: ...
-
-
-class Embedder(Protocol):
-    """Multilingual embeddings (s11 §4.4): one L2-normalised vector per text, in order."""
-
-    async def embed(self, texts: Sequence[str], purpose: EmbedPurpose) -> list[list[float]]: ...
 
 
 class ImageSegmenter(Protocol):

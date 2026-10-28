@@ -1,11 +1,8 @@
-"""VectorColumn: pgvector's `vector(n)` column type, for table definitions only (s11 §6).
+"""VectorColumn: pgvector's `vector(n)` column type, kept for the s11 migrations only.
 
-Vectors are written and compared in SQL with `CAST(:v AS vector)` from a "[0.1,0.2,…]" literal
-(VectorColumn.literal), so no pgvector Python package is needed and the column is never read
-back into Python.
+Since 2026-10-29 retrieval is keyword-only and no table has a vector column; the migrations
+that created and dropped one still need the type.
 """
-
-from collections.abc import Sequence
 
 from sqlalchemy.types import UserDefinedType
 
@@ -18,8 +15,3 @@ class VectorColumn(UserDefinedType[str]):
 
     def get_col_spec(self, **kw: object) -> str:
         return f"vector({self.dimensions})"
-
-    @staticmethod
-    def literal(vector: Sequence[float]) -> str:
-        """The text form pgvector parses: "[0.1,0.2,…]"."""
-        return "[" + ",".join(repr(float(value)) for value in vector) + "]"

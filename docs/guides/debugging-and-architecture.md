@@ -27,7 +27,7 @@ the feature freeze). What each feature does for users, step by step: `docs/submi
                       outbox, users, learners,        Muse Spark Open (Baseten)
                       activities, sessions,           Muse Voice Transcribe, Muse Image
                       signals, media, nudges,         Llama Guard 4 (DeepInfra), SAM 3.1
-                      corpus chunks, plans, memory    voice server (TTS + embeddings, local)
+                      corpus chunks, plans, memory    ML sidecar (MMS-TTS, off by default)
 ```
 
 - **The tables are the queue** (E1, `docs/design/mvp-scope.md` §4.1). By default the worker runs
@@ -50,7 +50,7 @@ Order matters: database, migrations, ML sidecar, API, tunnel.
 |---|---|---|---|
 | 1 | Postgres | `docker compose up -d postgres` | `docker compose ps` shows healthy |
 | 2 | Migrations | `make migrate` | `.venv/bin/alembic current` → `s04_user_leases (head)` |
-| 3 | ML sidecar (`services/ml_sidecar`) | `make sidecar` (see §2.1) | `curl -s 127.0.0.1:8100/healthz` → `"engine":"kokoro"` |
+| 3 | ML sidecar, only with `VOICE_REPLIES_ENABLED=true` | `make sidecar` (see §2.1) | `curl -s 127.0.0.1:8100/healthz` → `"engine":"mms"` |
 | 3b | Corpus (once, and after any change under `corpus/`) | `.venv/bin/python -m app.cli ingest-corpus` | the mentor cites sources |
 | 4 | API + worker | `.venv/bin/uvicorn app.main:create_app --factory --host 127.0.0.1 --port 8000 --no-access-log` | `curl -s 127.0.0.1:8000/readyz` → `ready`, every probe `ok` (§7.3) |
 | 5 | Public tunnel | `scripts/dev_tunnel.sh 8000` | prints a `https://…trycloudflare.com` URL |
@@ -66,9 +66,13 @@ the background: `… >> /tmp/marg-app.log 2>&1`.
 
 ### 2.1 The ML sidecar (`services/ml_sidecar/`)
 
-The voice and the search vectors: FastAPI with `/tts` (Kokoro-82M), `/embed`
-(multilingual-e5-small) and `/healthz`. It has its own Python 3.12 environment (Kokoro needs
-3.12 and PyTorch; the main service runs 3.13 without them):
+The voice for replies: FastAPI with `/tts` (Meta's MMS-TTS, `facebook/mms-tts-hin` and `-eng`)
+and `/healthz`. **Off by default:** every model Marg calls must be a Meta model, and MMS is
+CC-BY-NC, so `VOICE_REPLIES_ENABLED=false` until the organisers rule on it (s06 log,
+2026-10-29). With it off, replies are text, no `synthesize` step runs, `/readyz` doesn't probe
+the sidecar, and the web demo offers the browser's own voice ("🔊 Listen").
+
+It has its own Python 3.12 environment, so torch stays out of the API:
 
 ```sh
 make sidecar-setup    # once: services/ml_sidecar/.venv from its own lockfile
@@ -76,20 +80,20 @@ make sidecar          # serves :8100 with this repo's .env
 make sidecar-check    # its strict mypy and its tests (also part of `make check`)
 ```
 
-- It loads the speech model `TTS_ENGINE` names. Only `kokoro` exists; another model plugs in
-  as a `SpeechEngine` (`sidecar/speech_engine.py`) and an entry in `sidecar/server.py`'s
-  `ENGINES`, plus its name in `app/core/types.py` `TtsEngine`.
-- Hindi and Hinglish: Kokoro's `hf_alpha` and `hf_beta` voices blended, at 1.1× speed. English:
-  `af_heart`. About 1 s per 8 s of speech on the Mac's CPU, after a ~5 s first call.
-- `.env` needs `TTS_ENGINE`, `SIDECAR_BASE_URL` and `SIDECAR_TOKEN`. An engine mismatch returns
-  422 and every reply goes text-only (`synthesize` FAILED in the trace); the sidecar down also
-  stops the mentor's source search.
+- It loads the speech model `TTS_ENGINE` names (only `mms`). Another model plugs in as a
+  `SpeechEngine` (`sidecar/speech_engine.py`) and an entry in `sidecar/server.py`'s `ENGINES`,
+  plus its name in `app/core/types.py` `TtsEngine` and `SidecarSynthesizer.MODELS`.
+- `.env` needs `VOICE_REPLIES_ENABLED=true`, `TTS_ENGINE`, `SIDECAR_BASE_URL` and
+  `SIDECAR_TOKEN`. An engine mismatch returns 422 and every reply goes text-only (`synthesize`
+  FAILED in the trace).
 
 ### 2.2 Settings that change behaviour (`.env`)
 
 | Setting | Effect |
 |---|---|
-| `TTS_ENGINE`, `SIDECAR_BASE_URL`, `SIDECAR_TOKEN` | which voice the replies use, and where |
+| `VOICE_REPLIES_ENABLED` | voice replies on or off (**off**: text only, until the organisers rule on MMS-TTS) |
+| `TTS_ENGINE`, `SIDECAR_BASE_URL`, `SIDECAR_TOKEN` | which voice the replies use, and where (only when voice replies are on) |
+| `QUERY_REWRITE_ENABLED`, `RETRIEVAL_MIN_TEXT_RANK` | the mentor's search: Muse Spark's English rewrite (on), and how strong a text match must be to count without an exact exam or scheme name (1.3) |
 | `REPLY_AUDIO_FOR_TEXT_INPUT` | `true`: typed messages also get a voice reply (default: only voice notes do) |
 | `CHILD_TALK_ENABLED` | child talk on or off; the "Main bachcha hoon" button disappears when off |
 | `NUDGES_ENABLED` | daily khoj messages; **off** until Meta approves the templates |
@@ -120,7 +124,7 @@ providers/  adapters behind providers/ports.py: the only place an SDK is importe
 channels/   the only place that knows a WhatsApp or web payload shape.
 store/      the only place SQL lives (repositories, one per table or aggregate).
 audio/      ffmpeg conversions, TTS text preparation.
-rag/        the corpus: loader, chunker, ingestor, hybrid retriever.
+rag/        the corpus: loader, chunker, ingestor, keyword retriever.
 telemetry/  curiosity and aspiration signal extraction.
 evals/      the golden-case harness behind `marg eval`.
 constants/  reviewed copy (fixed replies, crisis texts, word lists) and external limits.
@@ -219,7 +223,7 @@ The turn row's `route` column and the `route` step's `detail` tell you which rul
 | Voice in/out (S6) | `orchestrator._hear` / `_with_voice`, `audio/`, `providers/speech/` | `audio/tts_text_preparer.py` (what the voice may say) | `media_blobs` |
 | Safety | `safety/safety_gate.py`, `safety/domain_policy.py`, `domain/rules/crisis_phrase_matcher.py` | `minor_policy.md.j2`, `reply_policy.md.j2`, `constants/crisis_*.py`, `child_hazards.py` | — |
 | Teacher bridges (S10) | `layers/exposure_layer.py`, `layers/curriculum_catalogue.py`, `domain/rules/chapter_matcher.py` | `exposure.md.j2` | — |
-| Student mentor (S11/S12) | `layers/mentor_layer.py`, `layers/query_rewriter.py`, `rag/retriever.py` (hybrid: vectors + keywords, `domain/rules/rank_fusion.py`) | `mentor.md.j2`, `query_rewrite.md.j2`, `corpus/` (each file has `source_url`, `retrieved_on`) | `corpus_documents`, `corpus_chunks` |
+| Student mentor (S11/S12) | `layers/mentor_layer.py`, `layers/query_rewriter.py`, `rag/retriever.py` (keyword search in Postgres, `domain/rules/rank_fusion.py`) | `mentor.md.j2`, `query_rewrite.md.j2`, `corpus/` (each file has `source_url`, `retrieved_on`) | `corpus_documents`, `corpus_chunks` |
 | Plans (S12) | `layers/roadmap_layer.py` | `roadmap.md.j2` | `roadmaps`, `roadmap_steps` |
 | Student memory and aims (S12/S13) | `layers/memory_layer.py`, `telemetry/` aspiration extractor, `domain/rules/aspiration_trajectory.py` | `memory.md.j2`, `aspiration_extract.md.j2` | `profile_memory`, `aspiration_signals` |
 | Language and local voice | `domain/rules/register_chooser.py` (Devanagari = Hindi; 4+ words to switch), `domain/rules/braj_detector.py`, `layers/local_voice.py`, `domain/rules/indic_script_normaliser.py` | `constants/braj_words.py` | — |
@@ -391,7 +395,8 @@ several points; compare the cases that changed, not only the rate.
 | Photo → "koi insaan dikh raha hai" | `analyze_image` detail `person_check=reject` | anyone in the frame, a hand too (by design, owner 2026-10-28) |
 | Photo → "Photo ke liye shukriya!…" | `analyze_image` SKIPPED `photo_not_needed` | no khoj open (none offered, already reported, or older than 48 h) |
 | A photo report with no number in the reply | `fetch_image` / `analyze_image` / `safety_in` FAILED `photo_dropped`, `counts_dropped` | a failure dropped the photo; or the activity counts nothing |
-| No voice reply | `synthesize` row | voice server down or the wrong engine (422); spoken text not speakable (`TtsTextInvalid`, e.g. Latin letters for the Hindi voice) |
+| No voice reply | `VOICE_REPLIES_ENABLED`, then the `synthesize` row | off (the default: text only, no row); or the ML sidecar down or the wrong engine (422); spoken text not speakable (`TtsTextInvalid`, e.g. Latin letters for the Hindi voice) |
+| Mentor says it doesn't know something the corpus covers | the `retrieve` / `rewrite_query` rows | the rewrite gave no exam or scheme name and the text match was below `RETRIEVAL_MIN_TEXT_RANK` (1.3); add the name to the document's `keywords` |
 | Reply in the wrong language | the turn's `reply_register`, the transcript | `RegisterChooser`: Devanagari is Hindi however short; a switch from the family's language needs 4+ words, so a short English message keeps the old language (by design, 2026-10-28) |
 | Braj reply for a non-Braj speaker (or none for one) | the profile's district, the message | two Braj markers in the message, or a Braj district, turn it on (`braj_detector.py`, `braj_words.py`) |
 | The web demo's trace doesn't move | browser console; `GET /demo/events` | the SSE stream dropped; the page falls back to polling |

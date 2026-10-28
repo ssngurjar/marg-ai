@@ -2,7 +2,7 @@
 
 whatsapp reply-latest   send a text to the sender of the newest stored WhatsApp message
 admin-link              print a 15-minute link to the admin dashboard (s13 §4.9)
-ingest-corpus           validate, chunk, embed and store corpus/ (s11 §4.8)
+ingest-corpus           validate, chunk and store corpus/ (s11 §4.8)
 eval                    play the golden cases through the real pipeline and score them (s15)
 """
 
@@ -34,7 +34,7 @@ from app.rag.corpus_ingestor import CorpusIngestor
 from app.rag.corpus_loader import CorpusLoader
 from app.store.db import create_engine, create_session_factory
 from app.telemetry.dashboard_link_codec import ADMIN
-from app.wiring import build_container, build_rag, build_retry, close_container, dashboard_links
+from app.wiring import build_container, build_rag, close_container, dashboard_links
 
 EXIT_OK = 0
 EXIT_NOTHING_TO_DO = 1
@@ -58,7 +58,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     admin.add_argument(
         "--base-url", default=None, help="the app's public address (default: PUBLIC_BASE_URL)"
     )
-    ingest = groups.add_parser("ingest-corpus", help="validate, chunk, embed and store corpus/")
+    ingest = groups.add_parser("ingest-corpus", help="validate, chunk and store corpus/")
     ingest.add_argument("--dry-run", action="store_true", help="validate and report; write nothing")
     ingest.add_argument("--yes", action="store_true", help="confirm ingesting into production")
     _add_eval_arguments(groups)
@@ -89,16 +89,14 @@ async def ingest_corpus(*, dry_run: bool, confirmed: bool) -> int:
     except CorpusValidationError as exc:
         _say(f"The corpus is invalid; nothing was written:\n{exc}")
         return EXIT_FAILED
-    clock = SystemClock()
     engine = create_engine(settings)
-    rag = build_rag(settings, create_session_factory(engine), build_retry(clock), clock)
+    rag = build_rag(settings, create_session_factory(engine))
     try:
-        report = await CorpusIngestor(rag.embedder, rag.store).ingest(files, dry_run=dry_run)
-    except (ProviderError, StoreError) as exc:
+        report = await CorpusIngestor(rag.store).ingest(files, dry_run=dry_run)
+    except StoreError as exc:
         _say(f"Failed: {type(exc).__name__}: {exc}")
         return EXIT_FAILED
     finally:
-        await rag.embedder.aclose()
         await engine.dispose()
     verb = "Would write" if dry_run else "Wrote"
     _say(

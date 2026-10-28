@@ -7,7 +7,8 @@ type JsonValue = str | int | float | bool | list[JsonValue] | dict[str, JsonValu
 
 type ReasoningEffort = Literal["minimal", "low", "medium", "high"]
 
-# The ML sidecar's speech model (s06 §4.7): Kokoro-82M. Another model plugs in by adding its
-# name here and in SidecarSynthesizer.MODELS, and an engine in services/ml_sidecar.
-type TtsEngine = Literal["kokoro"]
+# The ML sidecar's speech model (s06 §4.7): Meta's MMS-TTS, used only when VOICE_REPLIES_ENABLED.
+# Another model plugs in by adding its name here and in SidecarSynthesizer.MODELS, and an engine
+# in services/ml_sidecar.
+type TtsEngine = Literal["mms"]
 """How much hidden reasoning a model spends (s05 §4.1; `none` returns 400 on Muse Spark)."""

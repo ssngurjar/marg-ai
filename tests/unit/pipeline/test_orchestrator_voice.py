@@ -4,6 +4,8 @@ The safety rule holds for audio too (CLAUDE.md §11): a voice reply is made only
 reply, whose spoken text safety_out checked with its text.
 """
 
+import dataclasses
+
 import pytest
 
 from app.constants.fixed_replies import FIXED_TEXTS, FixedTextKey
@@ -181,6 +183,36 @@ async def test_a_typed_question_gets_a_voice_reply_when_the_setting_asks_for_it(
     voice = FakeVoice(reply_audio_for_text_input=True)
     result = await run(turn_context(text_message(QUESTION)), voice=voice)
     assert kinds(result)[0] is PartKind.AUDIO
+
+
+# --- voice replies off (VOICE_REPLIES_ENABLED=false, until a Meta speech model is cleared) ---
+
+
+async def test_with_voice_replies_off_a_voice_note_is_heard_and_answered_in_text_only() -> None:
+    voice = dataclasses.replace(hearing(SPOKEN_QUESTION), voice_replies_enabled=False)
+    result = await run(speaking(), voice=voice)
+    assert result.outcome.user_text == SPOKEN_QUESTION
+    assert GENERATED in result.delivered
+    assert PartKind.AUDIO not in kinds(result)
+    assert result.voice.synthesizer.requests == []
+    assert result.voice.store.saved == {}
+    assert StepName.SYNTHESIZE not in [step for step, _ in result.recorder.outcomes()]
+    assert result.outcome.first_failure is None
+
+
+async def test_voice_replies_off_wins_over_audio_for_typed_messages() -> None:
+    voice = FakeVoice(voice_replies_enabled=False, reply_audio_for_text_input=True)
+    result = await run(turn_context(text_message(QUESTION)), voice=voice)
+    assert PartKind.AUDIO not in kinds(result)
+    assert result.voice.synthesizer.requests == []
+
+
+async def test_with_voice_replies_off_a_fixed_reply_to_a_voice_note_is_text_only() -> None:
+    voice = dataclasses.replace(hearing("umm"), voice_replies_enabled=False)
+    result = await run(speaking(), voice=voice)
+    assert result.outcome.fixed_reply_kind is FixedReplyKind.REPEAT_PLEASE
+    assert PartKind.AUDIO not in kinds(result)
+    assert result.voice.synthesizer.requests == []
 
 
 # --- a voice note that can't be heard ------------------------------------------------------------

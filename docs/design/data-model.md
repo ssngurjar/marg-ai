@@ -304,8 +304,9 @@ Index: `(learner_id)`.
 `keywords text[]` (stored upper-cased), `content_sha256 text`, `ingested_at`.
 
 `corpus_chunks`: `id uuid PK`, `document_id FK CASCADE`, `position smallint`, `heading_path text NOT NULL`,
-`text`, `embedding vector(384)`, `tsv tsvector` (generated, `simple` config),
-`UNIQUE (document_id, position)`. Indexes: HNSW on `embedding vector_cosine_ops`; GIN on `tsv`.
+`text`, `tsv tsvector` (generated, `english` config over `heading_path || ' ' || text`),
+`UNIQUE (document_id, position)`. Index: GIN on `tsv`. (The `embedding vector(384)` column and
+its HNSW index were dropped on 2026-10-29, migration `s11_keyword_retrieval`.)
 
 These aren't user data: no `user_hash`, and they survive user deletion. `corpus/curriculum/`
 (s10) and `content/activities/` (s10b) are loaded at startup from files and never ingested here.

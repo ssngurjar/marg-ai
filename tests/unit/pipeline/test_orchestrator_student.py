@@ -94,8 +94,8 @@ class StudentRun:
 
 
 class _BrokenStore(FakeChunkStore):
-    async def vector_candidates(
-        self, vector: Sequence[float], grade: int | None, limit: int
+    async def keyword_candidates(
+        self, keyword_query: str, keywords: Sequence[str], grade: int | None, limit: int
     ) -> list[Candidate]:
         raise StoreError("could not search the corpus: OperationalError")
 
@@ -206,8 +206,8 @@ async def test_a_mentor_that_fails_gets_try_again_later_and_no_memory(
 
 
 async def test_a_corpus_that_cant_be_read_gets_try_again_later_not_a_crash() -> None:
-    retriever, _, embedder = corpus_retriever()
-    broken = Retriever(embedder, _BrokenStore(), retriever._settings)  # same settings
+    retriever, _ = corpus_retriever()
+    broken = Retriever(_BrokenStore(), retriever._settings)  # same settings
     result = await run_student(student_ctx(QUESTION), {"mentor": [MENTOR_ANSWER]}, retriever=broken)
     assert result.outcome.fixed_reply_kind is FixedReplyKind.TRY_AGAIN_LATER
     assert result.recorder.steps[-1].failure is not None

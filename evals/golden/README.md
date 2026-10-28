@@ -7,7 +7,7 @@ five rubric scores). The scorecard goes to `evals/results/`.
 
 The format is the `GoldenCase` model in `app/evals/golden_case.py`; unknown keys are refused.
 Run `.venv/bin/python -m app.cli eval --file crisis.yaml` (needs `EVAL_DATABASE_ADMIN_URL`, the
-test Postgres from `make test-db-up`, and the voice server's `/embed` for the corpus).
+and the test Postgres from `make test-db-up`; the corpus is searched by keywords, no model).
 
 ## Case shape
 

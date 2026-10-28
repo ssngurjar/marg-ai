@@ -118,10 +118,13 @@ class Settings(DatabaseSettings):
     # 6 s: Llama Guard (≤ 1.5 s), then the Muse Spark backup reply check when it's down (~2.5 s)
     timeout_safety_out_s: float = Field(default=6.0, gt=0)
 
-    # Added in S6 for voice (s06 §7). TTS_ENGINE names the ML sidecar's speech model; the
-    # sidecar must run the same one (owner, 2026-10-29: Kokoro-82M).
+    # Added in S6 for voice (s06 §7). Voice replies are off (text only) until the organisers
+    # rule on MMS-TTS's non-commercial licence: every model Marg calls must be a Meta model,
+    # and MMS is the only Meta speech model (owner, 2026-10-29). When on, TTS_ENGINE names the
+    # ML sidecar's speech model and the sidecar must run the same one.
     model_stt: str = Field(default="muse-voice-transcribe-1.0", min_length=1)
-    tts_engine: TtsEngine = "kokoro"
+    voice_replies_enabled: bool = False
+    tts_engine: TtsEngine = "mms"
     sidecar_base_url: HttpUrl
     sidecar_token: SecretStr
     timeout_fetch_media_s: float = Field(default=5.0, gt=0)
@@ -177,12 +180,14 @@ class Settings(DatabaseSettings):
     k_anonymity_floor: int = Field(default=5, ge=1)
     k_anonymity_floor_admin: int = Field(default=1, ge=1)
 
-    # Added in S11 for retrieval over the corpus (s11 §7). The voice server also serves /embed.
-    embed_model: str = Field(default="intfloat/multilingual-e5-small", min_length=1)
-    timeout_embed_s: float = Field(default=5.0, gt=0)
+    # Added in S11 for retrieval over the corpus (s11 §7); keyword-only since 2026-10-29.
     retrieval_top_k: int = Field(default=5, ge=1, le=10)
-    retrieval_min_similarity: float = Field(default=0.80, ge=0, le=1)  # calibrated on the eval
-    query_rewrite_enabled: bool = False  # on only if the eval shows recall@5 +0.05 (B9)
+    # Below this full-text rank, and with no rewritten name matching a document keyword exactly,
+    # the mentor says it doesn't know (calibrated on 22 questions, s11 log 2026-10-29).
+    retrieval_min_text_rank: float = Field(default=1.3, ge=0)
+    # On since retrieval became keyword-only (2026-10-29): the corpus is English, so a Hindi or
+    # Hinglish question must become English keywords before the search.
+    query_rewrite_enabled: bool = True
 
     # Added in S15 for `marg eval` (s15 §7). The judge reads replies, never users' messages.
     model_judge: str = Field(default="muse-spark-1.3", min_length=1)

@@ -10,7 +10,7 @@ from app.domain.models.retrieval import RetrievedChunk
 from app.domain.models.turn import TurnContext
 from app.rag.retriever import Retriever, RetrieverSettings
 from app.store.repositories.chunk_repository import Candidate
-from tests.fakes.corpus import FakeChunkStore, FakeEmbedder, stored
+from tests.fakes.corpus import FakeChunkStore, stored
 from tests.support.turn_context import text_message, turn_context, user_profile
 
 MENTOR_ANSWER: dict[str, object] = {
@@ -60,13 +60,17 @@ def student_ctx(
     return turn_context(text_message(text), profile=profile)
 
 
-def corpus_retriever(*, relevant: bool = True) -> tuple[Retriever, FakeChunkStore, FakeEmbedder]:
-    """Two NMMS chunks from one document and one NSP chunk; similarity above or below 0.80."""
-    similarity = 0.9 if relevant else 0.7
+def corpus_retriever(*, relevant: bool = True) -> tuple[Retriever, FakeChunkStore]:
+    """Two NMMS chunks from one document and one NSP chunk; text rank above or below 1.3."""
+    rank = 1.6 if relevant else 0.4
     hits = [
-        Candidate(UUID(int=1), UUID(int=1001), similarity, keyword_exact=False),
-        Candidate(UUID(int=2), UUID(int=1002), similarity - 0.01, keyword_exact=False),
-        Candidate(UUID(int=3), UUID(int=1001), similarity - 0.02, keyword_exact=False),
+        Candidate(UUID(int=1), UUID(int=1001), rank, keyword_exact=False, text_rank=rank),
+        Candidate(
+            UUID(int=2), UUID(int=1002), rank - 0.1, keyword_exact=False, text_rank=rank - 0.1
+        ),
+        Candidate(
+            UUID(int=3), UUID(int=1001), rank - 0.2, keyword_exact=False, text_rank=rank - 0.2
+        ),
     ]
     store = FakeChunkStore(
         chunks={
@@ -74,14 +78,9 @@ def corpus_retriever(*, relevant: bool = True) -> tuple[Retriever, FakeChunkStor
             UUID(int=2): stored(2, 2, CorpusTopic.SCHOLARSHIPS),
             UUID(int=3): stored(3, 1),
         },
-        vector_hits=hits,
+        keyword_hits=hits,
     )
-    embedder = FakeEmbedder()
-    return (
-        Retriever(embedder, store, RetrieverSettings(top_k=5, min_similarity=0.80)),
-        store,
-        embedder,
-    )
+    return Retriever(store, RetrieverSettings(top_k=5, min_text_rank=1.3)), store
 
 
 def retrieved(number: int) -> RetrievedChunk:
@@ -96,8 +95,8 @@ def retrieved(number: int) -> RetrievedChunk:
         source_url=HttpUrl(chunk.source_url),
         retrieved_on=chunk.retrieved_on,
         topic=chunk.topic,
-        vector_similarity=0.9,
-        keyword_rank=None,
+        keyword_score=1.6,
+        keyword_rank=number,
         keyword_exact=False,
         fused_score=0.03,
     )

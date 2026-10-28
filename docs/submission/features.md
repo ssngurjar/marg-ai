@@ -31,8 +31,10 @@ encrypted address for replying. Never names, schools or exact birth dates.
 2. If the transcript comes back in Gujarati, Punjabi, Bengali or Oriya script (a recognition
    slip), it's put back into Devanagari letter by letter.
 3. The raw audio is deleted as soon as it's transcribed.
-4. The reply comes as text, and as a voice note when the user spoke, read by **Kokoro-82M**
-   (open weights, Apache-2.0) in our own ML sidecar (`services/ml_sidecar`).
+4. The reply comes as text. Voice replies are off: Meta's MMS-TTS, the only Meta speech model,
+   is CC-BY-NC, and the organisers are still ruling on it (it is built in
+   `services/ml_sidecar`, behind `VOICE_REPLIES_ENABLED`). The web demo reads replies aloud with
+   the browser's own voice, which isn't a model call.
 
 ### The family's language, and a village voice
 - Replies come in Hindi (Devanagari), Hinglish (Roman) or English. Writing in Devanagari means
@@ -135,7 +137,8 @@ khoj. Off until the template is approved by Meta.
 
 ### Asking anything about studies and careers
 1. Marg searches **50 official documents** (scholarships, sports trials, exams, public service,
-   skilling…) with hybrid search (meaning and exact keywords).
+   skilling…) with keyword search in Postgres: Muse Spark first turns a Hindi or Hinglish
+   question into English search terms and the exam or scheme names in it.
 2. Every fact (an exam, a scheme, an amount, a date) is a claim citing its source; the reply ends
    with the official links. A fact with no source is never said.
 3. Beside the facts, general guidance: real careers a subject leads to, what a field is, a first
@@ -208,8 +211,6 @@ recorded for the dashboards.
 | Muse Spark 1.3 | planning the khoj, parent answers, the mentor and plans, teacher bridges, child talk, the policy safety check, the eval judge |
 | Muse Spark Open (open weights) | the reflection on a child's report, signals and memory extraction (Spark is its fallback) |
 | Muse Voice Transcribe | voice notes to text |
-| Kokoro-82M (self-hosted, not Meta's) | the voice replies |
 | Muse Image | khoj cards |
 | SAM 3.1 | the person check and object counts on photos |
 | Llama Guard 4 | the safety check on every message and reply |
-| multilingual-e5-small | embeddings for the official-source search |

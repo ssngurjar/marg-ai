@@ -103,7 +103,7 @@ line of the module's docstring.
 
 | Module | Classes | What it does |
 |---|---|---|
-| `enums.py` | `Channel`, `MessageKind`, `ConversationState`, `InboxStatus`, `OutboxStatus`, `AudioVerdict`, `Speaker`, `ChildSessionEndReason`, `MediaPurpose`, `PartKind`, `Language`, `Route`, `StepName`, `StepOutcome`, `FailureKind`, `TurnStatus`, `SafetyDecision`, `SafetyCategory`, `FixedReplyKind`, `FixedReplyVariant`, `Mode`, `Role`, `ConsentEventKind`, `LearnerRelation`, `CopyKey`, `CuriosityDomain`, `ActivityStatus`, `AgeBand`, `EmbedPurpose`, `CorpusTopic`, `RoadmapStatus`, `RoadmapStepStatus`, `AspirationField`, `ConstraintKind`, `Sentiment` | Closed sets of values shared across the app (contracts.md §1). |
+| `enums.py` | `Channel`, `MessageKind`, `ConversationState`, `InboxStatus`, `OutboxStatus`, `AudioVerdict`, `Speaker`, `ChildSessionEndReason`, `MediaPurpose`, `PartKind`, `Language`, `Route`, `StepName`, `StepOutcome`, `FailureKind`, `TurnStatus`, `SafetyDecision`, `SafetyCategory`, `FixedReplyKind`, `FixedReplyVariant`, `Mode`, `Role`, `ConsentEventKind`, `LearnerRelation`, `CopyKey`, `CuriosityDomain`, `ActivityStatus`, `AgeBand`, `CorpusTopic`, `RoadmapStatus`, `RoadmapStepStatus`, `AspirationField`, `ConstraintKind`, `Sentiment` | Closed sets of values shared across the app (contracts.md §1). |
 
 ## `domain/models`
 
@@ -222,12 +222,6 @@ line of the module's docstring.
 |---|---|---|
 | `prompt_registry.py` | `PromptSpec`, `WrappedSlot`, `RenderedRequest`, `PromptSettings`, `UserSlot`, `PromptRegistry` | PromptRegistry: versioned prompt templates rendered into requests (s05 §4.3, CLAUDE.md §10). |
 
-## `providers/embeddings`
-
-| Module | Classes | What it does |
-|---|---|---|
-| `sidecar_embedder.py` | `EmbedderConfig`, `SidecarEmbedder` | SidecarEmbedder: multilingual-e5-small vectors from the voice server's `/embed` (s11 §4.4). |
-
 ## `providers/health`
 
 | Module | Classes | What it does |
@@ -240,7 +234,7 @@ line of the module's docstring.
 |---|---|---|
 | `http.py` | `Sleeper`, `AsyncioSleeper`, `RetryTiming`, `RetryPolicy` | The one retry policy every external call uses (contracts §5, s05 §4.2). |
 | `openai_error_mapper.py` | `OpenAiErrorMapper` | OpenAiErrorMapper: an openai SDK exception → our ProviderError (s05 §4.1, contracts §4). |
-| `ports.py` | `ChannelAddress`, `DeliveryReceipt`, `ChannelSender`, `RenderedPrompt`, `GenerationRequest`, `GenerationResult`, `LanguageModel`, `SafetyRequest`, `SafetyClassifier`, `TranscriptionHints`, `Transcriber`, `Synthesizer`, `ImageGenerator`, `ReplyImageStore`, `AudioConverter`, `MediaFetcher`, `Embedder`, `ImageSegmenter`, `ReplyAudioStore` | Protocols the pipeline and layers depend on (contracts.md §3). |
+| `ports.py` | `ChannelAddress`, `DeliveryReceipt`, `ChannelSender`, `RenderedPrompt`, `GenerationRequest`, `GenerationResult`, `LanguageModel`, `SafetyRequest`, `SafetyClassifier`, `TranscriptionHints`, `Transcriber`, `Synthesizer`, `ImageGenerator`, `ReplyImageStore`, `AudioConverter`, `MediaFetcher`, `ImageSegmenter`, `ReplyAudioStore` | Protocols the pipeline and layers depend on (contracts.md §3). |
 
 ## `providers/image`
 
@@ -281,7 +275,7 @@ line of the module's docstring.
 | `chunker.py` | `ChunkDraft`, `Chunker` | Chunker: a corpus document into heading-aware, token-budgeted chunks (s11 §4.3). Pure. |
 | `corpus_ingestor.py` | `IngestReport`, `CorpusIngestor` | CorpusIngestor: the validated corpus files into the corpus tables (s11 §4.5). Idempotent. |
 | `corpus_loader.py` | `CorpusFrontmatter`, `CorpusFile`, `CorpusLoader` | CorpusLoader: the corpus files, validated before anything is ingested (s11 §4.1). |
-| `retriever.py` | `RetrieverSettings`, `Retriever` | Retriever: hybrid search over the corpus, with an honest "nothing relevant" (s11 §4.7). |
+| `retriever.py` | `RetrieverSettings`, `Retriever` | Retriever: keyword search over the corpus, with an honest "nothing relevant" (s11 §4.7). |
 
 ## `safety`
 
@@ -300,7 +294,7 @@ line of the module's docstring.
 | `notification_listener.py` | `ListenerSettings`, `NotificationListener` | NotificationListener: Postgres `LISTEN` on one dedicated connection (s04 §4.11; s14 §4.6). |
 | `tables.py` | — | Table definitions (data-model.md). Each table is created by its step's Alembic migration. |
 | `turn_progress_notifier.py` | `TurnProgressNotifier` | TurnProgressNotifier: `NOTIFY turn_progress` with a turn id (s04 §4.6, s14 §4.4). |
-| `vector_column.py` | `VectorColumn` | VectorColumn: pgvector's `vector(n)` column type, for table definitions only (s11 §6). |
+| `vector_column.py` | `VectorColumn` | VectorColumn: pgvector's `vector(n)` column type, kept for the s11 migrations only. |
 
 ## `store/repositories`
 

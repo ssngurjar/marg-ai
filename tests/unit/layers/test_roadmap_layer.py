@@ -45,7 +45,7 @@ STORED = Roadmap(
 
 
 def layer(llm: FakeLanguageModel, *, relevant: bool = True) -> RoadmapLayer:
-    retriever, _, _ = corpus_retriever(relevant=relevant)
+    retriever, _ = corpus_retriever(relevant=relevant)
     mentor = MentorLayer(
         llm, shipped_registry(), retriever, MentorSettings(query_rewrite_enabled=False)
     )

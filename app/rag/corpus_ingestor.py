@@ -1,15 +1,13 @@
 """CorpusIngestor: the validated corpus files into the corpus tables (s11 §4.5). Idempotent.
 
-A file whose content hash is already stored is skipped. A new or changed file is chunked and
-embedded first (outside any transaction), then replaced in one transaction. Documents whose files
-are gone are deleted. A dry run reports what would change and writes nothing.
+A file whose content hash is already stored is skipped. A new or changed file is chunked, then
+replaced in one transaction (Postgres builds its keyword index). Documents whose files are gone
+are deleted. A dry run reports what would change and writes nothing.
 """
 
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from app.domain.enums import EmbedPurpose
-from app.providers.ports import Embedder
 from app.rag.chunk_store import ChunkStore
 from app.rag.chunker import ChunkDraft, Chunker
 from app.rag.corpus_loader import CorpusFile
@@ -26,13 +24,12 @@ class IngestReport:
 
 
 class CorpusIngestor:
-    def __init__(self, embedder: Embedder, store: ChunkStore) -> None:
-        self._embedder = embedder
+    def __init__(self, store: ChunkStore) -> None:
         self._store = store
 
     async def ingest(self, files: Sequence[CorpusFile], *, dry_run: bool) -> IngestReport:
-        """Raises ProviderError or StoreError naming the document being processed; documents
-        already done stay done (each is its own transaction)."""
+        """Raises StoreError naming the document being processed; documents already done stay
+        done (each is its own transaction)."""
         stored = await self._store.document_hashes()
         added = updated = unchanged = chunks_written = 0
         for corpus_file in files:
@@ -56,7 +53,6 @@ class CorpusIngestor:
         return IngestReport(added, updated, unchanged, deleted, chunks_written)
 
     async def _write(self, corpus_file: CorpusFile, drafts: Sequence[ChunkDraft]) -> None:
-        vectors = await self._embedder.embed([draft.text for draft in drafts], EmbedPurpose.PASSAGE)
         frontmatter = corpus_file.frontmatter
         document = DocumentRow(
             path=corpus_file.path,
@@ -70,13 +66,8 @@ class CorpusIngestor:
             content_sha256=corpus_file.content_sha256,
         )
         chunks: list[ChunkRow] = []
-        for draft, vector in zip(drafts, vectors, strict=True):
+        for draft in drafts:
             chunks.append(
-                ChunkRow(
-                    position=draft.position,
-                    heading_path=draft.heading_path,
-                    text=draft.text,
-                    embedding=vector,
-                )
+                ChunkRow(position=draft.position, heading_path=draft.heading_path, text=draft.text)
             )
         await self._store.replace_document(document, chunks)

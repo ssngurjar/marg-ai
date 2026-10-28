@@ -31,7 +31,7 @@ QUESTION = "class 8 mein scholarship milti hai kya"
 
 
 def mentor(llm: FakeLanguageModel, *, relevant: bool = True) -> MentorLayer:
-    retriever, _, _ = corpus_retriever(relevant=relevant)
+    retriever, _ = corpus_retriever(relevant=relevant)
     return MentorLayer(llm, shipped_registry(), retriever, OFF)
 
 
@@ -166,12 +166,12 @@ async def test_a_minor_mentioning_marriage_gets_the_child_protection_line(text: 
 
 
 async def test_retrieval_uses_the_students_words_and_grade_when_rewriting_is_off() -> None:
-    retriever, store, _ = corpus_retriever()
+    retriever, store = corpus_retriever()
     llm = FakeLanguageModel([MENTOR_ANSWER])
     await MentorLayer(llm, shipped_registry(), retriever, OFF).answer(
         student_ctx(grade=9), QUESTION, H
     )
-    assert store.vector_grades == [9]
+    assert store.keyword_queries[0][2] == 9
     assert [prompt.prompt_id for prompt in llm.prompts] == ["mentor"]
 
 

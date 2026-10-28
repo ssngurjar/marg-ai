@@ -1,6 +1,5 @@
-"""ChunkRepository against Postgres with pgvector (s11 §4.5, §4.7)."""
+"""ChunkRepository against Postgres: storage and keyword search (s11 §4.5, §4.7)."""
 
-import math
 import os
 from collections.abc import AsyncIterator
 from datetime import date
@@ -15,14 +14,6 @@ from app.store.repositories.chunk_repository import ChunkRepository, ChunkRow, D
 from tests.support.app_factory import make_settings
 
 pytestmark = pytest.mark.integration
-
-
-def axis(index: int, lean: float = 0.0) -> list[float]:
-    """A unit vector mostly along `index`, leaning `lean` toward axis 0."""
-    vector = [0.0] * 384
-    vector[index] = math.sqrt(1 - lean**2)
-    vector[0] += lean
-    return vector
 
 
 def document(path: str, *, grades: list[int], keywords: list[str], sha: str = "1") -> DocumentRow:
@@ -56,32 +47,52 @@ async def corpus(engine: AsyncEngine) -> ChunkRepository:
     repository = ChunkRepository(create_session_factory(engine))
     await repository.replace_document(
         document("corpus/scholarships/nmms.md", grades=[8], keywords=["NMMS", "scholarship"]),
-        [ChunkRow(0, "Who can apply", "NMMS — students of class 8 can apply", axis(1))],
+        [ChunkRow(0, "Who can apply", "NMMS — students of class 8 can apply")],
     )
     await repository.replace_document(
         document("corpus/scholarships/nsp.md", grades=[], keywords=["NSP"]),
-        [ChunkRow(0, "What it is", "National Scholarship Portal for all classes", axis(2))],
+        [ChunkRow(0, "What it is", "National Scholarship Portal for all classes")],
     )
     return repository
 
 
-async def test_nearest_vectors_come_first_with_their_similarity(corpus: ChunkRepository) -> None:
-    hits = await corpus.vector_candidates(axis(1, lean=0.2), None, 20)
-    assert len(hits) == 2
-    assert hits[0].score > hits[1].score
-    assert hits[0].score == pytest.approx(math.sqrt(1 - 0.04), abs=1e-3)
-    chunks = await corpus.load_chunks([hits[0].chunk_id])
-    assert chunks[hits[0].chunk_id].title == "nmms.md"
+async def test_english_stemming_matches_other_forms_of_a_word(corpus: ChunkRepository) -> None:
+    # "scholarships" and "applying" are stored as "scholarship" and "apply"
+    hits = await corpus.keyword_candidates("scholarships OR applying", [], None, 20)
+    titles = {(await corpus.load_chunks([hit.chunk_id]))[hit.chunk_id].title for hit in hits}
+    assert titles == {"nmms.md", "nsp.md"}
+    assert all(hit.text_rank > 0 and hit.score == hit.text_rank for hit in hits)
+
+
+async def test_an_exact_name_adds_one_to_the_order_score_but_not_the_text_rank(
+    corpus: ChunkRepository,
+) -> None:
+    [hit] = await corpus.keyword_candidates("nmms", ["NMMS"], None, 20)
+    assert hit.keyword_exact is True
+    assert hit.score == pytest.approx(hit.text_rank + 1.0)
+
+
+async def test_the_heading_is_searched_as_well_as_the_text(corpus: ChunkRepository) -> None:
+    await corpus.replace_document(
+        document("corpus/exams/neet.md", grades=[], keywords=["NEET"]),
+        [ChunkRow(0, "Eligibility", "Class 12 with physics, chemistry and biology")],
+    )
+    [hit] = await corpus.keyword_candidates("eligibility", [], None, 20)
+    assert (await corpus.load_chunks([hit.chunk_id]))[hit.chunk_id].title == "neet.md"
+
+
+async def test_only_stop_words_match_nothing(corpus: ChunkRepository) -> None:
+    assert await corpus.keyword_candidates("the OR for OR all OR can", [], None, 20) == []
 
 
 async def test_a_grade_8_document_is_left_out_for_grade_11_but_all_grade_ones_stay(
     corpus: ChunkRepository,
 ) -> None:
     titles = []
-    for hit in await corpus.vector_candidates(axis(1), 11, 20):
+    for hit in await corpus.keyword_candidates("scholarship OR students", [], 11, 20):
         titles.append((await corpus.load_chunks([hit.chunk_id]))[hit.chunk_id].title)
     assert titles == ["nsp.md"]
-    assert len(await corpus.vector_candidates(axis(1), 8, 20)) == 2
+    assert len(await corpus.keyword_candidates("scholarship OR students", [], 8, 20)) == 2
 
 
 async def test_an_exact_scheme_name_is_found_and_flagged_whatever_the_case(
@@ -102,12 +113,12 @@ async def test_a_word_in_the_text_matches_without_being_an_exact_keyword(
 async def test_replacing_a_document_swaps_all_its_chunks_and_keeps_its_id(
     corpus: ChunkRepository, engine: AsyncEngine
 ) -> None:
-    before = await corpus.vector_candidates(axis(1), 8, 1)
+    before = await corpus.keyword_candidates("students", [], 8, 1)
     await corpus.replace_document(
         document("corpus/scholarships/nmms.md", grades=[8], keywords=["NMMS"], sha="2"),
         [
-            ChunkRow(0, "Who can apply", "first", axis(3)),
-            ChunkRow(1, "How to apply", "second", axis(4)),
+            ChunkRow(0, "Who can apply", "first"),
+            ChunkRow(1, "How to apply", "second"),
         ],
     )
     assert (await corpus.document_hashes())["corpus/scholarships/nmms.md"] == "2"
