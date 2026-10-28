@@ -1,8 +1,11 @@
 """The d7 child-hazard words (s10b §4.10, s07 §4.5), per hazard on content/activities/_hazards.yaml.
 
-A journey reply that mentions a hazard the offered activity didn't declare is blocked. Matched
+An activity step that mentions a hazard the activity didn't declare is blocked. Matched
 as whole words after PhraseFinder.normalise. Bare "well" is left out on purpose: in English it's
 mostly an adverb ("mix it well"); the water well is caught as "kuan", "village well" and so on.
+
+An answer may name or explain a hazard (TALKABLE_HAZARDS); an activity may never involve one,
+except a child-safe tool with a grown-up (CHILD_SAFE_TOOL_PHRASES).
 
 v1, written 2026-10-27: pending the owner's review.
 """
@@ -45,6 +48,19 @@ CHILD_HAZARD_WORDS: Final[dict[str, tuple[str, ...]]] = {
 }  # fmt: skip
 
 NEVER_TALK_ABOUT: Final = frozenset({"medicine"})
-"""Hazards an answer may not discuss even when the child asked (owner, 2026-10-28): medicine
-questions go to the anganwadi worker, the ASHA didi or a doctor. Every other hazard the child
-asked about may be talked about, never done."""
+"""Hazards no answer discusses (owner, 2026-10-28): medicine questions go to the anganwadi
+worker, the ASHA didi or a doctor."""
+
+TALKABLE_HAZARDS: Final = frozenset(CHILD_HAZARD_WORDS) - NEVER_TALK_ABOUT
+"""Hazards an answer may name or explain, asked about or not, when they make the best example
+(owner, 2026-10-28: "the sickle's thin edge", "fire needs air"). Talked about, never done: the
+activity part of a reply is still checked against every hazard word."""
+
+CHILD_SAFE_TOOL_PHRASES: Final[tuple[str, ...]] = (
+    "round-tip scissors", "rounded scissors", "child-safe scissors",
+    "children's scissors", "gol nok wali kainchi", "gol nok ki kainchi", "bachchon wali kainchi",
+    "bachchon ki kainchi", "गोल नोक वाली कैंची", "गोल नोक की कैंची", "बच्चों वाली कैंची",
+    "बच्चों की कैंची",
+)  # fmt: skip
+"""Tools a child's activity may use with a grown-up (owner, 2026-10-28: "cut paper with
+round-tip children's scissors, with Mummy" is fine). Masked before the activity's d7 check."""

@@ -7,7 +7,7 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 from app.constants import child_talk_copy as copy
-from app.constants.child_hazards import CHILD_HAZARD_WORDS, NEVER_TALK_ABOUT
+from app.constants.child_hazards import CHILD_HAZARD_WORDS, TALKABLE_HAZARDS
 from app.constants.child_safety_words import (
     CHILD_MANIPULATION_PHRASES,
     CHILD_PERSONAL_TOPICS,
@@ -130,8 +130,8 @@ async def test_a_turn_answers_in_the_childs_register_and_says_tell_your_parents(
     assert result.reply.spoken_text is not None
     assert result.reply.spoken_text.endswith(TELL_YOUR_PARENTS[Language.HINDI])
     assert result.writes == [ChildTalkTurn(session_id=SESSION_ID, topic=CuriosityDomain.EARTH_SKY)]
-    assert result.hazard_rule == frozenset()
-    assert result.prompt_versions == {"child_talk": "1.0.2"}
+    assert result.hazard_rule == TALKABLE_HAZARDS
+    assert result.prompt_versions == {"child_talk": "1.0.3"}
     assert "The child is 5 years old" in llm.prompts[0].system
     assert "at most 8 words" in llm.prompts[0].system
 
@@ -256,7 +256,7 @@ def reply(**changes: object) -> ChildReply:
         ({"ask_back": "Yeh hamara secret hai na?"}, "text: talks about secrets"),
         ({"spoken_text": "किसी को मत बताना।"}, "text: talks about secrets"),
         ({"ask_back": "Tumhara school kaunsa hai?"}, "text: asks the child for personal details"),
-        ({"find_out": "Talab ke paas jaakar dekho."}, "text: mentions a danger"),
+        ({"find_out": "Talab ke paas jaakar dekho."}, "find_out: nothing dangerous"),
         ({"find_out": "Dukaan se torch kharido."}, "text: asks for something to be bought"),
         ({"answer": "Tum genius ho!"}, "text: labels the child"),
         ({"ask_back": "Doctor banogi?"}, "text: mentions careers"),
@@ -299,28 +299,71 @@ def test_fixed_child_copy_never_trips_the_hazard_or_child_rules(
 
 # --- d7: talk about it, never do it (owner, 2026-10-28) ----------------------------------------
 
-ASKED_SNAKE = ChildHazardMatcher.asked_about(
-    "Saanp ke kaan hote hain kya?", CHILD_HAZARD_WORDS, NEVER_TALK_ABOUT
+
+@pytest.mark.parametrize(
+    ("answer", "spoken"),
+    [
+        ("Saanp ke bahar kaan nahi hote. Door se hi dekhna.", "साँप के बाहर कान नहीं होते।"),
+        ("Hasiya ki dhaar patli hoti hai. Isliye woh kaat-ta hai.", "हँसिया की धार पतली होती है।"),
+        ("Aag ko hawa chahiye. Dhak do to bujh jaati hai.", "आग को हवा चाहिए।"),
+        ("Socket mein ungli kabhi mat daalna.", "सॉकेट में उंगली कभी मत डालना।"),
+    ],
 )
+def test_a_hazard_may_be_named_or_explained_asked_about_or_not(answer: str, spoken: str) -> None:
+    told = reply(answer=answer, spoken_text=spoken)
+    assert _ChildChecks.problems(told, H, max_words=12) == []
 
 
-def test_a_child_may_be_told_about_the_snake_they_asked_about() -> None:
-    told = reply(
-        answer="Saanp ke bahar kaan nahi hote. Door se hi dekhna.",
-        spoken_text="साँप के बाहर कान नहीं होते। दूर से ही देखना।",
-    )
-    assert _ChildChecks.problems(told, H, max_words=8, asked=ASKED_SNAKE) == []
-
-
-def test_but_never_sent_to_find_one() -> None:
-    told = reply(find_out="Saanp dhoondho aur dekho.")
-    problems = _ChildChecks.problems(told, H, max_words=8, asked=ASKED_SNAKE)
+@pytest.mark.parametrize(
+    "find_out",
+    [
+        "Saanp dhoondho aur dekho.",
+        "Chaaku se ek patta kaato.",
+        "Diya jalao aur katori se dhako.",
+        "Talab ke kinaare mendhak dekho.",
+        "Chhat se patthar giraao.",
+    ],
+)
+def test_but_never_sent_to_do_it(find_out: str) -> None:
+    told = reply(find_out=find_out)
+    problems = _ChildChecks.problems(told, H, max_words=12)
     assert any(problem.startswith("find_out: nothing dangerous") for problem in problems)
 
 
-async def test_the_reply_check_lets_through_only_what_the_child_asked_about() -> None:
-    """The layer's hazard_rule carries the asked-about kinds to the d7 reply check."""
+@pytest.mark.parametrize(
+    "find_out",
+    [
+        "Gol nok wali kainchi se Mummy ke saath kaagaz kaato.",
+        "Bachchon wali kainchi se Papa ke saath kaagaz kaato.",
+    ],
+)
+def test_round_tip_childrens_scissors_with_a_parent_are_allowed(find_out: str) -> None:
+    told = reply(find_out=find_out, spoken_text="मम्मी के साथ कागज़ काटो।")
+    assert _ChildChecks.problems(told, H, max_words=12) == []
+
+
+def test_plain_scissors_in_the_activity_are_still_refused() -> None:
+    told = reply(find_out="Kainchi se kaagaz kaato.")
+    problems = _ChildChecks.problems(told, H, max_words=12)
+    assert any(problem.startswith("find_out: nothing dangerous") for problem in problems)
+
+
+def test_medicine_is_never_talked_about() -> None:
+    told = reply(answer="Dawai kadwi hoti hai.", spoken_text="दवाई कड़वी होती है।")
+    problems = _ChildChecks.problems(told, H, max_words=12)
+    assert any(problem.startswith("text: nothing about medicine") for problem in problems)
+
+
+def test_a_hazard_only_in_the_voice_note_is_refused() -> None:
+    told = reply(answer="Patte gin lo.", spoken_text="पत्ते गिन लो। फिर नदी पर चलो।")
+    problems = _ChildChecks.problems(told, H, max_words=12)
+    assert "spoken_text: names a danger the written text doesn't" in problems
+
+
+async def test_the_reply_check_lets_any_hazard_but_medicine_be_talked_about() -> None:
+    """The layer's hazard_rule carries the talkable kinds to the d7 reply check."""
     told = {**CHILD_REPLY, "answer": "Saanp ke bahar kaan nahi hote. Door se dekhna.",
             "spoken_text": "साँप के बाहर कान नहीं होते। दूर से देखना।"}  # fmt: skip
     result, _ = await talk("Saanp ke kaan hote hain kya?", session=open_session(MUNNI), output=told)
-    assert result.hazard_rule == frozenset({"wild_animal"})
+    assert result.hazard_rule == TALKABLE_HAZARDS
+    assert "medicine" not in TALKABLE_HAZARDS

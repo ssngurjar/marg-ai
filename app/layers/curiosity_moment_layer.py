@@ -16,7 +16,12 @@ from typing import Final
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.constants.child_hazards import CHILD_HAZARD_WORDS, NEVER_TALK_ABOUT
+from app.constants.child_hazards import (
+    CHILD_HAZARD_WORDS,
+    CHILD_SAFE_TOOL_PHRASES,
+    NEVER_TALK_ABOUT,
+    TALKABLE_HAZARDS,
+)
 from app.constants.journey_copy import (
     ASK_BACK_LABEL,
     CURIOSITY_FALLBACK,
@@ -91,7 +96,6 @@ class CuriosityMomentLayer:
         """The curiosity-moment reply, or NotAChildQuestion when the model says this isn't the
         child's own question. Raises ProviderError when the model can't be reached."""
         child_age = str(StageRules.age_on(learner.birth_year, today)) if learner else UNKNOWN_AGE
-        asked = ChildHazardMatcher.asked_about(parent_message, CHILD_HAZARD_WORDS, NEVER_TALK_ABOUT)
         rendered = self._registry.render(
             CURIOSITY_MOMENT,
             system_vars={
@@ -107,9 +111,7 @@ class CuriosityMomentLayer:
                 "child": learner.nickname if learner and learner.nickname else "",
                 "parent_message": parent_message,
             },
-            semantic_check=lambda moment: _MomentChecks.problems(
-                moment, self._materials, register, asked
-            ),
+            semantic_check=lambda moment: _MomentChecks.problems(moment, self._materials, register),
         )
         versions = {rendered.request.prompt.prompt_id: rendered.request.prompt.prompt_version}
         try:
@@ -125,7 +127,7 @@ class CuriosityMomentLayer:
             prompt_versions=versions,
             outcome=StepOutcome.OK,
             degraded_reason=None,
-            hazard_rule=asked,  # d7: only what the child asked about, and only talked about
+            hazard_rule=TALKABLE_HAZARDS,  # d7: talked about, never done
         )
 
 
@@ -187,7 +189,6 @@ class _MomentChecks:
         moment: CuriosityMoment,
         materials: frozenset[str],
         register: Language,
-        asked: frozenset[str] = frozenset(),
     ) -> list[str]:
         if not moment.is_child_question:
             return []
@@ -200,12 +201,15 @@ class _MomentChecks:
         ]
         joined = " ".join(written)
         activity = " ".join(moment.find_out_together)
-        if ChildHazardMatcher.undeclared(activity, CHILD_HAZARD_WORDS, ()):
+        if ChildHazardMatcher.find(activity, CHILD_HAZARD_WORDS, CHILD_SAFE_TOOL_PHRASES):
             problems.append("find_out_together: nothing dangerous, even what the child asked about")
-        if ChildHazardMatcher.undeclared(
-            f"{joined} {moment.spoken_text}", CHILD_HAZARD_WORDS, asked
+        talked_about = ChildHazardMatcher.find(f"{joined} {moment.spoken_text}", CHILD_HAZARD_WORDS)
+        if talked_about & NEVER_TALK_ABOUT:
+            problems.append("text: nothing about medicine; that goes to the ASHA didi or a doctor")
+        if ChildHazardMatcher.spoken_only(
+            moment.spoken_text, joined, CHILD_HAZARD_WORDS, CHILD_SAFE_TOOL_PHRASES
         ):
-            problems.append("text: mentions a danger the child didn't ask about")
+            problems.append("spoken_text: names a danger the written text doesn't")
         if ActivityValidator.mentions_buying(written):
             problems.append("text: asks for something to be bought")
         unknown = sorted(set(moment.materials_used) - materials)

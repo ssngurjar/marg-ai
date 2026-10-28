@@ -6,7 +6,7 @@ from hypothesis import strategies as st
 
 from app.audio.tts_text_preparer import TtsTextPreparer
 from app.constants.braj_words import VILLAGE_RULE
-from app.constants.child_hazards import CHILD_HAZARD_WORDS, NEVER_TALK_ABOUT
+from app.constants.child_hazards import TALKABLE_HAZARDS
 from app.constants.journey_copy import (
     ASK_BACK_LABEL,
     CURIOSITY_FALLBACK,
@@ -16,7 +16,6 @@ from app.constants.journey_copy import (
 )
 from app.core.errors import ProviderResponseInvalid, ProviderUnavailable
 from app.domain.enums import Language, StepOutcome
-from app.domain.rules.child_hazard_matcher import ChildHazardMatcher
 from app.domain.rules.child_question_detector import ChildQuestionDetector
 from app.layers.curiosity_moment_layer import (
     CuriosityMoment,
@@ -117,8 +116,8 @@ async def test_a_confident_answer_has_the_answer_activity_question_and_supervisi
     assert reply.body.endswith(SUPERVISION_LINE[H])
     assert reply.spoken_text is not None
     assert reply.spoken_text.endswith(SUPERVISION_LINE[Language.HINDI])
-    assert answered(result).hazard_rule == frozenset()
-    assert answered(result).prompt_versions == {"curiosity_moment": "1.0.2"}
+    assert answered(result).hazard_rule == TALKABLE_HAZARDS
+    assert answered(result).prompt_versions == {"curiosity_moment": "1.0.3"}
     assert answered(result).writes == []
 
 
@@ -142,7 +141,7 @@ async def test_the_parents_own_question_comes_back_with_its_cost() -> None:
         NOT_A_CHILD_QUESTION, message="Munni ki tabiyat kharab hai kya karein"
     )
     assert isinstance(result, NotAChildQuestion)
-    assert result.prompt_versions == {"curiosity_moment": "1.0.2"}
+    assert result.prompt_versions == {"curiosity_moment": "1.0.3"}
     assert result.usage.cost_usd >= 0
 
 
@@ -195,8 +194,8 @@ def moment(**changes: object) -> CuriosityMoment:
 @pytest.mark.parametrize(
     ("changes", "problem"),
     [
-        ({"find_out_together": ["Talab ke paas jaakar dekhiye."]}, "text: mentions a danger"),
-        ({"spoken_text": "माचिस जलाकर देखिए।"}, "text: mentions a danger"),
+        ({"find_out_together": ["Talab ke paas jaakar dekhiye."]}, "find_out_together: nothing"),
+        ({"spoken_text": "माचिस जलाकर देखिए।"}, "spoken_text: names a danger"),
         (
             {"find_out_together": ["Bazaar se torch kharid laiye."]},
             "text: asks for something to be bought",
@@ -243,35 +242,39 @@ def test_over_long_fields_are_refused_by_the_schema(field: str) -> None:
 
 # --- d7: talk about it, never do it (owner, 2026-10-28) ----------------------------------------
 
-SNAKE_QUESTION = "Munni poochh rahi hai, saanp ke kaan kahan hote hain?"
-SNAKE = ChildHazardMatcher.asked_about(SNAKE_QUESTION, CHILD_HAZARD_WORDS, NEVER_TALK_ABOUT)
+
+@pytest.mark.parametrize(
+    ("say", "spoken"),
+    [
+        (
+            "Saanp ke bahar kaan nahi hote. Saanp ko sirf door se, bade ke saath dekho.",
+            "साँप के बाहर कान नहीं होते। साँप को सिर्फ़ दूर से, बड़े के साथ देखो।",
+        ),
+        (
+            "Nadi ke beech mein paani tez behta hai, isliye bade bhi wahan akele nahi jaate.",
+            "नदी के बीच में पानी तेज़ बहता है।",
+        ),
+        ("Bijli taar mein aise behti hai jaise paani pipe mein.", "बिजली तार में ऐसे बहती है।"),
+    ],
+)
+def test_a_hazard_may_be_talked_about_asked_or_not(say: str, spoken: str) -> None:
+    answer = moment(say_to_child=say, spoken_text=spoken)
+    assert _MomentChecks.problems(answer, MATERIALS, H) == []
 
 
-def test_a_hazard_the_child_asked_about_may_be_talked_about() -> None:
-    answer = moment(
-        say_to_child="Saanp ke bahar kaan nahi hote. Saanp ko sirf door se, bade ke saath dekho.",
-        spoken_text="साँप के बाहर कान नहीं होते। साँप को सिर्फ़ दूर से, बड़े के साथ देखो।",
-    )
-    assert frozenset({"wild_animal"}) == SNAKE
-    assert _MomentChecks.problems(answer, MATERIALS, H, SNAKE) == []
-
-
-def test_the_activity_never_involves_it_even_when_asked() -> None:
+def test_the_activity_never_involves_one() -> None:
     answer = moment(find_out_together=["Aangan mein saanp dhoondhiye aur uske kaan dekhiye."])
-    problems = _MomentChecks.problems(answer, MATERIALS, H, SNAKE)
+    problems = _MomentChecks.problems(answer, MATERIALS, H)
     assert any(problem.startswith("find_out_together: nothing dangerous") for problem in problems)
 
 
-def test_a_hazard_the_child_didnt_ask_about_is_still_refused() -> None:
-    answer = moment(say_to_child="Saanp ke kaan nahi hote. Aag ke paas mat jaana.")
-    problems = _MomentChecks.problems(answer, MATERIALS, H, SNAKE)
-    assert any(
-        problem.startswith("text: mentions a danger the child didn't ask") for problem in problems
-    )
+def test_medicine_is_never_talked_about() -> None:
+    answer = moment(say_to_child="Dawai kadwi isliye hoti hai.", spoken_text="दवाई कड़वी होती है।")
+    problems = _MomentChecks.problems(answer, MATERIALS, H)
+    assert any(problem.startswith("text: nothing about medicine") for problem in problems)
 
 
-def test_medicine_is_never_talked_about_even_when_asked() -> None:
-    asked = ChildHazardMatcher.asked_about(
-        "Munni poochh rahi hai dawai kadwi kyun hoti hai?", CHILD_HAZARD_WORDS, NEVER_TALK_ABOUT
-    )
-    assert asked == frozenset()
+def test_a_hazard_only_in_the_voice_note_is_refused() -> None:
+    answer = moment(spoken_text="चाँद को देखो। फिर तालाब पर चलो।")
+    problems = _MomentChecks.problems(answer, MATERIALS, H)
+    assert "spoken_text: names a danger the written text doesn't" in problems

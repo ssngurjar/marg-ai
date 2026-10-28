@@ -2,8 +2,8 @@
 
 A working map of the running system: what runs, how one message travels through it, where each
 feature lives, and how to find out why something didn't happen. Read it next to the code.
-Design intent lives in `docs/design/`; this guide describes what is built (as of 2026-10-27,
-commit `a785b2d`). Every module and class is listed in [`docs/code-map.md`](../code-map.md).
+Design intent lives in `docs/design/`; this guide describes what is built (as of 2026-10-28,
+the feature freeze). What each feature does for users, step by step: `docs/submission/features.md`. Every module and class is listed in [`docs/code-map.md`](../code-map.md).
 
 ---
 
@@ -13,25 +13,28 @@ commit `a785b2d`). Every module and class is listed in [`docs/code-map.md`](../c
  Parent's phone ──WhatsApp──▶ Meta Cloud API ──webhook──┐
  Browser (/demo) ─────────────────────────────JSON──────┤
                                                         ▼
-                ┌──────────────── one Python process (uvicorn) ─────────────────┐
-                │  api/      verify, parse, insert into inbox, wake the user    │
-                │  worker/   dispatcher → processor → orchestrator → finalize   │
-                │            → deliverer (send parts) → post-turn (signals, card)│
-                │            + maintenance pass every 30 s (retries, retention, │
-                │              purges, expired media, child sessions, nudges)   │
+                ┌──────── uvicorn (api, + the worker unless turned off) ────────┐
+                │  api/      verify, parse, insert into inbox, NOTIFY           │
+                │  worker/   turn loop: claim a user (lease) → processor →      │
+                │            orchestrator → finalize; outbox loop: send parts;  │
+                │            post-turn (signals, memory, card); maintenance     │
+                │            every 30 s (stuck leases and parts, retention,     │
+                │            purges, expired media, child sessions, nudges)     │
                 └───────────────┬──────────────────────────────┬───────────────┘
                                 │                              │
                       Postgres (docker)               external providers
                       inbox, turns, steps,            Muse Spark 1.3 (Model API)
                       outbox, users, learners,        Muse Spark Open (Baseten)
                       activities, sessions,           Muse Voice Transcribe, Muse Image
-                      signals, media, nudges          Llama Guard 4 (DeepInfra)
-                                                      voice server (marg-ai-tts, local)
+                      signals, media, nudges,         Llama Guard 4 (DeepInfra), SAM 3.1
+                      corpus chunks, plans, memory    voice server (TTS + embeddings, local)
 ```
 
-- **One process** (exception E1, `docs/design/mvp-scope.md` §4.1): the API and the worker share
-  one event loop. There's no separate worker process and no queue service. The inbox and outbox
-  tables are the queue.
+- **The tables are the queue** (E1, `docs/design/mvp-scope.md` §4.1). By default the worker runs
+  inside the API process (`RUN_WORKER_IN_API`); `.venv/bin/python -m app.worker` runs more
+  workers beside it. A worker takes one user at a time under a **lease** (`SKIP LOCKED`, renewed
+  by a heartbeat); if it dies, maintenance hands the user to another worker. Postgres
+  LISTEN/NOTIFY wakes workers at once (`inbox_new`, `outbox_new`); polling is the fallback.
 - **Nothing calls a model inside the webhook.** The webhook stores the message and returns in
   under a second; the turn runs in the background.
 - **Every reply is sealed by safety.** A `SafeReply` can only be created by `SafetyGate`, and the
@@ -46,9 +49,10 @@ Order matters: database, migrations, voice server, API, tunnel.
 | # | What | Command | Check |
 |---|---|---|---|
 | 1 | Postgres | `docker compose up -d postgres` | `docker compose ps` shows healthy |
-| 2 | Migrations | `make migrate` | `.venv/bin/alembic current` → `s14_web_demo (head)` |
+| 2 | Migrations | `make migrate` | `.venv/bin/alembic current` → `s04_user_leases (head)` |
 | 3 | Voice server (other folder) | see §2.1 | `curl -s 127.0.0.1:8100/healthz` → `"engine":"mms"` |
-| 4 | API + worker | `.venv/bin/uvicorn app.main:create_app --factory --host 127.0.0.1 --port 8000 --no-access-log` | `curl -s 127.0.0.1:8000/readyz` → `ready`, database and ffmpeg `ok` |
+| 3b | Corpus (once, and after any change under `corpus/`) | `.venv/bin/python -m app.cli ingest-corpus` | the mentor cites sources |
+| 4 | API + worker | `.venv/bin/uvicorn app.main:create_app --factory --host 127.0.0.1 --port 8000 --no-access-log` | `curl -s 127.0.0.1:8000/readyz` → `ready`, every probe `ok` (§7.3) |
 | 5 | Public tunnel | `scripts/dev_tunnel.sh 8000` | prints a `https://…trycloudflare.com` URL |
 | 6 | WhatsApp callback | point Meta at `<tunnel>/webhooks/whatsapp` (new URL on every tunnel start) | send "Hi" from the phone |
 | 7 | Web demo | open `<tunnel>/demo` (or `http://127.0.0.1:8000/demo`) | the page greets you |
@@ -85,7 +89,10 @@ TTS_ENGINE=mms SIDECAR_TOKEN=<same as marg-ai .env> HF_TOKEN=<from .env> \
 | `NUDGES_ENABLED` | daily khoj messages; **off** until Meta approves the templates |
 | `KHOJ_CARD_ENABLED` | illustrated cards after a good report |
 | `SAFETY_POLICY_MODEL_ENABLED` | the Muse Spark safety check that runs with Llama Guard |
-| `TIMEOUT_*` | per-step limits; `TURN_BUDGET_S` (25 s) caps the whole turn |
+| `TIMEOUT_*` | per-step limits; `TURN_BUDGET_S` (25 s) caps the whole turn; teachers' bridges and students' answers get 18 s (`TIMEOUT_EXPOSURE_S`, `TIMEOUT_MENTOR_S`) |
+| `RUN_WORKER_IN_API`, `WORKER_CONCURRENCY`, `LEASE_DURATION_S`, `DATABASE_LISTEN_URL` | where the worker runs, how many users at once, how long a lease lasts, the unpooled connection for LISTEN |
+| `RETRIEVAL_TOP_K`, `RETRIEVAL_MIN_SIMILARITY` | how many corpus chunks the mentor sees, and the cut-off for "I don't know" |
+| `EVAL_DATABASE_ADMIN_URL` | lets `marg eval` create and drop its own `marg_eval_*` database |
 | `DAILY_COST_CAP_USD`, `DEMO_*` | web demo limits |
 
 All settings, with defaults, are in `app/core/config.py` and `.env.example`.
@@ -99,16 +106,20 @@ Enforced by `tests/unit/test_layering.py` on every test run (`tests/support/laye
 ```
 api/        HTTP only: verify, parse, insert, project. No domain logic.
 pipeline/   the orchestrator and router. Depends on ports (protocols), never on SDKs.
-layers/     the generative features: onboarding, journey, curiosity moment, child talk, cards.
+layers/     the generative features: onboarding, journey, curiosity moment, child talk, cards,
+            teacher exposure, student mentor, roadmap, memory; local voice (village, Braj).
 safety/     the gate: crisis words, Llama Guard, the Muse Spark policy check, child rules.
 domain/     pure models and rules (state machine, chooser, schedules, matchers). No I/O.
 providers/  adapters behind providers/ports.py: the only place an SDK is imported.
 channels/   the only place that knows a WhatsApp or web payload shape.
 store/      the only place SQL lives (repositories, one per table or aggregate).
 audio/      ffmpeg conversions, TTS text preparation.
-telemetry/  curiosity signal extraction.
+rag/        the corpus: loader, chunker, ingestor, hybrid retriever.
+telemetry/  curiosity and aspiration signal extraction.
+evals/      the golden-case harness behind `marg eval`.
 constants/  reviewed copy (fixed replies, crisis texts, word lists) and external limits.
-worker/     the dispatcher, processor, deliverer, post-turn runner, nudge and card senders.
+worker/     the supervisor and its turn, outbox and maintenance loops; processor, deliverer,
+            post-turn runner, nudge, card and child-summary senders.
 wiring.py   the only place concrete classes are built and connected.
 ```
 
@@ -124,20 +135,20 @@ When you read a feature, start from `app/wiring.py`: it shows every object and w
 |---|---|---|
 | 1 | `api/routers/whatsapp_webhook.py` | checks the body size and Meta's signature (`channels/whatsapp/webhook_signature.py`) |
 | 2 | `channels/whatsapp/webhook_parser.py` | turns Meta's JSON into `InboundMessage`s (text, audio, image, button) |
-| 3 | `api/whatsapp_webhook_ingestor.py` | `InboxRepository.save` (deduplicated on the WhatsApp message id), then `dispatcher.wake(user)` |
+| 3 | `api/whatsapp_webhook_ingestor.py` | `InboxRepository.save` (deduplicated on the WhatsApp message id), which NOTIFYs `inbox_new` |
 | 3w | `api/routers/demo.py` → `api/web_demo_ingestor.py` | the web: cookie → visitor, origin check, rate limits, cost cap, `WebMessageParser`, inbox |
 
 ### 4.2 The turn (`worker/`)
 
 | Step | Where | What happens |
 |---|---|---|
-| 4 | `turn_dispatcher.py` | one task per user; waits `TURN_DEBOUNCE_MS` so several quick messages become one turn |
+| 4 | `turn_loop.py` | claims a user with pending messages under a lease (`LeaseRepository`, `SKIP LOCKED`), once their newest message is `TURN_DEBOUNCE_MS` old, so quick messages become one turn; a heartbeat renews the lease |
 | 5 | `turn_processor.py` | claims the user's pending messages into a `turns` row, loads the `TurnContext` (profile, learners, open activity, child session), acknowledges (blue ticks, typing) |
 | 6 | `pipeline/orchestrator.py` | runs the steps (§5) and returns a `TurnOutcome`: sealed delivery, writes, post-turn tasks |
-| 7 | `store/repositories/turn_repository.py` `finalize` | **one transaction**: the turn row, every `TurnWrite`, the outbox parts, the inbox rows marked done |
-| 8 | `reply_deliverer.py` | sends each part in order through the channel's sender; retries; the 24-hour window check (templates exempt) |
-| 9 | `post_turn_runner.py` | in the background: curiosity signals, then a khoj card |
-| 10 | maintenance (every 30 s) | resend due parts, wake users with pending messages, retention, purges, expired media, abandoned child sessions, nudges |
+| 7 | `store/repositories/turn_repository.py` `finalize` | **one transaction**, only while the lease is still held: the turn row, every `TurnWrite`, the outbox parts, the inbox rows marked done; NOTIFYs `outbox_new` and `turn_progress` (the web demo's live trace) |
+| 8 | `outbox_loop.py` → `reply_deliverer.py` | sends each part in order through the channel's sender; retries with backoff; the 24-hour window check (templates exempt) |
+| 9 | `post_turn_runner.py` | in the background: curiosity or aspiration signals, the student's memory, a khoj card |
+| 10 | `maintenance_loop.py` (every 30 s) | expired leases taken over, parts stuck in `sending` reset, retention, purges, expired media, abandoned child sessions (and the parent's summary), rate-limit windows pruned, nudges |
 
 A crash during 6 puts the messages back with backoff (`turn_crashed`); after
 `MAX_TURN_ATTEMPTS` they're "poisoned" and get a fixed reply (`turn_poisoned`).
@@ -171,8 +182,14 @@ Post-turn steps: `extract_signals`, `make_card` (recorded on the same turn).
 3. Not yet `ACTIVE` (consent, role, child) → `ONBOARDING`.
 4. A parent's `kid:start` or "Main Munni hoon" → `CHILD_TALK` (consent and cooldown checked in the layer).
 5. `onb:` buttons → `ONBOARDING`; `jrn:` and `nudge:` buttons → `JOURNEY`; any other button → REPEAT_PLEASE.
-6. Teachers → `ONBOARDING` (the invite); a language name → `ONBOARDING`; "ek aur bachcha" → `ONBOARDING`.
-7. A blank message → REPEAT_PLEASE. Otherwise → `JOURNEY`.
+6. A language name → `ONBOARDING`. Then by role:
+   - **Parent:** `jrn:`/`nudge:` buttons → `JOURNEY`; "ek aur bachcha" → `ONBOARDING`; a photo
+     alone → `JOURNEY`; blank → REPEAT_PLEASE; otherwise → `JOURNEY`.
+   - **Teacher:** `exp:` buttons → `EXPOSURE`; "dashboard" → `DASHBOARD_LINK`; blank →
+     REPEAT_PLEASE; otherwise → `EXPOSURE`.
+   - **Student:** `rm:` buttons or a plan request ("plan bana do") → `ROADMAP`; blank →
+     REPEAT_PLEASE; otherwise → `MENTOR`.
+   - Any other button → REPEAT_PLEASE.
 
 The turn row's `route` column and the `route` step's `detail` tell you which rule fired.
 
@@ -195,7 +212,13 @@ The turn row's `route` column and the `route` step's `detail` tell you which rul
 | Khoj card (C6) | `layers/khoj_card_maker.py`, `worker/khoj_card_sender.py`, `providers/image/` | `khoj_card_text.md.j2`, `constants/khoj_card_style.py` | `media_blobs`, `learner_activities.card_blob_id` |
 | Voice in/out (S6) | `orchestrator._hear` / `_with_voice`, `audio/`, `providers/speech/` | `audio/tts_text_preparer.py` (what the voice may say) | `media_blobs` |
 | Safety | `safety/safety_gate.py`, `safety/domain_policy.py`, `domain/rules/crisis_phrase_matcher.py` | `minor_policy.md.j2`, `reply_policy.md.j2`, `constants/crisis_*.py`, `child_hazards.py` | — |
-| Web demo (S14) | `api/routers/demo.py`, `api/web_demo_ingestor.py`, `channels/web/`, `app/static/demo/` | — | `rate_limit_counters`, `inbox_messages.media_blob_id` |
+| Teacher bridges (S10) | `layers/exposure_layer.py`, `layers/curriculum_catalogue.py`, `domain/rules/chapter_matcher.py` | `exposure.md.j2` | — |
+| Student mentor (S11/S12) | `layers/mentor_layer.py`, `layers/query_rewriter.py`, `rag/retriever.py` (hybrid: vectors + keywords, `domain/rules/rank_fusion.py`) | `mentor.md.j2`, `query_rewrite.md.j2`, `corpus/` (each file has `source_url`, `retrieved_on`) | `corpus_documents`, `corpus_chunks` |
+| Plans (S12) | `layers/roadmap_layer.py` | `roadmap.md.j2` | `roadmaps`, `roadmap_steps` |
+| Student memory and aims (S12/S13) | `layers/memory_layer.py`, `telemetry/` aspiration extractor, `domain/rules/aspiration_trajectory.py` | `memory.md.j2`, `aspiration_extract.md.j2` | `profile_memory`, `aspiration_signals` |
+| Language and local voice | `domain/rules/register_chooser.py` (Devanagari = Hindi; 4+ words to switch), `domain/rules/braj_detector.py`, `layers/local_voice.py`, `domain/rules/indic_script_normaliser.py` | `constants/braj_words.py` | — |
+| Web demo (S14, E2) | `api/routers/demo.py`, `api/web_demo_ingestor.py`, `api/turn_progress_hub.py` + `turn_event_stream.py` (`GET /demo/events`, SSE), `channels/web/`, `app/static/demo/` | — | `rate_limit_counters`, `inbox_messages.media_blob_id` |
+| Evals (S15) | `evals/`, `store/eval_database.py`, `marg eval` | `eval_judge.md.j2`, `evals/golden/*.yaml` | its own `marg_eval_*` database; scorecards in `evals/results/` |
 
 Fixed replies (never generated): `constants/fixed_replies.py` and `constants/crisis_replies.py`,
 looked up by `pipeline/fixed_reply_service.py`. Helpline numbers are copied from official pages,
@@ -212,13 +235,15 @@ hashes and fixed words (`core/logging.py` redacts the rest). Useful events:
 
 | Event | Means |
 |---|---|
-| `dispatcher_recovered` | startup finished; messages requeued, parts reset |
+| `worker_started` / `worker_stopped` | the supervisor's loops came up or shut down |
+| `listener_connected` / `listener_disconnected` | LISTEN/NOTIFY up or down (polling covers the gap) |
 | `turn_crashed` / `turn_poisoned` | a bug raised inside a turn; after the attempts limit, a fixed reply |
-| `turn_lease_lost` | the user's state changed under a turn; it's rerun |
+| `lease_lost`, `lease_renew_failed`, `turn_lease_lost` | the worker lost a user's lease (another worker took over); its turn is discarded and rerun |
+| `outbox_resend_after_stuck` | parts left in `sending` by a dead worker were reset |
 | `delivery_failed` (with `error`) | a part couldn't be sent: `window_closed`, `media_expired`, a Graph error code |
 | `llama_guard_down`, `second_opinion_failed` | safety fell back to the Muse Spark check |
 | `open_model_fallback` | Muse Spark Open failed or was slow; Spark 1.3 answered |
-| `curiosity_extraction_failed`, `khoj_card_failed` | post-turn work failed (the reply was already sent) |
+| `curiosity_extraction_failed`, `aspiration_extraction_failed`, `memory_update_failed`, `khoj_card_failed` | post-turn work failed (the reply was already sent) |
 | `maintenance_failed` | the 30-second pass raised (often a missing migration) |
 | `webhook_unparseable`, `webhook_store_failed` | a Meta payload we couldn't read or store |
 
@@ -303,8 +328,10 @@ GROUP BY 1, 2, 3 ORDER BY 5 DESC;
 
 ### 7.3 Health and readiness
 
-- `GET /healthz`: the process is up. `GET /readyz`: database (critical) and ffmpeg (not
-  critical: voice degrades to text without it).
+- `GET /healthz`: the process is up. `GET /readyz`: `database`, `schema` (migrations at head)
+  and `queue` (no message waiting too long, so a worker is alive) are critical; `model_api`,
+  `safety`, `sidecar` (voice server) and `ffmpeg` aren't (the reply degrades). Provider probes
+  are cached 60 s. WhatsApp has no probe: the messaging token can't read the phone number.
 - Voice server: `GET 127.0.0.1:8100/healthz` shows the engine and models loaded.
 
 ### 7.4 Tests
@@ -317,8 +344,10 @@ GROUP BY 1, 2, 3 ORDER BY 5 DESC;
 | `make test-db-up` then `make test-int` | migrations up, down and up, `alembic check`, then integration tests on the test database (port 55432) |
 
 Unit tests never call a real model or service (fakes in `tests/fakes/`).
-`tests/integration/test_real_pipeline.py` runs the real dispatcher, orchestrator and Postgres with
+`tests/integration/test_real_pipeline.py` runs the real worker, orchestrator and Postgres with
 fake models: the best place to reproduce a whole conversation.
+`scripts/load/web_smoke.py` plays 10 web visitors at once against a running app
+(`docs/load/2026-10-28-smoke-test.md`).
 
 ### 7.5 Trying a prompt live
 
@@ -326,6 +355,15 @@ Each prompt was checked with a small script against the real model (synthetic me
 the pattern being: load settings, build the adapter and `prompt_registry(settings)` from
 `app/wiring.py`, call the layer, print the reply. The scripts used on 2026-10-27 are in the
 session's scratchpad, not the repo; recreate one when a prompt changes (CLAUDE.md §10).
+
+### 7.6 Scoring a change: `marg eval`
+
+`.venv/bin/python -m app.cli eval [--file parent_journey.yaml | --case crisis-001] --baseline
+evals/results/<last>.json` plays the golden cases through the real pipeline (real models) in a
+fresh `marg_eval_*` database, scores them by code and by the judge, and writes a scorecard to
+`evals/results/` (`--no-write` to skip). Crisis and adversarial cases are hard gates. Run one
+eval at a time: two starting together collide creating their databases. A single run moves by
+several points; compare the cases that changed, not only the rate.
 
 ---
 
@@ -337,13 +375,19 @@ session's scratchpad, not the repo; recreate one when a prompt changes (CLAUDE.m
 | A reply, but "try again later" | the turn's `failure_step` / `failure_kind` | a model timed out or the turn budget ran out |
 | "Abhi aapka message dekhne mein dikkat…" (HOLDING) | `safety_in` / `safety_out` rows FAILED | Llama Guard **and** the Muse Spark check both failed (fail closed, by design) |
 | A refusal for a harmless question | `safety_in` `detail` categories | Llama Guard flag confirmed by the policy check; tune the prompt or word list, never bypass |
-| The reviewed activity text instead of the personalised one | `generate` `detail` `catalogue_fallback=…` | personalisation failed its checks twice; `safety_out` blocked it (d7) |
+| The reviewed activity text instead of the personalised one | `generate` `detail` `catalogue_fallback=…` | personalisation failed its checks twice; `safety_out` blocked it (d7: the khoj, reflection and parent answers keep the strict word rule) |
+| A child's question gets "chalo, saath mein pata lagaate hain" and nothing else | `generate` `detail` `curiosity_fallback=…` / `child_fallback=…` | the answer failed its checks twice: a hazard in the find-out activity, anything about medicine, or a danger only in the voice note (d7, owner 2026-10-28: answers may name or explain a danger, never invite the child to do it) |
+| A student is told "no verified details yet" | `generate` `detail` (retrieval), `corpus_chunks` | nothing above `RETRIEVAL_MIN_SIMILARITY`; the corpus has no source on it (NEET, JEE…), or `ingest-corpus` wasn't run |
+| A teacher's or student's reply is "try again later" | `generate` FAILED `timeout` | over 18 s (`TIMEOUT_EXPOSURE_S` / `TIMEOUT_MENTOR_S`) |
+| A career question refused as self-harm | `safety_in` `detail` `guard_flagged=s11` | Llama Guard's S11 alone no longer counts; if refused, the Muse Spark check agreed: look at its reason |
 | Voice note → "samajh nahi aaya" | `fetch_media` detail (`voiced_ms`), `transcribe` FAILED kind | silent or under 0.7 s; speech-to-text down; only "umm" |
 | Photo → "koi insaan dikh raha hai" | `analyze_image` detail `person_check=reject` | anyone in the frame, a hand too (by design, owner 2026-10-28) |
 | Photo → "Photo ke liye shukriya!…" | `analyze_image` SKIPPED `photo_not_needed` | no khoj open (none offered, already reported, or older than 48 h) |
 | A photo report with no number in the reply | `fetch_image` / `analyze_image` / `safety_in` FAILED `photo_dropped`, `counts_dropped` | a failure dropped the photo; or the activity counts nothing |
 | No voice reply | `synthesize` row | voice server down or the wrong engine (422); spoken text not speakable (`TtsTextInvalid`, e.g. Latin letters for the Hindi voice) |
-| Reply in English for a Hinglish speaker | the turn's `reply_register`, the transcript | short or mostly-Roman text detected as English (open owner question) |
+| Reply in the wrong language | the turn's `reply_register`, the transcript | `RegisterChooser`: Devanagari is Hindi however short; a switch from the family's language needs 4+ words, so a short English message keeps the old language (by design, 2026-10-28) |
+| Braj reply for a non-Braj speaker (or none for one) | the profile's district, the message | two Braj markers in the message, or a Braj district, turn it on (`braj_detector.py`, `braj_words.py`) |
+| The web demo's trace doesn't move | browser console; `GET /demo/events` | the SSE stream dropped; the page falls back to polling |
 | No khoj card after a report | `make_card` row `detail` | engagement under 2, a card already today, safety blocked, `KHOJ_CARD_ENABLED=false`, the window closed |
 | "Main bachcha hoon" does nothing | `route` row; `learners.child_talk_consented_at` | no consent (the parent gets the switch-on message), the 30-minute cooldown, `CHILD_TALK_ENABLED=false` |
 | Child stuck in child talk | `child_sessions` with `ended_at IS NULL` | the child left without "bye"; maintenance closes it after 10 minutes |
@@ -368,14 +412,17 @@ session's scratchpad, not the repo; recreate one when a prompt changes (CLAUDE.m
   lasts 24 hours, cards 7 days.
 - "Delete my data" removes the user from every table (`test_real_pipeline` checks each one).
 - The image prompt never contains the child's name or the parent's words; the reflection never
-  sees a photo (photos are not built yet).
+  sees a photo, only SAM's object counts; a photo with a person in it is dropped unseen.
+- A child's find-out activity never involves a hazard (only round-tip children's scissors with a
+  parent); no answer discusses medicine.
+- A turn is finalized only by the worker holding the user's lease: never two replies.
 
 ---
 
-## 10. Not built yet
+## 10. Not built, or off
 
-- The dashboard's student section and teacher links (they come with S11/S12 and S10).
-- The web consent text variant, the teacher exposure layer (S10), RAG and mentor (S11, S12),
-  the eval scorecard (S15).
+Everything in the build plan is built; the feature freeze started 2026-10-28 (only fixes, data
+and prompt work since). Off by default: daily nudges (`NUDGES_ENABLED`, until Meta approves the
+templates). Not deployed yet: it runs locally behind the tunnel.
 
 Pending decisions and everything awaiting review: `docs/reviews/owner-review-pending.md`.

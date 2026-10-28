@@ -415,3 +415,12 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
 - [x] Pushed `main` on 2026-10-27 (S5, S8, the safety backup, Muse's spike E/F); CI green.
 - [x] Muse committed its spike E/F files (`5ec4490`).
 - [ ] If hackathon time allows: the Aspirational engine slice (s11/s12).
+
+## d7 hazards in examples (2026-10-28)
+
+- [ ] The khoj offer, the reflection and parent answers keep the strict d7 word rule (an
+  invitation there can't be checked apart from the rest of the text). Say if you want examples
+  allowed there too; it would need the reflection's question and tip checked by a model instead.
+- [ ] The prompt lines on hazards as examples (child_talk 1.0.3, curiosity_moment 1.0.3,
+  mentor 1.1.3) and the round-tip scissors phrases in `app/constants/child_hazards.py`.
+

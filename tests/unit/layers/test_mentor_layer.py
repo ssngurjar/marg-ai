@@ -52,7 +52,7 @@ async def test_claims_are_numbered_per_document_and_the_sources_listed() -> None
     assert result.reply.spoken_text is not None
     assert "http" not in result.reply.spoken_text
     assert result.outcome is StepOutcome.OK
-    assert result.prompt_versions == {"mentor": "1.1.2"}
+    assert result.prompt_versions == {"mentor": "1.1.3"}
 
 
 async def test_the_sources_go_in_the_system_part_and_the_question_in_a_user_slot() -> None:

@@ -10,7 +10,7 @@ import pytest
 from hypothesis import example, given, settings
 from hypothesis import strategies as st
 
-from app.constants.child_hazards import CHILD_HAZARD_WORDS
+from app.constants.child_hazards import CHILD_HAZARD_WORDS, CHILD_SAFE_TOOL_PHRASES
 from app.core.errors import CorpusValidationError
 from app.domain.enums import ActivityStatus, CuriosityDomain, LearnerRelation
 from app.domain.models.activity import Activity, PastActivity
@@ -299,6 +299,57 @@ def test_a_hazard_found_alone_is_found_in_any_context(
 ) -> None:
     kind, phrase = pair
     assert kind in ChildHazardMatcher.find(f"{prefix}{phrase}{suffix}", CHILD_HAZARD_WORDS)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Gol nok wali kainchi se kaagaz kaato", "Cut paper with round-tip scissors",
+        "बच्चों वाली कैंची से कागज़ काटो", "Use children's scissors with Mummy",
+    ],
+)  # fmt: skip
+def test_a_child_safe_tool_is_not_a_hazard(text: str) -> None:
+    assert ChildHazardMatcher.find(text, CHILD_HAZARD_WORDS, CHILD_SAFE_TOOL_PHRASES) == frozenset()
+
+
+def test_a_safe_tool_masks_only_itself() -> None:
+    text = "Gol nok wali kainchi se kaagaz kaato, chaaku se nahi"
+    found = ChildHazardMatcher.find(text, CHILD_HAZARD_WORDS, CHILD_SAFE_TOOL_PHRASES)
+    assert found == frozenset({"sharp_tool"})  # the chaaku still counts
+
+
+def test_plain_scissors_are_still_a_hazard() -> None:
+    found = ChildHazardMatcher.find("Kainchi se kaato", CHILD_HAZARD_WORDS, CHILD_SAFE_TOOL_PHRASES)
+    assert found == frozenset({"sharp_tool"})
+
+
+@given(
+    safe=st.sampled_from(CHILD_SAFE_TOOL_PHRASES),
+    other=st.text(alphabet="abcdefghijklmnopqrstuvwxyz अआकखगचजटतदनपमरलवसह😊", max_size=60),
+)
+@example(safe="gol nok wali kainchi", other="kainchi")
+def test_masking_safe_tools_never_adds_a_hazard(safe: str, other: str) -> None:
+    text = f"{other} {safe} {other}"
+    masked = ChildHazardMatcher.find(text, CHILD_HAZARD_WORDS, CHILD_SAFE_TOOL_PHRASES)
+    assert masked <= ChildHazardMatcher.find(text, CHILD_HAZARD_WORDS)
+    assert masked == ChildHazardMatcher.find(f"{other} {other}", CHILD_HAZARD_WORDS)
+
+
+@pytest.mark.parametrize(
+    ("spoken", "written", "expected"),
+    [
+        ("साँप के कान नहीं होते", "Saanp ke kaan nahi hote", frozenset()),
+        ("पत्ते गिनो, फिर नदी पर चलो", "Patte gino", frozenset({"water_body"})),
+        ("गोल नोक वाली कैंची से काटो", "Gol nok wali kainchi se kaato", frozenset()),
+    ],
+)
+def test_spoken_only_finds_a_hazard_the_written_text_lacks(
+    spoken: str, written: str, expected: frozenset[str]
+) -> None:
+    found = ChildHazardMatcher.spoken_only(
+        spoken, written, CHILD_HAZARD_WORDS, CHILD_SAFE_TOOL_PHRASES
+    )
+    assert found == expected
 
 
 # --- choosing the child ----------------------------------------------------------------------
