@@ -189,6 +189,7 @@ def _message_json(view: MessageView) -> dict[str, object]:
                     "duration_ms": step.duration_ms,
                     "detail": step.detail,
                     "cost_usd": str(step.cost_usd) if step.cost_usd is not None else None,
+                    "model": step.model,
                 }
                 for step in turn.steps
             ],

@@ -1,0 +1,53 @@
+:root {
+  --bg: #fbf7f0;
+  --panel: #ffffff;
+  --ink: #2b2118;
+  --muted: #74675a;
+  --line: #e8dfd2;
+  --accent: #b5532a;
+  --level-0: #e8dfd2;
+  --level-1: #f0c08a;
+  --level-2: #d98a4a;
+  --level-3: #8c3b17;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1d1915;
+    --panel: #26211b;
+    --ink: #f2ebe2;
+    --muted: #b7aa9b;
+    --line: #3a3229;
+    --accent: #e08a5c;
+    --level-0: #3a3229;
+    --level-1: #7a5530;
+    --level-2: #c07a45;
+    --level-3: #f0b07a;
+  }
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 960px; margin: 0 auto; padding: 16px; }
+h1 { color: var(--accent); font-size: 1.5rem; margin: 8px 0 16px; }
+h2 { font-size: 1.05rem; margin: 28px 0 10px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+.tile { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 4px; }
+.tile-value { font-size: 1.4rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.tile-label { color: var(--muted); font-size: 0.85rem; }
+.table { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { color: var(--muted); font-weight: 500; font-size: 0.85rem; }
+svg { display: block; max-width: 100%; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px; }
+svg .label { fill: var(--ink); font-size: 13px; }
+svg .small { font-size: 10px; }
+svg .value { fill: var(--muted); font-size: 12px; }
+svg .hidden { fill: var(--muted); font-size: 12px; font-style: italic; }
+svg .bar { fill: var(--accent); }
+svg .level-0 { fill: var(--level-0); }
+svg .level-1 { fill: var(--level-1); }
+svg .level-2 { fill: var(--level-2); }
+svg .level-3 { fill: var(--level-3); }
+.note { color: var(--muted); }
+footer { color: var(--muted); font-size: 0.85rem; margin: 28px 0 8px; }

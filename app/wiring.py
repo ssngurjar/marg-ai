@@ -18,6 +18,7 @@ from uuid import uuid4
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from app.api.readiness import ReadinessProbe
+from app.api.telemetry_pages import TelemetryPages
 from app.api.web_demo_ingestor import DemoDeps, DemoLimits, WebDemoIngestor
 from app.audio.audio_transcoder import AudioTranscoder
 from app.audio.ffmpeg_runner import FfmpegRunner
@@ -78,10 +79,14 @@ from app.store.repositories.khoj_card_repository import KhojCardRepository
 from app.store.repositories.media_blob_repository import MediaBlobRepository
 from app.store.repositories.nudge_repository import NudgeRepository
 from app.store.repositories.outbox_repository import OutboxRepository
+from app.store.repositories.telemetry_repository import TelemetryRepository
 from app.store.repositories.turn_repository import TurnRepository
 from app.store.repositories.turn_step_repository import TurnStepRepository
 from app.store.repositories.user_repository import UserRepository
 from app.telemetry.curiosity_signal_extractor import CURIOSITY_EXTRACT, CuriositySignalExtractor
+from app.telemetry.dashboard_builder import DashboardBuilder
+from app.telemetry.dashboard_link_codec import DashboardLinkCodec, DashboardLinkSettings
+from app.telemetry.status_report_builder import StatusReportBuilder, StatusSettings
 from app.worker.database_step_recorder import DatabaseStepRecorder
 from app.worker.khoj_card_sender import CardDeps, KhojCardSender
 from app.worker.nudge_sender import NudgeSender, NudgeSettings, nudge_templates
@@ -126,6 +131,7 @@ class Container:
     turn_dispatcher: TurnDispatcher
     web_demo: WebDemoIngestor
     user_repository: UserRepository
+    telemetry_pages: TelemetryPages
 
 
 @dataclass(frozen=True, slots=True)
@@ -301,6 +307,34 @@ def build_container(settings: Settings) -> Container:
             ),
         ),
         user_repository=UserRepository(session_factory),
+        telemetry_pages=build_telemetry_pages(settings, session_factory, clock),
+    )
+
+
+def build_telemetry_pages(
+    settings: Settings, session_factory: async_sessionmaker[AsyncSession], clock: Clock
+) -> TelemetryPages:
+    """/status and the admin dashboard (s13 §4.7, §4.9)."""
+    reader = TelemetryRepository(session_factory)
+    return TelemetryPages(
+        status=StatusReportBuilder(
+            reader, clock, StatusSettings(web_daily_cap_usd=settings.daily_cost_cap_usd)
+        ),
+        dashboard=DashboardBuilder(reader, clock),
+        links=dashboard_links(settings, clock),
+        admin_floor=settings.k_anonymity_floor_admin,
+    )
+
+
+def dashboard_links(settings: Settings, clock: Clock) -> DashboardLinkCodec:
+    """Shared by the pages and `marg admin-link`."""
+    return DashboardLinkCodec(
+        SignedTokenCodec(settings.session_signing_key, settings.session_signing_key_previous),
+        clock,
+        DashboardLinkSettings(
+            link_ttl=timedelta(seconds=settings.dashboard_link_ttl_s),
+            cookie_ttl=timedelta(seconds=settings.dashboard_cookie_ttl_s),
+        ),
     )
 
 

@@ -377,3 +377,4 @@ upgrade → downgrade → upgrade against `docker-compose.test.yml`.
 | 2026-10-27 | `s10b_khoj_cards`: `learner_activities.card_blob_id` (FK media_blobs SET NULL); card images kept 7 days | S10b build | pending owner review |
 | 2026-10-27 | `s14_web_demo`: `inbox_messages.media_blob_id` (web voice notes) and `rate_limit_counters` | S14 build | pending owner review |
 | 2026-10-28 | `s10b_photos`: `learner_activities.photo_findings` (jsonb, `list[ObjectCount]`) and the `media_blobs` purpose `inbound_photo`; the photo rule becomes "never kept beyond its turn": a web photo is held until its turn has looked at it (≤ 10 min) and deleted in that turn's finalize | Owner decision (web photos, 2026-10-28) | owner |
+| 2026-10-28 | `s13_turn_metrics`: the `turn_metrics` view (s13 §4.1), read by `/status` | S13 build | pending owner review |

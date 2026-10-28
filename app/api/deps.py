@@ -5,6 +5,7 @@ from typing import cast
 from fastapi import Request
 
 from app.api.readiness import ReadinessProbe
+from app.api.telemetry_pages import TelemetryPages
 from app.api.turn_waker import TurnWaker
 from app.api.web_demo_ingestor import WebDemoIngestor
 from app.core.clock import Clock
@@ -94,3 +95,10 @@ def get_user_repository(request: Request) -> UserRepository:
     if not isinstance(users, UserRepository):
         raise ConfigError("app.state.user_repository is not set; build the app with create_app()")
     return users
+
+
+def get_telemetry_pages(request: Request) -> TelemetryPages:
+    pages = request.app.state.telemetry_pages
+    if not isinstance(pages, TelemetryPages):
+        raise ConfigError("app.state.telemetry_pages is not set; build the app with create_app()")
+    return pages

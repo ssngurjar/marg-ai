@@ -186,7 +186,7 @@ function renderTrace(turn) {
     icon.textContent = OUTCOME_ICONS[step.outcome] || "?";
     icon.title = step.outcome;
     const name = document.createElement("span");
-    name.textContent = step.step;
+    name.textContent = step.model ? `${step.step} · ${step.model}` : step.step;
     const time = document.createElement("span");
     time.textContent = `${step.duration_ms} ms`;
     row.append(icon, name, time);

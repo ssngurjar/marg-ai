@@ -105,6 +105,16 @@ async def test_a_visitor_gets_a_cookie_and_onboarding_with_a_trace(site: Demo) -
     assert "consent" in str(first["buttons"]).lower() or first["buttons"]
 
 
+async def test_the_trace_names_the_model_behind_each_step(site: Demo) -> None:
+    await site.client.get("/demo/session")
+    view = await say(site, {"text": "Hi"})
+    turn = view["turn"]
+    assert isinstance(turn, dict)
+    models = {step["step"]: step["model"] for step in turn["steps"]}
+    assert models["route"] is None  # deterministic: no model
+    assert models["safety_in"] == "fake-guard+muse-spark-1.3"  # Llama Guard and the policy check
+
+
 async def test_the_page_is_served_with_its_security_headers(site: Demo) -> None:
     page = await site.client.get("/demo")
     assert page.status_code == 200

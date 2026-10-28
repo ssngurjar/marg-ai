@@ -8,8 +8,10 @@ line of the module's docstring.
 
 | Module | Classes | What it does |
 |---|---|---|
+| `dashboard_page_renderer.py` | `DashboardPageRenderer` | DashboardPageRenderer: /status and /dashboard as plain HTML (s13 §4.7). |
 | `deps.py` | — | FastAPI dependencies that read what the app factory put on `app.state`. |
 | `readiness.py` | `ProbeResult`, `ReadinessProbe` | Readiness probes: what `/readyz` checks, and how one check is run. |
+| `telemetry_pages.py` | `TelemetryPages` | TelemetryPages: what the /status and /dashboard routes need, built once in wiring. |
 | `turn_waker.py` | `TurnWaker` | TurnWaker: what an ingress needs from the turn dispatcher (s04 §4.3). |
 | `web_demo_ingestor.py` | `DemoLimits`, `Visitor`, `DemoDeps`, `WebDemoIngestor` | WebDemoIngestor: a web visitor's message into the same inbox as WhatsApp's (s14 §4.2-§4.7). |
 | `whatsapp_webhook_ingestor.py` | `WhatsAppWebhookIngestor` | WhatsAppWebhookIngestor: an authentic webhook body stored and applied (s03 §4.1, §4.8). |
@@ -18,6 +20,7 @@ line of the module's docstring.
 
 | Module | Classes | What it does |
 |---|---|---|
+| `dashboard.py` | — | /status (public, admin extras) and /dashboard (admin, signed link) (s13 §4.7, §4.9). |
 | `demo.py` | `MessageIn` | The web demo (s14; exception E2): a page, a session, messages in, and polling for the reply. |
 | `health.py` | `HealthResponse`, `ReadinessResponse` | Liveness and readiness endpoints. |
 | `whatsapp_webhook.py` | — | The WhatsApp webhook routes (s03 §4.1). Thin: verify, then hand off to the ingestor. |
@@ -244,6 +247,7 @@ line of the module's docstring.
 | `media_blob_repository.py` | `OwnedMedia`, `MediaBlobRepository` | MediaBlobRepository: reply audio kept until the sender uploads it (s06 §4.7, §4.8). |
 | `nudge_repository.py` | `NudgeBatch`, `NudgeResult`, `NudgeRepository` | Daily khoj messages: who opted in, and the NUDGE turns that send them (s10b §4.11). |
 | `outbox_repository.py` | `OutboxRow`, `OutboxRepository` | OutboxRepository: queued reply parts and their delivery (s04 §4.7, §4.10; s03 §4.8). |
+| `telemetry_repository.py` | `StepLatencyRow`, `TurnSummaryRow`, `JourneyCountsRow`, `FailureCountRow`, `ActivityCounts`, `ChildTalkCounts`, `YoungLearnerData`, `TelemetryRepository` | TelemetryRepository: the aggregate reads behind /status and the dashboard (s13 §4.6). |
 | `turn_repository.py` | `StartedTurn`, `FinishedTurn`, `FinalizeResult`, `TurnRepository` | Turns: claiming a user's pending messages, loading the context, finalizing (s04 §4.4 to §4.7). |
 | `turn_step_repository.py` | `StepRow`, `TurnStepRepository` | turn_steps rows and the turn columns written while a turn runs (s04 §4.6). |
 | `user_repository.py` | `UserRepository` | Users: onboarding changes, consent records and delete-my-data (s08 §4.9 to §4.11). |
@@ -253,6 +257,12 @@ line of the module's docstring.
 | Module | Classes | What it does |
 |---|---|---|
 | `curiosity_signal_extractor.py` | `CuriosityExtraction`, `ExtractedSignals`, `CuriositySignalExtractor` | CuriositySignalExtractor: what a child engaged with, from a parent's report or the child's |
+| `dashboard_builder.py` | `Bucket`, `SessionCount`, `WeekEngagement`, `ChildTalkSummary`, `PhotosAndCards`, `YoungLearnerDashboard`, `DashboardBuilder` | DashboardBuilder: the parents and young learners section of /dashboard (s13 §4.5, §4.7). |
+| `dashboard_link_codec.py` | `DashboardClaims`, `DashboardLinkSettings`, `DashboardLinkCodec` | DashboardLinkCodec: signed dashboard links and cookies (s13 §4.9, decision A4). |
+| `small_count_suppressor.py` | `SmallCountSuppressor` | SmallCountSuppressor: the k-anonymity floor (s13 §4.7), applied once, before anything renders. |
+| `status_report_builder.py` | `StepLatency`, `JourneyCounts`, `FailureCount`, `AdminStatus`, `StatusReport`, `StatusSettings`, `StatusReportBuilder` | StatusReportBuilder: what /status shows (s13 §4.7; public fields per decision B8). |
+| `svg_chart.py` | `BarRow`, `StackedColumn`, `SvgChart` | SvgChart: the dashboard's charts as inline SVG, drawn on the server (s13 §4.7). |
+| `telemetry_reader.py` | `TelemetryReader` | TelemetryReader: what the /status and dashboard builders read (TelemetryRepository in |
 
 ## `worker`
 

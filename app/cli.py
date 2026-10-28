@@ -1,6 +1,7 @@
 """`marg` ops commands. Run as `.venv/bin/python -m app.cli <group> <command>`.
 
 whatsapp reply-latest   send a text to the sender of the newest stored WhatsApp message
+admin-link              print a 15-minute link to the admin dashboard (s13 §4.9)
 """
 
 import argparse
@@ -8,13 +9,15 @@ import asyncio
 import sys
 from collections.abc import Sequence
 
+from app.core.clock import SystemClock
 from app.core.config import load_settings
 from app.core.errors import InvalidAddressCiphertext, ProviderError, StoreError
 from app.core.logging import configure_logging
 from app.domain.enums import Channel, PartKind
 from app.domain.models.reply import OutboundPart
 from app.providers.ports import ChannelAddress
-from app.wiring import build_container, close_container
+from app.telemetry.dashboard_link_codec import ADMIN
+from app.wiring import build_container, close_container, dashboard_links
 
 EXIT_OK = 0
 EXIT_NOTHING_TO_DO = 1
@@ -30,9 +33,27 @@ def main(argv: Sequence[str] | None = None) -> int:
         "reply-latest", help="reply to the sender of the newest stored WhatsApp message"
     )
     reply.add_argument("--text", default=None, help="message to send (default: an acknowledgement)")
+    admin = groups.add_parser("admin-link", help="print a 15-minute admin dashboard link")
+    admin.add_argument(
+        "--base-url", default=None, help="the app's public address (default: PUBLIC_BASE_URL)"
+    )
     arguments = parser.parse_args(argv)
+    if arguments.group == "admin-link":
+        base_url: str | None = arguments.base_url
+        return admin_link(base_url)
     text: str | None = arguments.text
     return asyncio.run(reply_latest(text))
+
+
+def admin_link(base_url: str | None) -> int:
+    """The link is a bearer token for 15 minutes: it's printed to this terminal only."""
+    settings = load_settings()
+    links = dashboard_links(settings, SystemClock())
+    base = (base_url or str(settings.public_base_url)).rstrip("/")
+    _say(f"{base}/dashboard?t={links.link_token(ADMIN)}")
+    minutes = settings.dashboard_link_ttl_s // 60
+    _say(f"Valid for {minutes} minutes. Once opened, /status also shows the admin numbers.")
+    return EXIT_OK
 
 
 async def reply_latest(text: str | None) -> int:

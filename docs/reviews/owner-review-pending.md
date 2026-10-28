@@ -231,6 +231,17 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
 - [ ] **Real photos** (`samples.md` set B) to measure the person check and counting beyond the 15
   synthetic test pictures (`docs/spikes/images.md`).
 
+## 2k. /status and the admin dashboard, S13 (from 2026-10-28)
+
+- [x] **Decided 2026-10-28:** the admin view shows counts from a single child; everyone else's
+  floor stays 5.
+- [ ] **Run `make migrate`** (two new migrations: `s10b_photos`, `s13_turn_metrics`), then open
+  `http://127.0.0.1:8000/status`, and `.venv/bin/python -m app.cli admin-link` for the dashboard.
+- [ ] **Look at the pages**: wording of the tiles and headings, what you'd want on screen in the
+  video (`/status` and the `/demo` trace are safe to film; the dashboard isn't, or blur it).
+- [ ] Build choices in the s13 log (pages built without Jinja2, 503 instead of a partial status,
+  admin-only claims for now).
+
 ## 3. Decisions log entries marked "pending owner review"
 
 - [ ] `docs/design/s05-llm-orchestrator.md`, 2026-10-27 (S5 build choices).

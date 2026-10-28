@@ -14,6 +14,7 @@ from app.core.errors import ConfigError
 from app.core.types import ReasoningEffort, TtsEngine
 
 ASYNCPG_SCHEME = "postgresql+asyncpg://"
+LOCAL_BASE_URL = "http://127.0.0.1:8000"
 
 type Environment = Literal["local", "test", "staging", "prod"]
 
@@ -148,11 +149,28 @@ class Settings(DatabaseSettings):
     demo_max_image_bytes: int = Field(default=1_000_000, gt=0)  # the page sends a 1024-px JPEG
     daily_cost_cap_usd: Decimal = Field(default=Decimal(5), ge=0)  # web only, IST day
 
+    # Added in S13 for /status and the admin dashboard (s13 §4.7, §4.9). The admin view shows
+    # counts from as few as K_ANONYMITY_FLOOR_ADMIN children (owner, 2026-10-28); every other
+    # view keeps K_ANONYMITY_FLOOR.
+    public_base_url: HttpUrl = HttpUrl(LOCAL_BASE_URL)  # builds `marg admin-link` links
+    dashboard_link_ttl_s: int = Field(default=900, gt=0)
+    dashboard_cookie_ttl_s: int = Field(default=7200, gt=0)
+    k_anonymity_floor: int = Field(default=5, ge=1)
+    k_anonymity_floor_admin: int = Field(default=1, ge=1)
+
     # Added in S10b for child talk (C13; contracts §7)
     child_talk_enabled: bool = True
     child_session_max_turns: int = Field(default=6, ge=1)
     child_session_max_minutes: int = Field(default=10, ge=1)
     child_session_cooldown_minutes: int = Field(default=30, ge=0)
+
+    @field_validator("public_base_url", mode="before")
+    @classmethod
+    def _local_when_blank(cls, value: object) -> object:
+        """An empty PUBLIC_BASE_URL (the tunnel's address isn't known yet) means this machine."""
+        if isinstance(value, str) and not value.strip():
+            return LOCAL_BASE_URL
+        return value
 
     @field_validator(
         "model_api_key",

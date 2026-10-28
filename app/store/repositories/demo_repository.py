@@ -44,6 +44,7 @@ class TraceStep:
     duration_ms: int
     detail: str | None
     cost_usd: Decimal | None
+    model: str | None = None  # the model behind the step, e.g. muse-spark-open for a reflection
 
 
 @dataclass(frozen=True, slots=True)
@@ -182,6 +183,7 @@ async def _turn_view(session: AsyncSession, turn_id: UUID) -> TurnView | None:
                 turn_steps.c.duration_ms,
                 turn_steps.c.detail,
                 turn_steps.c.cost_usd,
+                turn_steps.c.model,
             )
             .where(turn_steps.c.turn_id == turn_id)
             .order_by(turn_steps.c.id)
@@ -199,7 +201,7 @@ async def _turn_view(session: AsyncSession, turn_id: UUID) -> TurnView | None:
         status=turn.status,
         route=turn.route,
         steps=[
-            TraceStep(row.step, row.outcome, row.duration_ms, row.detail, row.cost_usd)
+            TraceStep(row.step, row.outcome, row.duration_ms, row.detail, row.cost_usd, row.model)
             for row in steps
         ],
         parts=[

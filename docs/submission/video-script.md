@@ -120,6 +120,8 @@ its live trace of every step, the GitHub repository.*
 - [ ] The ASER figure is shown with its source on screen.
 - [ ] Total length 3:00 or less, checked on the exported file.
 - [ ] Each "[after: …]" line is in the cut only if that feature is built and working.
+- [ ] **No admin dashboard on screen** unless blurred: it shows counts from a single child, and the
+      video names the village. `/status` and the `/demo` trace are safe to show.
 
 ## Sources for the facts spoken
 

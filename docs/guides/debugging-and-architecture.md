@@ -224,6 +224,19 @@ hashes and fixed words (`core/logging.py` redacts the rest). Useful events:
 
 Follow one turn: `grep <turn_id> /tmp/marg-app.log`.
 
+### 7.1b Numbers at a glance: /status and the dashboard
+
+- `GET /status` (public): turns, the share served well, how long parents wait for a reply
+  (p50/p95, from the `turn_metrics` view), every step's p50/p95 and OK rate, journey counts.
+  `/status.json` is the same as JSON.
+- `marg admin-link` (`.venv/bin/python -m app.cli admin-link [--base-url <tunnel URL>]`)
+  prints a 15-minute link. Opening it sets a 2-hour cookie; then `/dashboard` shows the young
+  learners, and `/status` adds today's cost, crisis replies and failures by step.
+- The admin view shows counts from a single child (`K_ANONYMITY_FLOOR_ADMIN=1`); don't film it
+  or share a screenshot without blurring (owner, 2026-10-28).
+- A `503` page means the database query failed: look for `status_unavailable` or
+  `dashboard_unavailable` in the logs (often a missing migration: `make migrate`).
+
 ### 7.2 The database: the best debugger
 
 Open a shell: `docker compose exec postgres psql -U marg marg`.
@@ -361,9 +374,7 @@ session's scratchpad, not the repo; recreate one when a prompt changes (CLAUDE.m
 
 ## 10. Not built yet
 
-- Activity photos (C7, SAM 3.1): waiting for SAM's real call to be verified.
-- The admin dashboard showing the young-learner trajectory (the math and query exist:
-  `CuriositySignalRepository.trajectory_for`).
+- The dashboard's student section and teacher links (they come with S11/S12 and S10).
 - The web consent text variant, the teacher exposure layer (S10), RAG and mentor (S11, S12),
   the eval scorecard (S15).
 

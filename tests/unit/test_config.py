@@ -154,3 +154,29 @@ def test_database_settings_reject_non_asyncpg_scheme(monkeypatch: pytest.MonkeyP
         ConfigError, match=r"DATABASE_URL \(must use the postgresql\+asyncpg:// scheme\)"
     ):
         load_database_settings()
+
+
+@pytest.mark.parametrize("value", ["", "   "])
+def test_a_blank_public_base_url_means_this_machine(
+    monkeypatch: pytest.MonkeyPatch, value: str
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", VALID_URL)
+    monkeypatch.setenv("PUBLIC_BASE_URL", value)
+    assert str(load_settings().public_base_url) == "http://127.0.0.1:8000/"
+
+
+def test_a_public_base_url_that_isnt_a_url_is_refused_by_name(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", VALID_URL)
+    monkeypatch.setenv("PUBLIC_BASE_URL", "not a url")
+    with pytest.raises(ConfigError, match=r"PUBLIC_BASE_URL \(input should be a valid URL"):
+        load_settings()
+
+
+def test_the_admin_floor_is_one_and_everyone_elses_five_by_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", VALID_URL)
+    settings = load_settings()
+    assert (settings.k_anonymity_floor, settings.k_anonymity_floor_admin) == (5, 1)
