@@ -379,8 +379,8 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
 - [ ] **Refusal copy changed** (`app/constants/fixed_replies.py`, REFUSE/HARMFUL): it said "bachche
   ki padhai…" to students too; now "Padhai, khel, career ya bachchon ki seekh ke baare mein
   poochhiye" (and Hindi, English).
-- [ ] **Decide:** should student mentor replies also get more time (like teachers' 18 s)? Two
-  mentor turns timed out at 12 s in the last run.
+- [x] **Decided:** student mentor and roadmap replies get 18 s too (`TIMEOUT_MENTOR_S`); two
+  had timed out at 12 s.
 
 ## 3. Decisions log entries marked "pending owner review"
 

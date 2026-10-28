@@ -111,6 +111,8 @@ class Settings(DatabaseSettings):
     timeout_generate_s: float = Field(default=12.0, gt=0)
     # A teacher's bridge (three fields, each with an activity) gets longer: teachers can wait
     timeout_exposure_s: float = Field(default=18.0, gt=0)
+    # A student's mentor answer or plan (retrieval, then a cited reply) gets the same (owner)
+    timeout_mentor_s: float = Field(default=18.0, gt=0)
     # Llama Guard's own limit inside a safety check: past it, the Muse Spark backup decides.
     timeout_guard_s: float = Field(default=1.5, gt=0)
     # 6 s: Llama Guard (≤ 1.5 s), then the Muse Spark backup reply check when it's down (~2.5 s)

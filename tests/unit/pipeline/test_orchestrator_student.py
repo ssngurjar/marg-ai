@@ -1,8 +1,10 @@
 """Orchestrator student turns (s12): the mentor and roadmap routes, with safety around them, the
 memory refreshed after the reply, and a plan saved only with a reply that went out."""
 
+import dataclasses
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import timedelta
 from uuid import UUID
 
 import pytest
@@ -32,7 +34,13 @@ from app.layers.mentor_layer import MentorLayer, MentorSettings
 from app.layers.onboarding_layer import OnboardingLayer
 from app.layers.roadmap_layer import RoadmapLayer
 from app.pipeline.null_turn_observer import NullTurnObserver
-from app.pipeline.orchestrator import DashboardLinks, Orchestrator, PipelineSteps, StudentSteps
+from app.pipeline.orchestrator import (
+    DashboardLinks,
+    Orchestrator,
+    OrchestratorSettings,
+    PipelineSteps,
+    StudentSteps,
+)
 from app.pipeline.step_models import TurnOutcome
 from app.rag.retriever import Retriever
 from app.safety.domain_policy import DomainPolicy
@@ -92,16 +100,21 @@ class _BrokenStore(FakeChunkStore):
         raise StoreError("could not search the corpus: OperationalError")
 
 
-async def run_student(
+async def run_student(  # noqa: PLR0913  # one keyword per fake or setting a test replaces
     ctx: TurnContext,
     outputs: dict[str, list[ScriptedOutput]],
     *,
     classifier: FakeSafetyClassifier | None = None,
     retriever: Retriever | None = None,
     policy: DomainPolicy | None = None,
+    settings: OrchestratorSettings = SETTINGS,
+    delay_s: float = 0.0,
 ) -> StudentRun:
     llm = PromptRoutedLanguageModel(
-        {prompt: FakeLanguageModel(scripted) for prompt, scripted in outputs.items()}
+        {
+            prompt: FakeLanguageModel(scripted, delay_s=delay_s)
+            for prompt, scripted in outputs.items()
+        }
     )
     retriever = retriever or corpus_retriever()[0]
     mentor = MentorLayer(
@@ -124,7 +137,7 @@ async def run_student(
                 exposure=ExposureLayer(llm, shipped_registry(), ChapterCatalogue(())),
             ),
         ),
-        SETTINGS,
+        settings,
     )
     outcome = await orchestrator.run_turn(ctx, recorder, NullTurnObserver())
     return StudentRun(outcome, recorder, classifier)
@@ -278,3 +291,24 @@ async def test_a_students_reply_with_secrecy_words_is_still_replaced() -> None:
     result = await run_student(student_ctx(QUESTION), {"mentor": [secret]})
     assert result.outcome.fixed_reply_kind is not None
     assert "kisi ko mat batana" not in result.delivered
+
+
+async def test_a_mentor_slower_than_a_parents_limit_still_answers() -> None:
+    """owner, 2026-10-28: the mentor gets TIMEOUT_MENTOR_S (18 s), not the parents' 12 s."""
+    tight = dataclasses.replace(
+        SETTINGS, generate_timeout=timedelta(milliseconds=50), mentor_timeout=timedelta(seconds=2)
+    )
+    result = await run_student(
+        student_ctx(QUESTION), {"mentor": [MENTOR_ANSWER]}, settings=tight, delay_s=0.2
+    )
+    assert result.outcome.fixed_reply_kind is None
+    assert result.outcome.route is Route.MENTOR
+
+
+async def test_a_mentor_past_its_own_limit_gets_try_again_later() -> None:
+    tight = dataclasses.replace(SETTINGS, mentor_timeout=timedelta(milliseconds=50))
+    result = await run_student(
+        student_ctx(QUESTION), {"mentor": [MENTOR_ANSWER]}, settings=tight, delay_s=0.2
+    )
+    assert result.outcome.fixed_reply_kind is FixedReplyKind.TRY_AGAIN_LATER
+    assert result.outcome.route is Route.MENTOR

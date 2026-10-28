@@ -145,6 +145,7 @@ class OrchestratorSettings:
     transcribe_timeout: timedelta
     synthesize_timeout: timedelta
     exposure_timeout: timedelta = timedelta(seconds=18)  # TIMEOUT_EXPOSURE_S
+    mentor_timeout: timedelta = timedelta(seconds=18)  # TIMEOUT_MENTOR_S: mentor and roadmap
     fetch_image_timeout: timedelta = timedelta(seconds=5)  # TIMEOUT_FETCH_IMAGE_S
     analyze_image_timeout: timedelta = timedelta(seconds=6)  # TIMEOUT_ANALYZE_IMAGE_S
 
@@ -662,7 +663,8 @@ class _Turn:
             return await self._bounded(bridge, self.settings.exposure_timeout)
         else:
             work = student.mentor.answer(self.ctx, self.user_text, self.register)
-        return await self._bounded(work, self.settings.generate_timeout)
+        # retrieval, then a cited answer or a plan: more time than a parent's reply (owner)
+        return await self._bounded(work, self.settings.mentor_timeout)
 
     async def _child_talk(self, layer: ChildTalkLayer, interactive_ids: list[str]) -> TurnOutcome:
         """A child talking (C13): like the journey, with the child as the speaker."""

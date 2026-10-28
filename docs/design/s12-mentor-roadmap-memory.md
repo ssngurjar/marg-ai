@@ -513,6 +513,7 @@ On a real phone (or `/demo` once S14 exists), with a real corpus and models:
 
 | Date | Change | Why | Approved |
 |---|---|---|---|
+| 2026-10-28 | **`TIMEOUT_MENTOR_S` 18 s** for the mentor and the roadmap (parents' replies stay 12 s), inside the 25 s turn budget | The eval: two mentor turns timed out at 12 s. Owner: "yes we can" | owner |
 | 2026-10-25 | v1 written | aspirational layer design | owner |
 | 2026-10-25 | `PendingEffect` → `TurnWrite`, `LayerResult.writes`; roadmap progress, check-ins and `rm:done` moved to Deferred; memory as a post-turn task, teachers included, no memory for journey turns; query rewriting behind `QUERY_REWRITE_ENABLED`; strict-schema fields without defaults; user-derived context in user slots | B2, B8, B9, B11 and the consolidated contracts | owner |
 | 2026-10-28 | **Owner: build the Aspirational engine** (auto-commit when green; review at the end of step 8) | Time allows | owner |
