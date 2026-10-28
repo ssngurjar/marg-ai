@@ -1,7 +1,7 @@
-"""The production wiring end to end: inbox → dispatcher → real Orchestrator → outbox → sender.
+"""The production wiring end to end: inbox → worker → real Orchestrator → outbox → sender.
 
 Only the providers are fakes (no live calls); the safety gate, layer, prompt registry, router,
-store and dispatcher are the ones `build_container` wires.
+store and worker are the ones `build_container` wires.
 """
 
 import dataclasses
@@ -34,8 +34,8 @@ from app.store.repositories.inbox_repository import InboundRecord, InboxReposito
 from app.store.repositories.media_blob_repository import MediaBlobRepository
 from app.store.repositories.outbox_repository import OutboxRepository
 from app.telemetry.curiosity_signal_extractor import CuriositySignalExtractor
-from app.wiring import EngineParts, OrchestratorPorts, build_orchestrator, build_turn_dispatcher
-from app.worker.turn_dispatcher import TurnDispatcher
+from app.wiring import EngineParts, OrchestratorPorts, build_orchestrator, build_worker
+from app.worker.supervisor import Supervisor
 from tests.fakes.clock import FixedClock
 from tests.fakes.domain_policy import CLEAR, REPLY_CLEAR, policy_answer
 from tests.fakes.image import TINY_PNG, FakeImageGenerator, FakeImageSegmenter
@@ -84,7 +84,7 @@ async def engine() -> AsyncIterator[AsyncEngine]:
 
 @dataclass(frozen=True, slots=True)
 class Pipeline:
-    dispatcher: TurnDispatcher
+    worker: Supervisor
     inbox: InboxRepository
     sender: FakeSender
 
@@ -132,9 +132,10 @@ def wire(
     orchestrator = build_orchestrator(
         settings, OrchestratorPorts(language_model, classifier, voice_steps, photos), clock
     )
-    dispatcher = build_turn_dispatcher(
+    worker = build_worker(
         settings=settings,
         session_factory=sessions,
+        listener_engine=None,
         engine_parts=EngineParts(
             clock=clock,
             identity=make_identity(),
@@ -149,7 +150,7 @@ def wire(
             memory_model=language_model,
         ),
     )
-    return Pipeline(dispatcher, InboxRepository(sessions), sender)
+    return Pipeline(worker, InboxRepository(sessions), sender)
 
 
 EXTRACTION = FakeLanguageModel(
@@ -199,8 +200,8 @@ async def send(pipeline: Pipeline, payload: dict[str, JsonValue]) -> None:
     saved = await pipeline.inbox.save(records)
     user: UserHash
     for user in saved.users_with_new_messages:
-        pipeline.dispatcher.wake(user)
-    await pipeline.dispatcher.wait_until_idle()
+        pipeline.worker.wake(user)
+    await pipeline.worker.wait_until_idle()
 
 
 async def ask(pipeline: Pipeline, question: str, *, message_id: str = "wamid.Q1") -> None:

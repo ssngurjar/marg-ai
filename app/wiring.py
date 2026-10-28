@@ -80,7 +80,8 @@ from app.providers.speech.sidecar_synthesizer import SidecarConfig, SidecarSynth
 from app.rag.retriever import Retriever, RetrieverSettings
 from app.safety.domain_policy import MINOR_POLICY, REPLY_POLICY, DomainPolicy, PolicyModel
 from app.safety.safety_gate import SafetyGate
-from app.store.db import create_engine, create_session_factory, ping
+from app.store.db import create_engine, create_listener_engine, create_session_factory, ping
+from app.store.notification_listener import ListenerSettings, NotificationListener
 from app.store.repositories.aspiration_signal_repository import AspirationSignalRepository
 from app.store.repositories.child_session_repository import ChildSessionRepository
 from app.store.repositories.chunk_repository import ChunkRepository
@@ -88,6 +89,7 @@ from app.store.repositories.curiosity_signal_repository import CuriositySignalRe
 from app.store.repositories.demo_repository import DemoRepository
 from app.store.repositories.inbox_repository import InboxRepository
 from app.store.repositories.khoj_card_repository import KhojCardRepository
+from app.store.repositories.lease_repository import LeaseRepository, LeaseTimes
 from app.store.repositories.media_blob_repository import MediaBlobRepository
 from app.store.repositories.nudge_repository import NudgeRepository
 from app.store.repositories.outbox_repository import OutboxRepository
@@ -104,13 +106,17 @@ from app.telemetry.status_report_builder import StatusReportBuilder, StatusSetti
 from app.telemetry.student_dashboard_builder import StudentDashboardBuilder
 from app.worker.database_step_recorder import DatabaseStepRecorder
 from app.worker.khoj_card_sender import CardDeps, KhojCardSender
+from app.worker.maintenance_loop import MaintenanceDeps, MaintenanceLoop, MaintenanceSettings
 from app.worker.nudge_sender import NudgeSender, NudgeSettings, nudge_templates
+from app.worker.outbox_loop import OutboxLoop, OutboxLoopSettings
 from app.worker.post_turn_runner import PostTurnDeps, PostTurnRunner
 from app.worker.reply_deliverer import DeliveryDeps, DeliverySettings, ReplyDeliverer
-from app.worker.turn_dispatcher import DispatcherDeps, DispatcherSettings, TurnDispatcher
+from app.worker.supervisor import Supervisor, SupervisorParts
+from app.worker.turn_loop import TurnLoop, TurnLoopDeps, TurnLoopSettings
 from app.worker.turn_processor import TurnDeps, TurnProcessor, TurnSettings
 
-DISPATCHER_ERROR_BACKOFF = timedelta(seconds=5)
+WORKER_ERROR_BACKOFF = timedelta(seconds=5)
+LISTENER_HEALTH_CHECK = timedelta(seconds=15)
 PROMPT_SPECS: Final = (
     PARENT_ANSWER,
     MINOR_POLICY,
@@ -150,7 +156,8 @@ class Container:
     image_generator: MuseImageGenerator
     image_segmenter: SamImageSegmenter
     rag: "RagParts"
-    turn_dispatcher: TurnDispatcher
+    worker: Supervisor  # started by the api lifespan only when RUN_WORKER_IN_API
+    listener_engine: AsyncEngine  # the one unpooled connection for LISTEN
     web_demo: WebDemoIngestor
     user_repository: UserRepository
     telemetry_pages: TelemetryPages
@@ -256,9 +263,11 @@ def build_container(settings: Settings) -> Container:
     )
     inbox = InboxRepository(session_factory)
     outbox = OutboxRepository(session_factory)
-    dispatcher = build_turn_dispatcher(
+    listener_engine = create_listener_engine(settings.database_listen_url or settings.database_url)
+    worker = build_worker(
         settings=settings,
         session_factory=session_factory,
+        listener_engine=listener_engine,
         engine_parts=EngineParts(
             clock=clock,
             identity=identity,
@@ -310,7 +319,8 @@ def build_container(settings: Settings) -> Container:
         image_generator=image_generator,
         image_segmenter=image_segmenter,
         rag=rag,
-        turn_dispatcher=dispatcher,
+        worker=worker,
+        listener_engine=listener_engine,
         web_demo=WebDemoIngestor(
             DemoDeps(
                 identity=identity,
@@ -320,7 +330,7 @@ def build_container(settings: Settings) -> Container:
                 demo=DemoRepository(session_factory),
                 media=voice_adapters.media,
                 inbox=inbox,
-                waker=dispatcher,
+                waker=worker,
                 clock=clock,
             ),
             DemoLimits(
@@ -618,12 +628,15 @@ class EngineParts:
     memory_model: LanguageModel  # the extraction model (Muse Spark Open with its fallback)
 
 
-def build_turn_dispatcher(
+def build_worker(
     *,
     settings: Settings,
     session_factory: async_sessionmaker[AsyncSession],
     engine_parts: EngineParts,
-) -> TurnDispatcher:
+    listener_engine: AsyncEngine | None,
+) -> Supervisor:
+    """The turn, outbox and maintenance loops (s04 §4.1). `listener_engine` None: no LISTEN,
+    the loops poll every POLL_INTERVAL_S (tests)."""
     worker_id = f"{socket.gethostname()}:{os.getpid()}:{uuid4().hex[:8]}"
     turns = TurnRepository(session_factory)
     processor = TurnProcessor(
@@ -644,7 +657,6 @@ def build_turn_dispatcher(
         ),
     )
     users = UserRepository(session_factory)
-    signals = CuriositySignalRepository(session_factory)
     deliverer = ReplyDeliverer(
         DeliveryDeps(
             outbox=engine_parts.outbox,
@@ -661,46 +673,48 @@ def build_turn_dispatcher(
             part_budget=timedelta(seconds=settings.turn_budget_s),
         ),
     )
-    return TurnDispatcher(
-        DispatcherDeps(
+    leases = LeaseRepository(
+        session_factory,
+        LeaseTimes(
+            lease=timedelta(seconds=settings.lease_duration_s),
+            debounce=timedelta(milliseconds=settings.turn_debounce_ms),
+        ),
+    )
+    poll_interval = timedelta(seconds=settings.poll_interval_s)
+    turn_loop = TurnLoop(
+        TurnLoopDeps(
             processor=processor,
             deliverer=deliverer,
-            turns=turns,
+            leases=leases,
+            post_turn=build_post_turn_runner(
+                settings, session_factory, engine_parts, deliverer, worker_id
+            ),
+        ),
+        TurnLoopSettings(
+            worker_id=worker_id,
+            concurrency=settings.worker_concurrency,
+            lease=timedelta(seconds=settings.lease_duration_s),
+            poll_interval=poll_interval,
+            error_backoff=WORKER_ERROR_BACKOFF,
+        ),
+    )
+    outbox_loop = OutboxLoop(
+        engine_parts.outbox,
+        deliverer,
+        OutboxLoopSettings(
+            concurrency=settings.outbox_concurrency,
+            poll_interval=poll_interval,
+            error_backoff=WORKER_ERROR_BACKOFF,
+        ),
+    )
+    maintenance = MaintenanceLoop(
+        MaintenanceDeps(
+            leases=leases,
             outbox=engine_parts.outbox,
+            turns=turns,
             users=users,
-            clock=engine_parts.clock,
             media=engine_parts.media,
             child_sessions=ChildSessionRepository(session_factory),
-            post_turn=PostTurnRunner(
-                PostTurnDeps(
-                    extractor=engine_parts.signals,
-                    signals=signals,
-                    recorder=DatabaseStepRecorder(TurnStepRepository(session_factory)),
-                    clock=engine_parts.clock,
-                    timeout=timedelta(seconds=settings.timeout_make_card_s),
-                    cards=(
-                        KhojCardSender(
-                            CardDeps(
-                                maker=engine_parts.cards,
-                                gate=engine_parts.orchestrator.steps.gate,
-                                cards=KhojCardRepository(session_factory),
-                                signals=signals,
-                                deliverer=deliverer,
-                                clock=engine_parts.clock,
-                            ),
-                            worker_id,
-                        )
-                        if engine_parts.cards is not None
-                        else None
-                    ),
-                    memory=engine_parts.memory,
-                    memories=ProfileMemoryRepository(session_factory),
-                    aspiration=AspirationSignalExtractor(
-                        engine_parts.memory_model, prompt_registry(settings)
-                    ),
-                    aspirations=AspirationSignalRepository(session_factory),
-                )
-            ),
             nudges=(
                 NudgeSender(
                     NudgeRepository(session_factory),
@@ -718,17 +732,77 @@ def build_turn_dispatcher(
                 if settings.nudges_enabled
                 else None
             ),
+            clock=engine_parts.clock,
         ),
-        DispatcherSettings(
-            debounce=timedelta(milliseconds=settings.turn_debounce_ms),
-            maintenance_interval=timedelta(seconds=settings.maintenance_interval_s),
-            shutdown_grace=timedelta(seconds=settings.shutdown_grace_s),
+        MaintenanceSettings(
+            interval=timedelta(seconds=settings.maintenance_interval_s),
+            sending_stuck=timedelta(seconds=settings.outbox_sending_stuck_s),
             retain_turn_text=timedelta(days=settings.retention_turn_text_days),
             retain_raw_payload=timedelta(days=settings.retention_raw_payload_days),
             purge_sweep_after=timedelta(seconds=settings.purge_sweep_after_s),
             child_session_max=timedelta(minutes=settings.child_session_max_minutes),
-            error_backoff=DISPATCHER_ERROR_BACKOFF,
         ),
+    )
+    listener = (
+        NotificationListener(
+            listener_engine,
+            {
+                "inbox_new": lambda _payload: turn_loop.wake.set(),
+                "outbox_new": lambda _payload: outbox_loop.wake.set(),
+            },
+            ListenerSettings(health_check_every=LISTENER_HEALTH_CHECK),
+        )
+        if listener_engine is not None
+        else None
+    )
+    return Supervisor(
+        SupervisorParts(
+            turns=turn_loop,
+            outbox=outbox_loop,
+            maintenance=maintenance,
+            listener=listener,
+            shutdown_grace=timedelta(seconds=settings.shutdown_grace_s),
+        )
+    )
+
+
+def build_post_turn_runner(
+    settings: Settings,
+    session_factory: async_sessionmaker[AsyncSession],
+    engine_parts: EngineParts,
+    deliverer: ReplyDeliverer,
+    worker_id: str,
+) -> PostTurnRunner:
+    signals = CuriositySignalRepository(session_factory)
+    return PostTurnRunner(
+        PostTurnDeps(
+            extractor=engine_parts.signals,
+            signals=signals,
+            recorder=DatabaseStepRecorder(TurnStepRepository(session_factory)),
+            clock=engine_parts.clock,
+            timeout=timedelta(seconds=settings.timeout_make_card_s),
+            cards=(
+                KhojCardSender(
+                    CardDeps(
+                        maker=engine_parts.cards,
+                        gate=engine_parts.orchestrator.steps.gate,
+                        cards=KhojCardRepository(session_factory),
+                        signals=signals,
+                        deliverer=deliverer,
+                        clock=engine_parts.clock,
+                    ),
+                    worker_id,
+                )
+                if engine_parts.cards is not None
+                else None
+            ),
+            memory=engine_parts.memory,
+            memories=ProfileMemoryRepository(session_factory),
+            aspiration=AspirationSignalExtractor(
+                engine_parts.memory_model, prompt_registry(settings)
+            ),
+            aspirations=AspirationSignalRepository(session_factory),
+        )
     )
 
 
@@ -745,3 +819,4 @@ async def close_container(container: Container) -> None:
     await container.image_segmenter.aclose()
     await container.rag.embedder.aclose()
     await container.engine.dispose()
+    await container.listener_engine.dispose()

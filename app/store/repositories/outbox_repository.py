@@ -170,26 +170,32 @@ class OutboxRepository:
             outbox_id, status=OutboxStatus.FAILED.value, sending_since=None, last_error=error_code
         )
 
-    async def reset_sending(self) -> int:
-        """Startup recovery (E1): a part left `sending` by a dead process goes back to pending.
+    async def reset_stuck_sending(self, stuck_after: timedelta) -> int:
+        """Maintenance (s04 §4.10): a part `sending` for longer than `stuck_after` was left by a
+        dead worker, and goes back to pending. A live worker's send is younger, so it's untouched.
 
-        If Meta had already accepted it, the user gets it twice: the one duplicate window
-        (s04 §4.10), logged by the caller.
+        If Meta had already accepted it, the user gets it twice: the one duplicate window,
+        logged by the caller.
         """
         try:
             async with self._session_factory() as session, session.begin():
                 result = await session.execute(
                     update(outbox_messages)
-                    .where(outbox_messages.c.status == OutboxStatus.SENDING.value)
+                    .where(
+                        and_(
+                            outbox_messages.c.status == OutboxStatus.SENDING.value,
+                            outbox_messages.c.sending_since < func.now() - stuck_after,
+                        )
+                    )
                     .values(status=OutboxStatus.PENDING.value, sending_since=None)
                     .returning(outbox_messages.c.id)
                 )
                 return len(result.all())
         except (SQLAlchemyError, OSError) as exc:
-            raise StoreError(f"could not reset sending parts: {type(exc).__name__}") from exc
+            raise StoreError(f"could not reset stuck parts: {type(exc).__name__}") from exc
 
     async def turns_with_due_parts(self) -> list[TurnId]:
-        """Turns with a pending part whose retry time has come (startup and maintenance)."""
+        """Turns with a pending part whose retry time has come (the outbox loop)."""
         query = (
             select(outbox_messages.c.turn_id)
             .where(

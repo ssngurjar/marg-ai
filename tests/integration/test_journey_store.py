@@ -88,6 +88,13 @@ def message(text_body: str | None, *, button: str | None = None) -> InboundMessa
     )
 
 
+LEASE_FOR_TEST = text(
+    "UPDATE users SET lease_owner = :w, lease_expires_at = now() + interval '1 minute' "
+    "WHERE user_hash = :h"
+)
+"""What the turn loop's claim does: finalize commits only while the turn's worker holds it."""
+
+
 async def started(engine: AsyncEngine, *messages: InboundMessage) -> StartedTurn:
     turn_id = TurnId(uuid4())
     async with engine.begin() as connection:
@@ -98,10 +105,13 @@ async def started(engine: AsyncEngine, *messages: InboundMessage) -> StartedTurn
             ),
             {"id": turn_id, "h": PARENT},
         )
+        await connection.execute(LEASE_FOR_TEST, {"h": PARENT, "w": "t"})
     queued = [
         QueuedMessage(number, item, 0) for number, item in enumerate(messages or (message("hi"),))
     ]
-    return StartedTurn(turn_id=turn_id, user_hash=PARENT, channel=Channel.WHATSAPP, queued=queued)
+    return StartedTurn(
+        turn_id=turn_id, user_hash=PARENT, channel=Channel.WHATSAPP, queued=queued, worker_id="t"
+    )
 
 
 def offered(learner: LearnerId = MUNNI, activity: str = "shadow-time") -> ActivityOffered:

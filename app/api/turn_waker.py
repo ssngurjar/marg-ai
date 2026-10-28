@@ -1,4 +1,4 @@
-"""TurnWaker: what an ingress needs from the turn dispatcher (s04 §4.3)."""
+"""TurnWaker: what an ingress needs from the worker (s04 §4.3): look for this user's turn now."""
 
 from typing import Protocol
 

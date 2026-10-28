@@ -1,8 +1,9 @@
-"""Sending a turn's queued parts, in order, with retries (s04 §4.10; E1: sent directly).
+"""Sending a turn's queued parts, in order, with retries (s04 §4.10).
 
-The rules for order and backoff live in DeliveryPlanner (app/domain/rules). A retryable
-failure leaves the part pending with a retry time; the dispatcher's maintenance pass sends it
-when it's due. Nothing here logs message content or phone numbers.
+The turn loop calls this straight after finalize. The rules for order and backoff live in
+DeliveryPlanner (app/domain/rules). A retryable failure leaves the part pending with a retry
+time, and the outbox loop sends it when it's due. Nothing here logs message content or phone
+numbers.
 """
 
 from collections.abc import Mapping

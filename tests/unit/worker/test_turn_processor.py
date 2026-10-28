@@ -85,7 +85,11 @@ class MemoryTurnStore(TurnRepository):
         if not self.batch:
             return None
         return StartedTurn(
-            turn_id=self.turn_id, user_hash=user_hash, channel=Channel.WHATSAPP, queued=self.batch
+            turn_id=self.turn_id,
+            user_hash=user_hash,
+            channel=Channel.WHATSAPP,
+            queued=self.batch,
+            worker_id=worker_id,
         )
 
     async def load_context(self, started: StartedTurn, recent_exchanges: int) -> TurnContext:

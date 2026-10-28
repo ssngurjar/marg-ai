@@ -55,7 +55,7 @@ These are about children's safety, trust, and not breaking in front of judges:
 7. **No invented facts** in activities, fixed texts or helplines.
 
 ### Deliberately not in the MVP (written down, so nobody "quickly adds" them)
-- Running more than **one** app instance while exception E1 holds (§4.1). Fly.io is set to one
+- ~~Running more than **one** app instance while exception E1 holds (§4.1).~~ Lifted 2026-10-28: E1's upgrade is built. Fly.io is set to one
   machine with no autoscaling until E1's upgrade (multi-worker leases) is built.
 - Any RAG, corpus ingestion, or career facts.
 - Teacher dashboards, classroom codes, student roadmaps and memory.
@@ -284,6 +284,7 @@ stretch (S10) first, then SAM photos (C7), then the khoj card (C6). The hard lin
 
 | Date | Change | Why | Approved |
 |---|---|---|---|
+| 2026-10-28 | **Exception E1 lifted:** s04's leases, takeover, outbox loop, maintenance loop and `LISTEN/NOTIFY` are built (s04 decisions log, 2026-10-28). Several api or worker instances may now share one database. §4.1 describes the retired single-process design and is kept for history | Owner's build order (step 5), with time to spare before the freeze | pending owner review |
 | 2026-10-27 | Build order after S5: S8 onboarding → S10b core (so a parent's onboarding ends in the first khoj) → child talk (C13), ahead of S6/S7's remaining work; voice waits for the samples | Owner, at the S8 design review | owner |
 | 2026-10-26 | C11 curiosity moment, C12 gentle exposure, C13 direct child talk, C14 nothing dropped | Owner: Marg.ai mentors the child too | owner |
 | 2026-10-26 | C9 Muse Spark Open, C10 code start and 9-day schedule | Participant Guide (bonus prizes, building period) | owner |

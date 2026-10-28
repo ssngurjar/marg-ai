@@ -1,9 +1,11 @@
 """Async database engine and sessions. The only place a connection is opened."""
 
+from pydantic import SecretStr
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from sqlalchemy.ext.asyncio import create_async_engine as sqlalchemy_create_async_engine
+from sqlalchemy.pool import NullPool
 
 from app.core.config import DatabaseSettings
 from app.core.errors import StoreError
@@ -34,3 +36,9 @@ async def ping(engine: AsyncEngine) -> None:
             await connection.execute(text("SELECT 1"))
     except (SQLAlchemyError, OSError) as exc:
         raise StoreError(f"database ping failed: {type(exc).__name__}") from exc
+
+
+def create_listener_engine(url: SecretStr) -> AsyncEngine:
+    """An engine without a pool for the one `LISTEN` connection (NotificationListener): the
+    session must stay open, and must close for good rather than go back to a shared pool."""
+    return sqlalchemy_create_async_engine(url.get_secret_value(), poolclass=NullPool)

@@ -40,16 +40,20 @@ def create_app(settings: Settings | None = None, container: Container | None = N
         app.state.inbox_repository = active_container.inbox_repository
         app.state.outbox_repository = active_container.outbox_repository
         app.state.clock = active_container.clock
-        app.state.turn_waker = active_container.turn_dispatcher
+        app.state.turn_waker = active_container.worker
         app.state.web_demo = active_container.web_demo
         app.state.media_repository = active_container.voice_adapters.media
         app.state.user_repository = active_container.user_repository
         app.state.telemetry_pages = active_container.telemetry_pages
-        await active_container.turn_dispatcher.start()
+        # RUN_WORKER_IN_API=false: `python -m app.worker` runs the turns; this only stores them.
+        run_worker = active_container.settings.run_worker_in_api
+        if run_worker:
+            await active_container.worker.start()
         try:
             yield
         finally:
-            await active_container.turn_dispatcher.stop()
+            if run_worker:
+                await active_container.worker.stop()
             if container is None:
                 await close_container(active_container)
 

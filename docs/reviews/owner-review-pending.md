@@ -292,6 +292,18 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
   mein Force and Pressure padhana hai"; tap Aur activity; send "बच्चों को कुछ नया सिखाना है";
   tap Naya chapter; send "dashboard" and open the link.
 
+## 2n. Several workers: leases and LISTEN/NOTIFY (E1 upgrade, s04, from 2026-10-28)
+
+- [ ] **Run `make migrate`** (new migration `s04_user_leases`: two lease columns on `users`).
+- [ ] **Decide:** keep the worker inside the api by default (`RUN_WORKER_IN_API=true`, one process,
+  what the demo uses), or run `python -m app.worker` beside the api (`make worker`). Both are safe
+  with leases. Recommended: keep the default for the hackathon.
+- [ ] **For Neon later:** set `DATABASE_LISTEN_URL` to the direct (non-pooler) connection string;
+  without it, replies still work, but a separate worker polls every 2 s.
+- [ ] **Try it:** run `make up` with `RUN_WORKER_IN_API=false` and `make worker` in two terminals,
+  then send a WhatsApp message: one reply. Kill one worker with `kill -9` mid-turn: the other
+  answers within about a minute.
+
 ## 3. Decisions log entries marked "pending owner review"
 
 - [ ] `docs/design/s05-llm-orchestrator.md`, 2026-10-27 (S5 build choices).
@@ -299,6 +311,7 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
 - [ ] `docs/design/s10b-parent-journey.md`, 2026-10-27 (curiosity moment, child talk, nudges); `s13-telemetry.md` (signals); `contracts.md` and `data-model.md` (child talk, nudges, signals).
 - [ ] `docs/design/s07-safety.md`, 2026-10-27 (crisis copy pulled forward; safety host).
 - [ ] `docs/design/contracts.md`, 2026-10-27 (S5 ports, `SaveResult`, `MODEL_REASONING_EFFORT`).
+- [ ] `docs/design/s04-queue-worker.md` and `mvp-scope.md`, 2026-10-28 (E1 upgrade: leases, loops, listener).
 - [ ] `docs/design/contracts.md`, 2026-10-25 (`TurnObserver.on_step` result, `GoldenLearner`,
   `SignedTokenCodec`, the `ExtractSignals`/`UpdateMemory` fields).
 

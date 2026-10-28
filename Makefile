@@ -1,7 +1,7 @@
 # Marg.ai developer commands. `make check` is the CLAUDE.md §2 verification loop.
 TEST_DATABASE_URL := postgresql+asyncpg://marg:marg@localhost:55432/marg_test
 
-.PHONY: setup fmt lint type test check test-db-up test-db-down test-int up down migrate
+.PHONY: setup fmt lint type test check test-db-up test-db-down test-int up down migrate worker
 
 setup:
 	uv sync
@@ -38,6 +38,11 @@ up:
 
 down:
 	docker compose down
+
+# One worker process (s04). Run beside an api started with RUN_WORKER_IN_API=false, or beside
+# other workers: leases keep each user's turns to one worker at a time.
+worker:
+	.venv/bin/python -m app.worker
 
 # Migrates the LOCAL database only. There is deliberately no target for a deployed database
 # (CLAUDE.md §8).

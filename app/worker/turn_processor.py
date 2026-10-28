@@ -1,8 +1,8 @@
 """One turn for one user, start to finish (s04 §4.4 to §4.9; contracts §3 `process_user_turn`).
 
-The dispatcher calls this for production turns and S15's eval runner calls it directly, so evals
-exercise exactly the production path. Exception E1: one process holds the user's lock, so there
-is no lease or heartbeat.
+TurnLoop calls this for production turns, under the user's lease with its heartbeat; S15's eval
+runner calls it directly after taking the lease (LeaseRepository.acquire), so evals exercise
+exactly the production path. Finalize and abandon release the lease.
 """
 
 import asyncio
@@ -114,8 +114,9 @@ class TurnProcessor:
             if outcome.post_turn:
                 self._post_turn[started.turn_id] = list(outcome.post_turn)
         except LeaseLost:
-            # The user moved on (another turn changed their state): nothing was committed, and
-            # the messages are answered again from the new state. Not the message's fault.
+            # Nothing was committed. Either another worker took the user over (this abandon then
+            # changes nothing: the takeover already moved the messages), or the user's state
+            # changed under the turn and the messages are answered again from the new state.
             await self._store.abandon(started, count_attempt=False, retry_after=timedelta(0))
             logger.warning("turn_lease_lost", turn_id=str(started.turn_id))
         except DomainError as exc:  # a write the state machine should have refused: a bug
@@ -126,7 +127,7 @@ class TurnProcessor:
             logger.exception("turn_write_refused", turn_id=str(started.turn_id), exc_info=exc)
 
     def take_post_turn(self, turn_id: TurnId) -> list[PostTurnTask]:
-        """The turn's post-turn tasks, once: the dispatcher runs them after delivery."""
+        """The turn's post-turn tasks, once: the turn loop runs them after delivery."""
         return self._post_turn.pop(turn_id, [])
 
     async def _acknowledge(self, started: StartedTurn) -> None:

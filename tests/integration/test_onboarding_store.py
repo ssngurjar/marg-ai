@@ -25,6 +25,7 @@ from app.domain.models.writes import LearnerUpsert, MarkPurgeAfterDelivery, Prof
 from app.store.db import create_engine, create_session_factory
 from app.store.repositories.turn_repository import FinishedTurn, StartedTurn, TurnRepository
 from app.store.repositories.user_repository import UserRepository
+from tests.integration.test_journey_store import LEASE_FOR_TEST
 from tests.support.app_factory import make_settings
 
 pytestmark = pytest.mark.integration
@@ -108,7 +109,10 @@ async def started_turn(engine: AsyncEngine, user: UserHash = USER) -> StartedTur
             ),
             {"id": turn_id, "h": user},
         )
-    return StartedTurn(turn_id=turn_id, user_hash=user, channel=Channel.WHATSAPP, queued=[])
+        await connection.execute(LEASE_FOR_TEST, {"h": user, "w": "test"})
+    return StartedTurn(
+        turn_id=turn_id, user_hash=user, channel=Channel.WHATSAPP, queued=[], worker_id="test"
+    )
 
 
 async def scalar(engine: AsyncEngine, sql: str, **params: object) -> object:

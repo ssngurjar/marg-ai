@@ -15,7 +15,7 @@ from app.domain.models.base import UserHash
 from app.main import create_app
 from app.store.repositories.inbox_repository import InboundRecord, InboxRepository, SaveResult
 from app.store.repositories.outbox_repository import OutboxRepository
-from app.worker.turn_dispatcher import TurnDispatcher
+from app.worker.supervisor import Supervisor
 from tests.support import whatsapp_payloads as wa
 from tests.support.app_factory import (
     HANDSHAKE_WORD_FOR_TESTS,
@@ -46,7 +46,7 @@ class RecordingStore(InboxRepository):
         return SaveResult(stored=len(records), users_with_new_messages=users)
 
 
-class RecordingDispatcher(TurnDispatcher):
+class RecordingWorker(Supervisor):
     """Records wake-ups instead of running turns; nothing to start or stop."""
 
     def __init__(self) -> None:  # deliberately skips the real dependencies
@@ -90,12 +90,12 @@ class RecordingOutbox(OutboxRepository):
 def client_with(
     store: RecordingStore,
     outbox: RecordingOutbox | None = None,
-    dispatcher: RecordingDispatcher | None = None,
+    worker: RecordingWorker | None = None,
 ) -> Iterator[TestClient]:
     structlog.reset_defaults()
     container = replace(
         make_container(inbox_repository=store, outbox_repository=outbox or RecordingOutbox()),
-        turn_dispatcher=dispatcher or RecordingDispatcher(),
+        worker=worker or RecordingWorker(),
     )
     with TestClient(create_app(container=container)) as client:
         yield client
@@ -282,16 +282,16 @@ def test_logs_never_contain_number_name_or_message(capsys: pytest.CaptureFixture
 
 def test_a_stored_message_wakes_its_sender_once() -> None:
     store = RecordingStore()
-    dispatcher = RecordingDispatcher()
+    worker = RecordingWorker()
     raw, signature = wa.signed(wa.webhook([wa.text_message()]))
-    with client_with(store, dispatcher=dispatcher) as client:
+    with client_with(store, worker=worker) as client:
         assert post(client, raw, signature) == 200
-    assert dispatcher.woken == [store.saved[0].message.user_hash]
+    assert worker.woken == [store.saved[0].message.user_hash]
 
 
 def test_nothing_is_woken_when_storing_fails() -> None:
-    dispatcher = RecordingDispatcher()
+    worker = RecordingWorker()
     raw, signature = wa.signed(wa.webhook([wa.text_message()]))
-    with client_with(RecordingStore(fail=True), dispatcher=dispatcher) as client:
+    with client_with(RecordingStore(fail=True), worker=worker) as client:
         assert post(client, raw, signature) == 503
-    assert dispatcher.woken == []
+    assert worker.woken == []

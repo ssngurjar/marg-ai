@@ -12,7 +12,7 @@ line of the module's docstring.
 | `deps.py` | — | FastAPI dependencies that read what the app factory put on `app.state`. |
 | `readiness.py` | `ProbeResult`, `ReadinessProbe` | Readiness probes: what `/readyz` checks, and how one check is run. |
 | `telemetry_pages.py` | `TelemetryPages` | TelemetryPages: what the /status and /dashboard routes need, built once in wiring. |
-| `turn_waker.py` | `TurnWaker` | TurnWaker: what an ingress needs from the turn dispatcher (s04 §4.3). |
+| `turn_waker.py` | `TurnWaker` | TurnWaker: what an ingress needs from the worker (s04 §4.3): look for this user's turn now. |
 | `web_demo_ingestor.py` | `DemoLimits`, `Visitor`, `DemoDeps`, `WebDemoIngestor` | WebDemoIngestor: a web visitor's message into the same inbox as WhatsApp's (s14 §4.2-§4.7). |
 | `whatsapp_webhook_ingestor.py` | `WhatsAppWebhookIngestor` | WhatsAppWebhookIngestor: an authentic webhook body stored and applied (s03 §4.1, §4.8). |
 
@@ -263,6 +263,7 @@ line of the module's docstring.
 | Module | Classes | What it does |
 |---|---|---|
 | `db.py` | — | Async database engine and sessions. The only place a connection is opened. |
+| `notification_listener.py` | `ListenerSettings`, `NotificationListener` | NotificationListener: Postgres `LISTEN` on one dedicated connection (s04 §4.11; s14 §4.6). |
 | `tables.py` | — | Table definitions (data-model.md). Each table is created by its step's Alembic migration. |
 | `vector_column.py` | `VectorColumn` | VectorColumn: pgvector's `vector(n)` column type, for table definitions only (s11 §6). |
 
@@ -279,13 +280,14 @@ line of the module's docstring.
 | `journey_repository.py` | `JourneyRepository` | The khoj offered to each child and how it went (s10b §5, data-model `learner_activities`). |
 | `khoj_card_repository.py` | `QueuedCard`, `KhojCardRepository` | Khoj cards: the image, its link to the report, and the KHOJ_CARD turn that sends it |
 | `learner_repository.py` | `LearnerRepository` | Learners: a parent's children or a student's own learner (s08 §4.11, data-model `learners`). |
+| `lease_repository.py` | `Takeover`, `LeaseTimes`, `LeaseRepository` | Per-user turn leases (s04 §4.3, §4.8): the only SQL for `users.lease_owner`. |
 | `media_blob_repository.py` | `OwnedMedia`, `MediaBlobRepository` | MediaBlobRepository: reply audio kept until the sender uploads it (s06 §4.7, §4.8). |
 | `nudge_repository.py` | `NudgeBatch`, `NudgeResult`, `NudgeRepository` | Daily khoj messages: who opted in, and the NUDGE turns that send them (s10b §4.11). |
 | `outbox_repository.py` | `OutboxRow`, `OutboxRepository` | OutboxRepository: queued reply parts and their delivery (s04 §4.7, §4.10; s03 §4.8). |
 | `profile_memory_repository.py` | `ProfileMemoryRepository` | ProfileMemoryRepository: what Marg remembers about a student (s12 §4.7). |
 | `roadmap_repository.py` | `RoadmapRepository` | RoadmapRepository: a student's plan (s12 §4.4; data-model `roadmaps`, `roadmap_steps`). |
 | `telemetry_repository.py` | `StepLatencyRow`, `TurnSummaryRow`, `JourneyCountsRow`, `FailureCountRow`, `ActivityCounts`, `ChildTalkCounts`, `YoungLearnerData`, `StudentData`, `TelemetryRepository` | TelemetryRepository: the aggregate reads behind /status and the dashboard (s13 §4.6). |
-| `turn_repository.py` | `StartedTurn`, `FinishedTurn`, `FinalizeResult`, `TurnRepository` | Turns: claiming a user's pending messages, loading the context, finalizing (s04 §4.4 to §4.7). |
+| `turn_repository.py` | `StartedTurn`, `FinishedTurn`, `FinalizeResult`, `TurnRepository` | Turns: taking a user's pending messages, loading the context, finalizing (s04 §4.4 to §4.7). |
 | `turn_step_repository.py` | `StepRow`, `TurnStepRepository` | turn_steps rows and the turn columns written while a turn runs (s04 §4.6). |
 | `user_repository.py` | `UserRepository` | Users: onboarding changes, consent records and delete-my-data (s08 §4.9 to §4.11). |
 
@@ -307,10 +309,14 @@ line of the module's docstring.
 
 | Module | Classes | What it does |
 |---|---|---|
+| `__main__.py` | — | `python -m app.worker`: one worker process (s04 §4.1). Runs until SIGTERM or SIGINT. |
 | `database_step_recorder.py` | `DatabaseStepRecorder` | The production StepRecorder (contracts §3): pipeline step results → turn_steps rows. |
 | `khoj_card_sender.py` | `CardOutcome`, `CardDeps`, `KhojCardSender` | KhojCardSender: after a good report, an illustrated card of the child's discovery |
+| `maintenance_loop.py` | `MaintenanceSettings`, `MaintenanceDeps`, `MaintenanceLoop` | MaintenanceLoop: the periodic jobs that keep the queue healthy (s04 §4.13). |
 | `nudge_sender.py` | `NudgeSettings`, `NudgeSender` | NudgeSender: the daily khoj message, sent from the maintenance pass (s10b §4.11). |
+| `outbox_loop.py` | `OutboxLoopSettings`, `OutboxLoop` | OutboxLoop: sends queued parts whose time has come (s04 §4.10). |
 | `post_turn_runner.py` | `PostTurnDeps`, `PostTurnRunner` | PostTurnRunner: work after the reply is sent, off its critical path (s04 §4.16, s13 §4.2). |
-| `reply_deliverer.py` | `DeliverySettings`, `DeliveryDeps`, `ReplyDeliverer` | Sending a turn's queued parts, in order, with retries (s04 §4.10; E1: sent directly). |
-| `turn_dispatcher.py` | `DispatcherSettings`, `DispatcherDeps`, `TurnDispatcher` | The in-process turn dispatcher (exception E1, mvp-scope §4.1). |
+| `reply_deliverer.py` | `DeliverySettings`, `DeliveryDeps`, `ReplyDeliverer` | Sending a turn's queued parts, in order, with retries (s04 §4.10). |
+| `supervisor.py` | `SupervisorParts`, `Supervisor` | Supervisor: runs one worker's loops and stops them in order (s04 §4.1, §4.12). |
+| `turn_loop.py` | `TurnLoopSettings`, `TurnLoopDeps`, `TurnLoop` | TurnLoop: claims users and runs their turns, several at once (s04 §4.1 to §4.3, §4.8). |
 | `turn_processor.py` | `TurnSettings`, `TurnDeps`, `TurnProcessor` | One turn for one user, start to finish (s04 §4.4 to §4.9; contracts §3 `process_user_turn`). |

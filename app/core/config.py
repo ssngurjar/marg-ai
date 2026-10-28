@@ -5,9 +5,9 @@ the code that reads them, and adds them to `.env.example`.
 """
 
 from decimal import Decimal
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import Field, HttpUrl, SecretStr, ValidationError, field_validator
+from pydantic import Field, HttpUrl, SecretStr, ValidationError, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.core.errors import ConfigError
@@ -75,6 +75,18 @@ class Settings(DatabaseSettings):
     retention_turn_text_days: int = Field(default=90, ge=1)
     retention_raw_payload_days: int = Field(default=7, ge=1)
     purge_sweep_after_s: int = Field(default=600, ge=60)  # s08 §4.10: purge even if undelivered
+
+    # Added with E1's upgrade (s04 §4.3 to §4.11): several workers share the queue through leases
+    lease_duration_s: float = Field(default=60.0, gt=0)  # at least twice TURN_BUDGET_S
+    worker_concurrency: int = Field(default=8, ge=1)
+    outbox_concurrency: int = Field(default=4, ge=1)
+    outbox_sending_stuck_s: float = Field(default=60.0, gt=0)
+    poll_interval_s: float = Field(default=2.0, gt=0)  # the fallback when a NOTIFY is missed
+    # false: the api only stores messages and `python -m app.worker` runs the turns
+    run_worker_in_api: bool = True
+    # LISTEN needs a session-level connection: on Neon, the direct (unpooled) URL.
+    # Blank: DATABASE_URL.
+    database_listen_url: SecretStr | None = None
 
     # Added in S5 for the model, prompts and the safety core (contracts §7)
     model_api_base_url: HttpUrl
@@ -170,6 +182,30 @@ class Settings(DatabaseSettings):
     child_session_max_turns: int = Field(default=6, ge=1)
     child_session_max_minutes: int = Field(default=10, ge=1)
     child_session_cooldown_minutes: int = Field(default=30, ge=0)
+
+    @field_validator("database_listen_url", mode="before")
+    @classmethod
+    def _none_when_blank(cls, value: object) -> object:
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
+    @field_validator("database_listen_url")
+    @classmethod
+    def _listen_url_uses_asyncpg(cls, url: SecretStr | None) -> SecretStr | None:
+        if url is not None and not url.get_secret_value().startswith(ASYNCPG_SCHEME):
+            raise ValueError(f"must use the {ASYNCPG_SCHEME} scheme")
+        return url
+
+    @model_validator(mode="after")
+    def _lease_outlives_a_turn(self) -> Self:
+        """A healthy turn must never lose its lease (s04 §7)."""
+        if self.lease_duration_s < 2 * self.turn_budget_s:
+            raise ValueError(
+                f"lease_duration_s ({self.lease_duration_s}) must be at least twice "
+                f"turn_budget_s ({self.turn_budget_s})"
+            )
+        return self
 
     @field_validator("public_base_url", mode="before")
     @classmethod

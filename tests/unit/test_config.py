@@ -180,3 +180,38 @@ def test_the_admin_floor_is_one_and_everyone_elses_five_by_default(
     monkeypatch.setenv("DATABASE_URL", VALID_URL)
     settings = load_settings()
     assert (settings.k_anonymity_floor, settings.k_anonymity_floor_admin) == (5, 1)
+
+
+def test_a_lease_shorter_than_two_turn_budgets_is_refused(monkeypatch: pytest.MonkeyPatch) -> None:
+    """s04 §7: a healthy turn must never lose its lease."""
+    monkeypatch.setenv("DATABASE_URL", VALID_URL)
+    monkeypatch.setenv("TURN_BUDGET_S", "40")
+    monkeypatch.setenv("LEASE_DURATION_S", "60")
+    with pytest.raises(
+        ConfigError,
+        match=r"lease_duration_s \(60\.0\) must be at least twice turn_budget_s \(40\.0\)",
+    ):
+        load_settings()
+
+
+def test_a_lease_of_exactly_two_turn_budgets_is_accepted(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DATABASE_URL", VALID_URL)
+    monkeypatch.setenv("TURN_BUDGET_S", "30")
+    monkeypatch.setenv("LEASE_DURATION_S", "60")
+    assert load_settings().lease_duration_s == 60.0
+
+
+@pytest.mark.parametrize(("value", "expected"), [("", None), ("   ", None)])
+def test_a_blank_listen_url_means_the_main_database_url(
+    monkeypatch: pytest.MonkeyPatch, value: str, expected: None
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", VALID_URL)
+    monkeypatch.setenv("DATABASE_LISTEN_URL", value)
+    assert load_settings().database_listen_url is expected
+
+
+def test_a_listen_url_must_use_asyncpg(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DATABASE_URL", VALID_URL)
+    monkeypatch.setenv("DATABASE_LISTEN_URL", "postgresql://marg:marg@localhost/marg")
+    with pytest.raises(ConfigError, match=r"DATABASE_LISTEN_URL \(must use the postgresql"):
+        load_settings()

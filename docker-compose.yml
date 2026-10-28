@@ -1,4 +1,6 @@
-# Local development: Postgres with pgvector plus the api. (The worker joins in S4.)
+# Local development: Postgres with pgvector plus the api, which runs the turns itself by default.
+# `docker compose --profile workers up` adds a separate worker (set RUN_WORKER_IN_API=false to
+# leave all turns to it; leases make either mix safe).
 services:
   postgres:
     image: pgvector/pgvector:pg16
@@ -20,6 +22,18 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://marg:marg@postgres:5432/marg
     ports: ["8000:8000"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+  worker:
+    build: .
+    profiles: ["workers"]
+    command: [".venv/bin/python", "-m", "app.worker"]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgresql+asyncpg://marg:marg@postgres:5432/marg
     depends_on:
       postgres:
         condition: service_healthy

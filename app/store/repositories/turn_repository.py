@@ -1,7 +1,9 @@
-"""Turns: claiming a user's pending messages, loading the context, finalizing (s04 §4.4 to §4.7).
+"""Turns: taking a user's pending messages, loading the context, finalizing (s04 §4.4 to §4.7).
 
-Exception E1 (mvp-scope §4.1): one process with one lock per user, so there are no leases. Each
-public method is one transaction. The only SQL for turns and the inbox's processing columns.
+The caller holds the user's lease (LeaseRepository) from before `start_turn` until finalize or
+abandon, which release it in their own transaction. Finalize checks the lease first, so a worker
+that lost it commits nothing. Each public method is one transaction. The only SQL for turns and
+the inbox's processing columns.
 """
 
 from collections.abc import Mapping, Sequence
@@ -10,11 +12,11 @@ from datetime import datetime, timedelta
 from typing import ClassVar, assert_never
 from uuid import UUID, uuid4
 
-from sqlalchemy import Row, and_, func, select, update
+from sqlalchemy import Row, and_, func, select, text, update
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from app.core.errors import StoreError
+from app.core.errors import LeaseLost, StoreError
 from app.domain.enums import (
     ActivityStatus,
     Channel,
@@ -75,6 +77,7 @@ class StartedTurn:
     user_hash: UserHash
     channel: Channel
     queued: list[QueuedMessage]  # oldest first
+    worker_id: str  # holds the user's lease while the turn runs
 
 
 @dataclass(frozen=True, slots=True)
@@ -130,7 +133,13 @@ class TurnRepository:
                 )
         except (SQLAlchemyError, OSError) as exc:
             raise StoreError(f"could not start a turn: {type(exc).__name__}") from exc
-        return StartedTurn(turn_id=turn_id, user_hash=user_hash, channel=channel, queued=batch)
+        return StartedTurn(
+            turn_id=turn_id,
+            user_hash=user_hash,
+            channel=channel,
+            queued=batch,
+            worker_id=worker_id,
+        )
 
     async def load_context(self, started: StartedTurn, recent_exchanges: int) -> TurnContext:
         """Everything the pipeline reads for this turn (s04 §4.5), in one read."""
@@ -192,13 +201,15 @@ class TurnRepository:
         all or nothing (s04 §4.7, contracts §2.4).
 
         `delivery` is None only for a stale turn, which answers nothing. Raises LeaseLost (and
-        commits nothing) when a profile change finds the user in another state.
+        commits nothing) when the worker no longer holds the user's lease, or a profile change
+        finds the user in another state. Releases the lease on commit.
         """
         user_text = (
             None if finished.fixed_reply_kind is FixedReplyKind.CRISIS else finished.user_text
         )
         try:
             async with self._session_factory() as session, session.begin():
+                await _check_lease(session, started)
                 for write in writes:
                     await _apply(session, started, write)
                 parts = 0
@@ -228,6 +239,9 @@ class TurnRepository:
                     .values(status=finished.inbox_status.value)
                 )
                 more_pending = await _has_pending(session, started.user_hash)
+                await _release_lease(session, started)
+                if parts:
+                    await session.execute(text("SELECT pg_notify('outbox_new', '')"))
         except (SQLAlchemyError, OSError) as exc:
             raise StoreError(f"could not finalize the turn: {type(exc).__name__}") from exc
         return FinalizeResult(parts_enqueued=parts, more_pending=more_pending)
@@ -235,9 +249,11 @@ class TurnRepository:
     async def abandon(
         self, started: StartedTurn, *, count_attempt: bool, retry_after: timedelta
     ) -> None:
-        """The turn crashed or was cut short: mark it failed and put its messages back.
+        """The turn crashed or was cut short: mark it failed, put its messages back and release
+        the lease. `count_attempt` is False for a shutdown, which isn't the message's fault.
 
-        `count_attempt` is False for a shutdown, which isn't the message's fault.
+        After a lost lease this changes nothing: the takeover already failed the turn and moved
+        its messages, and the lease is someone else's.
         """
         try:
             async with self._session_factory() as session, session.begin():
@@ -264,65 +280,9 @@ class TurnRepository:
                         available_at=func.now() + retry_after,
                     )
                 )
+                await _release_lease(session, started)
         except (SQLAlchemyError, OSError) as exc:
             raise StoreError(f"could not abandon the turn: {type(exc).__name__}") from exc
-
-    async def recover_unfinished(self, retry_after: timedelta) -> int:
-        """Startup recovery (E1): turns left `processing` by a dead process are failed, and their
-        messages go back to pending with one more attempt. Returns how many messages."""
-        try:
-            async with self._session_factory() as session, session.begin():
-                await session.execute(
-                    update(turns)
-                    .where(turns.c.status == TurnStatus.PROCESSING.value)
-                    .values(
-                        status=TurnStatus.FAILED.value,
-                        failure_kind=FailureKind.INTERNAL.value,
-                        completed_at=func.now(),
-                    )
-                )
-                result = await session.execute(
-                    update(inbox_messages)
-                    .where(inbox_messages.c.status == InboxStatus.PROCESSING.value)
-                    .values(
-                        status=InboxStatus.PENDING.value,
-                        attempts=inbox_messages.c.attempts + 1,
-                        available_at=func.now() + retry_after,
-                    )
-                    .returning(inbox_messages.c.id)
-                )
-                return len(result.all())
-        except (SQLAlchemyError, OSError) as exc:
-            raise StoreError(f"could not recover unfinished turns: {type(exc).__name__}") from exc
-
-    async def users_with_pending(self) -> list[UserHash]:
-        """Every user with a pending message, due or not (each gets a dispatcher task)."""
-        query = (
-            select(inbox_messages.c.user_hash)
-            .where(inbox_messages.c.status == InboxStatus.PENDING.value)
-            .distinct()
-        )
-        try:
-            async with self._session_factory() as session:
-                rows = (await session.execute(query)).scalars().all()
-        except (SQLAlchemyError, OSError) as exc:
-            raise StoreError(f"could not list pending users: {type(exc).__name__}") from exc
-        return [UserHash(user_hash) for user_hash in rows]
-
-    async def next_pending_at(self, user_hash: UserHash) -> datetime | None:
-        """When this user's earliest pending message becomes due, or None if none is pending."""
-        query = select(func.min(inbox_messages.c.available_at)).where(
-            and_(
-                inbox_messages.c.user_hash == user_hash,
-                inbox_messages.c.status == InboxStatus.PENDING.value,
-            )
-        )
-        try:
-            async with self._session_factory() as session:
-                earliest = (await session.execute(query)).scalar_one_or_none()
-        except (SQLAlchemyError, OSError) as exc:
-            raise StoreError(f"could not read pending messages: {type(exc).__name__}") from exc
-        return _optional_datetime(earliest)
 
     async def clear_expired_text(
         self, turn_text_before: datetime, raw_payload_before: datetime
@@ -385,6 +345,34 @@ class TurnRepository:
         except (SQLAlchemyError, OSError) as exc:
             raise StoreError(f"could not clear expired text: {type(exc).__name__}") from exc
         return cleared
+
+
+async def _check_lease(session: AsyncSession, started: StartedTurn) -> None:
+    """Finalize step 1 (s04 §4.7): the user's row stays locked until commit."""
+    held = (
+        await session.execute(
+            select(users.c.user_hash)
+            .where(
+                and_(
+                    users.c.user_hash == started.user_hash,
+                    users.c.lease_owner == started.worker_id,
+                )
+            )
+            .with_for_update()
+        )
+    ).first()
+    if held is None:
+        raise LeaseLost(f"user {started.user_hash[:8]}: lease no longer held by this worker")
+
+
+async def _release_lease(session: AsyncSession, started: StartedTurn) -> None:
+    await session.execute(
+        update(users)
+        .where(
+            and_(users.c.user_hash == started.user_hash, users.c.lease_owner == started.worker_id)
+        )
+        .values(lease_owner=None, lease_expires_at=None, updated_at=func.now())
+    )
 
 
 async def _lock_due_pending(session: AsyncSession, user_hash: UserHash) -> list[QueuedMessage]:

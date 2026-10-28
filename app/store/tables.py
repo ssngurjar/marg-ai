@@ -91,6 +91,8 @@ users = Table(
     Column("pending_question", Text, nullable=True),  # personal data; cleared on handoff
     Column("purge_after_turn_id", UUID(as_uuid=True), nullable=True),
     Column("last_inbound_at", DateTime(timezone=True), nullable=True),
+    Column("lease_owner", Text, nullable=True),  # the worker running this user's turn (s04 §4.3)
+    Column("lease_expires_at", DateTime(timezone=True), nullable=True),
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
     Column("updated_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
     CheckConstraint("user_hash ~ '^[0-9a-f]{64}$'", name="user_hash_is_hex64"),
@@ -104,6 +106,7 @@ users = Table(
         "purge_after_turn_id",
         postgresql_where=text("purge_after_turn_id IS NOT NULL"),
     ),
+    Index(None, "lease_expires_at", postgresql_where=text("lease_owner IS NOT NULL")),
 )
 
 consent_events = Table(

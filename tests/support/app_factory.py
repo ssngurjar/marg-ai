@@ -46,6 +46,7 @@ def make_settings(
         sidecar_base_url=HttpUrl("http://127.0.0.1:8100"),
         sidecar_token=SecretStr("test-sidecar-token"),
         session_signing_key=SecretStr("test-session-signing-key-0123456789"),
+        run_worker_in_api=False,  # an app under test only stores; tests run turns themselves
     )
 
 

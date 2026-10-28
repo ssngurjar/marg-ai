@@ -61,7 +61,7 @@ async def demo_for(
             demo=DemoRepository(sessions),
             media=MediaBlobRepository(sessions),
             inbox=InboxRepository(sessions),
-            waker=pipeline.dispatcher,
+            waker=pipeline.worker,
             clock=FixedClock(NOW),
         ),
         limits,
@@ -84,7 +84,7 @@ async def say(site: Demo, payload: dict[str, str]) -> dict[str, object]:
     posted = await site.client.post("/demo/messages", json=payload, headers=ORIGIN)
     assert posted.status_code == 202, posted.text
     message_id = posted.json()["message_id"]
-    await site.pipeline.dispatcher.wait_until_idle()
+    await site.pipeline.worker.wait_until_idle()
     polled = await site.client.get(f"/demo/messages/{message_id}")
     assert polled.status_code == 200
     body: dict[str, object] = polled.json()
@@ -257,7 +257,7 @@ async def test_someone_elses_message_and_media_are_not_found(
     await site.client.get("/demo/session")
     posted = await site.client.post("/demo/messages", json={"text": "Hi"}, headers=ORIGIN)
     message_id = posted.json()["message_id"]
-    await site.pipeline.dispatcher.wait_until_idle()
+    await site.pipeline.worker.wait_until_idle()
     site.client.cookies.clear()
     await site.client.get("/demo/session")  # a different visitor
     assert (await site.client.get(f"/demo/messages/{message_id}")).status_code == 404
