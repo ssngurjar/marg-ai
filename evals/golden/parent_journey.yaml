@@ -33,11 +33,12 @@
     route: journey
     register: hinglish
     must:
-      - praises the specific idea Munni had (the sun moving), not generic praise
+      - praises what Munni noticed and that she looked for a reason, not generic praise
       - asks exactly one question that extends Munni's idea
       - gives the parent one short tip about how children learn
     must_not:
       - corrects the child harshly or says the answer is wrong
+      - states as true that the sun moving makes the shadow turn (it's the Earth turning)
       - labels the child (genius, clever, slow, weak)
 
 - id: parent-journey-003

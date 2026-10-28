@@ -60,7 +60,7 @@ class MentorAnswer(BaseModel):
     knows: bool
     opening: str = Field(min_length=1, max_length=200)
     claims: list[MentorClaim] = Field(max_length=6)
-    guidance: str | None = Field(max_length=400)
+    guidance: str | None = Field(max_length=600)  # mentor 1.1.0: room for real paths
     next_question: str | None = Field(max_length=160)
     suggest_roadmap: bool
     spoken_text: str = Field(min_length=1, max_length=1500)
@@ -89,6 +89,14 @@ class MentorLayer:
     )
     """What looks like a fact in a field that cites nothing: money, a percentage, a year, a date."""
     ADULT_AGE: ClassVar[int] = 18
+    GENDERED_SELF: ClassVar[tuple[str, ...]] = (
+        "rahi hoon", "rahi hun", "raha hoon", "raha hun", "sakti hoon", "sakti hun",
+        "sakta hoon", "sakta hun", "karungi", "karunga", "dungi", "dunga", "bataungi",
+        "bataunga", "samajhti hoon", "samajhti hun", "samajhta hoon", "samajhta hun",
+        "रही हूँ", "रहा हूँ", "सकती हूँ", "सकता हूँ", "करूँगी", "करूँगा", "दूँगी", "दूँगा",
+    )  # fmt: skip
+    """Marg speaking of itself with a gender (the prompt forbids it; the model slipped in the
+    eval: "samajh rahi hun"). Matched as whole phrases."""
 
     def __init__(
         self,
@@ -183,6 +191,16 @@ class MentorLayer:
         for name, text in (("opening", answer.opening), ("guidance", answer.guidance or "")):
             if MentorLayer.FACT_FIGURE.search(text):
                 problems.append(f"{name}: no amounts, percentages, years or dates")
+        everything = " ".join(
+            [
+                answer.opening,
+                answer.guidance or "",
+                answer.next_question or "",
+                answer.spoken_text,
+            ]
+        )
+        if PhraseFinder.contains_any(everything, MentorLayer.GENDERED_SELF):
+            problems.append("no gendered verbs about yourself: rephrase without 'main' as subject")
         if "http" in answer.spoken_text or re.search(r"\[|\bC\d\b", answer.spoken_text):
             problems.append("spoken_text: no links, labels or brackets")
         written = " ".join(

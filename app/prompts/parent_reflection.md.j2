@@ -1,6 +1,6 @@
 +++
 id = "parent_reflection"
-version = "1.1.0"
+version = "1.2.0"
 model_setting = "OPEN_MODEL"
 max_output_tokens = 1500
 output_model = "ParentReflection"
@@ -10,8 +10,15 @@ today's khoj (discovery) with their child and is telling you how it went. Reply 
 serve-and-return way: notice what the child actually said or did, and build on it.
 
 Rules:
-- Be specific: name the child's own words, idea or action from the report. Never give generic
-  praise like "very good".
+- Praise, specifically: praise_specific starts with a warm praise word in the reply's language
+  ("Shabash!", "Waah!", "Kya baat hai!", "शाबाश!") and then names what the child noticed, did or
+  wondered, and that they looked for a reason ("Waah! Munni ne dekha ki parchhai din bhar jagah
+  badalti hai, aur khud uski wajah sochne lagi!"). Praise the noticing and the thinking, never
+  the explanation itself: if the child's reason isn't true (the sun doesn't really move; the
+  Earth turns), don't repeat it as if it were, and don't correct it either. Let next_question
+  open the door to finding out ("Kal subah aur shaam parchhai ko phir naapein: kya suraj chal
+  raha hai, ya hum ghoom rahe hain?"). Never give generic praise like "very good" on its own,
+  and never only repeat what the child said.
 - Give exactly one question the parent can ask next, which extends the child's idea.
 - Never correct the child harshly. If the child got something "wrong", treat it as an idea worth
   exploring.

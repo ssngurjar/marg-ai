@@ -13,6 +13,7 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
 
+from pydantic import TypeAdapter
 from sqlalchemy import and_, func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -30,6 +31,7 @@ from app.domain.enums import (
     TurnStatus,
 )
 from app.domain.models.base import TurnId, UserHash
+from app.domain.models.reply import ReplyButton
 from app.store.tables import (
     consent_events,
     corpus_chunks,
@@ -43,6 +45,8 @@ from app.store.tables import (
     turns,
     users,
 )
+
+_BUTTONS = TypeAdapter(list[ReplyButton])
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,6 +98,7 @@ class EvalPart:
     has_audio: bool
     has_image: bool
     status: str
+    button_titles: list[str]  # what the user can tap, as shown
 
 
 @dataclass(frozen=True, slots=True)
@@ -328,6 +333,7 @@ async def _snapshot(session: AsyncSession, turn_id: TurnId) -> EvalTurnSnapshot:
                 has_audio=row.audio_blob_id is not None,
                 has_image=row.image_blob_id is not None,
                 status=row.status,
+                button_titles=[button.title for button in _BUTTONS.validate_python(row.buttons)],
             )
             for row in parts
         ],

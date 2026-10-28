@@ -146,5 +146,12 @@ class EvalJudge:
 
     @staticmethod
     def reply(record: TurnRecord) -> str:
-        spoken = " ".join(record.spoken_texts) or "(no voice note)"
-        return f"Reply text:\n{record.reply_text or '(no reply)'}\n\nSpoken text:\n{spoken}"
+        """The text sent, and the spoken version: what went to TTS, or for a typed message
+        (answered in text only) the spoken text the layer prepared and the output check read."""
+        spoken = " ".join(record.spoken_texts)
+        if not spoken and record.generated is not None and record.generated.spoken_text:
+            spoken = record.generated.spoken_text
+        text = record.reply_text or "(no reply)"
+        buttons = [title for part in record.snapshot.parts for title in part.button_titles]
+        tapped = f"\n\nButtons shown: {', '.join(buttons)}" if buttons else ""
+        return f"Reply text:\n{text}{tapped}\n\nSpoken text:\n{spoken or '(no spoken version)'}"

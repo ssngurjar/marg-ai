@@ -52,7 +52,7 @@ async def test_claims_are_numbered_per_document_and_the_sources_listed() -> None
     assert result.reply.spoken_text is not None
     assert "http" not in result.reply.spoken_text
     assert result.outcome is StepOutcome.OK
-    assert result.prompt_versions == {"mentor": "1.0.0"}
+    assert result.prompt_versions == {"mentor": "1.1.0"}
 
 
 async def test_the_sources_go_in_the_system_part_and_the_question_in_a_user_slot() -> None:
@@ -120,10 +120,14 @@ async def test_a_provider_outage_is_raised_not_hidden_as_dont_know() -> None:
         ({"spoken_text": "देखो https://scholarships.gov.in"}, "spoken_text: no links"),
         ({"spoken_text": "C1 के अनुसार"}, "spoken_text: no links"),
         ({"spoken_text": "This is English"}, "spoken_text: expected Devanagari"),
+        ({"opening": "Tumhari fikr samajh rahi hun"}, "no gendered verbs about yourself"),
+        ({"guidance": "Main aapko bataunga kaise"}, "no gendered verbs about yourself"),
+        ({"spoken_text": "मैं मदद कर सकती हूँ"}, "no gendered verbs about yourself"),
     ],
     ids=[
         "unknown_label", "knows_false_with_claims", "knows_true_no_claims", "rupees",
         "year", "percent", "date", "link_spoken", "label_spoken", "wrong_script",
+        "gendered_opening", "gendered_guidance", "gendered_spoken",
     ],
 )  # fmt: skip
 def test_each_check_names_its_problem(change: dict[str, object], problem: str) -> None:

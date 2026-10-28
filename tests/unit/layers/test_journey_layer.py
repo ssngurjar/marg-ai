@@ -119,7 +119,7 @@ async def test_todays_khoj_is_the_chosen_activity_personalised_with_the_supervis
     assert offered(result).activity_id == FIRST.id
     assert offered(result).learner_id == MUNNI.id
     assert result.hazard_rule == frozenset(FIRST.hazards)
-    assert result.prompt_versions == {"activity_personalise": "1.0.2"}
+    assert result.prompt_versions == {"activity_personalise": "1.0.3"}
 
 
 async def test_the_reviewed_text_is_kept_as_the_fallback_reply() -> None:
@@ -224,7 +224,7 @@ async def test_a_report_gets_a_specific_reflection_and_is_recorded_done() -> Non
         )
     ]
     assert [button.id for button in result.reply.buttons] == ["onb:add-child"]
-    assert result.prompt_versions == {"parent_reflection": "1.1.0"}
+    assert result.prompt_versions == {"parent_reflection": "1.2.0"}
 
 
 async def test_done_button_with_an_open_activity_reflects() -> None:

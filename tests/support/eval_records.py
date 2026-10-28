@@ -43,6 +43,7 @@ def part(text: str | None = "Namaste", kind: str = "text", **flags: bool) -> Eva
         has_audio=flags.get("has_audio", False),
         has_image=flags.get("has_image", False),
         status="sent",
+        button_titles=[],
     )
 
 
