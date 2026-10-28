@@ -125,7 +125,7 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
   answer, a 2-4 step mini-activity from the materials list, a question back and a gentle
   "people who study this…" line, in 2.3-5.7 s. "Bukhar kyun aata hai?" and "neend poori nahi
   hoti" correctly went to the parent answer.
-- [ ] **Decide: may an answer *talk about* a d7 hazard?** "Saanp ke kaan kahan hote hain?" can't
+- [x] **Decided 2026-10-28: (b), talk about it, never do it.** Was: may an answer *talk about* a d7 hazard? "Saanp ke kaan kahan hote hain?" can't
   be answered without the word snake, which d7 blocks in every journey reply, so the parent gets
   the fixed fallback below. Options: (a) keep d7 strict everywhere (now); (b) let `say_to_child`
   name an animal or thing the child asked about, while the mini-activity stays strict; (c) send
@@ -158,7 +158,7 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
 - [ ] **Word lists**, `app/constants/child_safety_words.py`: secrecy/attachment phrases (d8, on
   every reply) and personal topics a reply may not ask a child about (d1). Note: "राज़" also
   matches "राज" (rule, kingdom) after normalising.
-- [ ] **Decide: language for short messages.** The register detector reads "bye", "Main Munni
+- [x] **Decided 2026-10-28: fixed as recommended (`RegisterChooser`).** Was: language for short messages. The register detector reads "bye", "Main Munni
   hoon" and your English-detected voice note as English. Child talk now uses the family's
   onboarding language; for parents each message is still re-detected. Recommended: re-detect
   only when a message has at least 4 words or is in another script.
@@ -352,9 +352,8 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
 
 ## 2t. Hardening (S16, from 2026-10-28)
 
-- [ ] **Read the smoke test** (`docs/load/2026-10-28-smoke-test.md`): 10 visitors, 50 replies,
-  nothing lost or doubled; p95 wait 14.9 s (target 12 s), from the first khoj. **Decide:**
-  accept, shorten the burst wait to 500 ms, or move personalisation to Muse Spark Open.
+- [x] **Smoke test accepted (2026-10-28):** 10 visitors, 50 replies, nothing lost or doubled;
+  p95 wait 14.9 s against 12 s, kept as is.
 - [ ] **Your WhatsApp token:** reading the phone number or `/me` with it fails (Graph error 200,
   a permissions error), so `/readyz` can't check it. Send "Hi" from your phone before filming;
   make it a permanent system-user token before judging.

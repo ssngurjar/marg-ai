@@ -22,3 +22,12 @@ class ChildHazardMatcher:
     ) -> frozenset[str]:
         """Hazards mentioned that the activity didn't declare (and so have no safety note)."""
         return ChildHazardMatcher.find(text, hazard_words) - frozenset(declared)
+
+    @staticmethod
+    def asked_about(
+        question: str, hazard_words: Mapping[str, Sequence[str]], never: Collection[str]
+    ) -> frozenset[str]:
+        """Hazards the child's own question names: an answer may talk about them (owner,
+        2026-10-28: "saanp ke kaan kahan hote hain?" needs the word snake), but an activity
+        may never involve them. `never`: kinds no answer discusses even then (medicine)."""
+        return ChildHazardMatcher.find(question, hazard_words) - frozenset(never)

@@ -20,7 +20,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.constants.child_hazards import CHILD_HAZARD_WORDS
+from app.constants.child_hazards import CHILD_HAZARD_WORDS, NEVER_TALK_ABOUT
 from app.constants.child_safety_words import (
     CHILD_MANIPULATION_PHRASES,
     CHILD_PERSONAL_TOPICS,
@@ -93,6 +93,7 @@ class _Answer:
     usages: list[StepUsage]
     prompt_versions: dict[str, str]
     degraded_reason: str | None
+    asked_hazards: frozenset[str] = frozenset()  # talked about, never done (d7)
 
 
 class ChildTalkLayer:
@@ -185,7 +186,7 @@ class ChildTalkLayer:
                 outcome=StepOutcome.DEGRADED if answer.degraded_reason else StepOutcome.OK,
                 degraded_reason=answer.degraded_reason,
                 writes=[counted],
-                hazard_rule=frozenset(),
+                hazard_rule=answer.asked_hazards,
             )
         new_topics = (answer.topic,) if answer.topic else ()
         goodbye = self._goodbye(
@@ -204,6 +205,7 @@ class ChildTalkLayer:
                 "prompt_versions": answer.prompt_versions,
                 "writes": [counted, *goodbye.writes],
                 "curiosity": source if answer.degraded_reason is None else None,
+                "hazard_rule": answer.asked_hazards,  # the last answer may still talk about it
             }
         )
 
@@ -242,6 +244,7 @@ class ChildTalkLayer:
         age = StageRules.age_on(learner.birth_year, now.date())
         band: Literal["young", "older"] = "young" if age <= YOUNGEST_BAND_MAX_AGE else "older"
         max_words = self.WORDS_PER_SENTENCE[band]
+        asked = ChildHazardMatcher.asked_about(user_text, CHILD_HAZARD_WORDS, NEVER_TALK_ABOUT)
         rendered = self._registry.render(
             CHILD_TALK,
             system_vars={
@@ -255,7 +258,7 @@ class ChildTalkLayer:
                 "topics": ", ".join(domain.value for domain in CuriosityDomain),
             },
             user_vars={"child": learner.nickname or "", "child_message": user_text},
-            semantic_check=lambda reply: _ChildChecks.problems(reply, register, max_words),
+            semantic_check=lambda reply: _ChildChecks.problems(reply, register, max_words, asked),
         )
         versions = {rendered.request.prompt.prompt_id: rendered.request.prompt.prompt_version}
         try:
@@ -265,7 +268,7 @@ class ChildTalkLayer:
             fallback = _child_reply_text(CHILD_FALLBACK[register], None, register)
             return _Answer(fallback, None, [], versions, "child_fallback=ProviderResponseInvalid")
         reply = _ChildText.reply(result.output, register)
-        return _Answer(reply, result.output.topic, [result.usage], versions, None)
+        return _Answer(reply, result.output.topic, [result.usage], versions, None, asked)
 
     @staticmethod
     def parent_summary(
@@ -330,7 +333,12 @@ class _ChildChecks:
     """The semantic check: fixed-vocabulary problems for the one repair retry."""
 
     @staticmethod
-    def problems(reply: ChildReply, register: Language, max_words: int) -> list[str]:
+    def problems(
+        reply: ChildReply,
+        register: Language,
+        max_words: int,
+        asked: frozenset[str] = frozenset(),
+    ) -> list[str]:
         written = [reply.answer, reply.find_out, reply.ask_back, reply.who_explores_this]
         joined = " ".join(written)
         problems: list[str] = []
@@ -342,8 +350,12 @@ class _ChildChecks:
             problems.append("text: talks about secrets or being the child's only friend")
         if ChildReplyMatcher.asks_personal_details(joined, QUESTION_WORDS, CHILD_PERSONAL_TOPICS):
             problems.append("text: asks the child for personal details")
-        if ChildHazardMatcher.undeclared(f"{joined} {reply.spoken_text}", CHILD_HAZARD_WORDS, ()):
-            problems.append("text: mentions a danger for a young child")
+        if ChildHazardMatcher.undeclared(reply.find_out, CHILD_HAZARD_WORDS, ()):
+            problems.append("find_out: nothing dangerous, even what the child asked about")
+        if ChildHazardMatcher.undeclared(
+            f"{joined} {reply.spoken_text}", CHILD_HAZARD_WORDS, asked
+        ):
+            problems.append("text: mentions a danger the child didn't ask about")
         if ActivityValidator.mentions_buying(written):
             problems.append("text: asks for something to be bought")
         if PhraseFinder.contains_any(joined, LABEL_WORDS):

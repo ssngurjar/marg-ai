@@ -95,7 +95,7 @@ from app.domain.models.writes import (
 from app.domain.rules.audio_analyser import AudioAnalyser
 from app.domain.rules.filler_detector import FillerDetector
 from app.domain.rules.indic_script_normaliser import IndicScriptNormaliser
-from app.domain.rules.register_detector import RegisterDetector
+from app.domain.rules.register_chooser import RegisterChooser
 from app.domain.rules.stage_rules import StageRules
 from app.layers.child_talk_layer import ChildTalkLayer
 from app.layers.exposure_layer import ExposureLayer
@@ -295,9 +295,7 @@ class _Turn:
             return read
         interactive_ids, has_unsupported = read
         self.register = (
-            RegisterDetector.detect(self.user_text)
-            or self.ctx.profile.language
-            or FALLBACK_REGISTER
+            RegisterChooser.choose(self.user_text, self.ctx.profile.language) or FALLBACK_REGISTER
         )
         if self.user_text:
             await self._safely(self.recorder.set_turn_text(self.ctx.turn_id, self.user_text))

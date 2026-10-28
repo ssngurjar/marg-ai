@@ -43,3 +43,8 @@ CHILD_HAZARD_WORDS: Final[dict[str, tuple[str, ...]]] = {
         "medicine", "tablet", "syrup", "dawai", "dawa", "goli", "दवाई", "दवा", "गोली",
     ),
 }  # fmt: skip
+
+NEVER_TALK_ABOUT: Final = frozenset({"medicine"})
+"""Hazards an answer may not discuss even when the child asked (owner, 2026-10-28): medicine
+questions go to the anganwadi worker, the ASHA didi or a doctor. Every other hazard the child
+asked about may be talked about, never done."""

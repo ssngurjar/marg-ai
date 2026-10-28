@@ -157,6 +157,7 @@ line of the module's docstring.
 | `onboarding_answer_parser.py` | `Found`, `GradeParse`, `ChildAgeParse`, `NicknameParse`, `OnboardingAnswerParser` | OnboardingAnswerParser: what an onboarding answer says, without a model (s08 §4.4 step 4). Pure. |
 | `phrase_finder.py` | `PhraseFinder` | PhraseFinder: whole-phrase matching on normalised text, for keyword rules (s07, s08). Pure. |
 | `rank_fusion.py` | `RankedHit`, `FusedHit`, `RankFusion` | RankFusion: two ranked candidate lists into one (s11 §4.7). Pure. |
+| `register_chooser.py` | `RegisterChooser` | RegisterChooser: which language to answer this message in (owner, 2026-10-28). |
 | `register_detector.py` | `RegisterDetector` | RegisterDetector: which language and script a message is in (s09's detect_register). Pure. |
 | `session_rules.py` | `SessionRules` | SessionRules: the only definition of a session (contracts §2.2). Pure. |
 | `stage_rules.py` | `StageRules` | StageRules: a learner's age and NEP stage from their birth year (s10b §4.2). Pure. |

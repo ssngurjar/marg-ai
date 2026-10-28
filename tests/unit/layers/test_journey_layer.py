@@ -282,7 +282,7 @@ async def test_a_relayed_child_question_gets_the_curiosity_moment() -> None:
     layer, llm = layer_with()
     result = await khoj(text=RELAYED, button=None, layer=layer)
     assert result.reply.body.startswith(MOMENT_SAY)
-    assert result.prompt_versions == {"curiosity_moment": "1.0.1"}
+    assert result.prompt_versions == {"curiosity_moment": "1.0.2"}
     assert llm.by_prompt["parent_answer"].prompts == []
     assert result.writes == []
 
@@ -295,7 +295,7 @@ async def test_the_parents_own_question_falls_through_to_the_parent_answer_with_
         text="Munni ki neend poori nahi hoti, kya karein?", button=None, layer=layer
     )
     assert result.reply.body.startswith(str(HINGLISH_ANSWER["answer"]))
-    assert result.prompt_versions == {"curiosity_moment": "1.0.1", "parent_answer": "1.0.1"}
+    assert result.prompt_versions == {"curiosity_moment": "1.0.2", "parent_answer": "1.0.1"}
     assert len(result.usages) == 2
     assert result.hazard_rule == frozenset()
 

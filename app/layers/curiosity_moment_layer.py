@@ -4,9 +4,10 @@ When a parent passes on the child's question ("Munni poochh rahi hai, chaand roz
 badalta hai?"), the reply is a true, simple answer to say to the child, a 2-minute way to find
 out together with things at home, and one question back. If the model isn't confident of a true
 answer, the reply says so honestly ("let's find out together") and keeps the mini-activity.
-The supervision line is added by code; the d7 hazard rule runs with nothing declared. An answer
-that fails its checks twice (a question about snakes can't be answered without naming one) is
-replaced by a fixed serve-and-return reply, DEGRADED, never by an unchecked one.
+The supervision line is added by code. d7: the answer may talk about a hazard the child asked
+about ("saanp ke kaan kahan hote hain?"), never the mini-activity, and never medicine (owner,
+2026-10-28: talk about, never do). An answer that fails its checks twice is replaced by a fixed
+serve-and-return reply, DEGRADED, never by an unchecked one.
 """
 
 from dataclasses import dataclass
@@ -15,7 +16,7 @@ from typing import Final
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.constants.child_hazards import CHILD_HAZARD_WORDS
+from app.constants.child_hazards import CHILD_HAZARD_WORDS, NEVER_TALK_ABOUT
 from app.constants.journey_copy import (
     ASK_BACK_LABEL,
     CURIOSITY_FALLBACK,
@@ -90,6 +91,7 @@ class CuriosityMomentLayer:
         """The curiosity-moment reply, or NotAChildQuestion when the model says this isn't the
         child's own question. Raises ProviderError when the model can't be reached."""
         child_age = str(StageRules.age_on(learner.birth_year, today)) if learner else UNKNOWN_AGE
+        asked = ChildHazardMatcher.asked_about(parent_message, CHILD_HAZARD_WORDS, NEVER_TALK_ABOUT)
         rendered = self._registry.render(
             CURIOSITY_MOMENT,
             system_vars={
@@ -105,7 +107,9 @@ class CuriosityMomentLayer:
                 "child": learner.nickname if learner and learner.nickname else "",
                 "parent_message": parent_message,
             },
-            semantic_check=lambda moment: _MomentChecks.problems(moment, self._materials, register),
+            semantic_check=lambda moment: _MomentChecks.problems(
+                moment, self._materials, register, asked
+            ),
         )
         versions = {rendered.request.prompt.prompt_id: rendered.request.prompt.prompt_version}
         try:
@@ -121,7 +125,7 @@ class CuriosityMomentLayer:
             prompt_versions=versions,
             outcome=StepOutcome.OK,
             degraded_reason=None,
-            hazard_rule=frozenset(),  # d7 on, nothing declared: no hazard may appear
+            hazard_rule=asked,  # d7: only what the child asked about, and only talked about
         )
 
 
@@ -180,7 +184,10 @@ class _MomentChecks:
 
     @staticmethod
     def problems(
-        moment: CuriosityMoment, materials: frozenset[str], register: Language
+        moment: CuriosityMoment,
+        materials: frozenset[str],
+        register: Language,
+        asked: frozenset[str] = frozenset(),
     ) -> list[str]:
         if not moment.is_child_question:
             return []
@@ -192,8 +199,13 @@ class _MomentChecks:
             moment.who_explores_this,
         ]
         joined = " ".join(written)
-        if ChildHazardMatcher.undeclared(f"{joined} {moment.spoken_text}", CHILD_HAZARD_WORDS, ()):
-            problems.append("text: mentions a danger for a young child")
+        activity = " ".join(moment.find_out_together)
+        if ChildHazardMatcher.undeclared(activity, CHILD_HAZARD_WORDS, ()):
+            problems.append("find_out_together: nothing dangerous, even what the child asked about")
+        if ChildHazardMatcher.undeclared(
+            f"{joined} {moment.spoken_text}", CHILD_HAZARD_WORDS, asked
+        ):
+            problems.append("text: mentions a danger the child didn't ask about")
         if ActivityValidator.mentions_buying(written):
             problems.append("text: asks for something to be bought")
         unknown = sorted(set(moment.materials_used) - materials)

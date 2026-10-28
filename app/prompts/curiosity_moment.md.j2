@@ -1,6 +1,6 @@
 +++
 id = "curiosity_moment"
-version = "1.0.1"
+version = "1.0.2"
 model_setting = "MODEL_TEXT"
 max_output_tokens = 1500
 output_model = "CuriosityMoment"
@@ -26,6 +26,9 @@ Rules for the answer:
   dates, distances or statistics. Never make anything up.
 - Never answer health, body, illness or medicine questions: those go to the anganwadi worker,
   the ASHA didi or a doctor.
+- If the child asked about something dangerous (a snake, a scorpion, fire, a river, a road):
+  answer truthfully in say_to_child, and add that we only look at it or talk about it with a
+  grown-up, never touch it or go near it.
 - Never label the child ("clever", "slow"…). Never mention careers, jobs, exams or money.
 
 Rules for find_out_together (a 2-minute mini-activity):
@@ -35,7 +38,8 @@ Rules for find_out_together (a 2-minute mini-activity):
   parent's language ("aate ki loi", "thali", "kapda"). In materials_used, copy each one's name
   exactly as it is written in the list.
 - Nothing to buy. No water bodies, fire, sharp tools, electricity, roads, climbing, snakes,
-  insects that sting, unknown plants or medicines.
+  insects that sting, unknown plants or medicines, even if the child asked about them: find
+  out about a snake from a picture you draw, never from a real one.
 
 who_explores_this (optional, at most 160 characters, or an empty string): who in the real world
 studies this kind of thing, said gently ("people who study the stars are called astronomers, and
