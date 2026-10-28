@@ -6,9 +6,9 @@ The video has four voice-over parts and one part with **no voice-over at all**: 
 which is shown raw. Read at a calm pace (about 130 words a minute). The word counts are there so
 the parts fit their time; if a part runs long, drop the line marked *(cut first)*.
 
-Lines marked **[after: …]** describe something still being built. Record them only once it is
-built and working; if it isn't ready by Nov 3, leave the line out. The video may only claim what
-the repository shows.
+Everything the script names is built and working as of Oct 28 (see
+[features.md](features.md) for how each part works). The video may only claim what the
+repository shows; one line marked **[if it happens]** goes in only if the field test shows it.
 
 ---
 
@@ -70,14 +70,15 @@ time. Short captions on screen name each moment:
 | Marg's reply to that report | "Marg answers the child's idea, and asks one question back" |
 | The child talks to Marg alone | "With the parent's one-time consent, the child can talk to Marg alone. Every word is checked." |
 | The khoj card arrives and is forwarded | "A card of the child's discovery, made by Muse Image" |
-| **[after: photos]** A photo of collected leaves is sent | "SAM 3.1 counts what the child collected, after checking there's no person in the photo" |
+| A photo of collected leaves is sent | "SAM 3.1 counts what the child collected, after checking there's no person in the photo" |
+| **[if it happens]** The parent speaks Braj and Marg answers in Braj | "Marg answers in the family's own Braj" |
 
 ---
 
-## 2:05 – 2:45 · How it works (voice-over, ~90 words)
+## 2:05 – 2:42 · How it works (voice-over, ~80 words after the cuts)
 
 *Visuals: the architecture diagram (built up part by part as each is named), the `/demo` page with
-its live trace of every step, the GitHub repository.*
+its live trace filling in step by step, the eval scorecard, the GitHub repository.*
 
 > From the outside, it's just a WhatsApp contact, the way Instagram is just a photo app. Inside,
 > it's a production system.
@@ -86,21 +87,24 @@ its live trace of every step, the GitHub repository.*
 > language. Muse Spark Open, an open-weights model, reflects on what the child did.
 > Meta's MMS model, self-hosted, speaks the reply. Muse Image draws the card.
 >
-> Every message, in and out, passes Llama Guard 4 and our own child-safety rules. If safety is
-> down, nothing is sent.
+> Every message, in and out, passes Llama Guard 4, a second Muse Spark check and our own
+> child-safety rules. If safety is down, nothing unchecked is sent.
 >
-> *(cut first)* The core is a hexagon: pure rules in the middle, and WhatsApp, the web and every
+> *(cut first)* Every change is scored on seventy-three test cases; every crisis case must pass.
+>
+> *(cut second)* The core is a hexagon: pure rules in the middle, and WhatsApp, the web and every
 > model plugged in at the edges.
 
 ---
 
-## 2:45 – 3:00 · Where it goes (voice-over, ~40 words)
+## 2:42 – 3:00 · Where it goes (voice-over, ~45 words)
 
-*Visuals: the curiosity dashboard, then the village at dusk.*
+*Visuals: a student's WhatsApp question answered with its official source links, a teacher's
+chapter turned into three fields (shown, not said, to keep the part short), then the village at
+dusk. No dashboard on screen.*
 
-> Every khoj adds to the child's curiosity record. **[after: Aspirational engine]** As the child
-> grows, it carries on into Marg's mentor for students, where every fact comes from an official
-> source.
+> Every khoj adds to the child's curiosity record. As the child grows, it carries on into Marg's
+> mentor for students, where every fact comes from an official source.
 >
 > A path from a curious three-year-old to a confident first choice, for every family that has a
 > phone. Thank you.
@@ -119,7 +123,8 @@ its live trace of every step, the GitHub repository.*
 - [ ] Every caption matches what is on screen at that moment.
 - [ ] The ASER figure is shown with its source on screen.
 - [ ] Total length 3:00 or less, checked on the exported file.
-- [ ] Each "[after: …]" line is in the cut only if that feature is built and working.
+- [ ] The "[if it happens]" Braj line is in the cut only if the field test shows it.
+- [ ] The "seventy-three test cases" line matches the newest scorecard in `evals/results/`.
 - [ ] **No admin dashboard on screen** unless blurred: it shows counts from a single child, and the
       video names the village. `/status` and the `/demo` trace are safe to show.
 
