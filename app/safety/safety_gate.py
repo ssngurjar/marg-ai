@@ -204,6 +204,7 @@ class SafetyGate:
         *,
         hazard_rule: frozenset[str] | None = None,
         speaker: Speaker = Speaker.GUIDE,
+        minor_audience: bool = True,
     ) -> OutputCheck:
         """Classify our reply in the context of the user's message; seal it only if allowed.
 
@@ -211,13 +212,14 @@ class SafetyGate:
         sent only if that finds nothing (owner, 2026-10-27: a harmless answer on teaching
         colours was flagged S2 every time). If the second opinion fails, the flag stands.
         `hazard_rule` (journey replies, s10b §4.10): the hazards the offered activity declares.
+        `minor_audience`: a student or a child reads it (d8 applies); False for adults.
         Any other physical hazard for a young child in the reply blocks it before any provider
         call (d7). Raises SafetyUnavailable when Llama Guard and the backup check both fail.
         The spoken text becomes the voice note, so when it differs from the text, both are
         classified together: nothing is spoken that wasn't checked (CLAUDE.md §11, S6).
         """
         classified_text = SafetyGate.text_to_classify(reply)
-        child_rule = SafetyGate._child_rule(classified_text, speaker)
+        child_rule = SafetyGate._child_rule(classified_text, speaker, minor_audience=minor_audience)
         if child_rule is not None:
             verdict = SafetyVerdict(
                 decision=SafetyDecision.BLOCK, categories=[child_rule], source="domain_policy"
@@ -276,7 +278,8 @@ class SafetyGate:
         with nothing declared), then Llama Guard sees the caption with the image. A card is
         optional, so there's no backup: if Llama Guard is down or flags anything, nothing is
         sealed and no card goes out (fail closed)."""
-        rule = SafetyGate._child_rule(caption.text, Speaker.GUIDE)
+        # the card is shown to the child, so d8 applies whoever asked for it
+        rule = SafetyGate._child_rule(caption.text, Speaker.GUIDE, minor_audience=True)
         hazards = ChildHazardMatcher.undeclared(caption.text, CHILD_HAZARD_WORDS, ())
         if rule is not None or hazards:
             category = rule or SafetyCategory.CHILD_PHYSICAL_HAZARD
@@ -323,10 +326,16 @@ class SafetyGate:
         return PhotoCheck(verdict=verdict, usage=guard.usage)
 
     @staticmethod
-    def _child_rule(classified_text: str, speaker: Speaker) -> SafetyCategory | None:
-        """Deterministic rules for children (C13): d8 on every reply (no secrecy or attachment,
-        s07 §4.5), and on a reply to a child, no question asking for personal details (d1)."""
-        if ChildReplyMatcher.manipulates(classified_text, CHILD_MANIPULATION_PHRASES):
+    def _child_rule(
+        classified_text: str, speaker: Speaker, *, minor_audience: bool
+    ) -> SafetyCategory | None:
+        """Deterministic rules for children (C13): d8 on every reply a minor reads (no secrecy
+        or attachment, s07 §4.5; owner, 2026-10-28: not to parents and teachers, who are adults
+        and can push back), and on a reply to a child, no question asking for personal details
+        (d1)."""
+        if minor_audience and ChildReplyMatcher.manipulates(
+            classified_text, CHILD_MANIPULATION_PHRASES
+        ):
             return SafetyCategory.CHILD_MANIPULATION
         if speaker is Speaker.LEARNER and ChildReplyMatcher.asks_personal_details(
             classified_text, QUESTION_WORDS, CHILD_PERSONAL_TOPICS

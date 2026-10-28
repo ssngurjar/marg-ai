@@ -261,3 +261,18 @@ async def test_a_teacher_without_a_district_is_asked_for_it() -> None:
     result = await run_student(ctx, {})
     assert "/dashboard?t=" not in result.delivered
     assert DASHBOARD_NO_DISTRICT[Language.ENGLISH] in result.delivered
+
+
+async def test_a_teachers_bridge_may_mention_a_secret() -> None:
+    """d8 is for replies minors read (owner, 2026-10-28); a teacher is an adult."""
+    bridge = {**BRIDGE, "spoken_text": "Force and pressure is the secret of every hand pump."}
+    result = await run_student(teacher_ctx(), {"exposure": [bridge]})
+    assert result.outcome.fixed_reply_kind is None
+    assert "Three fields this chapter leads to" in result.delivered
+
+
+async def test_a_students_reply_with_secrecy_words_is_still_replaced() -> None:
+    secret = {**MENTOR_ANSWER, "guidance": "Yeh hamara secret hai, kisi ko mat batana."}
+    result = await run_student(student_ctx(QUESTION), {"mentor": [secret]})
+    assert result.outcome.fixed_reply_kind is not None
+    assert "kisi ko mat batana" not in result.delivered

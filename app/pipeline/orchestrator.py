@@ -61,6 +61,7 @@ from app.domain.enums import (
     Language,
     LearnerRelation,
     MessageKind,
+    Role,
     Route,
     SafetyDecision,
     Speaker,
@@ -142,6 +143,7 @@ class OrchestratorSettings:
     fetch_media_timeout: timedelta  # TIMEOUT_FETCH_MEDIA_S: the download and the conversion
     transcribe_timeout: timedelta
     synthesize_timeout: timedelta
+    exposure_timeout: timedelta = timedelta(seconds=18)  # TIMEOUT_EXPOSURE_S
     fetch_image_timeout: timedelta = timedelta(seconds=5)  # TIMEOUT_FETCH_IMAGE_S
     analyze_image_timeout: timedelta = timedelta(seconds=6)  # TIMEOUT_ANALYZE_IMAGE_S
 
@@ -640,15 +642,23 @@ class _Turn:
         )
         return outcome.model_copy(update={"post_turn": tasks})
 
+    def _minor_audience(self) -> bool:
+        """A minor may read this reply: a child talking, a student, or anyone not yet known as
+        a parent or teacher (the safe default)."""
+        role = self.ctx.profile.role
+        return self.speaker is Speaker.LEARNER or role not in {Role.PARENT, Role.TEACHER}
+
     async def _student_generate(
         self, student: StudentSteps, route: Route, interactive_ids: list[str]
     ) -> LayerResult:
         if route is Route.ROADMAP:
             work = student.roadmap.handle(self.ctx, self.user_text, interactive_ids, self.register)
         elif route is Route.EXPOSURE and student.exposure is not None:
-            work = student.exposure.generate(
+            # A teacher's bridge is three fields with activities: it gets more time (owner)
+            bridge = student.exposure.generate(
                 self.ctx, self.user_text, interactive_ids, self.register
             )
+            return await self._bounded(bridge, self.settings.exposure_timeout)
         else:
             work = student.mentor.answer(self.ctx, self.user_text, self.register)
         return await self._bounded(work, self.settings.generate_timeout)
@@ -834,6 +844,7 @@ class _Turn:
                         self.user_text,
                         hazard_rule=layer_result.hazard_rule,
                         speaker=self.speaker,
+                        minor_audience=self._minor_audience(),
                     ),
                     self.settings.safety_out_timeout,
                 )

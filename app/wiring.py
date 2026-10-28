@@ -641,6 +641,7 @@ def build_orchestrator(
             turn_budget=timedelta(seconds=settings.turn_budget_s),
             safety_in_timeout=timedelta(seconds=settings.timeout_safety_in_s),
             generate_timeout=timedelta(seconds=settings.timeout_generate_s),
+            exposure_timeout=timedelta(seconds=settings.timeout_exposure_s),
             safety_out_timeout=timedelta(seconds=settings.timeout_safety_out_s),
             fetch_media_timeout=timedelta(seconds=settings.timeout_fetch_media_s),
             transcribe_timeout=timedelta(seconds=settings.timeout_transcribe_s),

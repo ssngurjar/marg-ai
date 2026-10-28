@@ -507,6 +507,17 @@ async def test_secrecy_or_attachment_in_any_reply_is_blocked_without_a_provider_
     assert classifier.requests == []
 
 
+async def test_secrecy_words_to_an_adult_go_on_to_the_classifier() -> None:
+    """owner, 2026-10-28: parents and teachers are adults and can push back, so d8 is only
+    for replies a student or child reads ("the secret of a good harvest" to a teacher)."""
+    classifier = FakeSafetyClassifier()
+    secret = REPLY.model_copy(update={"text": "Achhi fasal ka secret: mitti ki jaanch."})
+    check = await gate_with(classifier).check_output(secret, QUESTION, minor_audience=False)
+    assert check.verdict.decision is SafetyDecision.ALLOW
+    assert check.safe_reply is not None
+    assert [request.speaker for request in classifier.requests] == ["assistant"]
+
+
 async def test_asking_a_child_for_their_school_is_blocked() -> None:
     asking = REPLY.model_copy(update={"text": "Tumhara school kaunsa hai?"})
     check = await gate_with(FakeSafetyClassifier()).check_output(
