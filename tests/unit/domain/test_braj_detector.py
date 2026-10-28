@@ -47,6 +47,33 @@ def test_standard_hindi_and_one_form_alone_are_not_braj(text: str) -> None:
 
 
 @pytest.mark.parametrize(
+    "heard",
+    [
+        "मेरोमेरो लाला दिन भर मोबाइल देख तो है, वाको का करूँ?",  # a word written twice
+        "मेरी ललितक्षु नाय बोलत बस इसारे करत है।.",  # two words run together
+        "मेरो चोरा स्कूल नाई रह्यो आ",  # after the Gujarati script was put back
+    ],
+)
+def test_braj_still_shows_through_speech_to_text_slips(heard: str) -> None:
+    """What Muse Voice Transcribe made of three spoken Braj lines (owner's check, 2026-10-28)."""
+    assert braj(heard)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "वो खेलते हैं और बोलते हैं",  # "खेलत" and "बोलत" sit inside the standard -ते forms
+        "हम रोज़ देखते हैं और करते हैं",
+        "बच्चा बोलता है, खेलता है",
+        "Woh karate class jaata hai",  # Roman forms only count as whole words
+        "story sunao, toy chahiye",
+    ],
+)
+def test_standard_hindi_verb_endings_are_not_braj(text: str) -> None:
+    assert not braj(text)
+
+
+@pytest.mark.parametrize(
     "district", ["Karauli, Rajasthan", "Mathura", "AGRA, Uttar Pradesh", "भरतपुर", "Deeg"]
 )
 def test_a_braj_district_is_enough(district: str) -> None:

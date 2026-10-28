@@ -17,11 +17,13 @@ BRAJ_MARKERS: Final = (
     "मेरो", "तेरो", "वाको", "याको", "हमाओ", "तिहारो", "गयो", "आयो", "कियो", "जायगो",
     "करैगो", "नाय", "नाहीं", "हतो", "हती", "मोय", "तोय", "ह्यां", "ह्वां", "कहां ते",
     "का कर रए", "रए हो", "छोरा", "छोरी", "लली", "कछु", "देखतो", "करतो", "जातो", "वाकू",
+    "बोलत", "करत", "खेलत", "देखत", "रह्यो",
     # Roman
     "mero", "tero", "vako", "yako", "hamao", "tiharo", "gayo", "aayo", "kiyo", "jaayego",
     "jayego", "karaigo", "naay", "naay hai", "hato", "hati", "moy", "toy", "hyan", "hvan",
     "ka kar rae", "kar rae", "rae ho", "chhora", "chhori", "lali", "vaako", "waako", "vaaku",
-    "kachhu", "kachu", "dekhto", "karto", "jaato", "aato",
+    "kachhu", "kachu", "dekhto", "karto", "jaato", "aato", "bolat", "karat", "khelat", "dekhat",
+    "rahyo",
 )  # fmt: skip
 """Forms a Braj speaker uses and a standard-Hindi speaker wouldn't. Two together count (one
 alone, like "chhora", is common across north India)."""

@@ -367,7 +367,10 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
   markers that tell a Braj speaker, and the forms Marg uses back (मेरो, तेरो, वाको; गयो, आयो;
   जायगो; नाय; हतो; छोरा, छोरी, लाला, लली). Drop anything stiff or wrong, add everyday words.
 - [ ] **Phone test:** write "Mero lala din bhar mobile dekhto hai, vaako ka karun?" and listen
-  to the voice reply: light Braj, short sentences, a village example.
+  to the voice reply: light Braj, short sentences, a village example. Then **say** it as a voice
+  note: tested only with our own synthetic voice so far (3/3 detected); real Braj voices from the
+  village are the real test, and if speech-to-text mangles them, the next step is giving it
+  Braj words as hints, or remembering a Braj speaker once detected.
 - [ ] Is the Braj district list right (Mathura, Agra, Bharatpur, Dholpur, Karauli, Aligarh,
   Hathras, Firozabad, Etah, Kasganj, Mainpuri, Deeg, Palwal)?
 

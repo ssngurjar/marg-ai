@@ -35,6 +35,7 @@ from app.domain.enums import (
 from app.domain.models.message import InboundMessage
 from app.domain.models.turn import TurnContext
 from tests.fakes.domain_policy import policy_answer, reply_answer, scripted_policy
+from tests.fakes.language_model import FakeLanguageModel
 from tests.fakes.voice import (
     STT_USAGE,
     TTS_USAGE,
@@ -46,7 +47,7 @@ from tests.fakes.voice import (
     MemoryReplyAudioStore,
     wav_of,
 )
-from tests.support.parent_answers import HINGLISH_ANSWER
+from tests.support.parent_answers import HINDI_ANSWER, HINGLISH_ANSWER
 from tests.support.turn_context import media_message, text_message, turn_context, user_profile
 from tests.unit.pipeline.test_orchestrator import GENERATED, QUESTION, Run, flagging, run
 
@@ -136,6 +137,18 @@ async def test_what_was_said_goes_through_safety_in_like_typed_text() -> None:
     assert result.classifier.requests[0].text == injection
     assert result.outcome.route is Route.REFUSE
     assert GENERATED not in result.delivered
+
+
+async def test_hindi_heard_in_gujarati_script_reaches_safety_in_devanagari() -> None:
+    """The owner's Braj check (2026-10-28): speech-to-text returned "મેરો ચોરા સ્કૂલ નાઈ રહ્યો"
+    for spoken Braj. Everything after transcription expects Devanagari."""
+    result = await run(
+        speaking(),
+        voice=hearing("મેરો ચોરા સ્કૂલ નાઈ રહ્યો"),
+        llm=FakeLanguageModel([HINDI_ANSWER]),  # Devanagari in, so the reply is Hindi
+    )
+    checked = result.classifier.requests[0].text
+    assert checked == "मेरो चोरा स्कूल नाई रह्यो"
 
 
 @pytest.mark.parametrize(

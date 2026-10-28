@@ -94,6 +94,7 @@ from app.domain.models.writes import (
 )
 from app.domain.rules.audio_analyser import AudioAnalyser
 from app.domain.rules.filler_detector import FillerDetector
+from app.domain.rules.indic_script_normaliser import IndicScriptNormaliser
 from app.domain.rules.register_detector import RegisterDetector
 from app.domain.rules.stage_rules import StageRules
 from app.layers.child_talk_layer import ChildTalkLayer
@@ -1066,7 +1067,8 @@ class _Turn:
         await self._record(
             _StepRecord(StepName.TRANSCRIBE, started, transcript, usage, f"language={language}")
         )
-        return transcript.text
+        # Hindi or Braj heard in another Indian script is a recognition slip (owner, 2026-10-28)
+        return IndicScriptNormaliser.to_devanagari(transcript.text)
 
     def _hints(self) -> TranscriptionHints:
         expected = [self.ctx.profile.language or FALLBACK_REGISTER]

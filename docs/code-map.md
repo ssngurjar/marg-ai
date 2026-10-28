@@ -150,6 +150,7 @@ line of the module's docstring.
 | `curiosity_trajectory.py` | `CuriosityPoint`, `YoungLearnerTrajectory`, `CuriosityTrajectory` | CuriosityTrajectory: how a young child's curiosity grows over sessions (s13 §4.5). Pure. |
 | `delivery_planner.py` | `DeliveryPlanner` | DeliveryPlanner: part order and status changes (s03 §4.8, s04 §4.10). Pure. |
 | `filler_detector.py` | `FillerDetector` | FillerDetector: a transcript of only "umm" or "hmm" is nothing said (s06 §8, CLAUDE.md §4). Pure. |
+| `indic_script_normaliser.py` | `IndicScriptNormaliser` | IndicScriptNormaliser: a Hindi voice note heard in another Indian script, put back into |
 | `learner_chooser.py` | `RecentOffer`, `LearnerChooser` | LearnerChooser: which of a parent's children this turn is about (s10b §4.2). Pure. |
 | `message_splitter.py` | `MessageSplitter` | MessageSplitter: a reply cut into channel-sized messages (s05 §4.7). Pure. |
 | `nudge_schedule.py` | `NudgeSchedule` | NudgeSchedule: when the daily khoj message is due, in India time (s10b §4.11). Pure. |
