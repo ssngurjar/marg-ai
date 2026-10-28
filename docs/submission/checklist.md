@@ -39,8 +39,8 @@ platform by **Wed Nov 4, 9:00 PM ET = Thu Nov 5, 07:30 IST**. Our target: **Nov 
       README's Licences section lists them, the sidecar's included, with the "Built with Muse
       Spark Open" and "Built with Llama" attributions. Muse Spark Open: Muse Model License; Llama
       Guard 4: Llama 4 Community License (from their Hugging Face model cards, 2026-10-29; the
-      licence texts themselves are gated, read them once when logged in). Still open: Marg's own
-      licence. The sidecar's Hindi phonemiser (phonemizer-fork, espeak-ng) is GPL-3.0, installed
+      licence texts themselves are gated, read them once when logged in). Marg's own code: all rights
+      reserved, viewing and running to evaluate the entry allowed (`LICENSE`, 2026-10-29). The sidecar's Hindi phonemiser (phonemizer-fork, espeak-ng) is GPL-3.0, installed
       as packages and not copied into the repo; check that the licence you choose is fine with
       that.
 - [ ] How to try it: the WhatsApp number / QR and the `/demo` link.

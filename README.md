@@ -238,4 +238,5 @@ lint, types and unit tests, the sidecar's included) and `make test-int` (Postgre
 **Built with Muse Spark Open. Built with Llama.** (The attributions the Muse Model License and
 the Llama 4 Community License ask for.)
 
-Marg's own licence: *(to be chosen by the owner before the repository goes public)*.
+Marg's own code: **all rights reserved** ([LICENSE](LICENSE)). You may view it and run it to
+evaluate this hackathon entry; any other use needs the author's written permission.

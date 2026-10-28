@@ -1,0 +1,19 @@
+Copyright (c) 2026 Santram Gurjar. All rights reserved.
+
+Marg.ai is published in this repository as an entry to the Meta hackathon "Build for Your
+World" (October 26 - November 4, 2026).
+
+You may view this code, and download and run it, only to evaluate that entry. GitHub's Terms
+of Service also allow viewing and forking it on GitHub. No other right is granted: without the
+author's written permission you may not copy, modify, distribute, sublicense, sell or otherwise
+use this code or any part of it, for any other purpose.
+
+This does not limit the rights the hackathon's Official Rules give its organisers over the
+submission.
+
+Third-party models and libraries used by Marg.ai keep their own licences, listed in the
+README's "Licences" section. Nothing in this file changes them.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED. IN NO EVENT
+SHALL THE AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY ARISING FROM THE SOFTWARE
+OR ITS USE.
