@@ -11,6 +11,7 @@ from typing import ClassVar, Final
 
 from app.telemetry.dashboard_builder import Bucket, YoungLearnerDashboard
 from app.telemetry.status_report_builder import StatusReport
+from app.telemetry.student_dashboard_builder import StudentDashboard
 from app.telemetry.svg_chart import BarRow, StackedColumn, SvgChart
 
 DASH: Final = "-"  # no value yet
@@ -77,10 +78,51 @@ class DashboardPageRenderer:
         return _page("Marg.ai status", sections, f"Updated {generated}")
 
     @staticmethod
-    def dashboard(board: YoungLearnerDashboard) -> str:
+    def dashboard(board: YoungLearnerDashboard, students: StudentDashboard) -> str:
+        """One page, two sections: the young learners, then the students they grow into."""
+        sections = [
+            "<h2 class='section'>Young learners (3-8): curiosity</h2>",
+            *DashboardPageRenderer._young(board),
+            "<h2 class='section'>Students (6-12): aspirations</h2>",
+            *DashboardPageRenderer._students(students),
+        ]
+        return _page("Marg.ai: learners", sections, _floor_note(board.floor))
+
+    @staticmethod
+    def _students(board: StudentDashboard) -> list[str]:
         if not board.enough:
-            note = f"<p class='note'>Not enough learners yet (fewer than {board.floor}).</p>"
-            return _page("Marg.ai: young learners", [note], _floor_note(board.floor))
+            return [f"<p class='note'>Not enough students yet (fewer than {board.floor}).</p>"]
+        floor = board.floor
+        shares = [StackedColumn(week.week, week.level_shares) for week in board.weeks]
+        return [
+            _tiles(
+                [
+                    ("Students", _count(board.students, floor)),
+                    ("Sessions", _count(board.sessions, floor)),
+                    ("Came back for a second day", _percent(board.return_rate)),
+                    ("Fields explored (median)", _number(board.median_breadth)),
+                    ("Aim sharpening per session (median)", _number(board.median_slope)),
+                    ("Plans made", _count(board.roadmaps_created, floor)),
+                ]
+            ),
+            "<h3>How sharp their aims are, per week (level 0 at the bottom)</h3>",
+            SvgChart.stacked(shares, "Specificity levels per week"),
+            "<h3>Fields students are reaching toward</h3>",
+            SvgChart.bars(_bar_rows(board.fields), "Students per field", floor),
+            "<h3>What holds them back</h3>",
+            SvgChart.bars(_bar_rows(board.constraints), "Students per constraint", floor),
+            "<h3>How many fields each student explored</h3>",
+            SvgChart.bars(_bar_rows(board.breadth), "Students by number of fields", floor),
+            _table(
+                ["Route", "Turns"],
+                [[entry.route, str(entry.turns)] for entry in board.turns_by_route],
+            ),
+        ]
+
+    @staticmethod
+    def _young(board: YoungLearnerDashboard) -> list[str]:
+        if not board.enough:
+            return [f"<p class='note'>Not enough learners yet (fewer than {board.floor}).</p>"]
         floor = board.floor
         sections = [
             _tiles(
@@ -142,7 +184,7 @@ class DashboardPageRenderer:
                 "<p class='note'>Forwarding can't be measured: WhatsApp doesn't tell a business "
                 "when a card is forwarded.</p>",
             ]
-        return _page("Marg.ai: young learners", sections, _floor_note(floor))
+        return sections
 
     @staticmethod
     def link_invalid() -> str:

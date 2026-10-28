@@ -3,6 +3,7 @@ memory refreshed after the reply, and a plan saved only with a reply that went o
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from uuid import UUID
 
 import pytest
 
@@ -11,13 +12,16 @@ from app.domain.enums import (
     ConversationState,
     FixedReplyKind,
     Language,
+    LearnerRelation,
     Role,
     Route,
     SafetyCategory,
     StepName,
     StepOutcome,
 )
+from app.domain.models.aspiration import ExtractAspiration
 from app.domain.models.curiosity import UpdateMemory
+from app.domain.models.learner import Learner, LearnerId
 from app.domain.models.turn import TurnContext
 from app.domain.models.writes import SaveRoadmap
 from app.layers.child_talk_layer import ChildTalkLayer
@@ -195,3 +199,23 @@ async def test_a_question_asked_during_onboarding_is_answered_when_it_completes(
     assert "NMMS class 8 ke students ke liye hai" not in texts[0]
     assert any("NMMS class 8 ke students ke liye hai" in text for text in texts[1:])
     assert result.outcome.route is Route.ONBOARDING
+
+
+async def test_a_students_turn_also_records_where_they_are_heading() -> None:
+    self_learner = Learner(
+        id=LearnerId(UUID(int=21)),
+        relation=LearnerRelation.SELF,
+        nickname=None,
+        birth_year=2012,
+        child_talk_consented_at=None,
+    )
+    ctx = student_ctx(QUESTION).model_copy(update={"learners": [self_learner]})
+    result = await run_student(ctx, {"mentor": [MENTOR_ANSWER]})
+    aspiration, remember = result.outcome.post_turn
+    assert isinstance(aspiration, ExtractAspiration)
+    assert (aspiration.learner_id, aspiration.user_text, aspiration.grade) == (
+        self_learner.id,
+        QUESTION,
+        8,
+    )
+    assert isinstance(remember, UpdateMemory)

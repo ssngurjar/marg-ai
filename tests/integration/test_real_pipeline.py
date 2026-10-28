@@ -146,6 +146,7 @@ def wire(
             signals=CuriositySignalExtractor(language_model, shipped_registry()),
             cards=KhojCardMaker(language_model, FakeImageGenerator(), shipped_registry()),
             memory=MemoryLayer(language_model, shipped_registry()),
+            memory_model=language_model,
         ),
     )
     return Pipeline(dispatcher, InboxRepository(sessions), sender)

@@ -343,3 +343,47 @@ class RoadmapStepStatus(StrEnum):
     TODO = "todo"
     DONE = "done"
     SKIPPED = "skipped"
+
+
+class AspirationField(StrEnum):
+    """What a student is reaching toward (s13 §4.3). OTHER doesn't count toward breadth."""
+
+    MEDICINE = "medicine"
+    HEALTH_ALLIED = "health_allied"
+    ENGINEERING = "engineering"
+    TECHNOLOGY_COMPUTING = "technology_computing"
+    SCIENCE_RESEARCH = "science_research"
+    SPACE_AEROSPACE = "space_aerospace"
+    AGRICULTURE = "agriculture"
+    PUBLIC_POLICY = "public_policy"
+    CIVIL_SERVICES = "civil_services"
+    DEFENCE_POLICE = "defence_police"
+    LAW = "law"
+    TEACHING = "teaching"
+    SPORTS = "sports"
+    ARTS_DESIGN = "arts_design"
+    MEDIA_COMMUNICATION = "media_communication"
+    ENTREPRENEURSHIP = "entrepreneurship"
+    FINANCE_COMMERCE = "finance_commerce"
+    SKILLED_TRADES = "skilled_trades"
+    OTHER = "other"
+
+
+class ConstraintKind(StrEnum):
+    """What holds a student back, in their own words (s13 §4.3)."""
+
+    MONEY = "money"
+    DISTANCE = "distance"
+    FAMILY = "family"
+    GENDER_NORMS = "gender_norms"
+    LANGUAGE = "language"
+    TIME = "time"
+    MARKS = "marks"
+    INFORMATION = "information"
+    DEVICE = "device"
+
+
+class Sentiment(StrEnum):
+    POSITIVE = "positive"
+    NEUTRAL = "neutral"
+    NEGATIVE = "negative"

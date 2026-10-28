@@ -28,6 +28,7 @@ from app.store.repositories.telemetry_repository import (
 from app.telemetry.dashboard_builder import DashboardBuilder
 from app.telemetry.dashboard_link_codec import ADMIN
 from app.telemetry.status_report_builder import StatusReportBuilder, StatusSettings
+from app.telemetry.student_dashboard_builder import StudentDashboardBuilder
 from app.wiring import dashboard_links
 from tests.fakes.clock import FixedClock
 from tests.fakes.telemetry_reader import FakeTelemetryReader
@@ -76,6 +77,7 @@ def make_client() -> Iterator[ClientFactory]:
         pages = TelemetryPages(
             status=StatusReportBuilder(source, clock, StatusSettings(Decimal(5))),
             dashboard=DashboardBuilder(source, clock),
+            students=StudentDashboardBuilder(source, clock),
             links=dashboard_links(SETTINGS, clock),
             admin_floor=admin_floor,
         )
@@ -177,7 +179,9 @@ def test_the_admin_dashboard_shows_the_young_learners(make_client: ClientFactory
     assert page.status_code == 200
     assert "Children talking to Marg themselves" in page.text
     data = client.get("/dashboard/data.json").json()
-    assert (data["enough"], data["children"]) == (True, 3)
+    assert (data["young_learners"]["enough"], data["young_learners"]["children"]) == (True, 3)
+    assert data["students"]["enough"] is False  # no student signals in this fixture
+    assert "Students (6-12): aspirations" in page.text
 
 
 def test_under_the_floor_the_dashboard_says_not_enough(make_client: ClientFactory) -> None:

@@ -4,7 +4,7 @@ memory upserts, and everything goes with the user."""
 import os
 from collections.abc import AsyncIterator
 from decimal import Decimal
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from pydantic import HttpUrl
@@ -12,12 +12,17 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from app.domain.enums import RoadmapStatus
+from app.core.clock import SystemClock
+from app.domain.enums import AspirationField, ConstraintKind, RoadmapStatus, Sentiment
+from app.domain.models.aspiration import AspirationSignals, ExtractAspiration
 from app.domain.models.base import TurnId, UserHash
+from app.domain.models.learner import LearnerId
 from app.domain.models.student import MemoryUpdate
 from app.domain.models.writes import ResolvedRoadmapStep, SaveRoadmap
 from app.store.db import create_engine, create_session_factory
+from app.store.repositories.aspiration_signal_repository import AspirationSignalRepository
 from app.store.repositories.profile_memory_repository import ProfileMemoryRepository
+from app.store.repositories.telemetry_repository import TelemetryRepository
 from app.store.repositories.turn_repository import TurnRepository
 from app.store.repositories.user_repository import UserRepository
 from tests.integration.test_journey_store import FINISHED, message, started
@@ -147,3 +152,57 @@ async def test_deleting_the_student_deletes_plans_and_memory(
     await UserRepository(create_session_factory(engine)).purge_user(STUDENT)
     for table in ("roadmaps", "roadmap_steps", "profile_memory"):
         assert await rows(engine, f"SELECT count(*) FROM {table}") == [(0,)], table  # noqa: S608  # a fixed table name
+
+
+# --- aspiration signals (s13 §4.3) ----------------------------------------------------------------
+
+SELF = LearnerId(UUID(int=31))
+ASPIRATION = AspirationSignals(
+    fields=[AspirationField.MEDICINE],
+    specificity=3,
+    constraints=[ConstraintKind.MONEY],
+    sentiment=Sentiment.POSITIVE,
+)
+
+
+async def add_self_learner(engine: AsyncEngine) -> None:
+    async with engine.begin() as connection:
+        await connection.execute(
+            text(
+                "INSERT INTO learners (id, owner_user_hash, relation, birth_year) "
+                "VALUES (:id, :h, 'self', 2012)"
+            ),
+            {"id": SELF, "h": STUDENT},
+        )
+
+
+def aspiration_task(turn_id: TurnId) -> ExtractAspiration:
+    return ExtractAspiration(
+        turn_id=turn_id,
+        learner_id=SELF,
+        user_text="doctor banna hai",
+        previous_exchange="",
+        grade=8,
+        at=SystemClock().now(),
+    )
+
+
+async def test_signals_are_saved_once_per_turn_and_read_for_the_dashboard(
+    engine: AsyncEngine,
+) -> None:
+    await add_self_learner(engine)
+    turn = await started(engine)
+    sessions = create_session_factory(engine)
+    repository = AspirationSignalRepository(sessions)
+    assert await repository.save(aspiration_task(turn.turn_id), ASPIRATION, "1.0.0") is True
+    assert await repository.save(aspiration_task(turn.turn_id), ASPIRATION, "1.0.0") is True
+    data = await TelemetryRepository(sessions).students()
+    [point] = data.points[SELF]
+    assert (point.specificity, point.fields) == (3, frozenset({AspirationField.MEDICINE}))
+    assert point.constraints == frozenset({ConstraintKind.MONEY})
+
+
+async def test_signals_for_a_deleted_student_are_skipped(engine: AsyncEngine) -> None:
+    repository = AspirationSignalRepository(create_session_factory(engine))
+    gone = aspiration_task(TurnId(uuid4()))
+    assert await repository.save(gone, ASPIRATION, "1.0.0") is False

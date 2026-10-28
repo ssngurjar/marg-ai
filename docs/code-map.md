@@ -98,13 +98,14 @@ line of the module's docstring.
 
 | Module | Classes | What it does |
 |---|---|---|
-| `enums.py` | `Channel`, `MessageKind`, `ConversationState`, `InboxStatus`, `OutboxStatus`, `AudioVerdict`, `Speaker`, `ChildSessionEndReason`, `MediaPurpose`, `PartKind`, `Language`, `Route`, `StepName`, `StepOutcome`, `FailureKind`, `TurnStatus`, `SafetyDecision`, `SafetyCategory`, `FixedReplyKind`, `FixedReplyVariant`, `Mode`, `Role`, `ConsentEventKind`, `LearnerRelation`, `CopyKey`, `CuriosityDomain`, `ActivityStatus`, `AgeBand`, `EmbedPurpose`, `CorpusTopic`, `RoadmapStatus`, `RoadmapStepStatus` | Closed sets of values shared across the app (contracts.md §1). |
+| `enums.py` | `Channel`, `MessageKind`, `ConversationState`, `InboxStatus`, `OutboxStatus`, `AudioVerdict`, `Speaker`, `ChildSessionEndReason`, `MediaPurpose`, `PartKind`, `Language`, `Route`, `StepName`, `StepOutcome`, `FailureKind`, `TurnStatus`, `SafetyDecision`, `SafetyCategory`, `FixedReplyKind`, `FixedReplyVariant`, `Mode`, `Role`, `ConsentEventKind`, `LearnerRelation`, `CopyKey`, `CuriosityDomain`, `ActivityStatus`, `AgeBand`, `EmbedPurpose`, `CorpusTopic`, `RoadmapStatus`, `RoadmapStepStatus`, `AspirationField`, `ConstraintKind`, `Sentiment` | Closed sets of values shared across the app (contracts.md §1). |
 
 ## `domain/models`
 
 | Module | Classes | What it does |
 |---|---|---|
 | `activity.py` | `Activity`, `OfferRecord`, `PastActivity`, `OfferedActivity` | Activities: reviewed catalogue entries and what was offered to a learner (s10b §4.3, §5). |
+| `aspiration.py` | `AspirationSignals`, `ExtractAspiration` | What a student's own words say about where they're heading (s13 §4.3). Never a label. |
 | `base.py` | `DomainModel` | Identifiers and the base every domain model shares (contracts.md §2.1). |
 | `child_session.py` | `ChildSession` | A child talking to Marg.ai directly on the parent's phone (s10b §4.16, C13). |
 | `conversation.py` | `ProfileUpdate`, `FirstContact`, `ConsentGiven`, `ConsentDeclined`, `RoleChosen`, `RoleUnavailable`, `GuardianConfirmed`, `GuardianDeclined`, `ProfileAnswered`, `ChildAnswered`, `ChildInvalid`, `AddChild`, `ChildTalkAnswered`, `TeacherAsked`, `LanguageSwitched`, `QuestionNoted`, `Unrecognised`, `DeletionRequested`, `DeletionConfirmed`, `DeletionCancelled`, `SendCopy`, `RecordConsent`, `UpsertLearner`, `SetChildTalk`, `PurgeAfterDelivery`, `HandoffPendingQuestion`, `HandoffFirstKhoj`, `Transition` | The onboarding conversation's events and effects (s08 §4.2). Pure data. |
@@ -129,6 +130,7 @@ line of the module's docstring.
 |---|---|---|
 | `activity_chooser.py` | `ActivityChooser` | ActivityChooser: which khoj today, deterministically (s10b §4.6). Pure. |
 | `activity_validator.py` | `ActivityValidator` | ActivityValidator: a catalogue entry is safe to serve, or the app refuses to start (s10b §4.3). |
+| `aspiration_trajectory.py` | `AspirationPoint`, `StudentTrajectory`, `AspirationTrajectory` | AspirationTrajectory: how a student's aim sharpens over sessions (s13 §4.5). Pure. |
 | `audio_analyser.py` | `AudioAnalyser` | AudioAnalyser: is a voice note worth transcribing? (s06 §4.4). Pure, standard library only. |
 | `child_hazard_matcher.py` | `ChildHazardMatcher` | ChildHazardMatcher: which physical hazards a text mentions (d7, s10b §4.10). Pure. |
 | `child_question_detector.py` | `ChildQuestionDetector` | ChildQuestionDetector: is the parent passing on the child's own question? (s10b §4.15). Pure. |
@@ -263,6 +265,7 @@ line of the module's docstring.
 
 | Module | Classes | What it does |
 |---|---|---|
+| `aspiration_signal_repository.py` | `AspirationSignalRepository` | Aspiration signals: where a student's own words say they're heading (s13 §4.3, data-model). |
 | `child_session_repository.py` | `ChildSessionRepository` | Child sessions: a child talking to Marg.ai directly (s10b §4.16, data-model `child_sessions`). |
 | `chunk_repository.py` | `DocumentRow`, `ChunkRow`, `Candidate`, `StoredChunk`, `ChunkRepository` | ChunkRepository: the corpus in Postgres (s11 §4.5, §4.7). No user data. |
 | `curiosity_signal_repository.py` | `CuriositySignalRepository` | Curiosity signals: what a child engaged with on a journey turn (s13 §4.4, data-model). |
@@ -276,7 +279,7 @@ line of the module's docstring.
 | `outbox_repository.py` | `OutboxRow`, `OutboxRepository` | OutboxRepository: queued reply parts and their delivery (s04 §4.7, §4.10; s03 §4.8). |
 | `profile_memory_repository.py` | `ProfileMemoryRepository` | ProfileMemoryRepository: what Marg remembers about a student (s12 §4.7). |
 | `roadmap_repository.py` | `RoadmapRepository` | RoadmapRepository: a student's plan (s12 §4.4; data-model `roadmaps`, `roadmap_steps`). |
-| `telemetry_repository.py` | `StepLatencyRow`, `TurnSummaryRow`, `JourneyCountsRow`, `FailureCountRow`, `ActivityCounts`, `ChildTalkCounts`, `YoungLearnerData`, `TelemetryRepository` | TelemetryRepository: the aggregate reads behind /status and the dashboard (s13 §4.6). |
+| `telemetry_repository.py` | `StepLatencyRow`, `TurnSummaryRow`, `JourneyCountsRow`, `FailureCountRow`, `ActivityCounts`, `ChildTalkCounts`, `YoungLearnerData`, `StudentData`, `TelemetryRepository` | TelemetryRepository: the aggregate reads behind /status and the dashboard (s13 §4.6). |
 | `turn_repository.py` | `StartedTurn`, `FinishedTurn`, `FinalizeResult`, `TurnRepository` | Turns: claiming a user's pending messages, loading the context, finalizing (s04 §4.4 to §4.7). |
 | `turn_step_repository.py` | `StepRow`, `TurnStepRepository` | turn_steps rows and the turn columns written while a turn runs (s04 §4.6). |
 | `user_repository.py` | `UserRepository` | Users: onboarding changes, consent records and delete-my-data (s08 §4.9 to §4.11). |
@@ -285,11 +288,13 @@ line of the module's docstring.
 
 | Module | Classes | What it does |
 |---|---|---|
+| `aspiration_signal_extractor.py` | `ExtractedAspiration`, `AspirationSignalExtractor` | AspirationSignalExtractor: where a student is heading, from their own words (s13 §4.3). |
 | `curiosity_signal_extractor.py` | `CuriosityExtraction`, `ExtractedSignals`, `CuriositySignalExtractor` | CuriositySignalExtractor: what a child engaged with, from a parent's report or the child's |
 | `dashboard_builder.py` | `Bucket`, `SessionCount`, `WeekEngagement`, `ChildTalkSummary`, `PhotosAndCards`, `YoungLearnerDashboard`, `DashboardBuilder` | DashboardBuilder: the parents and young learners section of /dashboard (s13 §4.5, §4.7). |
 | `dashboard_link_codec.py` | `DashboardClaims`, `DashboardLinkSettings`, `DashboardLinkCodec` | DashboardLinkCodec: signed dashboard links and cookies (s13 §4.9, decision A4). |
 | `small_count_suppressor.py` | `SmallCountSuppressor` | SmallCountSuppressor: the k-anonymity floor (s13 §4.7), applied once, before anything renders. |
 | `status_report_builder.py` | `StepLatency`, `JourneyCounts`, `FailureCount`, `AdminStatus`, `StatusReport`, `StatusSettings`, `StatusReportBuilder` | StatusReportBuilder: what /status shows (s13 §4.7; public fields per decision B8). |
+| `student_dashboard_builder.py` | `WeekSpecificity`, `RouteCount`, `StudentDashboard`, `StudentDashboardBuilder` | StudentDashboardBuilder: the students section of /dashboard (s13 §4.5, §4.7). |
 | `svg_chart.py` | `BarRow`, `StackedColumn`, `SvgChart` | SvgChart: the dashboard's charts as inline SVG, drawn on the server (s13 §4.7). |
 | `telemetry_reader.py` | `TelemetryReader` | TelemetryReader: what the /status and dashboard builders read (TelemetryRepository in |
 

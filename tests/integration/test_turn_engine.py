@@ -38,6 +38,7 @@ from app.providers.http import RetryPolicy, RetryTiming
 from app.providers.ports import ChannelSender
 from app.safety.safety_gate import SafetyGate
 from app.store.db import create_engine, create_session_factory
+from app.store.repositories.aspiration_signal_repository import AspirationSignalRepository
 from app.store.repositories.child_session_repository import ChildSessionRepository
 from app.store.repositories.curiosity_signal_repository import CuriositySignalRepository
 from app.store.repositories.inbox_repository import InboundRecord, InboxRepository
@@ -47,6 +48,7 @@ from app.store.repositories.profile_memory_repository import ProfileMemoryReposi
 from app.store.repositories.turn_repository import TurnRepository
 from app.store.repositories.turn_step_repository import TurnStepRepository
 from app.store.repositories.user_repository import UserRepository
+from app.telemetry.aspiration_signal_extractor import AspirationSignalExtractor
 from app.telemetry.curiosity_signal_extractor import CuriositySignalExtractor
 from app.worker.database_step_recorder import DatabaseStepRecorder
 from app.worker.post_turn_runner import PostTurnDeps, PostTurnRunner
@@ -167,6 +169,8 @@ def build(
                     cards=None,
                     memory=MemoryLayer(FakeLanguageModel([]), shipped_registry()),
                     memories=ProfileMemoryRepository(sessions),
+                    aspiration=AspirationSignalExtractor(FakeLanguageModel([]), shipped_registry()),
+                    aspirations=AspirationSignalRepository(sessions),
                 )
             ),
             nudges=None,

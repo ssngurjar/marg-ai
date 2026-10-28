@@ -58,6 +58,7 @@ from app.domain.enums import (
     FixedReplyKind,
     FixedReplyVariant,
     Language,
+    LearnerRelation,
     MessageKind,
     Route,
     SafetyDecision,
@@ -65,6 +66,7 @@ from app.domain.enums import (
     StepName,
     StepOutcome,
 )
+from app.domain.models.aspiration import ExtractAspiration
 from app.domain.models.curiosity import (
     CuriositySource,
     ExtractSignals,
@@ -545,14 +547,37 @@ class _Turn:
         outcome = await self._check_and_seal(layer_result, route)
         if outcome.fixed_reply_kind is not None or outcome.reply_text is None:
             return outcome
-        remember = UpdateMemory(
-            turn_id=self.ctx.turn_id,
-            user_hash=self.ctx.profile.user_hash,
-            previous=self.ctx.memory,
-            user_text=self.user_text,
-            reply_text=outcome.reply_text,
+        tasks: list[PostTurnTask] = [*outcome.post_turn]
+        student_self = next(
+            (learner for learner in self.ctx.learners if learner.relation is LearnerRelation.SELF),
+            None,
         )
-        return outcome.model_copy(update={"post_turn": [*outcome.post_turn, remember]})
+        if student_self is not None:
+            previous = self.ctx.recent_exchanges[-1] if self.ctx.recent_exchanges else None
+            tasks.append(
+                ExtractAspiration(
+                    turn_id=self.ctx.turn_id,
+                    learner_id=student_self.id,
+                    user_text=self.user_text,
+                    previous_exchange=(
+                        f"Student: {previous.user_text}\nMarg: {previous.reply_text}"
+                        if previous
+                        else ""
+                    ),
+                    grade=self.ctx.profile.grade,
+                    at=self.steps.clock.now(),
+                )
+            )
+        tasks.append(
+            UpdateMemory(
+                turn_id=self.ctx.turn_id,
+                user_hash=self.ctx.profile.user_hash,
+                previous=self.ctx.memory,
+                user_text=self.user_text,
+                reply_text=outcome.reply_text,
+            )
+        )
+        return outcome.model_copy(update={"post_turn": tasks})
 
     async def _student_generate(
         self, student: StudentSteps, route: Route, interactive_ids: list[str]

@@ -15,9 +15,16 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.errors import StoreError
-from app.domain.enums import Channel, ChildSessionEndReason, CuriosityDomain
+from app.domain.enums import (
+    AspirationField,
+    Channel,
+    ChildSessionEndReason,
+    ConstraintKind,
+    CuriosityDomain,
+)
 from app.domain.models.base import UserHash
 from app.domain.models.learner import LearnerId
+from app.domain.rules.aspiration_trajectory import AspirationPoint
 from app.domain.rules.curiosity_trajectory import CuriosityPoint
 
 
@@ -82,6 +89,15 @@ class YoungLearnerData:
     end_reasons: dict[ChildSessionEndReason, int] = field(default_factory=dict)
     summaries_sent: int = 0
     cards_sent: int = 0
+
+
+@dataclass
+class StudentData:
+    """Everything the student section is computed from, keyed by the student's own learner."""
+
+    points: dict[LearnerId, list[AspirationPoint]] = field(default_factory=dict)
+    roadmaps_created: int = 0
+    turns_by_route: dict[str, int] = field(default_factory=dict)
 
 
 class TelemetryRepository:
@@ -199,6 +215,43 @@ class TelemetryRepository:
                 return await _young_learners(session)
         except (SQLAlchemyError, OSError) as exc:
             raise StoreError(f"could not read young learners: {type(exc).__name__}") from exc
+
+    async def students(self) -> StudentData:
+        """Students' aspiration signals, plans created, and how their turns were routed."""
+        data = StudentData()
+        signals = await self._rows(
+            """
+            SELECT a.learner_id, t.started_at, a.fields, a.specificity, a.constraints
+            FROM aspiration_signals a
+            JOIN turns t ON t.id = a.turn_id
+            JOIN learners l ON l.id = a.learner_id
+            WHERE l.relation = 'self'
+            ORDER BY a.learner_id, t.started_at
+            """
+        )
+        points: defaultdict[LearnerId, list[AspirationPoint]] = defaultdict(list)
+        for row in signals:
+            points[LearnerId(row.learner_id)].append(
+                AspirationPoint(
+                    at=row.started_at,
+                    fields=frozenset(AspirationField(value) for value in row.fields),
+                    specificity=row.specificity,
+                    constraints=frozenset(ConstraintKind(value) for value in row.constraints),
+                )
+            )
+        data.points = dict(points)
+        [created] = await self._rows("SELECT count(*) AS plans FROM roadmaps")
+        data.roadmaps_created = int(created.plans)
+        routes = await self._rows(
+            """
+            SELECT t.route, count(*) AS turns FROM turns t
+            JOIN users u ON u.user_hash = t.user_hash
+            WHERE u.role = 'student' AND t.route IS NOT NULL
+            GROUP BY t.route
+            """
+        )
+        data.turns_by_route = {str(row.route): int(row.turns) for row in routes}
+        return data
 
     async def _rows(self, sql: str, **params: object) -> list[Row[tuple[object, ...]]]:
         try:

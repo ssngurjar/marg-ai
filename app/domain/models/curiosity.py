@@ -6,6 +6,7 @@ from uuid import UUID
 from pydantic import Field
 
 from app.domain.enums import CuriosityDomain, Language
+from app.domain.models.aspiration import ExtractAspiration
 from app.domain.models.base import DomainModel, TurnId, UserHash
 from app.domain.models.learner import LearnerId
 from app.domain.models.student import ProfileMemory
@@ -74,5 +75,5 @@ class UpdateMemory(DomainModel):
 
 
 type PostTurnTask = Annotated[
-    ExtractSignals | MakeKhojCard | UpdateMemory, Field(discriminator="kind")
+    ExtractSignals | MakeKhojCard | UpdateMemory | ExtractAspiration, Field(discriminator="kind")
 ]

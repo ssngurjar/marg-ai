@@ -67,10 +67,11 @@ async def dashboard_page(
         return _html(DashboardPageRenderer.link_invalid(), status.HTTP_401_UNAUTHORIZED)
     try:
         board = await pages.dashboard.build(pages.admin_floor)
+        students = await pages.students.build(pages.admin_floor)
     except StoreError as exc:
         logger.exception("dashboard_unavailable", exc_info=exc)
         return _html(DashboardPageRenderer.unavailable(), status.HTTP_503_SERVICE_UNAVAILABLE)
-    return _html(DashboardPageRenderer.dashboard(board))
+    return _html(DashboardPageRenderer.dashboard(board, students))
 
 
 @router.get("/dashboard/data.json")
@@ -79,10 +80,16 @@ async def dashboard_data(pages: PagesDep, cookie: CookieDep = None) -> Response:
         return _json({"error": "link_invalid"}, status.HTTP_401_UNAUTHORIZED)
     try:
         board = await pages.dashboard.build(pages.admin_floor)
+        students = await pages.students.build(pages.admin_floor)
     except StoreError as exc:
         logger.exception("dashboard_unavailable", exc_info=exc)
         return _json({"error": "unavailable"}, status.HTTP_503_SERVICE_UNAVAILABLE)
-    return _json(board.model_dump(mode="json"))
+    return _json(
+        {
+            "young_learners": board.model_dump(mode="json"),
+            "students": students.model_dump(mode="json"),
+        }
+    )
 
 
 @router.get("/dashboard/dashboard.css")

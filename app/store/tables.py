@@ -51,6 +51,7 @@ from app.domain.enums import (
     Role,
     Route,
     SafetyDecision,
+    Sentiment,
     StepName,
     StepOutcome,
     TurnStatus,
@@ -508,4 +509,35 @@ roadmap_steps = Table(
     Column("completed_at", DateTime(timezone=True), nullable=True),
     UniqueConstraint("roadmap_id", "position"),
     allowed_values("status", RoadmapStepStatus),
+)
+
+aspiration_signals = Table(
+    "aspiration_signals",
+    metadata,
+    Column("id", BigInteger, Identity(always=True), primary_key=True),
+    Column(
+        "turn_id",
+        UUID(as_uuid=True),
+        ForeignKey("turns.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+    ),
+    Column(
+        "learner_id",
+        UUID(as_uuid=True),
+        ForeignKey("learners.id", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    Column("fields", ARRAY(Text), nullable=False),  # AspirationField values, at most 3
+    Column("specificity", SmallInteger, nullable=False),
+    Column("constraints", ARRAY(Text), nullable=False),  # ConstraintKind values, at most 3
+    Column("sentiment", Text, nullable=False),
+    Column("prompt_version", Text, nullable=False),
+    Column("extracted_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    CheckConstraint("specificity BETWEEN 0 AND 4", name="specificity_range"),
+    CheckConstraint(
+        "cardinality(fields) <= 3 AND cardinality(constraints) <= 3", name="at_most_three"
+    ),
+    allowed_values("sentiment", Sentiment),
+    Index(None, "learner_id"),
 )

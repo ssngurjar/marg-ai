@@ -10,6 +10,7 @@ from app.store.repositories.telemetry_repository import (
     FailureCountRow,
     JourneyCountsRow,
     StepLatencyRow,
+    StudentData,
     TurnSummaryRow,
     YoungLearnerData,
 )
@@ -35,6 +36,7 @@ class FakeTelemetryReader:
     failures: list[FailureCountRow] = field(default_factory=list)
     costs: dict[Channel | None, Decimal] = field(default_factory=dict)
     young: YoungLearnerData = field(default_factory=YoungLearnerData)
+    student: StudentData = field(default_factory=StudentData)
     broken: bool = False
     cost_reads: list[tuple[datetime, Channel | None]] = field(default_factory=list)
 
@@ -62,6 +64,10 @@ class FakeTelemetryReader:
     async def young_learners(self) -> YoungLearnerData:
         self._check()
         return self.young
+
+    async def students(self) -> StudentData:
+        self._check()
+        return self.student
 
     def _check(self) -> None:
         if self.broken:

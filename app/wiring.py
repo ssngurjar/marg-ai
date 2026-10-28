@@ -78,6 +78,7 @@ from app.rag.retriever import Retriever, RetrieverSettings
 from app.safety.domain_policy import MINOR_POLICY, REPLY_POLICY, DomainPolicy, PolicyModel
 from app.safety.safety_gate import SafetyGate
 from app.store.db import create_engine, create_session_factory, ping
+from app.store.repositories.aspiration_signal_repository import AspirationSignalRepository
 from app.store.repositories.child_session_repository import ChildSessionRepository
 from app.store.repositories.chunk_repository import ChunkRepository
 from app.store.repositories.curiosity_signal_repository import CuriositySignalRepository
@@ -92,10 +93,12 @@ from app.store.repositories.telemetry_repository import TelemetryRepository
 from app.store.repositories.turn_repository import TurnRepository
 from app.store.repositories.turn_step_repository import TurnStepRepository
 from app.store.repositories.user_repository import UserRepository
+from app.telemetry.aspiration_signal_extractor import ASPIRATION_EXTRACT, AspirationSignalExtractor
 from app.telemetry.curiosity_signal_extractor import CURIOSITY_EXTRACT, CuriositySignalExtractor
 from app.telemetry.dashboard_builder import DashboardBuilder
 from app.telemetry.dashboard_link_codec import DashboardLinkCodec, DashboardLinkSettings
 from app.telemetry.status_report_builder import StatusReportBuilder, StatusSettings
+from app.telemetry.student_dashboard_builder import StudentDashboardBuilder
 from app.worker.database_step_recorder import DatabaseStepRecorder
 from app.worker.khoj_card_sender import CardDeps, KhojCardSender
 from app.worker.nudge_sender import NudgeSender, NudgeSettings, nudge_templates
@@ -120,6 +123,7 @@ PROMPT_SPECS: Final = (
     MEMORY,
     MENTOR,
     ROADMAP,
+    ASPIRATION_EXTRACT,
 )
 """Every prompt the app renders; the registry refuses a template without a spec."""
 INVITE_GREETING: Final = "Namaste Marg"
@@ -277,6 +281,7 @@ def build_container(settings: Settings) -> Container:
                 else None
             ),
             memory=MemoryLayer(spark, prompt_registry(settings)),
+            memory_model=language_model,
         ),
     )
     return Container(
@@ -338,6 +343,7 @@ def build_telemetry_pages(
             reader, clock, StatusSettings(web_daily_cap_usd=settings.daily_cost_cap_usd)
         ),
         dashboard=DashboardBuilder(reader, clock),
+        students=StudentDashboardBuilder(reader, clock),
         links=dashboard_links(settings, clock),
         admin_floor=settings.k_anonymity_floor_admin,
     )
@@ -597,6 +603,7 @@ class EngineParts:
     signals: CuriositySignalExtractor
     cards: KhojCardMaker | None  # None while KHOJ_CARD_ENABLED is false
     memory: MemoryLayer
+    memory_model: LanguageModel  # the extraction model (Muse Spark Open with its fallback)
 
 
 def build_turn_dispatcher(
@@ -676,6 +683,10 @@ def build_turn_dispatcher(
                     ),
                     memory=engine_parts.memory,
                     memories=ProfileMemoryRepository(session_factory),
+                    aspiration=AspirationSignalExtractor(
+                        engine_parts.memory_model, prompt_registry(settings)
+                    ),
+                    aspirations=AspirationSignalRepository(session_factory),
                 )
             ),
             nudges=(

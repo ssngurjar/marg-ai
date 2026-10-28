@@ -16,14 +16,17 @@ from app.core.clock import Clock
 from app.core.errors import MediaError, ProviderError, SafetyUnavailable, StoreError
 from app.core.logging import get_logger
 from app.domain.enums import StepName, StepOutcome
+from app.domain.models.aspiration import ExtractAspiration
 from app.domain.models.curiosity import ExtractSignals, MakeKhojCard, PostTurnTask, UpdateMemory
 from app.domain.models.usage import StepUsage
 from app.layers.memory_layer import MemoryLayer
 from app.pipeline.failure_policy import FailurePolicy
 from app.pipeline.step_models import StepFailure
 from app.pipeline.turn_protocols import StepRecorder
+from app.store.repositories.aspiration_signal_repository import AspirationSignalRepository
 from app.store.repositories.curiosity_signal_repository import CuriositySignalRepository
 from app.store.repositories.profile_memory_repository import ProfileMemoryRepository
+from app.telemetry.aspiration_signal_extractor import AspirationSignalExtractor
 from app.telemetry.curiosity_signal_extractor import CuriositySignalExtractor
 from app.worker.khoj_card_sender import KhojCardSender
 
@@ -40,6 +43,8 @@ class PostTurnDeps:
     cards: KhojCardSender | None  # None while KHOJ_CARD_ENABLED is false
     memory: MemoryLayer
     memories: ProfileMemoryRepository
+    aspiration: AspirationSignalExtractor
+    aspirations: AspirationSignalRepository
 
 
 class PostTurnRunner:
@@ -52,6 +57,8 @@ class PostTurnRunner:
         self._cards = deps.cards
         self._memory = deps.memory
         self._memories = deps.memories
+        self._aspiration = deps.aspiration
+        self._aspirations = deps.aspirations
 
     async def run(self, tasks: Sequence[PostTurnTask]) -> None:
         for task in tasks:
@@ -62,8 +69,51 @@ class PostTurnRunner:
                     await self._card(task)
                 case UpdateMemory():
                     await self._remember(task)
+                case ExtractAspiration():
+                    await self._aspire(task)
                 case _:
                     assert_never(task)
+
+    async def _aspire(self, task: ExtractAspiration) -> None:
+        started = self._clock.now()
+        try:
+            async with asyncio.timeout(self._timeout.total_seconds()):
+                extracted = await self._aspiration.extract(task)
+            saved = await self._aspirations.save(task, extracted.signals, extracted.prompt_version)
+        except (ProviderError, TimeoutError, StoreError) as exc:
+            logger.warning("aspiration_extraction_failed", turn_id=str(task.turn_id), exc_info=exc)
+            failure = StepFailure(
+                step=StepName.EXTRACT_SIGNALS,
+                kind=FailurePolicy.kind_of(exc),
+                detail=type(exc).__name__,
+                retryable=False,
+            )
+            await self._record(
+                task,
+                StepName.EXTRACT_SIGNALS,
+                started,
+                StepOutcome.FAILED,
+                _Recorded(failure=failure),
+            )
+            return
+        if not saved:
+            await self._record(
+                task,
+                StepName.EXTRACT_SIGNALS,
+                started,
+                StepOutcome.SKIPPED,
+                _Recorded(detail="user_gone"),
+            )
+            return
+        signals = extracted.signals
+        detail = f"aspiration specificity={signals.specificity} fields={len(signals.fields)}"
+        await self._record(
+            task,
+            StepName.EXTRACT_SIGNALS,
+            started,
+            StepOutcome.OK,
+            _Recorded(detail=detail, usage=extracted.usage),
+        )
 
     async def _remember(self, task: UpdateMemory) -> None:
         started = self._clock.now()

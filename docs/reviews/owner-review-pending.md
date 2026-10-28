@@ -271,6 +271,9 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
   button, `onb-2026-10-28.1`).
 - [ ] **Decide later:** the 0.80 relevance threshold (10/11 right; the kabaddi question just
   missed, s11 log); whether to turn on query rewriting after the S15 eval.
+- [ ] **Aspiration signals** (prompt `aspiration_extract.md.j2` 1.0.0, Muse Spark Open): the
+  0-4 specificity rubric and the field and constraint lists (s13 §4.3); the dashboard now has a
+  students section next to the young learners (admin only).
 - [ ] **Phone test:** "Main student hoon" → guardian → class → district; then "क्लास 8 में कोई
   स्कॉलरशिप मिलती है क्या", "Marine biologist kaise bante hain", "ISRO scientist banna hai, plan
   bana do", "mera plan dikhao".

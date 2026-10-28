@@ -10,6 +10,7 @@ from app.store.repositories.telemetry_repository import (
     FailureCountRow,
     JourneyCountsRow,
     StepLatencyRow,
+    StudentData,
     TurnSummaryRow,
     YoungLearnerData,
 )
@@ -27,3 +28,5 @@ class TelemetryReader(Protocol):
     async def cost_since(self, since: datetime, channel: Channel | None) -> Decimal: ...
 
     async def young_learners(self) -> YoungLearnerData: ...
+
+    async def students(self) -> StudentData: ...
