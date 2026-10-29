@@ -49,7 +49,9 @@ Two rules shape every answer:
 > Spark check plus our own child rules), and fails closed.
 >
 > All of it was built during the hackathon: about 2,300 tests, an eval harness that plays 78
-> hand-written cases through the real pipeline, and a field test in my village.
+> hand-written cases through the real pipeline, and a field test in my village. Every bug found
+> by using Marg like a family would (a shared phone, mixed languages, a refresh) became a fix
+> and a permanent test.
 
 *(Recheck before submitting: the test count from `pytest`, the case count from the newest
 scorecard, and that the field test happened.)*

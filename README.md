@@ -191,6 +191,18 @@ and every module and class in [docs/code-map.md](docs/code-map.md).
 57% is honest, not good: the judge is strict, and single runs move by several points. The
 failing cases are listed in each scorecard.
 
+**Found by using it.** Rough, hands-on tests on the live demo found what the test suite missed.
+Each one is fixed and kept as a regression test.
+
+| What happened | Why it mattered | Now |
+|---|---|---|
+| "Hindi pleasee" got an English reply | People stretch words when they text | Stretched words are read in their normal form |
+| A class-10 student on a parent's phone was answered as the parent | Families share one phone | Marg asks "Who's writing?" and answers no one the parent hasn't added |
+| The child tapped her name and her question was dropped | She had already asked it | Her message is answered after she taps |
+| A child got English replies on an English account | Children write the way they speak | Replies follow the child's own language |
+| A child's "Hindi" got "Mummy and Papa will do that" | Asking for a language isn't an account change | It switches only her session |
+| A refresh showed an empty chat | It looked as if everything was lost | The conversation reloads, a page at a time |
+
 ## Try it
 
 - **Watch:** the demo video *(link added at submission)*.
