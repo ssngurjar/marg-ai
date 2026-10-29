@@ -1,6 +1,6 @@
 +++
 id = "query_rewrite"
-version = "1.0.1"
+version = "1.0.2"
 model_setting = "MODEL_TEXT"
 max_output_tokens = 1200
 output_model = "RewrittenQuery"
@@ -15,6 +15,9 @@ Fill these fields:
   messages to name it.
 - keywords: up to 8 exam, scheme, course or field names in their usual English form (for
   example "डॉक्टर" → "NEET", "MBBS"; "स्कॉलरशिप कक्षा 8" → "NMMS"). Only names, no sentences.
+  When the student wants to keep studying but something stands in the way (marriage talk,
+  money, distance, failing or leaving school), include the names of routes that let a student
+  continue: "NIOS", "open schooling", "scholarship" (and "girls" for a girl).
   Empty if there are none.
 - topics: up to 3 of exams, scholarships, sports, entrepreneurship, public_service, skilling,
   exposure_fields that the question is about.
