@@ -40,7 +40,11 @@ class ParentQuestionLayer:
             "Write answer and try_this in Hinglish: Hindi in Roman script, the way people "
             "text on WhatsApp."
         ),
-        Language.ENGLISH: "Write answer and try_this in simple English.",
+        # "so it looks changing", lists without commas: owner's judge walkthrough, 2026-10-29
+        Language.ENGLISH: (
+            "Write answer and try_this in simple, natural English: whole sentences with correct"
+            " grammar, and commas between the items of a list."
+        ),
     }
     SHORT_SPOKEN: ClassVar[str] = (
         "Short sentences in spoken_text, about 12 words or fewer, one idea each: it is heard once,"

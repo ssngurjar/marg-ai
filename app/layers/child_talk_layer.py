@@ -74,6 +74,7 @@ from app.domain.rules.child_session_rules import KID_START, ChildSessionLimits, 
 from app.domain.rules.onboarding_answer_parser import OnboardingAnswerParser
 from app.domain.rules.phrase_finder import PhraseFinder
 from app.domain.rules.register_detector import RegisterDetector
+from app.domain.rules.sentence_case import SentenceCase
 from app.domain.rules.stage_rules import StageRules
 from app.layers.layer_result import LayerResult
 from app.layers.local_voice import LocalVoice
@@ -428,7 +429,7 @@ class _ChildText:
             parts.append(child_reply.find_out)
         parts.append(child_reply.ask_back)
         if child_reply.who_explores_this.strip():
-            parts.append(child_reply.who_explores_this)
+            parts.append(SentenceCase.of(child_reply.who_explores_this))
         return _child_reply_text("\n\n".join(parts), child_reply.spoken_text, register)
 
 
@@ -494,6 +495,9 @@ class _ChildChecks:
             problems.append("text: mentions careers, jobs or exams")
         if PhraseFinder.contains_any(reply.who_explores_this, EXPOSURE_PUSH_WORDS):
             problems.append("who_explores_this: tells the child to become something")
+        if joined.count("?") > 1:
+            # one question at a time for a young child (golden case parent-journey-014)
+            problems.append("text: ask exactly one question, in ask_back, and no other")
         problems.extend(RegisterDetector.script_problems(joined, reply.spoken_text, register))
         return problems
 

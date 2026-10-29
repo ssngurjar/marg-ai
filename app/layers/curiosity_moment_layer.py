@@ -39,6 +39,7 @@ from app.domain.rules.activity_validator import ActivityValidator
 from app.domain.rules.child_hazard_matcher import ChildHazardMatcher
 from app.domain.rules.phrase_finder import PhraseFinder
 from app.domain.rules.register_detector import RegisterDetector
+from app.domain.rules.sentence_case import SentenceCase
 from app.domain.rules.stage_rules import StageRules
 from app.layers.layer_result import LayerResult
 from app.layers.parent_question_layer import ParentQuestionLayer
@@ -160,7 +161,11 @@ class _MomentText:
             opening,
             "\n".join([FIND_OUT_LABEL[register], *numbered]),
             f"{ASK_BACK_LABEL[register]} {moment.ask_back}",
-            *([moment.who_explores_this] if moment.who_explores_this.strip() else []),
+            *(
+                [SentenceCase.of(moment.who_explores_this)]
+                if moment.who_explores_this.strip()
+                else []
+            ),
             SUPERVISION_LINE[register],  # added by code, so a model can never drop it
         ]
         spoken_opening = "" if moment.confident else f"{LETS_FIND_OUT[_spoken(register)]} "
@@ -221,6 +226,9 @@ class _MomentChecks:
             problems.append("text: mentions careers, jobs or exams")
         if PhraseFinder.contains_any(moment.who_explores_this, EXPOSURE_PUSH_WORDS):
             problems.append("who_explores_this: tells the child to become something")
+        if joined.count("?") > 1:
+            # one question back keeps the child wondering (golden case parent-journey-013)
+            problems.append("text: ask exactly one question, in ask_back, and no other")
         problems.extend(RegisterDetector.script_problems(joined, moment.spoken_text, register))
         return problems
 
