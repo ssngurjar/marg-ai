@@ -165,6 +165,10 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
 
 - [ ] **"Who's writing?" (2026-10-29):** the copy `WHO_IS_WRITING`, `WHO_IS_WRITING_NO_CHILD`
   (`child_talk_copy.py`); later: a student profile on a parent's phone for children 9+.
+- [ ] **New corpus sources (2026-10-29), check from India:** `public_service/upsc-civil-services-exam.md`
+  (UPSC notice 05/2026-CSE: age, degree, attempts, stages, fee), `exposure_fields/nursing-courses-eligibility.md`
+  (INC eligibility page), `exposure_fields/pharmacy-diploma-dpharm.md` (PCI Education Regulations,
+  2020). Still missing: kabaddi/sports selection trials, state police recruitment.
 - [ ] **A child's language (2026-10-29):** the copy `CHILD_LANGUAGE_SWITCHED`. Writing only
   switches a child to Hindi or Hinglish; English comes from the family's language or "English".
 

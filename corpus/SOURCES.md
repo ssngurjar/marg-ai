@@ -98,6 +98,8 @@ Before writing a corpus document from a ⏳ or ⚠️ source, open it in a brows
 | ICAR: agriculture education and research | <https://icar.org.in> | ✅ |
 | NIFT (fashion) | <https://www.nift.ac.in> | ✅ |
 | NID (design) | <https://nid.edu> | ✅ |
+| Indian Nursing Council: who can join ANM, GNM, B.Sc Nursing | <https://indiannursingcouncil.org/eligibility-criteria> | ✅ (2026-10-29) |
+| Pharmacy Council of India: Diploma in Pharmacy (Education Regulations, 2020) | <https://pci.nic.in/pdf/Education_REGULATION_2020_12022021.pdf> | ✅ (2026-10-29) |
 
 ## Curriculum (grounds the Exposure layer)
 
