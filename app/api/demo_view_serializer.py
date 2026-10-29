@@ -6,7 +6,12 @@ renderer. Media goes by URL under /demo/media, which checks the visitor owns it.
 
 from uuid import UUID
 
-from app.store.repositories.demo_repository import MessageView, TurnView
+from app.store.repositories.demo_repository import (
+    HistoryPage,
+    MessageView,
+    TurnView,
+    VisitorMessageView,
+)
 
 
 class DemoViewSerializer:
@@ -16,6 +21,30 @@ class DemoViewSerializer:
         return {
             "status": view.message_status,
             "turn": DemoViewSerializer.turn(turn) if turn is not None else None,
+        }
+
+    @staticmethod
+    def history(page: HistoryPage) -> dict[str, object]:
+        """A page of the conversation for a reloaded page (s14 §4.5)."""
+        return {
+            "turns": [
+                {
+                    "said": [DemoViewSerializer.said(message) for message in entry.said],
+                    "turn": DemoViewSerializer.turn(entry.turn),
+                }
+                for entry in page.turns
+            ],
+            "waiting": [DemoViewSerializer.said(message) for message in page.waiting],
+            "older_cursor": str(page.older_cursor) if page.older_cursor is not None else None,
+        }
+
+    @staticmethod
+    def said(message: VisitorMessageView) -> dict[str, object]:
+        return {
+            "message_id": message.message_id,
+            "kind": message.kind,
+            "text": message.text,
+            "button_title": message.button_title,
         }
 
     @staticmethod

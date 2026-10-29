@@ -3,7 +3,8 @@
 Thin, like the webhook: the WebDemoIngestor does the checks and the inbox insert; the worker
 runs the same pipeline as for WhatsApp. Messages are JSON (a voice note or photo as base64), so
 there's no form-parsing dependency. The page follows its turns on `GET /demo/events` (SSE) and
-falls back to polling `GET /demo/messages/{id}` when the stream is down. Every response under
+falls back to polling `GET /demo/messages/{id}` when the stream is down; a reloaded page reads the
+conversation so far, a page at a time, from `GET /demo/history`. Every response under
 /demo carries the security headers of s14 §4.10.
 """
 
@@ -14,7 +15,7 @@ from typing import Annotated, Final
 from urllib.parse import urlsplit
 from uuid import UUID
 
-from fastapi import APIRouter, Cookie, Depends, Request, Response, status
+from fastapi import APIRouter, Cookie, Depends, Query, Request, Response, status
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -41,6 +42,8 @@ logger = get_logger(__name__)
 
 PAGE: Final = Path(__file__).resolve().parents[2] / "static" / "demo" / "index.html"
 COOKIE: Final = "marg_session"
+HISTORY_PAGE: Final = 20  # turns per page of a reloaded conversation
+HISTORY_MAX_PAGE: Final = 50
 MAX_BODY_BYTES: Final = 1_500_000  # a 1 MB voice note or photo as base64, plus a little
 SECURITY_HEADERS: Final = {
     "Content-Security-Policy": (
@@ -135,6 +138,26 @@ async def get_message(message_id: str, demo: DemoDep, cookie: CookieDep = None) 
     if view is None:
         return _error(status.HTTP_404_NOT_FOUND, {"error": "not_found"})
     return JSONResponse(DemoViewSerializer.message(view), headers=SECURITY_HEADERS)
+
+
+@router.get("/history")
+async def history(
+    demo: DemoDep,
+    cookie: CookieDep = None,
+    before: Annotated[UUID | None, Query()] = None,
+    limit: Annotated[int, Query(ge=1, le=HISTORY_MAX_PAGE)] = HISTORY_PAGE,
+) -> Response:
+    """The visitor's conversation so far, newest page first (s14 §4.5): `before` is the
+    `older_cursor` of the page already shown. Someone else's turn id is 404, like an unknown one."""
+    try:
+        user_hash = demo.known_visitor(cookie)
+    except DemoRefused as refused:
+        return _refused(refused)
+    page = await demo.history(user_hash, before, limit)
+    if page is None:
+        return _error(status.HTTP_404_NOT_FOUND, {"error": "not_found"})
+    headers = {**SECURITY_HEADERS, "Cache-Control": "no-store"}
+    return JSONResponse(DemoViewSerializer.history(page), headers=headers)
 
 
 @router.get("/events")

@@ -1,6 +1,6 @@
 """The web demo against Postgres and the real pipeline (s14): a cookie session, a message in, a
-reply and its trace out (polling, and live on the SSE stream), web voice notes, the guards, and
-reset."""
+reply and its trace out (polling, and live on the SSE stream), the conversation so far for a
+reloaded page, web voice notes, the guards, and reset."""
 
 import asyncio
 import base64
@@ -10,17 +10,19 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from datetime import timedelta
 from decimal import Decimal
+from typing import Final, TypedDict
 
 import httpx
 import pytest
 from fastapi import FastAPI
-from pydantic import SecretStr
+from pydantic import SecretStr, TypeAdapter
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.api.routers import demo
 from app.api.turn_event_stream import StreamSettings, TurnEventStream
 from app.api.turn_progress_hub import StreamLimits, TurnProgressHub
+from app.api.turn_waker import TurnWaker
 from app.api.web_demo_ingestor import DemoDeps, DemoLimits, WebDemoIngestor
 from app.core.signed_token_codec import SignedTokenCodec
 from app.domain.models.base import UserHash
@@ -66,8 +68,18 @@ class Demo:
     hub: TurnProgressHub
 
 
+class SleepingWorker:
+    """A worker that is never woken: a message stays waiting for its turn."""
+
+    def wake(self, user_hash: UserHash) -> None:
+        del user_hash
+
+
 async def demo_for(
-    engine: AsyncEngine, limits: DemoLimits = LIMITS, voice: FakeVoice | None = None
+    engine: AsyncEngine,
+    limits: DemoLimits = LIMITS,
+    voice: FakeVoice | None = None,
+    waker: TurnWaker | None = None,
 ) -> AsyncIterator[Demo]:
     pipeline = wire(engine, FakeSafetyClassifier(), voice=voice)
     async with engine.begin() as connection:  # each test starts within every rate limit
@@ -82,7 +94,7 @@ async def demo_for(
             demo=DemoRepository(sessions),
             media=MediaBlobRepository(sessions),
             inbox=InboxRepository(sessions),
-            waker=pipeline.worker,
+            waker=waker if waker is not None else pipeline.worker,
             clock=FixedClock(NOW),
         ),
         limits,
@@ -408,3 +420,152 @@ async def test_a_third_stream_for_one_visitor_is_refused(site: Demo, engine: Asy
         429,
         {"error": "stream_limit", "scope": "streams"},
     )
+
+
+# --- the conversation so far, for a reloaded page (s14 §4.5) ---------------------------------
+
+
+class ButtonJson(TypedDict):
+    id: str
+    title: str
+
+
+class PartJson(TypedDict):
+    kind: str
+    text: str | None
+    buttons: list[ButtonJson]
+    audio_url: str | None
+    image_url: str | None
+
+
+class TurnJson(TypedDict):
+    turn_id: str
+    status: str
+    route: str | None
+    message_ids: list[str]
+    steps: list[dict[str, object]]
+    parts: list[PartJson]
+
+
+class SaidJson(TypedDict):
+    message_id: str
+    kind: str
+    text: str | None
+    button_title: str | None
+
+
+class HistoryEntryJson(TypedDict):
+    said: list[SaidJson]
+    turn: TurnJson
+
+
+class HistoryJson(TypedDict):
+    turns: list[HistoryEntryJson]
+    waiting: list[SaidJson]
+    older_cursor: str | None
+
+
+HISTORY_JSON: Final = TypeAdapter(HistoryJson)
+TURN_JSON: Final = TypeAdapter(TurnJson)
+
+
+async def history(site: Demo, query: str = "") -> HistoryJson:
+    response = await site.client.get(f"/demo/history{query}")
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "no-store"
+    return HISTORY_JSON.validate_python(response.json(), strict=True)
+
+
+def said_text(message_id: str, text: str) -> SaidJson:
+    return {"message_id": message_id, "kind": "text", "text": text, "button_title": None}
+
+
+async def test_a_reloaded_page_gets_the_conversation_so_far(site: Demo) -> None:
+    await site.client.get("/demo/session")
+    first_turn = TURN_JSON.validate_python((await say(site, {"text": "Hi"}))["turn"])
+    offered = first_turn["parts"][-1]["buttons"][0]
+    await say(site, {"button_id": offered["id"]})
+
+    page = await history(site)
+
+    first, tapped = page["turns"]
+    assert first == {"said": [said_text(first_turn["message_ids"][0], "Hi")], "turn": first_turn}
+    assert tapped["said"] == [
+        {
+            "message_id": tapped["turn"]["message_ids"][0],
+            "kind": "interactive",
+            "text": None,
+            "button_title": offered["title"],
+        }
+    ]
+    assert tapped["turn"]["parts"]
+    assert (page["waiting"], page["older_cursor"]) == ([], None)
+
+
+async def test_history_pages_go_back_in_order_without_gaps_or_repeats(site: Demo) -> None:
+    await site.client.get("/demo/session")
+    for words in ("Hi", "Hello", "Namaste"):
+        await say(site, {"text": words})
+    everything = (await history(site))["turns"]
+
+    newest = await history(site, "?limit=2")
+    older = await history(site, f"?limit=2&before={newest['older_cursor']}")
+
+    assert newest["older_cursor"] == newest["turns"][0]["turn"]["turn_id"]
+    assert older["older_cursor"] is None
+    assert older["turns"] + newest["turns"] == everything
+    assert len(everything) == 3
+
+
+async def test_a_new_visitor_has_no_history(site: Demo) -> None:
+    await site.client.get("/demo/session")
+    assert await history(site) == {"turns": [], "waiting": [], "older_cursor": None}
+
+
+async def test_a_message_still_waiting_for_its_turn_is_on_the_newest_page_only(
+    engine: AsyncEngine,
+) -> None:
+    cookie = ""
+    async for site in demo_for(engine):
+        await site.client.get("/demo/session")
+        await say(site, {"text": "Hi"})
+        await say(site, {"text": "Hello"})
+        cookie = site.client.cookies["marg_session"]
+    async for site in demo_for(engine, waker=SleepingWorker()):
+        site.client.cookies.set("marg_session", cookie, domain="demo.test", path="/demo")
+        posted = await site.client.post("/demo/messages", json={"text": "Namaste"}, headers=ORIGIN)
+
+        newest = await history(site, "?limit=1")
+        older = await history(site, f"?limit=1&before={newest['older_cursor']}")
+
+        assert newest["waiting"] == [said_text(posted.json()["message_id"], "Namaste")]
+        assert [entry["said"][0]["text"] for entry in newest["turns"]] == ["Hello"]
+        assert older["waiting"] == []
+        assert [entry["said"][0]["text"] for entry in older["turns"]] == ["Hi"]
+
+
+async def test_history_needs_a_session(site: Demo) -> None:
+    response = await site.client.get("/demo/history")
+    assert (response.status_code, response.json()) == (401, {"error": "no_session"})
+
+
+async def test_someone_elses_turn_as_a_cursor_is_not_found(site: Demo, engine: AsyncEngine) -> None:
+    await site.client.get("/demo/session")
+    await say(site, {"text": "Hi"})
+    [theirs] = (await history(site))["turns"]
+    site.client.cookies.clear()
+    await site.client.get("/demo/session")  # a different visitor
+    unknown = (await rows(engine, "SELECT gen_random_uuid()"))[0][0]
+    for cursor in (theirs["turn"]["turn_id"], unknown):
+        response = await site.client.get(f"/demo/history?before={cursor}")
+        assert (response.status_code, response.json()) == (404, {"error": "not_found"})
+
+
+@pytest.mark.parametrize(
+    "query",
+    ["?limit=0", "?limit=51", "?limit=many", "?before=not-a-turn-id", "?before="],
+)
+async def test_a_malformed_history_request_is_refused(site: Demo, query: str) -> None:
+    await site.client.get("/demo/session")
+    response = await site.client.get(f"/demo/history{query}")
+    assert response.status_code == 422

@@ -1,6 +1,7 @@
 // Marg.ai web demo (s14): the same pipeline as WhatsApp, with a live trace of every step.
 // Vanilla JS, no build step. Messages are JSON; a voice note goes as base64. Turns arrive on
-// the /demo/events stream (SSE); while it's down, the page polls instead.
+// the /demo/events stream (SSE); while it's down, the page polls instead. A reloaded page shows
+// the conversation so far from /demo/history, with earlier pages on request.
 "use strict";
 
 const STREAM_GRACE_MS = 3000;
@@ -37,13 +38,15 @@ let streamOpen = false;
 let tracedTurnId = null; // the turn the trace panel shows; its later steps keep updating it
 const waiters = new Map(); // message id → { mine, resolve, deadline }
 const repliedTurns = new Set(); // a turn's reply is shown once, however often it arrives
+let olderCursor = null; // the history page before the oldest one shown; null at the start
 
 function showBanner(text) {
   banner.textContent = text;
   banner.hidden = !text;
 }
 
-function addBubble(who, text) {
+// `into` is the chat itself, or a fragment that an earlier history page is built in.
+function addBubble(who, text, into = messages) {
   const item = document.createElement("li");
   item.className = `bubble ${who}`;
   if (text) {
@@ -51,8 +54,8 @@ function addBubble(who, text) {
     body.textContent = text;
     item.appendChild(body);
   }
-  messages.appendChild(item);
-  messages.scrollTop = messages.scrollHeight;
+  into.appendChild(item);
+  if (into === messages) messages.scrollTop = messages.scrollHeight;
   return item;
 }
 
@@ -73,12 +76,118 @@ async function startSession() {
     showBanner(ERROR_TEXT[body.error] || "The demo couldn't start. Please reload.");
     return;
   }
-  addBubble(
-    "bot",
-    "Namaste! Type Hi to begin, in English, Hindi or Hinglish, or tap 🎤 to send a voice note.\n\n" +
-      "Then try it as a parent of a young child, a student or a teacher."
-  );
+  const shown = await showNewestHistory();
+  if (!shown) {
+    addBubble(
+      "bot",
+      "Namaste! Type Hi to begin, in English, Hindi or Hinglish, or tap 🎤 to send a voice note.\n\n" +
+        "Then try it as a parent of a young child, a student or a teacher."
+    );
+  }
   openStream();
+}
+
+// --- the conversation so far (a reloaded page) ----------------------------------------------
+
+async function fetchHistory(before) {
+  const query = before ? `?before=${encodeURIComponent(before)}` : "";
+  const response = await fetch(`/demo/history${query}`, { credentials: "same-origin" });
+  if (!response.ok) return null;
+  return response.json();
+}
+
+function saidLabel(said) {
+  if (said.kind === "audio") return "🎤 voice note";
+  if (said.kind === "image") return "📷 photo";
+  if (said.kind === "interactive") return said.button_title || "Tapped a button";
+  return said.text || "…";
+}
+
+function isDone(turn) {
+  return turn.parts.length > 0 && turn.status !== "processing";
+}
+
+// Renders a history page into `into`. Returns the reply buttons of its newest answered turn.
+function renderHistoryTurns(page, into) {
+  let newestButtons = [];
+  for (const entry of page.turns) {
+    for (const said of entry.said) {
+      const mine = addBubble("you", saidLabel(said), into);
+      if (!isDone(entry.turn)) {
+        setState(mine, "processing…");
+        follow(said.message_id, mine);
+      }
+    }
+    if (isDone(entry.turn)) {
+      repliedTurns.add(entry.turn.turn_id);
+      newestButtons = renderParts(entry.turn, into);
+    }
+  }
+  return newestButtons;
+}
+
+async function showNewestHistory() {
+  const page = await fetchHistory(null);
+  if (!page || (page.turns.length === 0 && page.waiting.length === 0)) return false;
+  const newestButtons = renderHistoryTurns(page, messages);
+  // Only the newest reply's buttons can be pressed, and only if nothing was sent after it.
+  for (const button of messages.querySelectorAll(".buttons button.reply")) {
+    button.disabled = page.waiting.length > 0 || !newestButtons.includes(button);
+  }
+  for (const said of page.waiting) {
+    const mine = addBubble("you", saidLabel(said));
+    setState(mine, "processing…");
+    follow(said.message_id, mine);
+  }
+  const answered = page.turns.filter((entry) => isDone(entry.turn));
+  if (answered.length) {
+    const newest = answered[answered.length - 1].turn;
+    tracedTurnId = newest.turn_id;
+    renderTrace(newest);
+  }
+  setOlderCursor(page.older_cursor);
+  messages.scrollTop = messages.scrollHeight;
+  return true;
+}
+
+function setOlderCursor(cursor) {
+  olderCursor = cursor;
+  let earlier = document.getElementById("earlier");
+  if (!cursor) {
+    if (earlier) earlier.remove();
+    return;
+  }
+  if (!earlier) {
+    earlier = document.createElement("li");
+    earlier.id = "earlier";
+    earlier.className = "earlier";
+    const show = document.createElement("button");
+    show.type = "button";
+    show.className = "quiet";
+    show.textContent = "Show earlier messages";
+    show.addEventListener("click", showEarlierHistory);
+    earlier.appendChild(show);
+  }
+  messages.prepend(earlier);
+}
+
+async function showEarlierHistory() {
+  const show = document.querySelector("#earlier button");
+  show.disabled = true;
+  const page = await fetchHistory(olderCursor);
+  show.disabled = false;
+  if (!page) {
+    showBanner("Earlier messages couldn't be loaded. Please try again.");
+    return;
+  }
+  const older = document.createDocumentFragment();
+  renderHistoryTurns(page, older);
+  for (const button of older.querySelectorAll(".buttons button.reply")) button.disabled = true;
+  // Keep the visitor's place: the chat grows above what they were reading.
+  const heightBefore = messages.scrollHeight;
+  document.getElementById("earlier").after(older);
+  messages.scrollTop += messages.scrollHeight - heightBefore;
+  setOlderCursor(page.older_cursor);
 }
 
 async function send(payload, label, previewUrl) {
@@ -214,11 +323,17 @@ function addListenButton(bubble, text) {
 function renderReply(turn) {
   // Only the newest reply's buttons can be pressed (the server checks too): grey out the rest.
   for (const old of messages.querySelectorAll(".buttons button.reply")) old.disabled = true;
+  renderParts(turn, messages);
+}
+
+// Renders a turn's reply parts into `into`. Returns the reply buttons it made.
+function renderParts(turn, into) {
+  const made = [];
   let bubble = null;
   const hasAudio = turn.parts.some((part) => part.kind === "audio" && part.audio_url);
   for (const part of turn.parts) {
     if (part.kind === "audio" && part.audio_url) {
-      bubble = bubble || addBubble("bot", "");
+      bubble = bubble || addBubble("bot", "", into);
       const audio = document.createElement("audio");
       audio.controls = true;
       audio.src = part.audio_url;
@@ -226,7 +341,7 @@ function renderReply(turn) {
       continue;
     }
     if (part.kind === "image" && part.image_url) {
-      const card = addBubble("bot", "");
+      const card = addBubble("bot", "", into);
       const image = document.createElement("img");
       image.src = part.image_url;
       image.alt = part.text || "Khoj card";
@@ -243,7 +358,7 @@ function renderReply(turn) {
       card.appendChild(download);
       continue;
     }
-    bubble = addBubble("bot", part.text || "");
+    bubble = addBubble("bot", part.text || "", into);
     if (!hasAudio) addListenButton(bubble, part.text || "");
     if (part.buttons && part.buttons.length) {
       const row = document.createElement("div");
@@ -255,10 +370,12 @@ function renderReply(turn) {
         tap.textContent = button.title;
         tap.addEventListener("click", () => send({ button_id: button.id }, button.title));
         row.appendChild(tap);
+        made.push(tap);
       }
       bubble.appendChild(row);
     }
   }
+  return made;
 }
 
 function renderTrace(turn) {

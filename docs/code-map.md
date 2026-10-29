@@ -307,7 +307,7 @@ line of the module's docstring.
 | `child_session_repository.py` | `ExpiredSession`, `QueuedSummary`, `ChildSessionRepository` | Child sessions: a child talking to Marg.ai directly (s10b §4.16, data-model `child_sessions`). |
 | `chunk_repository.py` | `DocumentRow`, `ChunkRow`, `Candidate`, `StoredChunk`, `ChunkRepository` | ChunkRepository: the corpus in Postgres (s11 §4.5, §4.7). No user data. |
 | `curiosity_signal_repository.py` | `CuriositySignalRepository` | Curiosity signals: what a child engaged with on a journey turn (s13 §4.4, data-model). |
-| `demo_repository.py` | `RateLimit`, `TraceStep`, `ReplyPartView`, `TurnView`, `MessageView`, `DemoRepository` | The web demo's reads and counters (s14 §4.3 to §4.7): rate limits, today's web cost, what |
+| `demo_repository.py` | `RateLimit`, `TraceStep`, `ReplyPartView`, `TurnView`, `VisitorMessageView`, `HistoryTurn`, `HistoryPage`, `MessageView`, `DemoRepository` | The web demo's reads and counters (s14 §4.3 to §4.7): rate limits, today's web cost, what |
 | `eval_repository.py` | `SeedLearner`, `SeedActivity`, `EvalSeed`, `EvalStep`, `EvalPart`, `EvalTurnSnapshot`, `SourceText`, `EvalRepository` | EvalRepository: seeding a golden case's user and reading back what a turn did (s15 §4.2). |
 | `inbox_repository.py` | `InboundRecord`, `SaveResult`, `LatestInbound`, `InboxRepository` | Storing inbound WhatsApp messages (s03 §4.5, §4.6). The only SQL for users and the inbox. |
 | `journey_repository.py` | `JourneyRepository` | The khoj offered to each child and how it went (s10b §5, data-model `learner_activities`). |

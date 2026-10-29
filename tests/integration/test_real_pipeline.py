@@ -7,9 +7,10 @@ store and worker are the ones `build_container` wires.
 import dataclasses
 import os
 import random
-from collections.abc import AsyncIterator, Sequence
-from dataclasses import dataclass
+from collections.abc import AsyncIterator, Mapping, Sequence
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, time, timedelta
+from typing import Final
 
 import pytest
 from sqlalchemy import text
@@ -89,11 +90,28 @@ class Pipeline:
     sender: FakeSender
 
 
+# What the intent reading (s10b) makes of a parent's message in these tests.
+QUESTION_READING: Final[Mapping[str, object]] = {
+    "intent": "question",
+    "language": "hinglish",
+    "braj": False,
+}
+REPORT_READING: Final[Mapping[str, object]] = {**QUESTION_READING, "intent": "report"}
+
+
+@dataclass(frozen=True, slots=True)
+class ModelSays:
+    """What the fake Muse Spark answers to the safety checks and the intent reading."""
+
+    policy: ScriptedOutput = field(default_factory=lambda: CLEAR)
+    reply_policy: ScriptedOutput = field(default_factory=lambda: REPLY_CLEAR)
+    intent: ScriptedOutput = field(default_factory=lambda: QUESTION_READING)
+
+
 def wire(
     engine: AsyncEngine,
     classifier: FakeSafetyClassifier,
-    policy: ScriptedOutput = CLEAR,
-    reply_policy: ScriptedOutput = REPLY_CLEAR,
+    model_says: ModelSays = ModelSays(),  # noqa: B008  # frozen, so one shared default is safe
     voice: FakeVoice | None = None,
 ) -> Pipeline:
     settings = make_settings().model_copy(update={"turn_debounce_ms": 0})
@@ -113,8 +131,9 @@ def wire(
     language_model = PromptRoutedLanguageModel(
         {
             "parent_answer": FakeLanguageModel([HINGLISH_ANSWER]),
-            "minor_policy": FakeLanguageModel([policy]),
-            "reply_policy": FakeLanguageModel([reply_policy]),
+            "parent_intent": FakeLanguageModel([model_says.intent]),
+            "minor_policy": FakeLanguageModel([model_says.policy]),
+            "reply_policy": FakeLanguageModel([model_says.reply_policy]),
             "profile_extraction": EXTRACTION,
             "activity_personalise": FakeLanguageModel([personalisation_for(first_choice())]),
             "parent_reflection": FakeLanguageModel([REFLECTION]),
@@ -261,7 +280,7 @@ async def test_a_parents_question_is_answered_and_every_step_is_recorded(
     ]
     assert await rows(
         engine, "SELECT status, route, fixed_reply_kind, prompt_versions FROM turns"
-    ) == [("completed", "journey", None, {"parent_answer": "1.0.2"})]
+    ) == [("completed", "journey", None, {"parent_answer": "1.0.2", "parent_intent": "1.2.0"})]
 
 
 async def test_llama_guard_down_is_covered_by_the_muse_spark_backup(engine: AsyncEngine) -> None:
@@ -285,7 +304,7 @@ async def test_safety_down_sends_the_holding_reply_and_records_the_failure(
     down = FakeSafetyClassifier(error=ProviderUnavailable("503", provider="llama_guard"))
     await onboarded_parent(engine)
     model_down = ProviderUnavailable("503", provider="meta_model_api")
-    pipeline = wire(engine, down, policy=model_down, reply_policy=model_down)
+    pipeline = wire(engine, down, ModelSays(policy=model_down, reply_policy=model_down))
     await ask(pipeline, QUESTION)
     sent = " ".join(delivered.part.text or "" for delivered in pipeline.sender.sent)
     assert GENERATED not in sent
@@ -312,7 +331,7 @@ async def test_a_disclosure_only_the_policy_check_sees_gets_the_child_helpline(
     engine: AsyncEngine,
 ) -> None:
     await onboarded_parent(engine)
-    pipeline = wire(engine, FakeSafetyClassifier(), policy=policy_answer(abuse=True))
+    pipeline = wire(engine, FakeSafetyClassifier(), ModelSays(policy=policy_answer(abuse=True)))
     await ask(pipeline, "Ghar pe koi mujhe pareshan karta hai, kisi ko mat batana bolta hai")
     sent = " ".join(delivered.part.text or "" for delivered in pipeline.sender.sent)
     assert "1098" in sent
@@ -329,7 +348,9 @@ async def test_a_disclosure_only_the_policy_check_sees_gets_the_child_helpline(
 async def test_a_new_parent_is_onboarded_with_consent_recorded_and_one_child(
     engine: AsyncEngine,
 ) -> None:
-    pipeline = wire(engine, FakeSafetyClassifier())
+    pipeline = wire(
+        engine, FakeSafetyClassifier(), ModelSays(intent=REPORT_READING)
+    )  # the end's report
     await ask(pipeline, "Hello", message_id="wamid.O1")
     await send(pipeline, wa.button_reply("onb:consent:yes", "Haan, theek hai"))
     await send(
@@ -356,8 +377,15 @@ async def test_a_new_parent_is_onboarded_with_consent_recorded_and_one_child(
         ("granted", COPY_VERSION),
         ("child_profile_consent", COPY_VERSION),
     ]
-    first_khoj = pipeline.sender.sent[-2].part
+    first_khoj = pipeline.sender.sent[-3].part
     assert [button.id for button in first_khoj.buttons] == ["jrn:done", "jrn:other"]
+    # Then may Munni talk to Marg herself (asked after the khoj, s10b §4.16)?
+    [munni_id] = await rows(engine, "SELECT id FROM learners")
+    child_talk_question = pipeline.sender.sent[-2].part
+    assert [button.id for button in child_talk_question.buttons] == [
+        f"onb:childtalk:yes:{munni_id[0]}",
+        f"onb:childtalk:no:{munni_id[0]}",
+    ]
     nudge_question = pipeline.sender.sent[-1].part
     assert [button.id for button in nudge_question.buttons] == [
         "nudge:08",
@@ -544,7 +572,7 @@ async def test_no_turn_is_silent_and_no_unchecked_text_is_sent(
 ) -> None:
     classifier, policy, reply_policy = SCENARIOS[scenario]
     await onboarded_parent(engine)
-    pipeline = wire(engine, classifier, policy=policy, reply_policy=reply_policy)
+    pipeline = wire(engine, classifier, ModelSays(policy=policy, reply_policy=reply_policy))
     await ask(pipeline, QUESTION)
     await ask(pipeline, "", message_id="wamid.BLANK")  # an empty message in the same run
     silent = await rows(

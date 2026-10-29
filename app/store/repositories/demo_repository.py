@@ -1,5 +1,6 @@
 """The web demo's reads and counters (s14 §4.3 to §4.7): rate limits, today's web cost, what
-became of a message, a visitor's turns for the live trace, and which buttons they were offered.
+became of a message, a visitor's turns for the live trace and their history, and which buttons
+they were offered.
 """
 
 from collections.abc import Sequence
@@ -13,6 +14,7 @@ from sqlalchemy import and_, delete, func, select, tuple_
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.sql.elements import ColumnElement
 
 from app.core.errors import StoreError
 from app.domain.enums import Channel
@@ -66,6 +68,30 @@ class TurnView:
     steps: list[TraceStep]
     parts: list[ReplyPartView]
     message_ids: list[str]  # the visitor's messages this turn answers; [] for a khoj card
+
+
+@dataclass(frozen=True, slots=True)
+class VisitorMessageView:
+    """One message the visitor sent, as their history shows it: the text they typed, the title
+    of the button they tapped, or only the kind for a voice note or photo (never a transcript)."""
+
+    message_id: str
+    kind: str
+    text: str | None
+    button_title: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class HistoryTurn:
+    turn: TurnView
+    said: list[VisitorMessageView]  # [] for a khoj card or a daily nudge
+
+
+@dataclass(frozen=True, slots=True)
+class HistoryPage:
+    turns: list[HistoryTurn]  # oldest first
+    waiting: list[VisitorMessageView]  # sent but not yet taken into a turn; newest page only
+    older_cursor: UUID | None  # pass as `before` for the page before this one; None at the start
 
 
 @dataclass(frozen=True, slots=True)
@@ -197,6 +223,65 @@ class DemoRepository:
         except (SQLAlchemyError, OSError) as exc:
             raise StoreError(f"could not read the latest demo turn: {type(exc).__name__}") from exc
 
+    async def history(
+        self, user_hash: UserHash, before: UUID | None, limit: int
+    ) -> HistoryPage | None:
+        """A page of the visitor's conversation, `limit` turns ending just before the turn
+        `before` (the newest turns when None). None when `before` isn't one of this visitor's
+        turns (the same answer for someone else's, so turn ids can't be probed)."""
+        try:
+            async with self._session_factory() as session:
+                visible_turns: ColumnElement[bool] = turns.c.user_hash == user_hash
+                if before is not None:
+                    cursor = (
+                        await session.execute(
+                            select(turns.c.started_at, turns.c.id).where(
+                                and_(turns.c.id == before, turns.c.user_hash == user_hash)
+                            )
+                        )
+                    ).first()
+                    if cursor is None:
+                        return None
+                    visible_turns = and_(
+                        turns.c.user_hash == user_hash,
+                        tuple_(turns.c.started_at, turns.c.id)
+                        < tuple_(cursor.started_at, cursor.id),
+                    )
+                newest_first = (
+                    (
+                        await session.execute(
+                            select(turns.c.id)
+                            .where(visible_turns)
+                            .order_by(turns.c.started_at.desc(), turns.c.id.desc())
+                            .limit(limit + 1)
+                        )
+                    )
+                    .scalars()
+                    .all()
+                )
+                page_ids = list(reversed(newest_first[:limit]))
+                history_turns: list[HistoryTurn] = []
+                for turn_id in page_ids:
+                    turn = await _turn_view(session, turn_id)
+                    if turn is not None:
+                        said = await _visitor_messages(
+                            session, user_hash, inbox_messages.c.turn_id == turn_id
+                        )
+                        history_turns.append(HistoryTurn(turn=turn, said=said))
+                waiting = (
+                    await _visitor_messages(session, user_hash, inbox_messages.c.turn_id.is_(None))
+                    if before is None
+                    else []
+                )
+        except (SQLAlchemyError, OSError) as exc:
+            raise StoreError(f"could not read a demo history: {type(exc).__name__}") from exc
+        has_older = len(newest_first) > limit
+        return HistoryPage(
+            turns=history_turns,
+            waiting=waiting,
+            older_cursor=page_ids[0] if has_older and page_ids else None,
+        )
+
     async def offered_buttons(self, user_hash: UserHash) -> set[str]:
         """Button ids in the visitor's latest reply: a button press must be one of them."""
         latest_turn = (
@@ -233,6 +318,57 @@ async def _count_hit(session: AsyncSession, key: str) -> int:
     )
     count: int = (await session.execute(statement)).scalar_one()
     return count
+
+
+async def _visitor_messages(
+    session: AsyncSession, user_hash: UserHash, which: ColumnElement[bool]
+) -> list[VisitorMessageView]:
+    """The visitor's messages matching `which`, in the order they arrived."""
+    rows = (
+        await session.execute(
+            select(
+                inbox_messages.c.external_id,
+                inbox_messages.c.kind,
+                inbox_messages.c.text,
+                inbox_messages.c.interactive_reply_id,
+            )
+            .where(and_(inbox_messages.c.user_hash == user_hash, which))
+            .order_by(inbox_messages.c.id)
+        )
+    ).all()
+    said: list[VisitorMessageView] = []
+    for row in rows:
+        title = (
+            await _button_title(session, user_hash, row.interactive_reply_id)
+            if row.interactive_reply_id is not None
+            else None
+        )
+        said.append(VisitorMessageView(row.external_id, row.kind, row.text, title))
+    return said
+
+
+async def _button_title(session: AsyncSession, user_hash: UserHash, button_id: str) -> str | None:
+    """The title of the button the visitor tapped, from the newest reply that offered it; None
+    when no kept reply did (e.g. its turn was pruned)."""
+    offered = (
+        await session.execute(
+            select(outbox_messages.c.buttons)
+            .where(
+                and_(
+                    outbox_messages.c.user_hash == user_hash,
+                    outbox_messages.c.buttons.contains([{"id": button_id}]),
+                )
+            )
+            .order_by(outbox_messages.c.created_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if offered is None:
+        return None
+    for button in _BUTTONS.validate_python(offered):
+        if button.id == button_id:
+            return button.title
+    return None
 
 
 async def _turn_view(session: AsyncSession, turn_id: UUID) -> TurnView | None:

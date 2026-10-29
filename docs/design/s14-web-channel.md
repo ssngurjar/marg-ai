@@ -200,6 +200,16 @@ their user's latest turn every 2 s.
 - `GET /demo/turns/{turn_id}` → the same JSON as `turn.completed`, plus `steps: [...]`. `404`
   if the turn doesn't exist **or belongs to someone else**. The same status for both, so turn ids
   can't be probed. The page uses it when SSE is unavailable.
+- `GET /demo/history?before=<turn id>&limit=20` → the conversation so far, for a reloaded page
+  (the cookie keeps the visitor for 30 days, so Marg remembers them; the page must show it):
+  `{"turns": [{"said": [...], "turn": <the same JSON as the live turn>}], "waiting": [...],
+  "older_cursor": <turn id> | null}`, oldest first. `said` is what the visitor sent: their text,
+  the title of the button they tapped, or only `kind` for a voice note or photo (never a
+  transcript, never the photo). `waiting` is a message not yet taken into a turn, on the newest
+  page only. `older_cursor` is the oldest turn on the page when there are older ones: pass it as
+  `before` for the page before. `limit` is 1-50 (else `422`); a `before` that isn't one of this
+  visitor's turns is `404`, the same for someone else's, so turn ids can't be probed. No cookie →
+  `401 no_session`. `Cache-Control: no-store`.
 - `GET /demo/audio/{blob_id}` → audio bytes. Conditions: the cookie's `user_hash` equals
   `media_blobs.user_hash`, `purpose = 'reply_audio'`, `expires_at > now()`. Otherwise `404`.
   Headers: the stored `Content-Type`, `Cache-Control: private, max-age=3600`, `Content-Length`.
@@ -317,6 +327,11 @@ Behaviour:
   (`ok` ✓, `degraded` ◐, `failed` ✗, `skipped` –), duration, provider/model on hover, `info` inline.
   Header: total time and cost from `turn.completed`.
 - **Reply:** the text with citations as links, an `<audio>` element for `audio_url`, and buttons.
+- **Reload:** the page shows the newest page of `/demo/history` instead of the welcome (which
+  only a visitor with no history sees), with a "Show earlier messages" button at the top while
+  `older_cursor` is set; an earlier page is inserted above without moving what the visitor reads.
+  Only the newest reply's buttons stay pressable; a message still being answered shows
+  "processing…" and gets its reply like a just-sent one; the trace shows the newest turn.
 - **Photos (parents with an open activity):** a "Photo bhejiye" button opens the file picker or
   camera (`<input type="file" accept="image/*" capture="environment">`), with a one-line reminder:
   "Sirf banayi ya ikatthi cheezein, bachche ki photo nahi." A rejected photo shows the fixed
@@ -503,6 +518,7 @@ Requested: `SESSION_SIGNING_KEY_PREVIOUS: SecretStr | None`, `PUBLIC_BASE_URL: H
 
 | Date | Change | Why | Approved |
 |---|---|---|---|
+| 2026-10-29 | **The conversation survives a reload.** `GET /demo/history` (§4.5), paged by turn (`before` = a turn id, `limit` ≤ 50, 20 by default), and the page renders it before the stream opens. A tapped button shows its title (from the newest kept reply that offered it), a voice note or photo only its kind | The owner's test: a refreshed page showed the welcome while Marg still remembered the visitor, so the chat looked lost, and a judge would see a broken demo. Owner chose "show the history, with pagination" | owner |
 | 2026-10-28 | **E2 upgrade built (live trace).** `GET /demo/events` (SSE) per session; `TurnProgressHub` (`app/api/turn_progress_hub.py`) routes `NOTIFY turn_progress` (one `NotificationListener` per api process) to the visitor's streams; `TurnEventStream` (`app/api/turn_event_stream.py`) replays the latest turn (< 2 min) on connect, pings every 15 s, closes after `DEMO_SSE_MAX_S`; 2 streams per visitor, `DEMO_SSE_MAX_CONNECTIONS` per process (`429 stream_limit`). `turn_progress` is notified on each step row, `set_turn_text`/`set_turn_route`, finalize and a queued khoj card. The page follows its turns on the stream and polls `/demo/messages/{id}` only while the stream is down (a "reconnecting…" pill). **Choices, pending owner review:** (1) one event type, `turn`, carrying the **whole turn** (status, steps so far, parts, `message_ids`, `replay`) in the same JSON as the polling view, instead of separate `turn.started` / `step` / `turn.completed`: the page re-renders it, so repeats, replays and reconnects need no de-duplication, and polling and SSE share one renderer; (2) `mark_sent` does not notify: the web reply shows when finalize commits (the web sender does no I/O), and a khoj card notifies when it's queued; (3) a khoj card now goes out on the parent's own channel (it was always WhatsApp, so a web visitor's card failed; regression test added) and appears live on the page; (4) the Dockerfile gives uvicorn `--timeout-graceful-shutdown 25` so open streams don't hold a deploy | mvp-scope E2 upgrade trigger; s14 §4.4 | pending owner review |
 | 2026-10-25 | Session cookie on the shared purpose-based `SignedTokenCodec`; web cost cap on the IST day via s13's query; trace reads `turn_steps.decision`; parent role and the "Aaj ki khoj" button on the web | Consolidation against the updated foundation docs (A2, B1, B8, B12) | owner |
 | 2026-10-26 | Web image upload for parents with an open activity (jpeg/png/webp, magic bytes, size cap), handed to the in-process dispatcher in memory with a 60 s TTL and never stored; khoj card shown with a download button; image steps in the trace | Owner decisions C6, C7; the in-memory hand-off is a design point for the owner's review | pending owner review |

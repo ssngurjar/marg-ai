@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import ClassVar, Final, assert_never
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from app.api.turn_waker import TurnWaker
 from app.channels.web.web_message_parser import (
@@ -33,7 +33,12 @@ from app.domain.enums import Channel, MessageKind
 from app.domain.models.base import UserHash
 from app.domain.models.message import AudioClip, ImageClip, InboundMessage, MediaRef
 from app.domain.rules.nudge_schedule import NudgeSchedule
-from app.store.repositories.demo_repository import DemoRepository, MessageView, RateLimit
+from app.store.repositories.demo_repository import (
+    DemoRepository,
+    HistoryPage,
+    MessageView,
+    RateLimit,
+)
 from app.store.repositories.inbox_repository import InboundRecord, InboxRepository
 from app.store.repositories.media_blob_repository import MediaBlobRepository
 
@@ -203,6 +208,11 @@ class WebDemoIngestor:
 
     async def message_view(self, user_hash: UserHash, message_id: str) -> MessageView | None:
         return await self._deps.demo.message_view(user_hash, message_id)
+
+    async def history(
+        self, user_hash: UserHash, before: UUID | None, limit: int
+    ) -> HistoryPage | None:
+        return await self._deps.demo.history(user_hash, before, limit)
 
     def _issue(self, sid: str, now: datetime) -> str:
         return self._deps.codec.issue("demo_session", {"sid": sid}, now, SESSION_TTL)
