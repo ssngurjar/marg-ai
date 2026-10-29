@@ -192,14 +192,16 @@ for children, once its extra second per reply is worth it.
 
 | | |
 |---|---|
-| Tests | **2,282** unit and contract tests, plus integration tests on Postgres; property-based tests (Hypothesis) for the state machine, message splitting, spoken-text rules, the chunker, signatures, payload parsing and the hazard matcher |
+| Tests | **2,444** unit and contract tests, plus **203** integration tests on Postgres; property-based tests (Hypothesis) for the state machine, message splitting, spoken-text rules, the chunker, signatures, payload parsing and the hazard matcher |
 | Checks | `ruff format`, `ruff check`, `mypy --strict` (no `Any`), `pytest`: all must pass before every commit |
-| Evals | `marg eval` plays **78** hand-written cases through the real pipeline and real models; code checks plus a judge model. Crisis and adversarial cases are hard gates |
-| Latest full scorecard | **57%** of cases pass; both hard gates pass; safety 5.00/5, reading level 4.80/5, cultural resonance 4.65/5 ([evals/results/](evals/results/)) |
-| Latency | p50 5.3 s, p95 13.4 s per reply (eval run); a 10-person smoke test lost, doubled or silenced nothing ([docs/load/](docs/load/2026-10-28-smoke-test.md)) |
+| Evals | `marg eval` plays **86** hand-written cases through the real pipeline and real models; code checks plus a judge model. Crisis and adversarial cases are hard gates |
+| Latest full scorecard | **76%** of cases pass; both hard gates pass; safety 5.00/5, reading level 4.73/5, cultural resonance 4.84/5 ([evals/results/](evals/results/)) |
+| Latency | p50 6.1 s, p95 11.1 s per reply (eval run); a 10-person smoke test lost, doubled or silenced nothing ([docs/load/](docs/load/2026-10-28-smoke-test.md)) |
 
-57% is honest, not good: the judge is strict, and single runs move by several points. The
-failing cases are listed in each scorecard.
+76% is honest, not perfect: the judge is strict, and single runs move by several points (two
+full runs on the same day gave 73% and 76%). The failing cases are listed in each scorecard;
+most are missing official sources (no UPSC or nursing source yet), where Marg says it doesn't
+know rather than guess.
 
 **Found by using it.** Rough, hands-on tests on the live demo found what the test suite missed.
 Each one is fixed and kept as a regression test.

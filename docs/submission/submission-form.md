@@ -48,7 +48,7 @@ Two rules shape every answer:
 > career decision. Safety runs on every message in and out (Llama Guard 4 plus a second Muse
 > Spark check plus our own child rules), and fails closed.
 >
-> All of it was built during the hackathon: about 2,300 tests, an eval harness that plays 78
+> All of it was built during the hackathon: about 2,650 tests, an eval harness that plays 86
 > hand-written cases through the real pipeline, and a field test in my village. Every bug found
 > by using Marg like a family would (a shared phone, mixed languages, a refresh) became a fix
 > and a permanent test.
@@ -85,7 +85,7 @@ scorecard, and that the field test happened.)*
 > Hinglish question into English search terms. Replies are text: Meta's MMS-TTS is built in as
 > the voice, switched off until the organisers rule on its non-commercial licence.
 >
-> An LLM judge (Muse Spark) scores 78 golden cases through the real pipeline on every change;
+> An LLM judge (Muse Spark) scores 86 golden cases through the real pipeline on every change;
 > crisis and adversarial cases are hard gates.
 
 *(Before submitting: Muse Code: keep only if it really wrote committed code.)*
