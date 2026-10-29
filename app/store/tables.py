@@ -346,7 +346,10 @@ child_sessions = Table(
     # CuriosityDomain values the child asked about, for the parent's summary: never their words
     Column("topics", ARRAY(Text), nullable=False, server_default=text("'{}'::text[]")),
     Column("summary_sent_at", DateTime(timezone=True), nullable=True),
+    # The language the child asked for in this session (Language); NULL: they haven't asked
+    Column("language", Text, nullable=True),
     allowed_values("end_reason", ChildSessionEndReason),
+    allowed_values("language", Language),
     Index("ix_child_sessions_learner_id_started_at", "learner_id", text("started_at DESC")),
     Index(
         "uq_child_sessions_one_open_per_user",

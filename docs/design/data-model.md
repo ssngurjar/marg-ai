@@ -249,6 +249,7 @@ Index: `(learner_id, offered_at DESC)`.
 | `end_reason` | `text` NULL | `ChildSessionEndReason` |
 | `topics` | `text[]` | `CuriosityDomain` values touched, for the parent summary (no transcripts) |
 | `summary_sent_at` | `timestamptz` NULL | |
+| `language` | `text` NULL | `Language` the child asked for ("Hindi") for the rest of this session; NULL: not asked. Never the account's |
 
 Indexes: `(learner_id, started_at DESC)`; at most one open session per learner (partial unique
 index `WHERE ended_at IS NULL`).
@@ -381,3 +382,4 @@ upgrade → downgrade → upgrade against `docker-compose.test.yml`.
 | 2026-10-28 | `s13_turn_metrics`: the `turn_metrics` view (s13 §4.1), read by `/status` | S13 build | pending owner review |
 | 2026-10-28 | `s11_corpus_tables` (pgvector, HNSW cosine + GIN tsv; keywords upper-cased) and `s12_roadmaps_memory` (one active roadmap per user by a partial unique index; cascades) | S11, S12 build | pending owner review |
 | 2026-10-28 | `s13_aspiration_signals`: one row per student mentor or roadmap turn (unique `turn_id`), enum and range CHECKs, cascades with the learner | S13 build | pending owner review |
+| 2026-10-29 | `s10b_child_session_language`: `child_sessions.language` (NULL, CHECK `Language`) | A child's language request changes only their session (owner, 2026-10-29) | owner |

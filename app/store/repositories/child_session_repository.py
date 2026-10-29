@@ -25,7 +25,12 @@ from app.domain.enums import (
 from app.domain.models.base import TurnId, UserHash
 from app.domain.models.child_session import ChildSession
 from app.domain.models.learner import LearnerId
-from app.domain.models.writes import ChildSessionEnd, ChildSessionStart, ChildTalkTurn
+from app.domain.models.writes import (
+    ChildSessionEnd,
+    ChildSessionLanguage,
+    ChildSessionStart,
+    ChildTalkTurn,
+)
 from app.pipeline.reply_parts_builder import ReplyDelivery
 from app.store.repositories.outbox_repository import OutboxRepository
 from app.store.tables import child_sessions, learners, turns, users
@@ -77,6 +82,7 @@ class ChildSessionRepository:
             started_at=row.started_at,
             turns_count=row.turns_count,
             topics=[CuriosityDomain(topic) for topic in row.topics],
+            language=Language(row.language) if row.language is not None else None,
         )
 
     @staticmethod
@@ -103,6 +109,16 @@ class ChildSessionRepository:
             child_sessions.insert().values(
                 id=write.session_id, learner_id=write.learner_id, user_hash=owner
             )
+        )
+
+    @staticmethod
+    async def set_language(
+        session: AsyncSession, owner: UserHash, write: ChildSessionLanguage
+    ) -> None:
+        await session.execute(
+            update(child_sessions)
+            .where(_open_session(owner, write.session_id))
+            .values(language=write.language.value)
         )
 
     @staticmethod

@@ -129,7 +129,7 @@ line of the module's docstring.
 | `turn.py` | `UserProfile`, `Exchange`, `TurnContext`, `QueuedMessage` | A turn and what it knows about the user (contracts.md §2.2; s04 §4.4, §4.5). |
 | `usage.py` | `StepUsage` | What a provider call cost (contracts §2.3). Attached to every turn_steps row. |
 | `voice.py` | `AudioStats`, `VoiceLimits` | What a voice note measures, and the limits it's checked against (s06 §4.4). |
-| `writes.py` | `ProfileChange`, `LearnerUpsert`, `MarkPurgeAfterDelivery`, `ChildTalkConsent`, `ActivityOffered`, `ActivityReported`, `ChildSessionStart`, `ChildTalkTurn`, `ChildSessionEnd`, `NudgePreference`, `ResolvedRoadmapStep`, `SaveRoadmap`, `DeleteInboundMedia` | State changes that commit with the reply (contracts §2.4). |
+| `writes.py` | `ProfileChange`, `LearnerUpsert`, `MarkPurgeAfterDelivery`, `ChildTalkConsent`, `ActivityOffered`, `ActivityReported`, `ChildSessionStart`, `ChildSessionLanguage`, `ChildTalkTurn`, `ChildSessionEnd`, `NudgePreference`, `ResolvedRoadmapStep`, `SaveRoadmap`, `DeleteInboundMedia` | State changes that commit with the reply (contracts §2.4). |
 
 ## `domain/rules`
 

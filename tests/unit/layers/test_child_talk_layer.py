@@ -19,23 +19,33 @@ from app.constants.child_talk_copy import (
     CHILD_FALLBACK,
     CHILD_GOODBYE,
     CHILD_HELLO,
+    CHILD_LANGUAGE_SWITCHED,
     CHILD_TALK_COOLDOWN,
     TELL_YOUR_PARENTS,
     WHICH_CHILD_IS_TALKING,
+    WHO_IS_WRITING,
 )
 from app.core.errors import ProviderResponseInvalid, ProviderUnavailable
 from app.domain.enums import (
     ChildSessionEndReason,
     CuriosityDomain,
     Language,
+    Route,
     SafetyCategory,
     StepOutcome,
 )
 from app.domain.models.child_session import ChildSession
 from app.domain.models.learner import Learner
-from app.domain.models.writes import ChildSessionEnd, ChildSessionStart, ChildTalkTurn
+from app.domain.models.turn import Exchange
+from app.domain.models.writes import (
+    ChildSessionEnd,
+    ChildSessionLanguage,
+    ChildSessionStart,
+    ChildTalkTurn,
+)
 from app.domain.rules.child_hazard_matcher import ChildHazardMatcher
 from app.domain.rules.child_reply_matcher import ChildReplyMatcher
+from app.domain.rules.onboarding_answer_parser import OnboardingAnswerParser
 from app.layers.child_talk_layer import ChildReply, ChildTalkLayer, _ChildChecks
 from app.layers.layer_result import LayerResult
 from tests.fakes.language_model import FakeLanguageModel, ScriptedOutput
@@ -217,7 +227,6 @@ async def test_a_goodbye_from_the_child_ends_the_session(goodbye: str) -> None:
     ("text", "buttons"),
     [
         ("mera data hatao", []),
-        ("English", []),
         ("ek aur bachcha jodna hai", []),
         ("", ["onb:childtalk:no"]),
         ("", ["jrn:other"]),
@@ -228,6 +237,96 @@ async def test_nothing_a_child_sends_changes_the_account(text: str, buttons: lis
     assert result.reply.body == ASK_A_GROWNUP[H]
     assert result.writes == []
     assert llm.prompts == []
+
+
+# --- the child's language (owner, 2026-10-29) --------------------------------------------------
+
+
+@pytest.mark.parametrize("asked", ["Hindi", "Hindi pleasee", "हिंदी में", "English", "english plz"])
+async def test_asking_for_a_language_switches_only_this_session(asked: str) -> None:
+    result, llm = await talk(asked, session=open_session(MUNNI))
+    language = OnboardingAnswerParser.language_named(asked)
+    assert language is not None
+    assert result.reply.body == CHILD_LANGUAGE_SWITCHED[language]
+    assert result.reply.body_language is language
+    assert result.writes == [ChildSessionLanguage(session_id=SESSION_ID, language=language)]
+    assert llm.prompts == []
+
+
+def in_session_asking(language: Language | None) -> ChildSession:
+    return open_session(MUNNI).model_copy(update={"language": language})
+
+
+@pytest.mark.parametrize(
+    ("words", "asked_earlier", "expected"),
+    [
+        ("Hello me munni hoon aaj kya krein", None, Language.HINGLISH),  # the owner's test
+        ("हाथी क्या खाता है?", None, Language.HINDI),
+        ("Main Munni hoon", None, Language.HINDI),  # no marker word: not evidence of English
+        ("what do elephants eat", None, Language.HINDI),  # English only when asked for
+        ("haathi kya khata hai", Language.HINDI, Language.HINDI),  # asked earlier: kept
+        ("English", Language.HINDI, Language.ENGLISH),  # asked now: wins
+        ("bye", None, Language.HINDI),  # a word or two: the family's
+        ("ok cool", None, Language.HINDI),
+        ("🐘🐘", None, Language.HINDI),
+        ("", None, Language.HINDI),
+        ("   ", None, Language.HINDI),
+    ],
+)
+def test_a_reply_to_a_child_follows_what_they_asked_then_how_they_write(
+    words: str, asked_earlier: Language | None, expected: Language
+) -> None:
+    ctx = turn_context(text_message(words or "x"), learners=[MUNNI]).model_copy(
+        update={"child_session": in_session_asking(asked_earlier)}
+    )
+    assert ChildTalkLayer.language_for(ctx, words, Language.HINDI) is expected
+
+
+CAME_WITH = "me Munni hoon, aaj kya karein?"
+NAME_BUTTON = f"kid:start:{MUNNI.id}"
+
+
+def asked_who_is_writing(
+    reply: str = WHO_IS_WRITING[H].format(names="Munni"),
+    ago: timedelta = timedelta(minutes=1),
+) -> list[Exchange]:
+    return [Exchange(user_text=CAME_WITH, reply_text=reply, route=Route.JOURNEY, at=NOW - ago)]
+
+
+@pytest.mark.parametrize("language", list(Language))
+def test_a_tapped_name_brings_the_message_the_child_came_with(language: Language) -> None:
+    ctx = turn_context(button_reply(NAME_BUTTON), learners=[MUNNI]).model_copy(
+        update={
+            "recent_exchanges": asked_who_is_writing(WHO_IS_WRITING[language].format(names="Munni"))
+        }
+    )
+    assert ChildTalkLayer.words_before_the_name(ctx, "", [NAME_BUTTON], NOW) == CAME_WITH
+
+
+@pytest.mark.parametrize(
+    ("typed", "buttons", "exchanges"),
+    [
+        ("chaand kyun chamakta hai?", [NAME_BUTTON], asked_who_is_writing()),  # typed: their own
+        ("", ["jrn:done"], asked_who_is_writing()),  # not a name
+        ("", [NAME_BUTTON], []),  # nothing before
+        ("", [NAME_BUTTON], asked_who_is_writing(reply="Shabash! Munni ne dhyan se dekha.")),
+        ("", [NAME_BUTTON], asked_who_is_writing(ago=timedelta(minutes=10, seconds=1))),
+    ],
+)
+def test_otherwise_nothing_is_brought_along(
+    typed: str, buttons: list[str], exchanges: list[Exchange]
+) -> None:
+    ctx = turn_context(button_reply(buttons[-1]), learners=[MUNNI]).model_copy(
+        update={"recent_exchanges": exchanges}
+    )
+    assert ChildTalkLayer.words_before_the_name(ctx, typed, buttons, NOW) == ""
+
+
+def test_exactly_ten_minutes_after_the_question_still_brings_it() -> None:
+    ctx = turn_context(button_reply(NAME_BUTTON), learners=[MUNNI]).model_copy(
+        update={"recent_exchanges": asked_who_is_writing(ago=timedelta(minutes=10))}
+    )
+    assert ChildTalkLayer.words_before_the_name(ctx, "", [NAME_BUTTON], NOW) == CAME_WITH
 
 
 @given(
@@ -287,7 +386,8 @@ def test_a_good_reply_has_no_problems() -> None:
 
 CHILD_COPY = [
     ASK_A_GROWNUP, CHILD_FALLBACK, CHILD_GOODBYE, CHILD_HELLO, CHILD_TALK_COOLDOWN,
-    TELL_YOUR_PARENTS, WHICH_CHILD_IS_TALKING, copy.CHILD_TALK_NOT_ENABLED, copy.CHILD_REFUSE,
+    CHILD_LANGUAGE_SWITCHED, TELL_YOUR_PARENTS, WHICH_CHILD_IS_TALKING,
+    copy.CHILD_TALK_NOT_ENABLED, copy.CHILD_REFUSE,
     copy.PARENT_SUMMARY, copy.PARENT_SUMMARY_NO_TOPICS, copy.PARENT_SUMMARY_AFTER_SADNESS,
 ]  # fmt: skip
 

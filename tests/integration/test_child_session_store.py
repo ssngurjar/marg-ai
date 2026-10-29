@@ -12,10 +12,15 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from app.core.errors import StoreError
-from app.domain.enums import ChildSessionEndReason, CuriosityDomain
+from app.domain.enums import ChildSessionEndReason, CuriosityDomain, Language
 from app.domain.models.base import UserHash
 from app.domain.models.learner import LearnerId
-from app.domain.models.writes import ChildSessionEnd, ChildSessionStart, ChildTalkTurn
+from app.domain.models.writes import (
+    ChildSessionEnd,
+    ChildSessionLanguage,
+    ChildSessionStart,
+    ChildTalkTurn,
+)
 from app.store.db import create_engine, create_session_factory
 from app.store.repositories.child_session_repository import ChildSessionRepository
 from tests.support.app_factory import make_settings
@@ -78,12 +83,45 @@ async def test_a_started_session_is_open_with_nothing_counted(
     async with sessions() as session:
         opened = await ChildSessionRepository.open_for(session, PARENT)
     assert opened is not None
-    assert (opened.id, opened.learner_id, opened.turns_count, opened.topics) == (
+    assert (opened.id, opened.learner_id, opened.turns_count, opened.topics, opened.language) == (
         session_id,
         MUNNI,
         0,
         [],
+        None,  # the child hasn't asked for a language
     )
+
+
+async def test_a_language_the_child_asks_for_is_kept_for_the_session_only(
+    engine: AsyncEngine, sessions: async_sessionmaker[AsyncSession]
+) -> None:
+    session_id = await started(sessions, MUNNI)
+    async with sessions() as session, session.begin():
+        await ChildSessionRepository.set_language(
+            session, PARENT, ChildSessionLanguage(session_id=session_id, language=Language.HINDI)
+        )
+    async with sessions() as session:
+        opened = await ChildSessionRepository.open_for(session, PARENT)
+    assert opened is not None
+    assert opened.language is Language.HINDI
+    async with engine.connect() as connection:
+        account = (
+            await connection.execute(
+                text("SELECT language FROM users WHERE user_hash = :h"), {"h": PARENT}
+            )
+        ).scalar_one()
+    assert account is None  # the parent's language is untouched
+
+
+async def test_a_language_that_isnt_one_is_refused_by_the_database(engine: AsyncEngine) -> None:
+    async with engine.begin() as connection:
+        await connection.execute(
+            text("INSERT INTO child_sessions (id, learner_id, user_hash) VALUES (:id, :l, :h)"),
+            {"id": uuid4(), "l": MUNNI, "h": PARENT},
+        )
+    with pytest.raises(IntegrityError, match="ck_child_sessions_language_valid"):
+        async with engine.begin() as connection:
+            await connection.execute(text("UPDATE child_sessions SET language = 'klingon'"))
 
 
 async def test_turns_are_counted_and_each_topic_kept_once(
@@ -174,11 +212,16 @@ async def test_writes_for_another_users_session_change_nothing(
             OTHER,
             ChildSessionEnd(session_id=session_id, reason=ChildSessionEndReason.CHILD_ENDED),
         )
+        await ChildSessionRepository.set_language(
+            session, OTHER, ChildSessionLanguage(session_id=session_id, language=Language.ENGLISH)
+        )
     async with engine.connect() as connection:
         row = (
-            await connection.execute(text("SELECT turns_count, ended_at FROM child_sessions"))
+            await connection.execute(
+                text("SELECT turns_count, ended_at, language FROM child_sessions")
+            )
         ).one()
-    assert tuple(row) == (0, None)
+    assert tuple(row) == (0, None, None)
 
 
 async def test_a_session_the_child_left_is_closed_as_expired_by_maintenance(

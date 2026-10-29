@@ -7,14 +7,17 @@
     end      at the turn or time limit, or "bye"/"bas": a kind goodbye with a find-out activity,
              ChildSessionEnd, and a short summary for the parent (topics, never the child's words)
 
-Inside a session nothing changes the account: deletion, settings and any other button get
-"Mummy-Papa karenge" (C16). Crisis in a child's words is handled before this layer, by the
-orchestrator, with child-worded fixed text (s07).
+Inside a session nothing changes the account: deletion, adding a child and any other button get
+"Mummy-Papa karenge" (C16). Asking for a language ("Hindi") changes only this session's replies.
+A reply to a child follows what they asked for, then how they write, then the family's language;
+a child who tapped their name on "Who's writing?" gets the message they came with answered.
+Crisis in a child's words is handled before this layer, by the orchestrator, with child-worded
+fixed text (s07).
 """
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import ClassVar, Final, Literal
 from uuid import UUID, uuid4
 
@@ -36,6 +39,7 @@ from app.constants.child_talk_copy import (
     CHILD_FALLBACK,
     CHILD_GOODBYE,
     CHILD_HELLO,
+    CHILD_LANGUAGE_SWITCHED,
     CHILD_REFUSE_DANGER,
     CHILD_REFUSE_HURTING,
     CHILD_REFUSE_OTHER,
@@ -48,6 +52,7 @@ from app.constants.child_talk_copy import (
     TOPIC_LABELS,
     UNNAMED_CHILD_NAME,
     WHICH_CHILD_IS_TALKING,
+    WHO_IS_WRITING,
 )
 from app.constants.journey_words import CAREER_WORDS, EXPOSURE_PUSH_WORDS, LABEL_WORDS
 from app.constants.onboarding_copy import CHILD_TALK_YES
@@ -65,7 +70,12 @@ from app.domain.models.learner import Learner
 from app.domain.models.reply import CanonicalReply, ReplyButton
 from app.domain.models.turn import TurnContext
 from app.domain.models.usage import StepUsage
-from app.domain.models.writes import ChildSessionEnd, ChildSessionStart, ChildTalkTurn
+from app.domain.models.writes import (
+    ChildSessionEnd,
+    ChildSessionLanguage,
+    ChildSessionStart,
+    ChildTalkTurn,
+)
 from app.domain.rules.activity_validator import ActivityValidator
 from app.domain.rules.child_hazard_matcher import ChildHazardMatcher
 from app.domain.rules.child_question_detector import ChildQuestionDetector
@@ -124,6 +134,9 @@ class ChildTalkLayer:
     blocked (sexual content, medical, privacy…) keeps the fixed child refusal."""
     _REASON_ORDER: ClassVar[tuple[RedirectReason, ...]] = ("hurting", "weapons", "rules")
 
+    CARRY_WINDOW: ClassVar[timedelta] = timedelta(minutes=10)
+    """How long after "Who's writing?" a tapped name still brings the child's message along."""
+
     def __init__(
         self, llm: LanguageModel, registry: PromptRegistry, limits: ChildSessionLimits
     ) -> None:
@@ -156,10 +169,49 @@ class ChildTalkLayer:
             return self._goodbye(session, learner, register, ChildSessionEndReason.TIME_LIMIT, ())
         if ChildSessionRules.says_goodbye(user_text):
             return self._goodbye(session, learner, register, ChildSessionEndReason.CHILD_ENDED, ())
+        asked = OnboardingAnswerParser.language_named(user_text)
+        if asked is not None:
+            switched = _fixed(CHILD_LANGUAGE_SWITCHED, asked)
+            language = ChildSessionLanguage(session_id=session.id, language=asked)
+            return switched.model_copy(update={"writes": [language]})
         voice = LocalVoice.for_turn(register, ctx, user_text)
         return await self._turn(
             session, learner, user_text, now, register, voice=voice, blocked=blocked
         )
+
+    @staticmethod
+    def language_for(ctx: TurnContext, child_words: str, family_language: Language) -> Language:
+        """The language of a reply to a child (owner, 2026-10-29): the one they ask for now
+        ("Hindi") or asked for earlier in this session; else Hindi words in how they write
+        (Devanagari → Hindi, Roman → Hinglish); else the family's. Roman words with no Hindi
+        marker aren't evidence of English: "Main Munni hoon" has none."""
+        asked = OnboardingAnswerParser.language_named(child_words)
+        if asked is not None:
+            return asked
+        session = ctx.child_session
+        if session is not None and session.language is not None:
+            return session.language
+        written_in = RegisterDetector.detect(child_words)
+        if written_in in {Language.HINDI, Language.HINGLISH}:
+            return written_in
+        return family_language
+
+    @staticmethod
+    def words_before_the_name(
+        ctx: TurnContext, user_text: str, interactive_ids: Sequence[str], now: datetime
+    ) -> str:
+        """A child who wrote ("me Munni hoon, aaj kya karein"), was asked "Who's writing?" and
+        tapped their name: the message they came with, so it gets answered. "" otherwise."""
+        tapped_name = any(button.startswith(KID_START) for button in interactive_ids)
+        if user_text or not tapped_name or not ctx.recent_exchanges:
+            return ""
+        last = ctx.recent_exchanges[-1]
+        if now - last.at > ChildTalkLayer.CARRY_WINDOW:
+            return ""
+        for question in WHO_IS_WRITING.values():
+            if last.reply_text.startswith(question.split("{names}")[0]):
+                return last.user_text
+        return ""
 
     @staticmethod
     def redirects(categories: frozenset[SafetyCategory]) -> bool:
@@ -410,15 +462,13 @@ class ChildTalkLayer:
 
     @staticmethod
     def _is_account_action(user_text: str, interactive_ids: Sequence[str]) -> bool:
-        """Anything that would change the account (C16): deletion, a language or child change,
-        or any button but `kid:`."""
+        """Anything that would change the account (C16): deletion, adding a child, or any
+        button but `kid:`. A language request changes only the session (handled before)."""
         if any(not button.startswith(KID_START) for button in interactive_ids):
             return True
-        return (
-            OnboardingAnswerParser.asks_for_deletion(user_text)
-            or OnboardingAnswerParser.language_named(user_text) is not None
-            or OnboardingAnswerParser.asks_to_add_child(user_text)
-        )
+        return OnboardingAnswerParser.asks_for_deletion(
+            user_text
+        ) or OnboardingAnswerParser.asks_to_add_child(user_text)
 
 
 class _ChildText:

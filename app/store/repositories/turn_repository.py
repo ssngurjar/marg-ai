@@ -40,6 +40,7 @@ from app.domain.models.writes import (
     ActivityOffered,
     ActivityReported,
     ChildSessionEnd,
+    ChildSessionLanguage,
     ChildSessionStart,
     ChildTalkConsent,
     ChildTalkTurn,
@@ -442,6 +443,7 @@ async def _apply(session: AsyncSession, started: StartedTurn, write: TurnWrite) 
             | ChildSessionStart()
             | ChildTalkTurn()
             | ChildSessionEnd()
+            | ChildSessionLanguage()
             | NudgePreference()
             | SaveRoadmap()
         ):
@@ -456,6 +458,7 @@ type _LearningWrite = (
     | ChildSessionStart
     | ChildTalkTurn
     | ChildSessionEnd
+    | ChildSessionLanguage
     | NudgePreference
     | SaveRoadmap
 )
@@ -477,6 +480,8 @@ async def _apply_learning(
             await ChildSessionRepository.count_turn(session, owner, write)
         case ChildSessionEnd():
             await ChildSessionRepository.end(session, owner, write)
+        case ChildSessionLanguage():
+            await ChildSessionRepository.set_language(session, owner, write)
         case NudgePreference():
             await NudgeRepository.set_preference(session, owner, write)
         case SaveRoadmap():

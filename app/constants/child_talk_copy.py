@@ -70,6 +70,15 @@ ASK_A_GROWNUP: Final[dict[Language, str]] = {
     _HINDI: "यह काम मम्मी-पापा करेंगे। तुम मुझसे कुछ और पूछो!",
     _ENGLISH: "Mummy and Papa will do that. Ask me something else!",
 }
+# A child asked for a language ("Hindi"): this session only, never the account (owner, 2026-10-29)
+CHILD_LANGUAGE_SWITCHED: Final[dict[Language, str]] = {
+    _HINGLISH: (
+        "Theek hai, ab Hindi mein baat karte hain! Mujhse kuch bhi poochho, jo tum jaanna"
+        " chahte ho."
+    ),
+    _HINDI: "ठीक है, अब हिंदी में बात करते हैं! मुझसे कुछ भी पूछो, जो तुम जानना चाहते हो।",
+    _ENGLISH: "Okay, let's talk in English! Ask me anything you want to know.",
+}
 CHILD_GOODBYE: Final[dict[Language, str]] = {
     _HINGLISH: (
         "Aaj bahut maza aaya! Ab jaao, ghar mein teen alag rang ki cheezein dhoondho."

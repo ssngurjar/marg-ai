@@ -674,10 +674,18 @@ class _Turn:
         """A child talking (C13): like the journey, with the child as the speaker."""
         self.speaker = Speaker.LEARNER
         self.voice_turn = True  # voice-first for children: every reply is spoken
-        # A child's few words ("bye", "Main Munni hoon") are poor evidence of a language: the
-        # family's onboarding language decides when there is one.
-        self.register = self.ctx.profile.language or self.register
         started = self.steps.clock.now()
+        carried = ChildTalkLayer.words_before_the_name(
+            self.ctx, self.user_text, interactive_ids, started
+        )
+        if carried:
+            # The child wrote, was asked "Who's writing?" and tapped their name: what they
+            # wrote is this turn's message, checked by safety_in again like any (owner,
+            # 2026-10-29).
+            self.user_text = carried
+        self.register = ChildTalkLayer.language_for(
+            self.ctx, self.user_text, self.ctx.profile.language or self.register
+        )
         generation = asyncio.create_task(self._child_generate(layer, interactive_ids))
         if self.user_text:
             try:

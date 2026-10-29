@@ -3,7 +3,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from app.domain.enums import CuriosityDomain
+from app.domain.enums import CuriosityDomain, Language
 from app.domain.models.base import DomainModel
 from app.domain.models.learner import LearnerId
 
@@ -17,3 +17,4 @@ class ChildSession(DomainModel):
     started_at: datetime
     turns_count: int
     topics: list[CuriosityDomain]
+    language: Language | None = None  # what the child asked for ("Hindi"); None: not asked

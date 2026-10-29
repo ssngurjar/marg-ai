@@ -102,6 +102,15 @@ class ChildSessionStart(DomainModel):
     learner_id: LearnerId
 
 
+class ChildSessionLanguage(DomainModel):
+    """s10b: the child asked for a language ("Hindi") for the rest of their session. The
+    parent's account language doesn't change (C16)."""
+
+    kind: Literal["child_session_language"] = "child_session_language"
+    session_id: UUID
+    language: Language
+
+
 class ChildTalkTurn(DomainModel):
     """s10b (C13): one answered child turn: counts toward the limit and records the topic (a
     curiosity domain, never the child's words) for the parent's summary."""
@@ -165,6 +174,7 @@ type TurnWrite = Annotated[
     | ChildSessionStart
     | ChildTalkTurn
     | ChildSessionEnd
+    | ChildSessionLanguage
     | NudgePreference
     | SaveRoadmap
     | DeleteInboundMedia,

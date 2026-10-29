@@ -5,12 +5,17 @@ child-worded helpline text and ends the session; after an abuse disclosure the p
 nothing; the parent is never shown the child's words.
 """
 
+from datetime import timedelta
+
 import pytest
 
 from app.constants.child_talk_copy import (
     CHILD_FALLBACK,
+    CHILD_HELLO,
+    CHILD_LANGUAGE_SWITCHED,
     CHILD_REFUSE_DANGER,
     CHILD_REFUSE_OTHER,
+    WHO_IS_WRITING,
 )
 from app.core.errors import ProviderResponseInvalid, ProviderUnavailable
 from app.domain.enums import (
@@ -22,8 +27,13 @@ from app.domain.enums import (
     Route,
     SafetyCategory,
 )
-from app.domain.models.turn import TurnContext
-from app.domain.models.writes import ChildSessionEnd, ChildTalkTurn
+from app.domain.models.turn import Exchange, TurnContext
+from app.domain.models.writes import (
+    ChildSessionEnd,
+    ChildSessionLanguage,
+    ChildSessionStart,
+    ChildTalkTurn,
+)
 from app.layers.onboarding_layer import OnboardingLayer
 from app.pipeline.null_turn_observer import NullTurnObserver
 from app.pipeline.orchestrator import Orchestrator, PipelineSteps
@@ -42,7 +52,13 @@ from tests.support.child_talk import (
     open_session,
 )
 from tests.support.prompts import shipped_registry
-from tests.support.turn_context import NOW, button_reply, text_message, turn_context
+from tests.support.turn_context import (
+    NOW,
+    button_reply,
+    text_message,
+    turn_context,
+    user_profile,
+)
 from tests.unit.pipeline.test_orchestrator import INVITE_LINK, SETTINGS, flagging, journey_for, run
 
 pytestmark = pytest.mark.unit
@@ -233,3 +249,64 @@ async def test_with_child_talk_switched_off_the_button_goes_to_the_journey() -> 
     assert outcome.route is Route.REPEAT_PLEASE
     assert outcome.writes == []
     assert llm.prompts == []
+
+
+# --- a shared family phone: "Who's writing?", then the child's own language (owner, 2026-10-29)
+
+CAME_WITH = "Hello me munni hoon aaj kya krein"
+
+
+def tapped_name_after_who_is_writing(ago: timedelta = timedelta(minutes=1)) -> TurnContext:
+    """The owner's test: an English-language family; the child wrote in Hinglish, was asked who
+    is writing, and tapped her name."""
+    asked = Exchange(
+        user_text=CAME_WITH,
+        reply_text=WHO_IS_WRITING[Language.HINGLISH].format(names="Munni"),
+        route=Route.JOURNEY,
+        at=NOW - ago,
+    )
+    return turn_context(
+        button_reply(f"kid:start:{MUNNI.id}"),
+        learners=[MUNNI],
+        profile=user_profile(language=Language.ENGLISH),
+    ).model_copy(update={"recent_exchanges": [asked]})
+
+
+async def test_a_child_who_taps_their_name_gets_their_message_answered_in_their_language() -> None:
+    llm = FakeLanguageModel([CHILD_REPLY])
+    result = await run(tapped_name_after_who_is_writing(), llm=llm)
+    outcome = result.outcome
+    assert outcome.route is Route.CHILD_TALK
+    assert CHILD_ANSWER in result.delivered  # CHILD_REPLY is Hinglish: it passed its checks
+    assert result.classifier.requests[0].text == CAME_WITH  # checked again, as this turn's
+    assert result.classifier.speakers() == ["user", "assistant"]
+    [prompt] = llm.prompts
+    assert CAME_WITH in prompt.user
+    assert "Hinglish" in prompt.system
+    start, counted = outcome.writes
+    assert isinstance(start, ChildSessionStart)
+    assert counted == ChildTalkTurn(session_id=start.session_id, topic=CHILD_REPLY_TOPIC)
+
+
+async def test_a_name_tapped_long_after_the_question_just_opens_the_session() -> None:
+    llm = FakeLanguageModel([CHILD_REPLY])
+    result = await run(tapped_name_after_who_is_writing(timedelta(minutes=11)), llm=llm)
+    assert CHILD_HELLO[Language.ENGLISH].format(name="Munni") in result.delivered
+    assert llm.prompts == []
+    assert result.classifier.speakers() == ["assistant"]  # no words of the child's to check
+
+
+@pytest.mark.parametrize(
+    ("asked", "language"),
+    [("Hindi", Language.HINGLISH), ("हिंदी", Language.HINDI)],  # Roman "Hindi" as for parents
+)
+async def test_a_child_asking_for_hindi_gets_it_and_the_account_is_unchanged(
+    asked: str, language: Language
+) -> None:
+    ctx = in_session(asked).model_copy(update={"profile": user_profile(language=Language.ENGLISH)})
+    result = await run(ctx, llm=FakeLanguageModel([CHILD_REPLY]))
+    assert CHILD_LANGUAGE_SWITCHED[language] in result.delivered
+    assert result.outcome.writes == [
+        ChildSessionLanguage(session_id=SESSION_ID, language=language)
+    ]  # no ProfileChange: the parent's language stays English
+    assert result.classifier.speakers() == ["user", "assistant"]
