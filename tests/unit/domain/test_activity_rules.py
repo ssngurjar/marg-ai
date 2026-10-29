@@ -328,11 +328,15 @@ def test_plain_scissors_are_still_a_hazard() -> None:
     other=st.text(alphabet="abcdefghijklmnopqrstuvwxyz अआकखगचजटतदनपमरलवसह😊", max_size=60),
 )
 @example(safe="gol nok wali kainchi", other="kainchi")
+@example(safe="round-tip scissors", other="gol nok ki kainchi")  # `other` is a safe phrase too
 def test_masking_safe_tools_never_adds_a_hazard(safe: str, other: str) -> None:
     text = f"{other} {safe} {other}"
     masked = ChildHazardMatcher.find(text, CHILD_HAZARD_WORDS, CHILD_SAFE_TOOL_PHRASES)
     assert masked <= ChildHazardMatcher.find(text, CHILD_HAZARD_WORDS)
-    assert masked == ChildHazardMatcher.find(f"{other} {other}", CHILD_HAZARD_WORDS)
+    around = ChildHazardMatcher.find(
+        f"{other} {other}", CHILD_HAZARD_WORDS, CHILD_SAFE_TOOL_PHRASES
+    )
+    assert masked == around
 
 
 @pytest.mark.parametrize(

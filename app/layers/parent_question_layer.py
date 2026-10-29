@@ -45,18 +45,15 @@ class ParentQuestionLayer:
         "Short sentences in spoken_text, about 12 words or fewer, one idea each: it is heard once,"
         " often on a phone speaker, by someone who may not read. Shorter sentences, not less"
         ' content: keep every name the text gives (say "National Scholarship Portal" in words).'
-        # The owner's listening tests of a voice reply (2026-10-29): bare commands sounded like
-        # scolding, the voice clips "-इए" endings (पूछिए heard as पूछे), a comma list was read
-        # slowly and robotically, and "छोटा-छोटा" didn't sound native. "आप … सकते हैं" was
-        # heard back word for word.
-        ' Say it the way a warm elder talks: suggest gently with "आप … सकते हैं" ("आप बच्चे'
-        ' से पूछ सकते हैं कि आज क्या पढ़ा"; to a child "तुम … कर सकते हो"; in English "you'
-        ' could…"), never as a command, and avoid "-इए" and "-एँ" verb endings. Use it only for'
-        " the one or two things to try; say everything else plainly"
-        ' ("बच्चा प्यार से जल्दी सीखता है"), so not'
-        ' every sentence ends the same way; things to name go inside a flowing phrase ("घर में'
-        ' या खेत में जो दिखे, उससे जोड़ सकते हैं"), never single words strung with commas; and no'
-        ' doubled words joined by a hyphen (say "थोड़ा थोड़ा करके", not "छोटा-छोटा करके").'
+        # The owner's listening tests of real voice replies (2026-10-29): polite requests sound
+        # warmest, bare commands like scolding; the voice says "पूछिए" and "बिठाइए" as "पूखिए"
+        # and "बिखाए" but "पूछ लीजिए" and "बैठाइए" well; a comma list was read slowly and
+        # robotically; "छोटा-छोटा" didn't sound native.
+        " Say it the way a warm elder talks: polite requests, never bare commands (in English"
+        ' "you could…"). Write "पूछ लीजिए", not "पूछिए", and "बैठाइए", not "बिठाइए": the voice'
+        ' mispronounces those two. Things to name go inside a flowing phrase ("घर में या खेत में'
+        ' जो दिखे, उससे जोड़िए"), never single words strung with commas; and no doubled words'
+        ' joined by a hyphen (say "थोड़ा थोड़ा करके", not "छोटा-छोटा करके").'
     )
     SPOKEN_RULES: ClassVar[dict[Language, str]] = {
         Language.HINDI: f"Write spoken_text in Hindi, in Devanagari script. {SHORT_SPOKEN}",
