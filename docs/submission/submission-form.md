@@ -41,7 +41,7 @@ Two rules shape every answer:
 >   sessions with strict child-safety rules.
 > - **Teachers** get today's chapter connected to three real fields, with a five-minute activity
 >   for 40 students and no materials to buy.
-> - **Students** get a mentor that states facts only from 50 official sources and cites them,
+> - **Students** get a mentor that states facts only from 53 official sources and cites them,
 >   and a step-by-step plan.
 >
 > Every turn adds to one record that grows with the child, from their first *why* to their first

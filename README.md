@@ -69,7 +69,7 @@ Consent comes first, and a user's data is deleted with one message ("mera data h
 - **Teachers.** "Kal class 8 mein Force and Pressure padhana hai" → three real fields the chapter
   leads to (at least one outside science, one reachable without a degree), each with a
   five-minute activity for 40 students and nothing to buy.
-- **Students, classes 6–12.** A mentor that answers only from **50 official documents**
+- **Students, classes 6–12.** A mentor that answers only from **53 official documents**
   (scholarships, sports trials, exams, public service, skilling) and cites them, says honestly
   when it doesn't know, and builds a step-by-step plan.
 - **One record that grows with the child.** Curiosity signals from age 3, aims and constraints
@@ -187,6 +187,13 @@ time shown in the parent's summary, so Marg stays a short daily spark, not scree
 a question, someone else writing). A child's messages in child talk still go through fixed rules
 for things like "Hindi" or "bye", which miss some ways children write. Planned: the same reading
 for children, once its extra second per reply is worth it.
+
+**Next: a wider library of sources.** The mentor answers only from 53 official documents (exams,
+scholarships, sports, skilling, public service, health courses), so a goal they don't cover,
+such as sports selection trials or a state's police recruitment, gets an honest "I don't have
+verified details" instead of a guess. Covering every exam, scheme and state rule takes an
+extensive search of official sources and their ingestion, each fact copied with its link and
+date; that is planned after the hackathon.
 
 ## Quality
 

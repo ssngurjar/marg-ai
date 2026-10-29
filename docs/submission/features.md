@@ -136,7 +136,7 @@ khoj. Off until the template is approved by Meta.
 ## 3. Students (classes 6–12): a mentor from official sources
 
 ### Asking anything about studies and careers
-1. Marg searches **50 official documents** (scholarships, sports trials, exams, public service,
+1. Marg searches **53 official documents** (scholarships, sports trials, exams, public service,
    skilling…) with keyword search in Postgres: Muse Spark first turns a Hindi or Hinglish
    question into English search terms and the exam or scheme names in it.
 2. Every fact (an exam, a scheme, an amount, a date) is a claim citing its source; the reply ends
