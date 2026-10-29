@@ -200,8 +200,8 @@ for children, once its extra second per reply is worth it.
 
 76% is honest, not perfect: the judge is strict, and single runs move by several points (two
 full runs on the same day gave 73% and 76%). The failing cases are listed in each scorecard;
-most are missing official sources (no UPSC or nursing source yet), where Marg says it doesn't
-know rather than guess.
+about a quarter of them lack an official source (no UPSC or nursing source yet), where Marg says
+it doesn't know rather than guess.
 
 **Found by using it.** Rough, hands-on tests on the live demo found what the test suite missed.
 Each one is fixed and kept as a regression test.
