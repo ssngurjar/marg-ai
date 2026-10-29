@@ -1,6 +1,6 @@
 +++
 id = "query_rewrite"
-version = "1.0.2"
+version = "1.0.3"
 model_setting = "MODEL_TEXT"
 max_output_tokens = 1200
 output_model = "RewrittenQuery"
@@ -18,6 +18,8 @@ Fill these fields:
   When the student wants to keep studying but something stands in the way (marriage talk,
   money, distance, failing or leaving school), include the names of routes that let a student
   continue: "NIOS", "open schooling", "scholarship" (and "girls" for a girl).
+  When the student names a career goal, also add one closely related course in the same field
+  (a doctor: "nursing"), never a different field.
   Empty if there are none.
 - topics: up to 3 of exams, scholarships, sports, entrepreneurship, public_service, skilling,
   exposure_fields that the question is about.

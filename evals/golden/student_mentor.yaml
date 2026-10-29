@@ -23,7 +23,7 @@
     route: mentor
     register: hindi
     must:
-      - names NEET-UG
+      - names NEET (NEET-UG), in any script, as the exam for becoming a doctor
       - cites a retrieved source for the exam
       - mentions at least one alternative health career (nursing, pharmacy or allied health)
     must_not:
