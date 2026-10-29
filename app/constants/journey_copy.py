@@ -55,6 +55,23 @@ ONE_MORE_KHOJ_BUTTON: Final[dict[Language, ReplyButton]] = {
 }
 # A parent says they have another child (intent reading): the existing add-child flow starts
 # from its button (owner, 2026-10-29).
+# A greeting or a thank-you with no khoj open (owner's demo, 2026-10-29: "Hi" made the parent
+# answer ask the child's age, which Marg already knows). {child}: the nickname, or a fallback.
+HELLO_NOTHING_OPEN: Final[dict[Language, str]] = {
+    _HINGLISH: "Namaste! {child} ke saath aaj ki khoj karni hai, ya kuch poochhna hai?",
+    _HINDI: "नमस्ते! {child} के साथ आज की खोज करनी है, या कुछ पूछना है?",
+    _ENGLISH: "Hello! Would you like today's khoj with {child}, or do you have a question?",
+}
+CHILD_IN_HELLO: Final[dict[Language, str]] = {
+    _HINGLISH: "bachche",
+    _HINDI: "बच्चे",
+    _ENGLISH: "your child",
+}
+TODAY_KHOJ_BUTTON: Final[dict[Language, ReplyButton]] = {
+    _HINGLISH: ReplyButton(id=KHOJ_TODAY, title="Aaj ki khoj"),
+    _HINDI: ReplyButton(id=KHOJ_TODAY, title="आज की खोज"),
+    _ENGLISH: ReplyButton(id=KHOJ_TODAY, title="Today's khoj"),
+}
 ADD_CHILD_PROMPT: Final[dict[Language, str]] = {
     _HINGLISH: "Zaroor! Neeche 'Doosra bachcha' dabaiye, phir unki umar bataiye.",
     _HINDI: "ज़रूर! नीचे 'दूसरा बच्चा' दबाइए, फिर उनकी उम्र बताइए।",

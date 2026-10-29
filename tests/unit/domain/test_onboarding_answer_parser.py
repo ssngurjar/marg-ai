@@ -173,3 +173,33 @@ def test_a_greeting_that_names_a_language_requests_it(text: str, language: Langu
 )
 def test_anything_more_than_a_greeting_and_one_language_is_not_a_request(text: str) -> None:
     assert OnboardingAnswerParser.language_requested(text) is None
+
+
+@pytest.mark.parametrize(
+    ("text", "language"),
+    [
+        ("Hindi pleasee", Language.HINGLISH),  # owner's demo, 2026-10-29: stayed in English
+        ("Hindii", Language.HINGLISH),
+        ("hindi mein baat karo", Language.HINGLISH),
+        ("Talk to me in English", Language.ENGLISH),
+        ("मुझसे हिंदी में बात कीजिए", Language.HINDI),
+        ("अंग्रेज़ी में", Language.ENGLISH),
+        ("English plzzz", Language.ENGLISH),
+    ],
+)
+def test_asking_for_a_language_in_ones_own_words_is_understood(
+    text: str, language: Language
+) -> None:
+    assert OnboardingAnswerParser.language_named(text) is language
+
+
+@pytest.mark.parametrize(
+    "text", ["I teach Hindi", "Mujhe English seekhni hai", "Hindi ya English?"]
+)
+def test_a_sentence_about_a_language_is_not_a_switch(text: str) -> None:
+    assert OnboardingAnswerParser.language_named(text) is None
+
+
+@pytest.mark.parametrize("text", ["Hellooo", "Hiii", "Helo ji", "namasteee"])
+def test_stretched_greetings_are_greetings(text: str) -> None:
+    assert OnboardingAnswerParser.is_greeting(text)

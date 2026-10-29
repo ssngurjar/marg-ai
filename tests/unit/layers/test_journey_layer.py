@@ -8,6 +8,7 @@ import pytest
 from app.constants.journey_copy import (
     ADD_CHILD_PROMPT,
     AGE_COMING_SOON,
+    HELLO_NOTHING_OPEN,
     KHOJ_DONE,
     KHOJ_OTHER,
     KHOJ_STILL_OPEN,
@@ -669,3 +670,20 @@ async def test_a_reading_outside_the_set_falls_back_to_the_rules() -> None:
     )
     result = await khoj(text="kuch bhi", button=None, layer=layer)
     assert result.degraded_reason == "intent_read_failed=ProviderResponseInvalid"
+
+
+@pytest.mark.parametrize("text", ["Hi", "Hellooo", "thanks"])
+async def test_a_greeting_with_nothing_open_offers_todays_khoj_by_name(text: str) -> None:
+    # owner's demo (2026-10-29): "Hi" made the parent answer ask the child's age
+    layer, llm = layer_with()
+    result = await khoj(text=text, button=None, layer=layer)
+    assert result.reply.body == HELLO_NOTHING_OPEN[H].format(child=MUNNI.nickname)
+    assert [button.id for button in result.reply.buttons] == ["jrn:today"]
+    assert llm.by_prompt["parent_answer"].prompts == []
+
+
+async def test_small_talk_read_by_the_model_gets_the_same_hello() -> None:
+    layer, llm = layer_with(intent={"intent": "small_talk"})
+    result = await khoj(text="bas aise hi yaad aaya", button=None, layer=layer)
+    assert result.reply.body == HELLO_NOTHING_OPEN[H].format(child=MUNNI.nickname)
+    assert llm.by_prompt["parent_answer"].prompts == []

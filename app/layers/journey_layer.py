@@ -32,6 +32,8 @@ from app.constants.journey_copy import (
     ADD_CHILD_PROMPT,
     AGE_COMING_SOON,
     ASK_LABEL,
+    CHILD_IN_HELLO,
+    HELLO_NOTHING_OPEN,
     KHOJ_BUTTONS,
     KHOJ_DONE,
     KHOJ_OTHER,
@@ -50,6 +52,7 @@ from app.constants.journey_copy import (
     ONE_MORE_KHOJ_BUTTON,
     REFLECTION_FALLBACK,
     SUPERVISION_LINE,
+    TODAY_KHOJ_BUTTON,
     UNNAMED_CHILD,
     WHICH_CHILD,
 )
@@ -246,9 +249,8 @@ class JourneyLayer:
                 return await self._reflect(ctx, open_activity, user_text, register, None)
             case ParentIntent.CHILD_QUESTION:
                 return await self._question(ctx, user_text, now, register, child_question=True)
-            case ParentIntent.SMALL_TALK if open_activity is not None:
-                waiting = KHOJ_STILL_OPEN[register].format(title=open_activity.activity.title)
-                return _fixed(waiting, register, KHOJ_BUTTONS[register])
+            case ParentIntent.SMALL_TALK:
+                return self._small_talk_reply(ctx, register)
             case ParentIntent.NEW_KHOJ:
                 return await self._today(ctx, ctx.active_learner, now, register, skipped=None)
             case ParentIntent.ANOTHER_KHOJ:
@@ -264,7 +266,7 @@ class JourneyLayer:
             case ParentIntent.DAILY_OFF:
                 return self._daily_off(register, khoj_open=khoj_open)
             case _:
-                # QUESTION, a REPORT or SMALL_TALK with nothing open: the parent's answer
+                # QUESTION, or a REPORT with nothing open: the parent's answer
                 return await self._question(ctx, user_text, now, register, child_question=False)
 
     def _again(
@@ -283,6 +285,18 @@ class JourneyLayer:
             degraded_reason=None,
             hazard_rule=frozenset(activity.hazards),
         )
+
+    def _small_talk_reply(self, ctx: TurnContext, register: Language) -> LayerResult:
+        """A greeting or thanks: the open khoj is still waiting, or today's khoj is offered.
+        Fixed copy, no model: nothing to guess (owner's demo, 2026-10-29)."""
+        open_activity = self._offered(ctx)
+        if open_activity is not None:
+            waiting = KHOJ_STILL_OPEN[register].format(title=open_activity.activity.title)
+            return _fixed(waiting, register, KHOJ_BUTTONS[register])
+        learner = ctx.active_learner
+        child = learner.nickname if learner and learner.nickname else CHILD_IN_HELLO[register]
+        hello = HELLO_NOTHING_OPEN[register].format(child=child)
+        return _fixed(hello, register, (TODAY_KHOJ_BUTTON[register],))
 
     @staticmethod
     def _add_child(ctx: TurnContext, register: Language) -> LayerResult:
@@ -320,10 +334,8 @@ class JourneyLayer:
         """D, or the curiosity moment when the parent passes on the child's own question.
         `child_question`: what intent reading said; None, the word rule decides. Raises
         ProviderError."""
-        open_activity = self._offered(ctx)
-        if open_activity is not None and JourneyLayer.small_talk(user_text):
-            waiting = KHOJ_STILL_OPEN[register].format(title=open_activity.activity.title)
-            return _fixed(waiting, register, KHOJ_BUTTONS[register])
+        if JourneyLayer.small_talk(user_text):
+            return self._small_talk_reply(ctx, register)
         nicknames = [learner.nickname for learner in ctx.learners]
         not_the_childs: NotAChildQuestion | None = None
         relayed = (

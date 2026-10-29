@@ -242,11 +242,12 @@ async def test_a_hindi_question_is_answered_in_hindi() -> None:
     assert ParentQuestionLayer.LANGUAGE_RULES[Language.HINDI] in prompt.system
 
 
-async def test_an_emoji_only_message_falls_back_to_hinglish() -> None:
+async def test_an_emoji_only_message_is_a_greeting_answered_in_hinglish() -> None:
+    # "🙏😊" says nothing to answer: the fixed hello, in the families' default register
     result = await run(asking("🙏😊"))
     assert result.outcome.reply_register is Language.HINGLISH
-    prompt = result.llm.prompts[0]
-    assert ParentQuestionLayer.LANGUAGE_RULES[Language.HINGLISH] in prompt.system
+    assert result.llm.prompts == []
+    assert "aaj ki khoj" in result.delivered.casefold()
 
 
 async def test_a_prompt_injection_is_still_answered_as_a_parenting_question() -> None:

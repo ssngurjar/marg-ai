@@ -158,6 +158,11 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
   it passes. S1, S2 and S4 already count only when the Muse Spark policy check confirms (spike
   B); adding S10 to that set would fix it. Golden case parent-journey-025 fails until then.
 
+- [ ] **Languages and greetings in a parent's own words (2026-10-29):** the longer
+  `LANGUAGE_FILLER` list (`onboarding_answer_parser.py`), stretched words read as their normal
+  form ("pleasee", "Hellooo"), and the copy `HELLO_NOTHING_OPEN`, `TODAY_KHOJ_BUTTON`
+  (`journey_copy.py`). Decide: should Roman "Hindi" mean Devanagari Hindi? (Now Hinglish, s08.)
+
 ## 2e. Curiosity moment, C11 (from 2026-10-27)
 
 - [ ] **Prompt** `app/prompts/curiosity_moment.md.j2` (v1.0.0). Live check 2026-10-27 (synthetic

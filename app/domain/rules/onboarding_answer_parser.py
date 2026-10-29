@@ -10,6 +10,7 @@ Out-of-range values are reported, not repaired: "class 13" is OUT_OF_RANGE (the 
 
 import re
 import unicodedata
+from collections.abc import Collection
 from dataclasses import dataclass
 from enum import Enum, auto
 from typing import ClassVar, Final
@@ -100,8 +101,18 @@ class OnboardingAnswerParser:
         "हिन्दी": Language.HINDI,
     }
     LANGUAGE_FILLER: ClassVar[frozenset[str]] = frozenset(
-        {"in", "mein", "me", "mai", "please", "pls", "में", "मे", "language", "bhasha", "भाषा"}
-    )
+        {
+            # the words around a language name in "Hindi mein baat karo", "talk to me in
+            # English", "मुझसे हिंदी में बात कीजिए" (owner's demo, 2026-10-29: "Hindi pleasee")
+            "in", "mein", "me", "mai", "main", "please", "pls", "plz", "kripya", "language",
+            "bhasha", "baat", "karo", "kariye", "kijiye", "karein", "karna", "bolo", "boliye",
+            "talk", "speak", "to", "reply", "jawab", "do", "dijiye", "chahiye", "mujhse", "humse",
+            "hamse", "se", "ab", "now", "only", "sirf", "switch", "change", "i", "want", "prefer",
+            "chahta", "chahti", "chahte", "hoon", "hu", "hun", "hai", "hain", "ji",
+            "में", "मे", "भाषा", "बात", "करो", "कीजिए", "करिए", "बोलो", "बोलिए", "मुझसे", "हमसे",
+            "से", "अब", "जवाब", "दीजिए", "दो", "चाहिए", "जी", "प्लीज़",
+        }
+    )  # fmt: skip
     DELETION_PHRASES: ClassVar[frozenset[str]] = frozenset(
         {
             "delete my data", "delete my account", "mera data hatao", "mera data delete karo",
@@ -150,11 +161,11 @@ class OnboardingAnswerParser:
 
     @staticmethod
     def is_greeting(text: str) -> bool:
-        """Only greeting words ("Hello ji!", "नमस्ते 🙏"), or nothing readable at all."""
+        """Only greeting words ("Hello ji!", "नमस्ते 🙏", "Hellooo"), or nothing readable."""
         words = PhraseFinder.words(text)
         if len(words) > OnboardingAnswerParser.SHORT_ANSWER_WORDS:
             return False
-        return all(word in _GREETING_WORDS for word in words)
+        return all(_known(word, _GREETING_WORDS) in _GREETING_WORDS for word in words)
 
     @staticmethod
     def yes_or_no(text: str) -> bool | None:
@@ -181,31 +192,15 @@ class OnboardingAnswerParser:
 
     @staticmethod
     def language_named(text: str) -> Language | None:
-        """A message that is only a language name ("english", "हिंदी mein"), else None."""
-        raw_words = [word for word in re.split(r"\s+", text.strip().casefold()) if word]
-        names = OnboardingAnswerParser.LANGUAGE_NAMES
-        named = [names[word] for word in raw_words if word in names]
-        others = [
-            word
-            for word in raw_words
-            if word not in names and word not in OnboardingAnswerParser.LANGUAGE_FILLER
-        ]
-        if len(named) == 1 and not others:
-            return named[0]
-        return None
+        """A message that only asks for a language ("english", "हिंदी mein", "Hindi pleasee",
+        "talk to me in English"), else None."""
+        return _language_only(text, _LANGUAGE_FILLER)
 
     @staticmethod
     def language_requested(text: str) -> Language | None:
         """A first message that only greets and names a language ("Hi Marg, English please",
         "नमस्ते, हिंदी में"), else None: the reply's language, with no question to keep."""
-        words = PhraseFinder.words(text.casefold())
-        names = OnboardingAnswerParser.LANGUAGE_NAMES
-        named = [names[word] for word in words if word in names]
-        allowed = OnboardingAnswerParser.LANGUAGE_FILLER | _GREETING_WORDS
-        others = [word for word in words if word not in names and word not in allowed]
-        if len(named) == 1 and not others:
-            return named[0]
-        return None
+        return _language_only(text, _LANGUAGE_FILLER | _GREETING_WORDS)
 
     @staticmethod
     def asks_for_deletion(text: str) -> bool:
@@ -316,3 +311,31 @@ _GREETING_WORDS: Final = frozenset(
     for greeting in (*OnboardingAnswerParser.GREETINGS, "ji", "sir", "madam", "marg", "जी")
     for word in PhraseFinder.words(greeting)
 )
+_LANGUAGE_NAMES: Final = {
+    PhraseFinder.normalise(name): language
+    for name, language in OnboardingAnswerParser.LANGUAGE_NAMES.items()
+}
+_LANGUAGE_FILLER: Final = _normalised_set(OnboardingAnswerParser.LANGUAGE_FILLER)
+_REPEATED_LETTER: Final = re.compile(r"(.)\1+")
+
+
+def _known(word: str, vocabulary: Collection[str]) -> str:
+    """`word` as the vocabulary spells it when only stretched ("pleasee", "Hindii",
+    "hellooo"): repeated letters squeezed to one, then to two; else `word` unchanged."""
+    if word in vocabulary:
+        return word
+    for squeezed in (_REPEATED_LETTER.sub(r"\1", word), _REPEATED_LETTER.sub(r"\1\1", word)):
+        if squeezed in vocabulary:
+            return squeezed
+    return word
+
+
+def _language_only(text: str, allowed: Collection[str]) -> Language | None:
+    """The one language `text` names when every other word is in `allowed`, else None."""
+    vocabulary = set(_LANGUAGE_NAMES) | set(allowed)
+    words = [_known(word, vocabulary) for word in PhraseFinder.words(text)]
+    named = [_LANGUAGE_NAMES[word] for word in words if word in _LANGUAGE_NAMES]
+    others = [word for word in words if word not in _LANGUAGE_NAMES and word not in allowed]
+    if len(named) == 1 and not others:
+        return named[0]
+    return None
