@@ -3,7 +3,8 @@
 // the /demo/events stream (SSE); while it's down, the page polls instead.
 "use strict";
 
-const POLL_MS = 2000; // only while the live stream is down
+const STREAM_GRACE_MS = 3000;
+const POLL_MS = 2000; // while the stream is down, or quiet past STREAM_GRACE_MS
 const MAX_WAIT_MS = 120000; // two minutes
 const MAX_RECORDING_MS = 60000;
 const PHOTO_MAX_SIDE = 1024; // the page sends a JPEG of at most 1024 px (DEMO_MAX_IMAGE_BYTES)
@@ -156,7 +157,12 @@ function handleTurn(turn) {
 
 function follow(messageId, mine) {
   return new Promise((resolve) => {
-    waiters.set(messageId, { mine, resolve, deadline: Date.now() + MAX_WAIT_MS });
+    waiters.set(messageId, {
+      mine,
+      resolve,
+      started: Date.now(),
+      deadline: Date.now() + MAX_WAIT_MS,
+    });
     pollWhileStreamIsDown(messageId);
   });
 }
@@ -172,7 +178,9 @@ async function pollWhileStreamIsDown(messageId) {
       waiter.resolve();
       return;
     }
-    if (streamOpen) continue;
+    // An open stream normally brings the reply; some proxies (a Cloudflare quick tunnel) hold
+    // its events back, so after a short grace the page asks for itself too.
+    if (streamOpen && Date.now() - waiter.started < STREAM_GRACE_MS) continue;
     const response = await fetch(`/demo/messages/${encodeURIComponent(messageId)}`, {
       credentials: "same-origin",
     });
