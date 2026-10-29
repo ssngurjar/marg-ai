@@ -33,6 +33,16 @@ GOLU = consented_child(2, "Golu", age=7)
         ("Golu bol raha hoon", []),
         ("मैं Munni हूँ", []),
         ("I'm Golu", []),
+        # how children actually text (owner's tests, 2026-10-29)
+        ("Mein munni hi bol rhi hoon", []),
+        ("Hello me munni hoon aaj kya krein", []),
+        ("mai Munni hi hoon", []),
+        ("Munni hoon", []),
+        ("munni toh bol rhi hu", []),
+        ("main Munni hooooon", []),
+        ("मैं Munni ही हूँ", []),
+        ("Munni बोल रही हूं", []),
+        ("this is Golu", []),
     ],
 )
 def test_a_child_starts_with_the_button_or_by_saying_their_name(
@@ -43,7 +53,20 @@ def test_a_child_starts_with_the_button_or_by_saying_their_name(
 
 @pytest.mark.parametrize(
     "text",
-    ["Munni ne kaha chaand kyun", "main hoon", "Main Chotu hoon", "Munnibai bol rahi hoon", ""],
+    [
+        "Munni ne kaha chaand kyun",
+        "main hoon",
+        "Main Chotu hoon",
+        "Munnibai bol rahi hoon",
+        "",
+        # a parent speaking about the child, not the child speaking
+        "Munni bol rahi hai ki chaand bada hai",
+        "ghar mein Munni bol rahi thi",
+        "main Munni ki mummy hoon",
+        "main Munni ke liye pooch rahi hoon",
+        "Munni bol rahi",
+        "Munni hi hai",
+    ],
 )
 def test_other_messages_dont_start_a_session(text: str) -> None:
     assert not ChildSessionRules.asks_to_start(text, [], [MUNNI, GOLU])
@@ -160,3 +183,15 @@ def test_questions_for_personal_details_are_caught(reply: str) -> None:
 )
 def test_ordinary_questions_and_mentions_are_not(reply: str) -> None:
     assert not ChildReplyMatcher.asks_personal_details(reply, QUESTION_WORDS, CHILD_PERSONAL_TOPICS)
+
+
+# Words a parent uses about a child, in Roman, Devanagari and emoji: none of them first person.
+ABOUT_THE_CHILD = [
+    "Munni", "Golu", "bol", "rahi", "rhi", "raha", "hai", "thi", "hi", "toh", "main", "mein",
+    "me", "ki", "ne", "kaha", "mummy", "ghar", "बोल", "रही", "है", "ही", "मैं", "🙂", "?",
+]  # fmt: skip
+
+
+@given(words=st.lists(st.sampled_from(ABOUT_THE_CHILD), max_size=10))
+def test_without_a_first_person_word_no_session_starts(words: list[str]) -> None:
+    assert not ChildSessionRules.asks_to_start(" ".join(words), [], [MUNNI, GOLU])
