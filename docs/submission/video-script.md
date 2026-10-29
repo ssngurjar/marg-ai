@@ -80,21 +80,26 @@ hear the real voice notes, and see Marg's real replies arrive with the real wait
 
 ---
 
-## 2:06 – 2:33 · How it works (voice-over, ~65 words)
+## 2:06 – 2:33 · How it works (voice-over, ~62 words, one line per part of the diagram)
 
 *Visuals: the architecture diagram ([system-diagram.html](system-diagram.html): open it full screen,
 press → as each part is named; C hides the captions, H the buttons), the `/demo` page with
 its live trace filling in step by step, the eval scorecard, the GitHub repository.*
 
-> From the outside, it's just a WhatsApp contact. Under the hood, it's a compound AI system:
-> six Meta models, each with one job, and safety around every message.
->
-> Muse Voice Transcribe hears the parent. Muse Spark plans the khoj and replies in the family's
-> language. Muse Spark Open, an open-weights model, reflects on what the child did.
-> SAM 3.1 counts what the child collected. Muse Image draws the card.
->
-> Every message, in and out, passes Llama Guard 4, a second Muse Spark check and our own
-> child-safety rules. If safety is down, nothing unchecked is sent.
+> From the outside, it's just a WhatsApp contact.
+> Inside, a compound AI system: six Meta models, each with one job.
+> Voice Transcribe hears the parent.
+> Muse Spark plans and replies in the family's language.
+> Muse Spark Open, an open-weights model, reflects on the child.
+> SAM counts what they collected.
+> Muse Image draws the card.
+> Llama Guard 4 checks every message, both ways. If safety is down, nothing goes out.
+
+*Recording it (first take, 2026-10-29, ran 52 s against 27):* no opening line ("let's move on
+to…"): the diagram changes the topic. Read the lines as written, without "then" or "after
+that". Say "SAM" (the diagram shows 3.1) and "Llama Guard four". Record each line as its own
+take if that's easier; the editor joins them on the diagram's steps. A stumble: pause, say the
+whole line again; the editor cuts the bad one. Aim for about 2.3 words a second.
 
 *Caption over the scorecard (shown, not said): "Every change scored on 78 test cases by the
 real pipeline. Every crisis case must pass."*

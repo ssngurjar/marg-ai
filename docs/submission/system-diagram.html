@@ -243,16 +243,17 @@
 
 <script>
   // The voice-over lines of video-script.md (2:06–2:33), one per part.
+  // Part 9 has no voice-over: it holds the list of models on screen as the section ends.
   const CAPTIONS = [
     "From the outside, it's just a WhatsApp contact.",
-    "Under the hood, it's a compound AI system: six Meta models, each with one job, and safety around every message.",
-    "Muse Voice Transcribe hears the parent.",
-    "Muse Spark plans the khoj and replies in the family's language.",
-    "Muse Spark Open, an open-weights model, reflects on what the child did.",
-    "SAM 3.1 counts what the child collected.",
+    "Inside, a compound AI system: six Meta models, each with one job.",
+    "Voice Transcribe hears the parent.",
+    "Muse Spark plans and replies in the family's language.",
+    "Muse Spark Open, an open-weights model, reflects on the child.",
+    "SAM counts what they collected.",
     "Muse Image draws the card.",
-    "Every message, in and out, passes Llama Guard 4, a second Muse Spark check and our own child-safety rules. If safety is down, nothing unchecked is sent.",
-    "Six Meta models, each with one job.",
+    "Llama Guard 4 checks every message, both ways. If safety is down, nothing goes out.",
+    "",
   ];
   const parts = Array.from(document.querySelectorAll(".step"));
   const last = CAPTIONS.length;
@@ -269,7 +270,7 @@
     document.getElementById("count").textContent = current + " / " + last;
     const caption = document.getElementById("caption");
     caption.textContent = CAPTIONS[current - 1];
-    caption.classList.toggle("hidden", !captionsOn);
+    caption.classList.toggle("hidden", !captionsOn || !caption.textContent);
   }
 
   document.getElementById("next").addEventListener("click", () => show(current + 1));
