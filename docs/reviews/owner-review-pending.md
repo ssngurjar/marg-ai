@@ -161,7 +161,7 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
 - [ ] **Languages and greetings in a parent's own words (2026-10-29):** the longer
   `LANGUAGE_FILLER` list (`onboarding_answer_parser.py`), stretched words read as their normal
   form ("pleasee", "Hellooo"), and the copy `HELLO_NOTHING_OPEN`, `TODAY_KHOJ_BUTTON`
-  (`journey_copy.py`). Decide: should Roman "Hindi" mean Devanagari Hindi? (Now Hinglish, s08.)
+  (`journey_copy.py`). Roman "Hindi" stays Hinglish: decided by the owner, 2026-10-29 (s08 log).
 
 - [ ] **"Who's writing?" (2026-10-29):** the copy `WHO_IS_WRITING`, `WHO_IS_WRITING_NO_CHILD`
   (`child_talk_copy.py`); later: a student profile on a parent's phone for children 9+.

@@ -95,7 +95,8 @@ class OnboardingAnswerParser:
         "angrezi": Language.ENGLISH,
         "इंग्लिश": Language.ENGLISH,
         "अंग्रेज़ी": Language.ENGLISH,
-        "hindi": Language.HINGLISH,  # "Hindi" typed in Roman script → Hinglish (s08 §4.4)
+        # The script follows what was typed (owner, 2026-10-29): Roman "Hindi" → Hinglish
+        "hindi": Language.HINGLISH,
         "hinglish": Language.HINGLISH,
         "हिंदी": Language.HINDI,
         "हिन्दी": Language.HINDI,
