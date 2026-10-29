@@ -6,6 +6,7 @@ from datetime import time, timedelta
 import pytest
 
 from app.constants.journey_copy import (
+    ADD_CHILD_PROMPT,
     AGE_COMING_SOON,
     KHOJ_DONE,
     KHOJ_OTHER,
@@ -66,13 +67,17 @@ def layer_with(
     reflect: ScriptedOutput = REFLECTION,
     answer: ScriptedOutput = HINGLISH_ANSWER,
     curiosity: ScriptedOutput = CURIOSITY_MOMENT,
+    *,
+    intent: ScriptedOutput | None = None,
 ) -> tuple[JourneyLayer, PromptRoutedLanguageModel]:
+    """`intent`: turns intent reading on, with this as Muse Spark's reading."""
     llm = PromptRoutedLanguageModel(
         {
             "activity_personalise": FakeLanguageModel([personalise or personalisation_for(FIRST)]),
             "parent_reflection": FakeLanguageModel([reflect]),
             "parent_answer": FakeLanguageModel([answer]),
             "curiosity_moment": FakeLanguageModel([curiosity]),
+            "parent_intent": FakeLanguageModel([intent or {"intent": "question"}]),
         }
     )
     registry = shipped_registry()
@@ -81,7 +86,7 @@ def layer_with(
         registry,
         CatalogueActivitySource(shipped_catalogue()),
         ParentQuestionLayer(llm, registry),
-        JourneySettings(repeat_window=timedelta(days=30)),
+        JourneySettings(repeat_window=timedelta(days=30), read_intent=intent is not None),
     )
     return layer, llm
 
@@ -557,3 +562,110 @@ async def test_a_real_report_after_ok_is_still_a_report(text: str) -> None:
     result = await khoj(text=text, button=None, open_activity=offer(FIRST, MUNNI), layer=layer)
     assert result.reply.body.startswith(REFLECTION_PRAISE)
     assert len(llm.by_prompt["parent_reflection"].prompts) == 1
+
+
+# --- intent reading (owner, 2026-10-29) ----------------------------------------------------------
+
+
+def reading(intent: str) -> dict[str, object]:
+    return {"intent": intent}
+
+
+async def test_a_report_read_as_a_report_gets_the_reflection() -> None:
+    layer, llm = layer_with(intent=reading("report"))
+    result = await khoj(
+        text="usne patte gine", button=None, open_activity=offer(FIRST, MUNNI), layer=layer
+    )
+    assert result.reply.body.startswith(REFLECTION_PRAISE)
+    assert result.prompt_versions["parent_intent"] == "1.0.0"
+    [prompt] = llm.by_prompt["parent_intent"].prompts
+    assert "usne patte gine" in prompt.user
+
+
+async def test_a_question_with_a_khoj_open_is_answered_not_taken_as_the_report() -> None:
+    # the word rules took any text as the report while a khoj was open
+    layer, llm = layer_with(intent=reading("question"))
+    result = await khoj(
+        text="bachcha khana nahi khata, kya karein",
+        button=None,
+        open_activity=offer(FIRST, MUNNI),
+        layer=layer,
+    )
+    assert llm.by_prompt["parent_reflection"].prompts == []
+    assert len(llm.by_prompt["parent_answer"].prompts) == 1
+    assert not any(isinstance(write, ActivityReported) for write in result.writes)
+
+
+async def test_the_same_khoj_again_resends_the_open_one_and_offers_nothing_new() -> None:
+    layer, llm = layer_with(intent=reading("same_khoj_again"))
+    result = await khoj(
+        text="kal wali khoj phir se bhejo",
+        button=None,
+        open_activity=offer(FIRST, MUNNI),
+        layer=layer,
+    )
+    assert FIRST.steps[0] in result.reply.body
+    assert [button.id for button in result.reply.buttons][:2] == ["jrn:done", "jrn:other"]
+    assert result.writes == []
+    assert llm.by_prompt["activity_personalise"].prompts == []
+
+
+async def test_the_same_khoj_with_nothing_open_offers_todays() -> None:
+    layer, _ = layer_with(intent=reading("same_khoj_again"))
+    result = await khoj(text="wahi wali khoj", button=None, layer=layer)
+    assert offered(result).learner_id == MUNNI.id
+
+
+async def test_add_a_child_points_to_the_button_that_starts_it() -> None:
+    layer, _ = layer_with(intent=reading("add_child"))
+    result = await khoj(text="meri ek aur beti hai", button=None, layer=layer)
+    assert result.reply.body == ADD_CHILD_PROMPT[H]
+    assert [button.id for button in result.reply.buttons] == ["onb:add-child"]
+
+
+@pytest.mark.parametrize(
+    ("intent", "body", "buttons"),
+    [
+        ("daily_time", NUDGE_ASK[H], ["nudge:08", "nudge:18", "nudge:off"]),
+        ("daily_off", NUDGE_OFF_REPLY[H], []),
+    ],
+)
+async def test_daily_message_wishes_read_from_free_words(
+    intent: str, body: str, buttons: list[str]
+) -> None:
+    layer, _ = layer_with(intent=reading(intent))
+    result = await khoj(text="subah ki jagah shaam ko bhejna", button=None, layer=layer)
+    assert result.reply.body == body
+    assert [button.id for button in result.reply.buttons] == buttons
+
+
+async def test_a_child_question_goes_to_the_curiosity_moment_without_the_word_rule() -> None:
+    layer, llm = layer_with(intent=reading("child_question"))
+    await khoj(text="baarish kahan se aati hai, yeh jaanna hai", button=None, layer=layer)
+    assert len(llm.by_prompt["curiosity_moment"].prompts) == 1
+
+
+async def test_buttons_and_a_bare_greeting_never_call_the_intent_model() -> None:
+    layer, llm = layer_with(intent=reading("question"))
+    await khoj(button=KHOJ_DONE, open_activity=offer(FIRST, MUNNI), layer=layer)
+    await khoj(text="Hi", button=None, open_activity=offer(FIRST, MUNNI), layer=layer)
+    assert llm.by_prompt["parent_intent"].prompts == []
+
+
+async def test_if_the_reading_fails_the_rules_decide_and_the_turn_says_so() -> None:
+    layer, _ = layer_with(intent=ProviderUnavailable("503", provider="meta_model_api"))
+    result = await khoj(
+        text="Munni ne 7 patte gine", button=None, open_activity=offer(FIRST, MUNNI), layer=layer
+    )
+    assert result.reply.body.startswith(REFLECTION_PRAISE)  # the rules: text with a khoj open
+    assert result.outcome is StepOutcome.DEGRADED
+    assert result.degraded_reason == "intent_read_failed=ProviderUnavailable"
+
+
+async def test_a_reading_outside_the_set_falls_back_to_the_rules() -> None:
+    # the adapter refuses {"intent": "go_to_the_moon"} after its repair retry
+    layer, _ = layer_with(
+        intent=ProviderResponseInvalid("not an intent", provider="meta_model_api")
+    )
+    result = await khoj(text="kuch bhi", button=None, layer=layer)
+    assert result.degraded_reason == "intent_read_failed=ProviderResponseInvalid"

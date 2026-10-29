@@ -44,6 +44,7 @@ from app.layers.child_talk_layer import CHILD_REDIRECT, CHILD_TALK, ChildTalkLay
 from app.layers.curiosity_moment_layer import CURIOSITY_MOMENT
 from app.layers.curriculum_catalogue import ChapterCatalogue
 from app.layers.exposure_layer import EXPOSURE, ExposureLayer
+from app.layers.intent_reader import PARENT_INTENT
 from app.layers.journey_layer import (
     ACTIVITY_PERSONALISE,
     PARENT_REFLECTION,
@@ -159,6 +160,7 @@ PROMPT_SPECS: Final = (
     CURIOSITY_MOMENT,
     CHILD_TALK,
     CHILD_REDIRECT,
+    PARENT_INTENT,
     CURIOSITY_EXTRACT,
     KHOJ_CARD_TEXT,
     QUERY_REWRITE,
@@ -610,6 +612,7 @@ def build_orchestrator(
                 JourneySettings(
                     repeat_window=timedelta(days=settings.activity_repeat_days),
                     child_talk_enabled=settings.child_talk_enabled,
+                    read_intent=settings.intent_reading_enabled,
                 ),
             ),
             onboarding=OnboardingLayer(

@@ -318,6 +318,22 @@ class AgeBand(StrEnum):
     ADULT = "adult"
 
 
+class ParentIntent(StrEnum):
+    """What a parent's free text means while the journey waits (owner, 2026-10-29): read by
+    Muse Spark into this fixed set, and code acts on it (s10b, intent reading)."""
+
+    REPORT = "report"  # how the open khoj went
+    QUESTION = "question"  # the parent's own question for Marg
+    CHILD_QUESTION = "child_question"  # passes on the child's question about the world
+    SMALL_TALK = "small_talk"  # a greeting, thanks, ok
+    NEW_KHOJ = "new_khoj"  # wants today's khoj
+    ANOTHER_KHOJ = "another_khoj"  # wants a different khoj than the open one
+    SAME_KHOJ_AGAIN = "same_khoj_again"  # wants the open (or last) khoj sent again
+    ADD_CHILD = "add_child"  # has another child to add
+    DAILY_TIME = "daily_time"  # wants to change when the daily khoj comes
+    DAILY_OFF = "daily_off"  # wants no more daily messages
+
+
 class CorpusTopic(StrEnum):
     """The corpus folders (s11 §4.1); a document's topic must equal its folder."""
 

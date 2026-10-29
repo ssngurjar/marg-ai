@@ -113,7 +113,7 @@ deterministic router, rather than one chatbot.
 
 | Model | Where it runs | What it does in Marg |
 |---|---|---|
-| **Muse Spark 1.3** | Meta Model API | Plans and personalises each discovery; answers parents; writes teachers' chapter bridges, the student mentor's answers and plans; talks with children and writes their redirects; the second safety check; the eval judge |
+| **Muse Spark 1.3** | Meta Model API | Reads what a parent's own words mean (a report, a question, the child's question, "send that khoj again", another child); plans and personalises each discovery; answers parents; writes teachers' chapter bridges, the student mentor's answers and plans; talks with children and writes their redirects; the second safety check; the eval judge |
 | **Muse Spark Open** (open weights) | Baseten | Reflects on what the child said; extracts curiosity and aspiration signals and the student's memory. Spark 1.3 takes over if it's slow |
 | **Muse Voice Transcribe** | Meta Model API | Every voice note. Script slips (Hindi returned in Gujarati or Gurmukhi letters) are converted back to Devanagari |
 | **Muse Image** | Meta Model API | The khoj card. No child and no name ever go into the image prompt |
@@ -132,7 +132,8 @@ repair retry carrying the validation error; model ids, timeouts and cost caps li
                                     ▼     ▼
    api/      verify the signature, parse, store in the inbox (once per message id), < 1 s
    worker/   claim the user under a lease → one turn at a time per person, any number of workers
-   pipeline/ fetch media → transcribe → route (rules, no model) → safety in ‖ generate
+   pipeline/ fetch media → transcribe → route (rules: buttons, safety, consent; no model)
+             → safety in ‖ generate (a parent's free text: Muse Spark reads its intent first)
              → safety out → speak → send; every step recorded with its time and cost
    layers/   journey · curiosity · child talk · teacher bridges · mentor · plans · memory
    safety/   crisis phrases → Llama Guard 4 ‖ Muse Spark policy → child rules (d1, d7, d8)

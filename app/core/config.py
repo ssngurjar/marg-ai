@@ -207,6 +207,10 @@ class Settings(DatabaseSettings):
 
     # Added in S10b for child talk (C13; contracts §7)
     child_talk_enabled: bool = True
+    # Muse Spark reads what a parent's free text means (report, question, child's question,
+    # small talk, a khoj, add a child, the daily time) while the journey waits; code acts on it,
+    # and the word rules decide when this is off or the call fails (owner, 2026-10-29).
+    intent_reading_enabled: bool = True
     child_session_max_turns: int = Field(default=6, ge=1)
     child_session_max_minutes: int = Field(default=10, ge=1)
     child_session_cooldown_minutes: int = Field(default=30, ge=0)

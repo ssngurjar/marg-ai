@@ -61,7 +61,9 @@ scorecard, and that the field test happened.)*
 > Marg is a compound AI system: six Meta models, each with one job, behind a deterministic router
 > and a safety gate on both sides. Every model it calls at runtime is a Meta model.
 >
-> - **Muse Spark 1.3 (Model API):** plans and personalises each discovery, answers parents,
+> - **Muse Spark 1.3 (Model API):** reads what a parent's own words mean (a report on the
+>   discovery, a question, the child's question, "send that one again", another child) so the
+>   conversation can go anywhere; plans and personalises each discovery, answers parents,
 >   writes teachers' chapter bridges, the student mentor and plans, talks with children, and
 >   runs our second safety check. Every call uses structured output into a typed model, with
 >   one repair retry on a failed check.

@@ -29,6 +29,7 @@ from app.constants.child_hazards import CHILD_HAZARD_WORDS
 from app.constants.child_talk_copy import kid_start_button
 from app.constants.journey_copy import (
     ADD_CHILD_BUTTON,
+    ADD_CHILD_PROMPT,
     AGE_COMING_SOON,
     ASK_LABEL,
     KHOJ_BUTTONS,
@@ -53,8 +54,16 @@ from app.constants.journey_copy import (
     WHICH_CHILD,
 )
 from app.constants.journey_words import CAREER_WORDS, LABEL_WORDS, SMALL_TALK
+from app.constants.onboarding_copy import COPY
 from app.core.errors import ProviderError
-from app.domain.enums import ActivityStatus, AgeBand, Language, StepOutcome
+from app.domain.enums import (
+    ActivityStatus,
+    AgeBand,
+    CopyKey,
+    Language,
+    ParentIntent,
+    StepOutcome,
+)
 from app.domain.models.activity import Activity, OfferedActivity, PastActivity
 from app.domain.models.curiosity import CuriositySource, CuriositySourceKind
 from app.domain.models.learner import Learner
@@ -80,6 +89,7 @@ from app.domain.rules.stage_rules import StageRules
 from app.layers.activity_catalogue import CatalogueActivitySource
 from app.layers.curiosity_moment_layer import CuriosityMomentLayer, NotAChildQuestion
 from app.layers.hazard_word_checks import HazardWordChecks
+from app.layers.intent_reader import IntentRead, IntentReader
 from app.layers.layer_result import LayerResult
 from app.layers.local_voice import LocalVoice
 from app.layers.parent_question_layer import ParentQuestionLayer
@@ -133,6 +143,7 @@ class ParentMessage:
 class JourneySettings:
     repeat_window: timedelta  # ACTIVITY_REPEAT_DAYS
     child_talk_enabled: bool = True  # CHILD_TALK_ENABLED: offer the "Main bachcha hoon" button
+    read_intent: bool = False  # INTENT_READING_ENABLED: Muse Spark reads a parent's free text
 
 
 class JourneyLayer:
@@ -164,17 +175,46 @@ class JourneyLayer:
         self._source = source
         self._parent_questions = parent_questions
         self._curiosity = CuriosityMomentLayer(llm, registry, source.materials)
+        self._intents = IntentReader(llm, registry)
         self._settings = settings
 
     async def handle(
         self, ctx: TurnContext, message: ParentMessage, now: datetime, register: Language
     ) -> LayerResult:
         """Raises ProviderError only from flow D (the parent question); A to C fall back to
-        reviewed text instead."""
+        reviewed text instead. Free text (no button, no photo) is read by Muse Spark into a
+        ParentIntent when INTENT_READING_ENABLED; buttons, a bare greeting or thanks, and a
+        failed reading go by the rules below."""
+        open_activity = self._offered(ctx)
+        free_text = not message.interactive_ids and message.photo is None and message.text.strip()
+        if not (free_text and self._settings.read_intent) or JourneyLayer.small_talk(message.text):
+            return await self._by_rules(ctx, message, open_activity, now, register)
+        read = await self._intents.read(
+            message.text,
+            open_activity.activity.title if open_activity else None,
+            ctx.learners,
+            ctx.recent_exchanges,
+        )
+        if read.intent is None:
+            result = await self._by_rules(ctx, message, open_activity, now, register)
+        else:
+            turn = _FreeText(ctx, message.text, open_activity, now, register)
+            result = await self._by_intent(read.intent, turn)
+        return _with_reading(result, read)
+
+    async def _by_rules(
+        self,
+        ctx: TurnContext,
+        message: ParentMessage,
+        open_activity: OfferedActivity | None,
+        now: datetime,
+        register: Language,
+    ) -> LayerResult:
+        """Buttons and fixed phrases (the rules from before intent reading, kept as its fast
+        path and its fallback)."""
         user_text, photo = message.text, message.photo
         interactive_ids = message.interactive_ids
         button = interactive_ids[-1] if interactive_ids else None
-        open_activity = self._offered(ctx)
         nudge_settings = self._nudge_settings(
             button, user_text, register, khoj_open=open_activity is not None
         )
@@ -193,6 +233,62 @@ class JourneyLayer:
             # Nothing is open (it expired or was reported): offer today's khoj instead.
             return await self._today(ctx, ctx.active_learner, now, register, skipped=None)
         return await self._question(ctx, user_text, now, register)
+
+    async def _by_intent(  # noqa: PLR0911  # one return per intent
+        self, intent: ParentIntent, turn: "_FreeText"
+    ) -> LayerResult:
+        """What code does for each reading; the model never picks a route itself."""
+        ctx, user_text, open_activity = turn.ctx, turn.text, turn.open_activity
+        now, register = turn.now, turn.register
+        khoj_open = open_activity is not None
+        match intent:
+            case ParentIntent.REPORT if open_activity is not None:
+                return await self._reflect(ctx, open_activity, user_text, register, None)
+            case ParentIntent.CHILD_QUESTION:
+                return await self._question(ctx, user_text, now, register, child_question=True)
+            case ParentIntent.SMALL_TALK if open_activity is not None:
+                waiting = KHOJ_STILL_OPEN[register].format(title=open_activity.activity.title)
+                return _fixed(waiting, register, KHOJ_BUTTONS[register])
+            case ParentIntent.NEW_KHOJ:
+                return await self._today(ctx, ctx.active_learner, now, register, skipped=None)
+            case ParentIntent.ANOTHER_KHOJ:
+                return await self._another(ctx, open_activity, now, register)
+            case ParentIntent.SAME_KHOJ_AGAIN if open_activity is not None:
+                return self._again(ctx, open_activity, register)
+            case ParentIntent.SAME_KHOJ_AGAIN:
+                return await self._today(ctx, ctx.active_learner, now, register, skipped=None)
+            case ParentIntent.ADD_CHILD:
+                return self._add_child(ctx, register)
+            case ParentIntent.DAILY_TIME:
+                return _fixed(NUDGE_ASK[register], register, NUDGE_BUTTONS[register])
+            case ParentIntent.DAILY_OFF:
+                return self._daily_off(register, khoj_open=khoj_open)
+            case _:
+                # QUESTION, a REPORT or SMALL_TALK with nothing open: the parent's answer
+                return await self._question(ctx, user_text, now, register, child_question=False)
+
+    def _again(
+        self, ctx: TurnContext, open_activity: OfferedActivity, register: Language
+    ) -> LayerResult:
+        """The open khoj once more, in its reviewed words: nothing new is offered."""
+        activity = open_activity.activity
+        learner = _learner_named(ctx.learners, open_activity)
+        kid = _kid_buttons(learner, register) if self._settings.child_talk_enabled else ()
+        reply = _KhojText.from_activity(activity).reply(register, spoken=None, extra_buttons=kid)
+        return LayerResult(
+            reply=reply,
+            usages=[],
+            prompt_versions={},
+            outcome=StepOutcome.OK,
+            degraded_reason=None,
+            hazard_rule=frozenset(activity.hazards),
+        )
+
+    @staticmethod
+    def _add_child(ctx: TurnContext, register: Language) -> LayerResult:
+        if len(ctx.learners) >= MAX_LEARNERS:
+            return _fixed(COPY[(CopyKey.MAX_CHILDREN, register)].body, register, ())
+        return _fixed(ADD_CHILD_PROMPT[register], register, (ADD_CHILD_BUTTON[register],))
 
     @staticmethod
     def small_talk(text: str) -> bool:
@@ -213,17 +309,29 @@ class JourneyLayer:
         return list(open_activity.activity.photo_count_phrases)
 
     async def _question(
-        self, ctx: TurnContext, user_text: str, now: datetime, register: Language
+        self,
+        ctx: TurnContext,
+        user_text: str,
+        now: datetime,
+        register: Language,
+        *,
+        child_question: bool | None = None,
     ) -> LayerResult:
         """D, or the curiosity moment when the parent passes on the child's own question.
-        Raises ProviderError."""
+        `child_question`: what intent reading said; None, the word rule decides. Raises
+        ProviderError."""
         open_activity = self._offered(ctx)
         if open_activity is not None and JourneyLayer.small_talk(user_text):
             waiting = KHOJ_STILL_OPEN[register].format(title=open_activity.activity.title)
             return _fixed(waiting, register, KHOJ_BUTTONS[register])
         nicknames = [learner.nickname for learner in ctx.learners]
         not_the_childs: NotAChildQuestion | None = None
-        if ChildQuestionDetector.relays_child_question(user_text, nicknames):
+        relayed = (
+            ChildQuestionDetector.relays_child_question(user_text, nicknames)
+            if child_question is None
+            else child_question
+        )
+        if relayed:
             moment = await self._curiosity.answer(
                 ctx.active_learner,
                 user_text,
@@ -267,13 +375,18 @@ class JourneyLayer:
             button is None and PhraseFinder.contains_any(user_text, self.NUDGE_OFF_PHRASES)
         )
         if turned_off:
-            write = NudgePreference(enabled=False, local_time=None)
-            return _fixed(NUDGE_OFF_REPLY[register], register, after).model_copy(
-                update={"writes": [write]}
-            )
+            return JourneyLayer._daily_off(register, khoj_open=khoj_open)
         if button is None and PhraseFinder.contains_any(user_text, self.NUDGE_CHANGE_PHRASES):
             return _fixed(NUDGE_ASK[register], register, NUDGE_BUTTONS[register])
         return None
+
+    @staticmethod
+    def _daily_off(register: Language, *, khoj_open: bool) -> LayerResult:
+        after = KHOJ_BUTTONS[register] if khoj_open else ()
+        write = NudgePreference(enabled=False, local_time=None)
+        return _fixed(NUDGE_OFF_REPLY[register], register, after).model_copy(
+            update={"writes": [write]}
+        )
 
     def _offered(self, ctx: TurnContext) -> OfferedActivity | None:
         """The open activity with its catalogue entry; None if it's no longer in the catalogue."""
@@ -502,6 +615,17 @@ class JourneyLayer:
 
 
 @dataclass(frozen=True, slots=True)
+class _FreeText:
+    """A parent's free text and what the journey knows while it reads it."""
+
+    ctx: TurnContext
+    text: str
+    open_activity: OfferedActivity | None
+    now: datetime
+    register: Language
+
+
+@dataclass(frozen=True, slots=True)
 class _KhojText:
     """A khoj's parts, from the catalogue or the model, assembled by code (s10b §4.7)."""
 
@@ -657,3 +781,15 @@ def _learner_named(learners: Sequence[Learner], offered: OfferedActivity) -> Lea
         if learner.id == offered.learner_id:
             return learner
     raise ValueError("an open activity always belongs to one of the parent's learners")
+
+
+def _with_reading(result: LayerResult, read: IntentRead) -> LayerResult:
+    """The intent reading's usage and prompt version go with the turn's result; a failed
+    reading (the rules decided instead) marks the turn DEGRADED."""
+    update: dict[str, object] = {
+        "usages": [read.usage, *result.usages] if read.usage else result.usages,
+        "prompt_versions": {**read.prompt_versions, **result.prompt_versions},
+    }
+    if read.failed and result.outcome is StepOutcome.OK:
+        update |= {"outcome": StepOutcome.DEGRADED, "degraded_reason": read.failed}
+    return result.model_copy(update=update)

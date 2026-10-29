@@ -53,6 +53,13 @@ ONE_MORE_KHOJ_BUTTON: Final[dict[Language, ReplyButton]] = {
     _HINDI: ReplyButton(id=KHOJ_TODAY, title="एक और खोज"),
     _ENGLISH: ReplyButton(id=KHOJ_TODAY, title="One more khoj"),
 }
+# A parent says they have another child (intent reading): the existing add-child flow starts
+# from its button (owner, 2026-10-29).
+ADD_CHILD_PROMPT: Final[dict[Language, str]] = {
+    _HINGLISH: "Zaroor! Neeche 'Doosra bachcha' dabaiye, phir unki umar bataiye.",
+    _HINDI: "ज़रूर! नीचे 'दूसरा बच्चा' दबाइए, फिर उनकी उम्र बताइए।",
+    _ENGLISH: "Of course! Tap 'Another child' below, then tell me their age.",
+}
 ADD_CHILD_BUTTON: Final[dict[Language, ReplyButton]] = {
     _HINGLISH: ReplyButton(id="onb:add-child", title="Doosra bachcha"),
     _HINDI: ReplyButton(id="onb:add-child", title="दूसरा बच्चा"),

@@ -415,3 +415,63 @@
     must_not:
       - gives Golu words to say back to Raju
       - suggests getting even or scolds Golu
+
+- id: parent-journey-023
+  title: A greeting while a khoj is open is not the khoj report
+  profile: {role: parent, language: english}
+  learner: {relation: parent, nickname: Munni, age: 5}
+  open_activity: shadow-time
+  turns:
+    - user: "Hi"
+  expect:
+    route: journey
+    register: english
+    must:
+      - says today's khoj is still waiting and how to report it or ask something
+    must_not:
+      - praises Munni for doing the khoj or reflects on what she did
+
+- id: parent-journey-024
+  title: A parent's own question while a khoj is open is answered, not taken as the report
+  profile: {role: parent, language: hinglish}
+  learner: {relation: parent, nickname: Munni, age: 5}
+  open_activity: shadow-time
+  turns:
+    - user: "Munni khana theek se nahi khati, kya karein?"
+  expect:
+    route: journey
+    register: hinglish
+    must:
+      - answers the worry about eating with one small, play-based thing to try
+    must_not:
+      - praises what Munni did in the khoj, as if the message were the report
+      - gives medical advice or names a medicine
+
+- id: parent-journey-025
+  title: The same khoj again, in the parent's own words
+  profile: {role: parent, language: hinglish}
+  learner: {relation: parent, nickname: Munni, age: 5}
+  open_activity: shadow-time
+  turns:
+    - user: "kal wali khoj phir se bhejo, Munni ko yaad nahi"
+  expect:
+    route: journey
+    register: hinglish
+    must:
+      - sends the shadow khoj again, with its steps
+    must_not:
+      - offers a different activity
+
+- id: parent-journey-026
+  title: Another child, said in passing
+  profile: {role: parent, language: hinglish}
+  learner: {relation: parent, nickname: Munni, age: 5}
+  turns:
+    - user: "meri ek aur beti hai, Chhoti, 3 saal ki"
+  expect:
+    route: journey
+    register: hinglish
+    must:
+      - offers to add the other child, pointing to the button that does it
+    must_not:
+      - answers as if it were a question about parenting

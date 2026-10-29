@@ -96,6 +96,7 @@ make sidecar-check    # its strict mypy and its tests (also part of `make check`
 | `QUERY_REWRITE_ENABLED`, `RETRIEVAL_MIN_TEXT_RANK` | the mentor's search: Muse Spark's English rewrite (on), and how strong a text match must be to count without an exact exam or scheme name (1.3) |
 | `REPLY_AUDIO_FOR_TEXT_INPUT` | `true`: typed messages also get a voice reply (default: only voice notes do) |
 | `CHILD_TALK_ENABLED` | child talk on or off; the "Main bachcha hoon" button disappears when off |
+| `INTENT_READING_ENABLED` | a parent's free text read by Muse Spark into an intent (on); off, the word rules decide |
 | `NUDGES_ENABLED` | daily khoj messages; **off** until Meta approves the templates |
 | `KHOJ_CARD_ENABLED` | illustrated cards after a good report |
 | `SAFETY_POLICY_MODEL_ENABLED` | the Muse Spark safety check that runs with Llama Guard |
@@ -211,6 +212,7 @@ The turn row's `route` column and the `route` step's `detail` tell you which rul
 |---|---|---|---|
 | Onboarding (consent, parent/teacher, child) | `layers/onboarding_layer.py`, `domain/rules/conversation_machine.py` | `prompts/profile_extraction.md.j2`, `constants/onboarding_copy.py` | `users`, `consent_events`, `learners` |
 | Delete my data | router rule 2 → onboarding; `UserRepository.purge_user` after the reply is delivered | — | every table (cascade) |
+| What a parent's words mean (intent reading) | `layers/intent_reader.py`, `journey_layer.py` `handle` / `_by_intent` (rules in `_by_rules`) | `parent_intent.md.j2`; `INTENT_READING_ENABLED` | — |
 | Today's khoj (flow A) | `layers/journey_layer.py` `_today`, `domain/rules/activity_chooser.py`, `content/activities/*.yaml` | `activity_personalise.md.j2`, `constants/journey_copy.py` | `learner_activities` |
 | Report back (flow B) | `journey_layer.py` `_reflect` | `parent_reflection.md.j2` (Muse Spark Open, falls back to Spark) | `learner_activities` |
 | Parent question (flow D) | `layers/parent_question_layer.py` | `parent_answer.md.j2` | — |
@@ -395,6 +397,7 @@ several points; compare the cases that changed, not only the rate.
 | Photo → "koi insaan dikh raha hai" | `analyze_image` detail `person_check=reject` | anyone in the frame, a hand too (by design, owner 2026-10-28) |
 | Photo → "Photo ke liye shukriya!…" | `analyze_image` SKIPPED `photo_not_needed` | no khoj open (none offered, already reported, or older than 48 h) |
 | A photo report with no number in the reply | `fetch_image` / `analyze_image` / `safety_in` FAILED `photo_dropped`, `counts_dropped` | a failure dropped the photo; or the activity counts nothing |
+| A parent's message went to the wrong flow (a question taken as the report, "send it again" offered a new khoj) | the `generate` row: `parent_intent` in the prompt versions, the reply | `INTENT_READING_ENABLED` off, or the reading failed (`intent_read_failed=…`, the rules decided); otherwise the reading itself (`parent_intent.md.j2`) |
 | No voice reply | `VOICE_REPLIES_ENABLED`, then the `synthesize` row | off (the default: text only, no row); or the ML sidecar down or the wrong engine (422); spoken text not speakable (`TtsTextInvalid`, e.g. Latin letters for the Hindi voice) |
 | Mentor says it doesn't know something the corpus covers | the `retrieve` / `rewrite_query` rows | the rewrite gave no exam or scheme name and the text match was below `RETRIEVAL_MIN_TEXT_RANK` (1.3); add the name to the document's `keywords` |
 | Reply in the wrong language | the turn's `reply_register`, the transcript | `RegisterChooser`: Devanagari is Hindi however short; a switch from the family's language needs 4+ words, so a short English message keeps the old language (by design, 2026-10-28) |
