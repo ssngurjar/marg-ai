@@ -186,6 +186,12 @@ failing cases are listed in each scorecard.
 ## Try it
 
 - **Watch:** the demo video *(link added at submission)*.
+- **Try it on the web:** `/demo` *(link added at submission)*, in English by default; write in
+  Hindi or Hinglish and Marg answers in that.
+- **Try it on WhatsApp:** this link opens a chat with "Hi Marg, English please" ready to send,
+  so Marg answers in English: `https://wa.me/<number>?text=Hi%20Marg%2C%20English%20please`
+  *(number added at submission)*. Families in the village write in Hindi or Hinglish and get
+  that.
 - **Run it locally:** see below; the web demo at `/demo` needs no WhatsApp account.
 
 ### Run it locally

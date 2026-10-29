@@ -153,3 +153,10 @@ To fill after posting the demo video on X (engagement counts until Nov 8).
 ## Public GitHub repository / 3-minute demo video
 
 The repository (public, with the `pre-kickoff` tag) and the YouTube link.
+
+## How judges try it (put in the description or wherever the form allows a link)
+
+- Web: the `/demo` link. It answers in English by default; Hindi or Hinglish get the same.
+- WhatsApp: `https://wa.me/<number>?text=Hi%20Marg%2C%20English%20please` (the chat opens with
+  "Hi Marg, English please" typed, so Marg answers in English). Check it opens the right number
+  (pre-demo checklist).

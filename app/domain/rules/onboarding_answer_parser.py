@@ -195,6 +195,19 @@ class OnboardingAnswerParser:
         return None
 
     @staticmethod
+    def language_requested(text: str) -> Language | None:
+        """A first message that only greets and names a language ("Hi Marg, English please",
+        "नमस्ते, हिंदी में"), else None: the reply's language, with no question to keep."""
+        words = PhraseFinder.words(text.casefold())
+        names = OnboardingAnswerParser.LANGUAGE_NAMES
+        named = [names[word] for word in words if word in names]
+        allowed = OnboardingAnswerParser.LANGUAGE_FILLER | _GREETING_WORDS
+        others = [word for word in words if word not in names and word not in allowed]
+        if len(named) == 1 and not others:
+            return named[0]
+        return None
+
+    @staticmethod
     def asks_for_deletion(text: str) -> bool:
         return PhraseFinder.contains_any(text, OnboardingAnswerParser.DELETION_PHRASES)
 

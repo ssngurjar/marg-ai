@@ -35,7 +35,7 @@ from app.core.config import Settings
 from app.core.errors import ProviderUnavailable, StoreError
 from app.core.signed_token_codec import SignedTokenCodec
 from app.core.user_identity import UserIdentity
-from app.domain.enums import Channel
+from app.domain.enums import Channel, Language
 from app.domain.models.eval_judgement import JudgeScore
 from app.domain.models.voice import VoiceLimits
 from app.domain.rules.child_session_rules import ChildSessionLimits
@@ -613,7 +613,10 @@ def build_orchestrator(
                 ),
             ),
             onboarding=OnboardingLayer(
-                language_model, registry, invite_link=teacher_invite_link(settings)
+                language_model,
+                registry,
+                invite_link=teacher_invite_link(settings),
+                web_default_language=Language(settings.web_default_language),
             ),
             voice=ports.voice,
             child_talk=(

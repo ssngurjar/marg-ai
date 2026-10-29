@@ -152,3 +152,24 @@ def test_the_parser_never_crashes_and_never_invents_an_out_of_range_value(text: 
     assert age.birth_year is None or YEAR - age.birth_year in P.CHILD_AGES
     nickname = P.parse_nickname(text)
     assert nickname.nickname is None or len(nickname.nickname) <= P.NICKNAME_MAX_CHARS
+
+
+@pytest.mark.parametrize(
+    ("text", "language"),
+    [
+        ("Hi Marg, English please", Language.ENGLISH),  # the judges' WhatsApp link (2026-10-29)
+        ("Hello, English", Language.ENGLISH),
+        ("English", Language.ENGLISH),
+        ("Namaste, Hindi mein", Language.HINGLISH),  # "Hindi" in Roman letters is Hinglish
+        ("hinglish pls", Language.HINGLISH),
+    ],
+)
+def test_a_greeting_that_names_a_language_requests_it(text: str, language: Language) -> None:
+    assert OnboardingAnswerParser.language_requested(text) is language
+
+
+@pytest.mark.parametrize(
+    "text", ["Hi", "I teach English", "English aur Hindi", "Mujhe English seekhni hai", ""]
+)
+def test_anything_more_than_a_greeting_and_one_language_is_not_a_request(text: str) -> None:
+    assert OnboardingAnswerParser.language_requested(text) is None

@@ -71,9 +71,12 @@ async def handle(
     *,
     learners: list[Learner] | None = None,
     extracted: ScriptedOutput | None = None,
+    web_default: Language | None = None,
 ) -> tuple[OnboardingResult, FakeLanguageModel]:
     llm = FakeLanguageModel([extracted or NOTHING_READ])
-    layer = OnboardingLayer(llm, shipped_registry(), invite_link=INVITE_LINK)
+    layer = OnboardingLayer(
+        llm, shipped_registry(), invite_link=INVITE_LINK, web_default_language=web_default
+    )
     ctx = turn_context(message, profile=profile, learners=learners)
     ids = [message.interactive_reply_id] if message.interactive_reply_id else []
     text = "" if ids else (message.text or "")
@@ -136,6 +139,45 @@ async def test_a_first_question_is_remembered_and_the_intro_says_so() -> None:
     change = profile_change(result)
     assert change.pending_question == "Mujhe pilot banna hai"
     assert change.language is Language.HINGLISH
+
+
+@pytest.mark.parametrize("greeting", ["Hi", "Hello", "Namaste", "hii"])
+async def test_a_greeting_on_the_web_demo_gets_english_and_on_whatsapp_hinglish(
+    greeting: str,
+) -> None:
+    # owner, 2026-10-29: judges open /demo and type "Hi"; families on WhatsApp keep Hinglish
+    on_web, _ = await handle(
+        at(S.NEW, channel=Channel.WEB), text_message(greeting), web_default=Language.ENGLISH
+    )
+    on_whatsapp, _ = await handle(at(S.NEW), text_message(greeting), web_default=Language.ENGLISH)
+    assert on_web.reply.body == body(CopyKey.INTRO_CONSENT_WEB, Language.ENGLISH)
+    assert profile_change(on_web).language is Language.ENGLISH
+    assert on_whatsapp.reply.body == body(CopyKey.INTRO_CONSENT, Language.HINGLISH)
+
+
+async def test_hi_marg_english_please_on_whatsapp_gets_english_with_no_question_kept() -> None:
+    # the pre-filled text of the judges' WhatsApp link (owner, 2026-10-29)
+    result, _ = await handle(at(S.NEW), text_message("Hi Marg, English please"))
+    assert result.reply.body == body(CopyKey.INTRO_CONSENT, Language.ENGLISH)
+    change = profile_change(result)
+    assert change.language is Language.ENGLISH
+    assert change.pending_question is None
+
+
+async def test_a_devanagari_greeting_on_the_web_still_gets_hindi() -> None:
+    result, _ = await handle(
+        at(S.NEW, channel=Channel.WEB), text_message("नमस्ते"), web_default=Language.ENGLISH
+    )
+    assert profile_change(result).language is Language.HINDI
+
+
+async def test_a_hinglish_first_message_on_the_web_gets_hinglish_not_the_default() -> None:
+    result, _ = await handle(
+        at(S.NEW, channel=Channel.WEB),
+        text_message("Mujhe pilot banna hai"),
+        web_default=Language.ENGLISH,
+    )
+    assert profile_change(result).language is Language.HINGLISH
 
 
 @pytest.mark.parametrize(

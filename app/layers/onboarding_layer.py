@@ -35,6 +35,7 @@ from app.constants.onboarding_copy import (
 )
 from app.core.errors import ConfigError, InvalidProfileValue, ProviderError
 from app.domain.enums import (
+    Channel,
     ConversationState,
     CopyKey,
     FixedReplyKind,
@@ -176,10 +177,19 @@ class OnboardingLayer:
         if missing:
             raise ConfigError(f"onboarding copy missing: {', '.join(missing)}")
 
-    def __init__(self, llm: LanguageModel, registry: PromptRegistry, invite_link: str) -> None:
+    def __init__(
+        self,
+        llm: LanguageModel,
+        registry: PromptRegistry,
+        invite_link: str,
+        *,
+        web_default_language: Language | None = None,
+    ) -> None:
+        """`web_default_language`: WEB_DEFAULT_LANGUAGE, what a web visitor's greeting gets."""
         self._llm = llm
         self._registry = registry
         self._invite_link = invite_link
+        self._web_default_language = web_default_language
 
     async def handle(
         self, ctx: TurnContext, user_text: str, interactive_ids: Sequence[str], now: datetime
@@ -224,7 +234,7 @@ class OnboardingLayer:
         if _P.asks_for_deletion(user_text):
             return DeletionRequested()
         if profile.state is _S.NEW:
-            return self._first_contact(user_text)
+            return self._first_contact(user_text, profile.channel)
         language = _P.language_named(user_text)
         if language is not None and not self._asks_subject(ctx):
             # "Hindi" answering "which subject do you teach?" is a subject, not a switch.
@@ -233,13 +243,20 @@ class OnboardingLayer:
             return self._active_event(profile, user_text)
         return self._answer_event(ctx, user_text, now)
 
-    @staticmethod
-    def _first_contact(user_text: str) -> FirstContact:
+    def _first_contact(self, user_text: str, channel: Channel) -> FirstContact:
         """A greeting says nothing about the language unless it's in Devanagari ("Namaste" is
-        typed by Hinglish and English speakers alike): the default then applies."""
+        typed by Hinglish and English speakers alike): the default then applies. On WhatsApp
+        that is Hinglish (the families Marg serves); on the web demo, WEB_DEFAULT_LANGUAGE
+        (English, for judges and visitors; owner, 2026-10-29)."""
+        requested = _P.language_requested(user_text)
+        if requested is not None:
+            return FirstContact(requested, None)
         detected = RegisterDetector.detect(user_text)
         if _P.is_greeting(user_text):
-            return FirstContact(detected if detected is Language.HINDI else None, None)
+            if detected is Language.HINDI:
+                return FirstContact(Language.HINDI, None)
+            web_default = self._web_default_language if channel is Channel.WEB else None
+            return FirstContact(web_default, None)
         return FirstContact(detected, user_text[:QUESTION_MAX_CHARS])
 
     @staticmethod

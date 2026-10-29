@@ -11,7 +11,7 @@ from pydantic import Field, HttpUrl, SecretStr, ValidationError, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.core.errors import ConfigError
-from app.core.types import ReasoningEffort, TtsEngine
+from app.core.types import ReasoningEffort, ReplyLanguage, TtsEngine
 
 ASYNCPG_SCHEME = "postgresql+asyncpg://"
 LOCAL_BASE_URL = "http://127.0.0.1:8000"
@@ -117,6 +117,11 @@ class Settings(DatabaseSettings):
     timeout_guard_s: float = Field(default=1.5, gt=0)
     # 6 s: Llama Guard (≤ 1.5 s), then the Muse Spark backup reply check when it's down (~2.5 s)
     timeout_safety_out_s: float = Field(default=6.0, gt=0)
+
+    # What a web demo visitor's greeting ("Hi") gets: English, for judges and visitors; a
+    # message in Hindi or Hinglish still gets its own language. WhatsApp greetings keep
+    # Hinglish, the families' default (owner, 2026-10-29).
+    web_default_language: ReplyLanguage = "english"
 
     # Added in S6 for voice (s06 §7). Voice replies are off (text only) until the organisers
     # rule on MMS-TTS's non-commercial licence: every model Marg calls must be a Meta model,
