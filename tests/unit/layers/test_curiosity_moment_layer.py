@@ -117,7 +117,7 @@ async def test_a_confident_answer_has_the_answer_activity_question_and_supervisi
     assert reply.spoken_text is not None
     assert reply.spoken_text.endswith(SUPERVISION_LINE[Language.HINDI])
     assert answered(result).hazard_rule == TALKABLE_HAZARDS
-    assert answered(result).prompt_versions == {"curiosity_moment": "1.0.4"}
+    assert answered(result).prompt_versions == {"curiosity_moment": "1.0.5"}
     assert answered(result).writes == []
 
 
@@ -141,7 +141,7 @@ async def test_the_parents_own_question_comes_back_with_its_cost() -> None:
         NOT_A_CHILD_QUESTION, message="Munni ki tabiyat kharab hai kya karein"
     )
     assert isinstance(result, NotAChildQuestion)
-    assert result.prompt_versions == {"curiosity_moment": "1.0.4"}
+    assert result.prompt_versions == {"curiosity_moment": "1.0.5"}
     assert result.usage.cost_usd >= 0
 
 

@@ -1,6 +1,6 @@
 +++
 id = "curiosity_moment"
-version = "1.0.4"
+version = "1.0.5"
 model_setting = "MODEL_TEXT"
 max_output_tokens = 1500
 output_model = "CuriosityMoment"
@@ -63,7 +63,8 @@ Fill these fields:
 - say_to_child: what the parent can say to the child, at most 300 characters.
 - find_out_together: the mini-activity steps.
 - materials_used: the materials from the list that the steps use.
-- ask_back: one question for the child that keeps them wondering, at most 160 characters.
+- ask_back: one question for the child that keeps them wondering, at most 160 characters. It
+  is the only question in the whole reply: no other "?" in say_to_child or the steps.
 - who_explores_this: as above.
 - spoken_text: say_to_child (only when confident), the mini-activity, ask_back and
   who_explores_this as one passage to be read aloud to the parent: no lists, no emoji, no

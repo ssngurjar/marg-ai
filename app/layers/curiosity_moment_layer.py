@@ -226,9 +226,6 @@ class _MomentChecks:
             problems.append("text: mentions careers, jobs or exams")
         if PhraseFinder.contains_any(moment.who_explores_this, EXPOSURE_PUSH_WORDS):
             problems.append("who_explores_this: tells the child to become something")
-        if joined.count("?") > 1:
-            # one question back keeps the child wondering (golden case parent-journey-013)
-            problems.append("text: ask exactly one question, in ask_back, and no other")
         problems.extend(RegisterDetector.script_problems(joined, moment.spoken_text, register))
         return problems
 

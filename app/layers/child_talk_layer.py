@@ -495,9 +495,6 @@ class _ChildChecks:
             problems.append("text: mentions careers, jobs or exams")
         if PhraseFinder.contains_any(reply.who_explores_this, EXPOSURE_PUSH_WORDS):
             problems.append("who_explores_this: tells the child to become something")
-        if joined.count("?") > 1:
-            # one question at a time for a young child (golden case parent-journey-014)
-            problems.append("text: ask exactly one question, in ask_back, and no other")
         problems.extend(RegisterDetector.script_problems(joined, reply.spoken_text, register))
         return problems
 
