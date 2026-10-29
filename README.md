@@ -178,6 +178,11 @@ and every module and class in [docs/code-map.md](docs/code-map.md).
   nickname and a birth year. Phone numbers are salted hashes; raw audio is deleted after
   transcription; photos are never stored; logs hold only ids and hashes.
 
+**Next safety check (not built yet): a daily limit on a child's time with Marg.** Today a child
+session ends after 6 questions or 10 minutes, and the next can start 30 minutes later, so
+nothing caps a child's total for the day. Planned: a daily cap the parent can set, with the
+time shown in the parent's summary, so Marg stays a short daily spark, not screen time.
+
 ## Quality
 
 | | |
