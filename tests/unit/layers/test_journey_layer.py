@@ -5,6 +5,7 @@ from datetime import time, timedelta
 
 import pytest
 
+from app.constants.braj_words import BRAJ_RULE
 from app.constants.journey_copy import (
     ADD_CHILD_PROMPT,
     AGE_COMING_SOON,
@@ -52,7 +53,7 @@ from tests.support.journey import (
     personalisation_for,
     shipped_catalogue,
 )
-from tests.support.parent_answers import HINGLISH_ANSWER
+from tests.support.parent_answers import HINDI_ANSWER, HINGLISH_ANSWER
 from tests.support.prompts import shipped_registry
 from tests.support.turn_context import NOW, button_reply, text_message, turn_context
 
@@ -78,7 +79,7 @@ def layer_with(
             "parent_reflection": FakeLanguageModel([reflect]),
             "parent_answer": FakeLanguageModel([answer]),
             "curiosity_moment": FakeLanguageModel([curiosity]),
-            "parent_intent": FakeLanguageModel([intent or {"intent": "question"}]),
+            "parent_intent": FakeLanguageModel([intent or reading("question")]),
         }
     )
     registry = shipped_registry()
@@ -568,8 +569,8 @@ async def test_a_real_report_after_ok_is_still_a_report(text: str) -> None:
 # --- intent reading (owner, 2026-10-29) ----------------------------------------------------------
 
 
-def reading(intent: str) -> dict[str, object]:
-    return {"intent": intent}
+def reading(intent: str, language: str = "hinglish", *, braj: bool = False) -> dict[str, object]:
+    return {"intent": intent, "language": language, "braj": braj}
 
 
 async def test_a_report_read_as_a_report_gets_the_reflection() -> None:
@@ -578,7 +579,7 @@ async def test_a_report_read_as_a_report_gets_the_reflection() -> None:
         text="usne patte gine", button=None, open_activity=offer(FIRST, MUNNI), layer=layer
     )
     assert result.reply.body.startswith(REFLECTION_PRAISE)
-    assert result.prompt_versions["parent_intent"] == "1.0.0"
+    assert result.prompt_versions["parent_intent"] == "1.1.2"
     [prompt] = llm.by_prompt["parent_intent"].prompts
     assert "usne patte gine" in prompt.user
 
@@ -683,7 +684,46 @@ async def test_a_greeting_with_nothing_open_offers_todays_khoj_by_name(text: str
 
 
 async def test_small_talk_read_by_the_model_gets_the_same_hello() -> None:
-    layer, llm = layer_with(intent={"intent": "small_talk"})
+    layer, llm = layer_with(intent=reading("small_talk"))
     result = await khoj(text="bas aise hi yaad aaya", button=None, layer=layer)
     assert result.reply.body == HELLO_NOTHING_OPEN[H].format(child=MUNNI.nickname)
     assert llm.by_prompt["parent_answer"].prompts == []
+
+
+@pytest.mark.parametrize(
+    ("chosen", "heard", "text", "reply_in"),
+    [
+        # the rules call marker-less Roman Hindi English; the model hears Hinglish
+        (Language.ENGLISH, Language.HINGLISH, "beta school jata hai roz", Language.HINGLISH),
+        (Language.ENGLISH, Language.HINGLISH, "aaj khana banaya", Language.HINGLISH),
+        # never overruled: Devanagari, the rules' own Hinglish, or a model that hears English
+        (Language.HINDI, Language.HINGLISH, "आज खाना बनाया", Language.HINDI),
+        (Language.HINGLISH, Language.ENGLISH, "kya karein", Language.HINGLISH),
+        (Language.ENGLISH, Language.ENGLISH, "my son sleeps late", Language.ENGLISH),
+        (Language.ENGLISH, None, "aaj khana banaya", Language.ENGLISH),
+    ],
+)
+def test_the_model_settles_only_roman_text_the_rules_called_english(
+    chosen: Language, heard: Language | None, text: str, reply_in: Language
+) -> None:
+    assert JourneyLayer.reply_language(chosen, heard, text) is reply_in
+
+
+async def test_a_reply_goes_out_in_the_language_the_model_heard() -> None:
+    layer, llm = layer_with(intent=reading("question", "hinglish"))
+    ctx = turn_context(text_message("aaj khana nahi khaya"), learners=[MUNNI])
+    result = await layer.handle(
+        ctx, ParentMessage("aaj khana nahi khaya", []), NOW, Language.ENGLISH
+    )
+    assert result.reply.body_language is Language.HINGLISH
+    [prompt] = llm.by_prompt["parent_answer"].prompts
+    assert "Hinglish" in prompt.system
+
+
+async def test_braj_heard_by_the_model_gets_light_braj_without_a_marker_word() -> None:
+    layer, llm = layer_with(answer=HINDI_ANSWER, intent=reading("question", "hindi", braj=True))
+    text = "छोरा पढ़तो नहीं"  # one marker only: the word rule alone says not Braj
+    ctx = turn_context(text_message(text), learners=[MUNNI])
+    await layer.handle(ctx, ParentMessage(text, []), NOW, Language.HINDI)
+    [prompt] = llm.by_prompt["parent_answer"].prompts
+    assert BRAJ_RULE[Language.HINDI] in prompt.system

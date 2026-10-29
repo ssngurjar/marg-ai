@@ -113,7 +113,7 @@ deterministic router, rather than one chatbot.
 
 | Model | Where it runs | What it does in Marg |
 |---|---|---|
-| **Muse Spark 1.3** | Meta Model API | Reads what a parent's own words mean (a report, a question, the child's question, "send that khoj again", another child); plans and personalises each discovery; answers parents; writes teachers' chapter bridges, the student mentor's answers and plans; talks with children and writes their redirects; the second safety check; the eval judge |
+| **Muse Spark 1.3** | Meta Model API | Reads what a parent's own words mean (a report, a question, the child's question, "send that khoj again", another child) and the language and dialect they're in (Hinglish without the usual marker words, Braj); plans and personalises each discovery; answers parents; writes teachers' chapter bridges, the student mentor's answers and plans; talks with children and writes their redirects; the second safety check; the eval judge |
 | **Muse Spark Open** (open weights) | Baseten | Reflects on what the child said; extracts curiosity and aspiration signals and the student's memory. Spark 1.3 takes over if it's slow |
 | **Muse Voice Transcribe** | Meta Model API | Every voice note. Script slips (Hindi returned in Gujarati or Gurmukhi letters) are converted back to Devanagari |
 | **Muse Image** | Meta Model API | The khoj card. No child and no name ever go into the image prompt |

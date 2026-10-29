@@ -57,6 +57,9 @@ class TurnContext(DomainModel):
     # the cooldown). Speaker is LEARNER exactly when a session is open.
     child_session: ChildSession | None = None
     last_child_session_ended_at: datetime | None = None
+    # The parent's words read as Braj by intent reading, this turn only (owner, 2026-10-29):
+    # LocalVoice then answers in light Braj even when no Braj marker word was matched.
+    heard_braj: bool = False
     # S12 (students): what Marg remembers about them, and their active plan
     memory: ProfileMemory | None = None
     active_roadmap: Roadmap | None = None

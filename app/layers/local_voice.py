@@ -13,17 +13,20 @@ from app.domain.rules.braj_detector import BrajDetector
 
 class LocalVoice:
     @staticmethod
-    def rule(register: Language, district: str | None, text: str) -> str:
+    def rule(
+        register: Language, district: str | None, text: str, *, heard_braj: bool = False
+    ) -> str:
+        """`heard_braj`: intent reading heard Braj in the words, beyond the marker words."""
         braj = BRAJ_RULE.get(register)
-        if braj is not None and BrajDetector.speaks_braj(
-            text, district, BRAJ_MARKERS, BRAJ_DISTRICTS
+        if braj is not None and (
+            heard_braj or BrajDetector.speaks_braj(text, district, BRAJ_MARKERS, BRAJ_DISTRICTS)
         ):
             return f"{VILLAGE_RULE} {braj}"
         return VILLAGE_RULE
 
     @staticmethod
     def for_turn(register: Language, ctx: TurnContext, user_text: str) -> str:
-        return LocalVoice.rule(register, ctx.profile.district, user_text)
+        return LocalVoice.rule(register, ctx.profile.district, user_text, heard_braj=ctx.heard_braj)
 
     @staticmethod
     def language_rule(base: str, register: Language, ctx: TurnContext, user_text: str) -> str:

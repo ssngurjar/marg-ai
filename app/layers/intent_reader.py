@@ -13,7 +13,7 @@ from typing import Final
 from pydantic import BaseModel, ConfigDict
 
 from app.core.errors import ProviderError
-from app.domain.enums import ParentIntent
+from app.domain.enums import Language, ParentIntent
 from app.domain.models.learner import Learner
 from app.domain.models.turn import Exchange
 from app.domain.models.usage import StepUsage
@@ -29,6 +29,8 @@ class IntentReading(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     intent: ParentIntent
+    language: Language  # what the words are written in (hinglish: Hindi in Roman letters)
+    braj: bool  # Braj forms (मेरो, वाको, वाय, नाय…), in either script
 
 
 PARENT_INTENT: Final = PromptSpec(prompt_id="parent_intent", output_type=IntentReading)
@@ -38,6 +40,8 @@ PARENT_INTENT: Final = PromptSpec(prompt_id="parent_intent", output_type=IntentR
 class IntentRead:
     intent: ParentIntent | None  # None: the call failed, the caller's rules decide
     usage: StepUsage | None
+    language: Language | None
+    braj: bool
     prompt_versions: dict[str, str]
     failed: str | None  # "intent_read_failed=<error>" when the call failed
 
@@ -71,5 +75,14 @@ class IntentReader:
         try:
             result = await self._llm.generate(rendered.request)
         except ProviderError as exc:
-            return IntentRead(None, None, versions, f"intent_read_failed={type(exc).__name__}")
-        return IntentRead(result.output.intent, result.usage, versions, None)
+            failed = f"intent_read_failed={type(exc).__name__}"
+            return IntentRead(None, None, None, braj=False, prompt_versions=versions, failed=failed)
+        reading = result.output
+        return IntentRead(
+            reading.intent,
+            result.usage,
+            reading.language,
+            braj=reading.braj,
+            prompt_versions=versions,
+            failed=None,
+        )

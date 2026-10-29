@@ -201,9 +201,24 @@ class JourneyLayer:
         if read.intent is None:
             result = await self._by_rules(ctx, message, open_activity, now, register)
         else:
-            turn = _FreeText(ctx, message.text, open_activity, now, register)
+            heard = ctx.model_copy(update={"heard_braj": True}) if read.braj else ctx
+            spoken_in = JourneyLayer.reply_language(register, read.language, message.text)
+            turn = _FreeText(heard, message.text, open_activity, now, spoken_in)
             result = await self._by_intent(read.intent, turn)
         return _with_reading(result, read)
+
+    @staticmethod
+    def reply_language(chosen: Language, heard: Language | None, text: str) -> Language:
+        """The rules read Roman text without a Hinglish marker word ("beta school jata",
+        "aaj khana banaya") as English; the model hears it as Hinglish. Only that call is
+        overruled: Devanagari stays Hindi, and the rules' Hinglish stays Hinglish (owner,
+        2026-10-29)."""
+        roman = (
+            RegisterDetector.devanagari_share(text) or 0.0
+        ) < RegisterDetector.DEVANAGARI_AT_MOST
+        if chosen is Language.ENGLISH and heard is Language.HINGLISH and roman:
+            return Language.HINGLISH
+        return chosen
 
     async def _by_rules(
         self,
@@ -480,7 +495,11 @@ class JourneyLayer:
         reviewed = _KhojText.from_activity(activity)
         said = " ".join(message.text or "" for message in ctx.messages)
         personalised, usages, versions, problem = await self._personalise(
-            activity, learner, now, register, LocalVoice.rule(register, ctx.profile.district, said)
+            activity,
+            learner,
+            now,
+            register,
+            LocalVoice.rule(register, ctx.profile.district, said, heard_braj=ctx.heard_braj),
         )
         kid = _kid_buttons(learner, register) if self._settings.child_talk_enabled else ()
         reviewed_reply = reviewed.reply(register, spoken=None, extra_buttons=kid)
