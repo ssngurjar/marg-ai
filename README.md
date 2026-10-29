@@ -160,13 +160,20 @@ and every module and class in [docs/code-map.md](docs/code-map.md).
   gets a fixed holding reply.
 - **Crisis replies are fixed text** with official helplines (Tele-MANAS 14416, Childline 1098),
   sent even when every provider is down, and a child gets child-worded versions.
-- **Two checks, not one.** Llama Guard 4 and a Muse Spark policy check run in parallel; Llama
-  Guard's self-harm flag counts only when Muse Spark agrees (it flagged "doctor banna hai, plan
-  bana do"), and Muse Spark catches what Llama Guard misses.
+- **Two checks, not one.** Llama Guard 4 and a Muse Spark policy check run in parallel. On a
+  user's message, Llama Guard's self-harm, violence, crime, child-exploitation and hate flags
+  count only when Muse Spark agrees (it flagged "doctor banna hai, plan bana do" as self-harm
+  and a parent's "Munni ko yaad nahi" as hate), and Muse Spark catches what Llama Guard misses.
 - **Child rules in code:** no personal questions to a child, no secrecy or "best friend"
   language to a student or child, no hazard in a child's activity (a danger may be explained,
   never suggested), a supervision line on every activity, session limits for child talk, and the
   parent's summary names topics, never the child's words.
+- **One family, one phone.** Most families can't give each child a phone, so children use the
+  parent's. A child talks to Marg only after saying who they are ("Main Munni hoon", or their
+  button) and only if the parent switched child talk on for them. When the words sound like
+  someone other than the parent ("I'm in class 10…"), Marg asks who is writing and answers no
+  one the parent hasn't added. Honestly: this reads who *seems* to be writing; it can't verify
+  a person, so every reply still passes every check.
 - **Data minimisation (DPDP Act 2023):** role, class, district, language; for a child only a
   nickname and a birth year. Phone numbers are salted hashes; raw audio is deleted after
   transcription; photos are never stored; logs hold only ids and hashes.

@@ -332,6 +332,7 @@ class ParentIntent(StrEnum):
     ADD_CHILD = "add_child"  # has another child to add
     DAILY_TIME = "daily_time"  # wants to change when the daily khoj comes
     DAILY_OFF = "daily_off"  # wants no more daily messages
+    SOMEONE_ELSE = "someone_else"  # a child or student is writing about themselves
 
 
 class CorpusTopic(StrEnum):

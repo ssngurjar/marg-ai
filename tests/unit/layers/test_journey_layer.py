@@ -6,6 +6,7 @@ from datetime import time, timedelta
 import pytest
 
 from app.constants.braj_words import BRAJ_RULE
+from app.constants.child_talk_copy import WHO_IS_WRITING, WHO_IS_WRITING_NO_CHILD
 from app.constants.journey_copy import (
     ADD_CHILD_PROMPT,
     AGE_COMING_SOON,
@@ -579,7 +580,7 @@ async def test_a_report_read_as_a_report_gets_the_reflection() -> None:
         text="usne patte gine", button=None, open_activity=offer(FIRST, MUNNI), layer=layer
     )
     assert result.reply.body.startswith(REFLECTION_PRAISE)
-    assert result.prompt_versions["parent_intent"] == "1.1.2"
+    assert result.prompt_versions["parent_intent"] == "1.2.0"
     [prompt] = llm.by_prompt["parent_intent"].prompts
     assert "usne patte gine" in prompt.user
 
@@ -727,3 +728,37 @@ async def test_braj_heard_by_the_model_gets_light_braj_without_a_marker_word() -
     await layer.handle(ctx, ParentMessage(text, []), NOW, Language.HINDI)
     [prompt] = llm.by_prompt["parent_answer"].prompts
     assert BRAJ_RULE[Language.HINDI] in prompt.system
+
+
+# --- someone else is writing on the parent's phone (owner, 2026-10-29) -------------------------
+
+
+async def test_a_student_on_the_parents_phone_is_asked_who_and_not_answered() -> None:
+    layer, llm = layer_with(intent=reading("someone_else", "english"))
+    result = await khoj(text="I'm in class 10, what should I study", button=None, layer=layer)
+    assert result.reply.body == WHO_IS_WRITING[H].format(names="Munni")
+    assert [(button.id, button.title) for button in result.reply.buttons] == [
+        (f"kid:start:{MUNNI.id}", "Munni")
+    ]
+    assert llm.by_prompt["parent_answer"].prompts == []  # the question isn't answered
+
+
+async def test_each_young_child_on_the_list_is_a_button() -> None:
+    golu = child(2, "Golu", age=7)
+    layer, _ = layer_with(intent=reading("someone_else"))
+    result = await khoj(
+        text="main 7 saal ka hoon", button=None, learners=[MUNNI, golu], layer=layer
+    )
+    assert result.reply.body == WHO_IS_WRITING[H].format(names="Munni ya Golu")
+    assert [button.title for button in result.reply.buttons] == ["Munni", "Golu"]
+
+
+async def test_with_no_young_child_on_the_list_the_writer_is_sent_to_their_parent() -> None:
+    lala = child(3, "Lala", age=10)  # child talk is for 3-8-year-olds
+    layer, llm = layer_with(intent=reading("someone_else"))
+    result = await khoj(
+        text="mujhe homework mein madad chahiye", button=None, learners=[lala], layer=layer
+    )
+    assert result.reply.body == WHO_IS_WRITING_NO_CHILD[H]
+    assert result.reply.buttons == []
+    assert llm.by_prompt["parent_answer"].prompts == []

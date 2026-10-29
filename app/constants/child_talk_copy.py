@@ -255,5 +255,46 @@ TOPIC_LABELS: Final[dict[CuriosityDomain, dict[Language, str]]] = {
 }  # fmt: skip
 
 
+# Someone other than the parent seems to be writing (intent reading; owner, 2026-10-29): a
+# family often has one phone. Marg asks, and answers nobody the parent hasn't added. {names}:
+# the children aged 3-8 on the parent's list, each also a button.
+WHO_IS_WRITING: Final[dict[Language, str]] = {
+    _HINGLISH: (
+        "Kaun likh raha hai? Agar tum {names} ho, toh apna naam dabao. Agar tumhara naam yahan"
+        " nahi hai, toh Mummy ya Papa se kaho ki pehle tumhe Marg par jod dein. Mummy-Papa hain,"
+        " toh bas likhte rahiye."
+    ),
+    _HINDI: (
+        "कौन लिख रहा है? अगर तुम {names} हो, तो अपना नाम दबाओ। अगर तुम्हारा नाम यहाँ नहीं है,"
+        " तो मम्मी या पापा से कहो कि पहले तुम्हें मार्ग पर जोड़ दें। मम्मी-पापा हैं, तो बस लिखते"
+        " रहिए।"
+    ),
+    _ENGLISH: (
+        "Who's writing? If you're {names}, tap your name. If your name isn't here, please ask"
+        " your Mummy or Papa to add you on Marg first. If you're the parent, just carry on."
+    ),
+}
+WHO_IS_WRITING_NO_CHILD: Final[dict[Language, str]] = {
+    _HINGLISH: (
+        "Kaun likh raha hai? Marg bachchon se tabhi baat karta hai jab Mummy ya Papa unhe jod"
+        " dein, toh pehle unse kaho. Mummy-Papa hain, toh bas likhte rahiye."
+    ),
+    _HINDI: (
+        "कौन लिख रहा है? मार्ग बच्चों से तभी बात करता है जब मम्मी या पापा उन्हें जोड़ दें, तो"
+        " पहले उनसे कहो। मम्मी-पापा हैं, तो बस लिखते रहिए।"
+    ),
+    _ENGLISH: (
+        "Who's writing? Marg talks with a child only once their Mummy or Papa has added them,"
+        " so please ask them first. If you're the parent, just carry on."
+    ),
+}
+OR_WORD: Final[dict[Language, str]] = {_HINGLISH: "ya", _HINDI: "या", _ENGLISH: "or"}
+
+
+def named_kid_button(learner_id: str, nickname: str) -> ReplyButton:
+    """A child's own name as the button that starts their talk ("Who's writing?")."""
+    return ReplyButton(id=f"kid:start:{learner_id}", title=nickname)
+
+
 def kid_start_button(learner_id: str, language: Language) -> ReplyButton:
     return ReplyButton(id=f"kid:start:{learner_id}", title=KID_START_TITLE[language])

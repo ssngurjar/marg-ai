@@ -26,7 +26,13 @@ from uuid import uuid4
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.constants.child_hazards import CHILD_HAZARD_WORDS
-from app.constants.child_talk_copy import kid_start_button
+from app.constants.child_talk_copy import (
+    OR_WORD,
+    WHO_IS_WRITING,
+    WHO_IS_WRITING_NO_CHILD,
+    kid_start_button,
+    named_kid_button,
+)
 from app.constants.journey_copy import (
     ADD_CHILD_BUTTON,
     ADD_CHILD_PROMPT,
@@ -280,6 +286,8 @@ class JourneyLayer:
                 return _fixed(NUDGE_ASK[register], register, NUDGE_BUTTONS[register])
             case ParentIntent.DAILY_OFF:
                 return self._daily_off(register, khoj_open=khoj_open)
+            case ParentIntent.SOMEONE_ELSE:
+                return JourneyLayer._who_is_writing(ctx, now, register)
             case _:
                 # QUESTION, or a REPORT with nothing open: the parent's answer
                 return await self._question(ctx, user_text, now, register, child_question=False)
@@ -312,6 +320,25 @@ class JourneyLayer:
         child = learner.nickname if learner and learner.nickname else CHILD_IN_HELLO[register]
         hello = HELLO_NOTHING_OPEN[register].format(child=child)
         return _fixed(hello, register, (TODAY_KHOJ_BUTTON[register],))
+
+    @staticmethod
+    def _who_is_writing(ctx: TurnContext, now: datetime, register: Language) -> LayerResult:
+        """A child or student seems to be writing on the parent's phone: ask who, and answer
+        no one the parent hasn't added (consent). The buttons are the children aged 3-8 on
+        the list; tapping one starts child talk, or, without the parent's yes, asks them."""
+        young = [
+            learner
+            for learner in ctx.learners
+            if learner.nickname
+            and StageRules.age_band(learner.birth_year, now.date()) is AgeBand.FOUNDATIONAL_3_8
+        ]
+        if not young:
+            return _fixed(WHO_IS_WRITING_NO_CHILD[register], register, ())
+        names = f" {OR_WORD[register]} ".join(str(learner.nickname) for learner in young)
+        buttons = tuple(
+            named_kid_button(str(learner.id), str(learner.nickname)) for learner in young
+        )
+        return _fixed(WHO_IS_WRITING[register].format(names=names), register, buttons)
 
     @staticmethod
     def _add_child(ctx: TurnContext, register: Language) -> LayerResult:

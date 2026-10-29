@@ -163,6 +163,9 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
   form ("pleasee", "Hellooo"), and the copy `HELLO_NOTHING_OPEN`, `TODAY_KHOJ_BUTTON`
   (`journey_copy.py`). Decide: should Roman "Hindi" mean Devanagari Hindi? (Now Hinglish, s08.)
 
+- [ ] **"Who's writing?" (2026-10-29):** the copy `WHO_IS_WRITING`, `WHO_IS_WRITING_NO_CHILD`
+  (`child_talk_copy.py`); later: a student profile on a parent's phone for children 9+.
+
 ## 2e. Curiosity moment, C11 (from 2026-10-27)
 
 - [ ] **Prompt** `app/prompts/curiosity_moment.md.j2` (v1.0.0). Live check 2026-10-27 (synthetic

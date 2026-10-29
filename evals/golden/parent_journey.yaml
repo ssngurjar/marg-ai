@@ -475,3 +475,19 @@
       - offers to add the other child, pointing to the button that does it
     must_not:
       - answers as if it were a question about parenting
+
+- id: parent-journey-027
+  title: A student writes on the parent's phone (one family, one phone)
+  profile: {role: parent, language: english}
+  learner: {relation: parent, nickname: Munni, age: 5}
+  turns:
+    - user: "I want to ask, I'm in class 10 right now, what should I study?"
+  expect:
+    route: journey
+    register: english
+    must:
+      - asks who is writing, offering Munni's name
+      - tells someone not on the list to ask their parent to add them first
+    must_not:
+      - answers the class 10 study question
+      - suggests resetting or deleting anything
