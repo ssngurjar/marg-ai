@@ -751,9 +751,14 @@ async def test_onboarding_the_first_child_brings_the_first_khoj_in_the_same_turn
     ctx = turn_context(text_message("beti, Munni, 5 saal"), profile=parent)
     result = await run(ctx, llm=FakeLanguageModel([personalisation_for(first_choice())]))
     parts = result.outcome.delivery.parts
-    assert any(button.id.startswith("onb:childtalk:yes:") for button in parts[0].buttons)
+    # thanks, then the khoj, then the two questions (owner's judge walkthrough, 2026-10-29)
+    assert parts[0].buttons == []
     assert PERSONALISED_INTRO in result.delivered
-    assert [button.id for button in parts[-2].buttons] == ["jrn:done", "jrn:other"]
+    assert [button.id for button in parts[-3].buttons] == ["jrn:done", "jrn:other"]
+    assert [button.id.rsplit(":", 1)[0] for button in parts[-2].buttons] == [
+        "onb:childtalk:yes",
+        "onb:childtalk:no",
+    ]
     # then, on its own (a message holds at most 3 buttons): when to send the daily khoj
     assert parts[-1].text == NUDGE_ASK[Language.HINGLISH]
     assert [button.id for button in parts[-1].buttons] == ["nudge:08", "nudge:18", "nudge:off"]
@@ -818,3 +823,19 @@ async def test_a_blocked_report_is_not_extracted() -> None:
         ctx, llm=FakeLanguageModel([REFLECTION]), classifier=flagging(user=[SafetyCategory.HATE])
     )
     assert result.outcome.post_turn == []
+
+
+async def test_if_the_first_khoj_fails_the_child_talk_question_still_follows_the_thanks() -> None:
+    parent = user_profile(state=ConversationState.AWAITING_CHILD, consented=True)
+    down = FakeSafetyClassifier(error=GUARD_DOWN, fail_on=frozenset({"assistant"}))
+    no_backup = scripted_policy(reply_outputs=[MODEL_DOWN])[0]
+    result = await run(
+        turn_context(text_message("beti, Munni, 5 saal"), profile=parent),
+        classifier=down,
+        llm=FakeLanguageModel([personalisation_for(first_choice())]),
+        policy=no_backup,
+    )
+    parts = result.outcome.delivery.parts
+    assert len(parts) == 2
+    assert parts[0].buttons == []
+    assert parts[1].buttons[0].id.startswith("onb:childtalk:yes:")

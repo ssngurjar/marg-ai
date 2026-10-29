@@ -72,7 +72,11 @@ async function startSession() {
     showBanner(ERROR_TEXT[body.error] || "The demo couldn't start. Please reload.");
     return;
   }
-  addBubble("bot", "Namaste! Type Hi (or send a voice note) to begin.");
+  addBubble(
+    "bot",
+    "Namaste! Type Hi to begin, in English, Hindi or Hinglish, or tap 🎤 to send a voice note.\n\n" +
+      "Then try it as a parent of a young child, a student or a teacher."
+  );
   openStream();
 }
 

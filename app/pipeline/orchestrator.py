@@ -229,7 +229,7 @@ class _Sealed:
 
     safe: SafeReply
     preamble: SafeReply | None
-    trailer: SafeReply | None = None
+    trailers: tuple[SafeReply, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -406,9 +406,14 @@ class _Turn:
         writes: list[TurnWrite] = list(result.writes)
         delivery = self._delivery(safe)
         if isinstance(result.handoff, FirstKhojHandoff):
+            asks: tuple[SafeReply, ...] = ()
+            if result.handoff.then_ask is not None:
+                asks = (self.steps.gate.clear_fixed(_localised(result.handoff.then_ask), kind),)
+            delivery = self._delivery(safe, trailers=asks)
             khoj = await self._first_khoj(result.handoff, safe.reply_register)
             if khoj is not None:
-                delivery = self._delivery(khoj.safe, preamble=safe, trailer=self._nudge_ask())
+                trailers = (*asks, self._nudge_ask())
+                delivery = self._delivery(khoj.safe, preamble=safe, trailers=trailers)
                 writes.extend(khoj.writes)
         elif isinstance(result.handoff, PendingQuestionHandoff):
             answer = await self._pending_answer(result.handoff, writes, safe.reply_register)
@@ -1163,7 +1168,10 @@ class _Turn:
             _StepRecord(StepName.SYNTHESIZE, started, None, usage, f"voice={safe.reply_register}")
         )
         delivery = ReplyPartsBuilder.build(
-            safe, audio_blob_id=blob_id, preamble=self.sealed.preamble, trailer=self.sealed.trailer
+            safe,
+            audio_blob_id=blob_id,
+            preamble=self.sealed.preamble,
+            trailers=self.sealed.trailers,
         )
         return outcome.model_copy(update={"delivery": delivery})
 
@@ -1171,11 +1179,13 @@ class _Turn:
         self,
         safe: SafeReply,
         preamble: SafeReply | None = None,
-        trailer: SafeReply | None = None,
+        trailers: tuple[SafeReply, ...] = (),
     ) -> ReplyDelivery:
         """Text parts for `safe`; the reply is remembered so its voice note can be added."""
-        self.sealed = _Sealed(safe, preamble, trailer)
-        return ReplyPartsBuilder.build(safe, audio_blob_id=None, preamble=preamble, trailer=trailer)
+        self.sealed = _Sealed(safe, preamble, trailers)
+        return ReplyPartsBuilder.build(
+            safe, audio_blob_id=None, preamble=preamble, trailers=trailers
+        )
 
     def _nudge_ask(self) -> SafeReply:
         """After the first khoj: when should the daily one come? (s10b §4.11; fixed copy)."""

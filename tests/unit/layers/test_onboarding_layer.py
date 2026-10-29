@@ -301,9 +301,13 @@ async def test_a_parent_answer_creates_the_child_and_hands_off_the_first_khoj() 
     )
     assert isinstance(result.handoff, FirstKhojHandoff)
     assert result.handoff.learner.id == upsert.learner_id
-    assert "Munni" in result.reply.body
-    assert body(CopyKey.PROFILE_DONE_PARENT) in result.reply.body
-    assert [button.id for button in result.reply.buttons] == [
+    assert result.reply.body == body(CopyKey.PROFILE_DONE_PARENT)
+    assert result.reply.buttons == []
+    # the child-talk question comes after the khoj (owner's judge walkthrough, 2026-10-29)
+    question = result.handoff.then_ask
+    assert question is not None
+    assert "Munni" in question.body
+    assert [button.id for button in question.buttons] == [
         f"onb:childtalk:yes:{upsert.learner_id}",
         f"onb:childtalk:no:{upsert.learner_id}",
     ]
@@ -312,7 +316,9 @@ async def test_a_parent_answer_creates_the_child_and_hands_off_the_first_khoj() 
 
 async def test_without_a_nickname_the_child_talk_question_says_your_child() -> None:
     result, _ = await handle(at(S.AWAITING_CHILD, role=Role.PARENT), text_message("4 saal"))
-    assert "aapka bachcha" in result.reply.body
+    assert isinstance(result.handoff, FirstKhojHandoff)
+    assert result.handoff.then_ask is not None
+    assert "aapka bachcha" in result.handoff.then_ask.body
 
 
 @pytest.mark.parametrize(

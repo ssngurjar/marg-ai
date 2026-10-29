@@ -177,7 +177,7 @@ def test_a_trailer_comes_last_with_its_own_buttons_after_the_audio() -> None:
         sealed("Aaj ki khoj: parchhai."),
         audio_blob_id=audio,
         preamble=sealed("Profile ho gaya!"),
-        trailer=sealed("Kab bhejein?", buttons=[ReplyButton(id="nudge:08", title="Subah 8")]),
+        trailers=[sealed("Kab bhejein?", buttons=[ReplyButton(id="nudge:08", title="Subah 8")])],
     )
     assert [part.kind for part in delivery.parts] == [
         PartKind.TEXT,

@@ -5,6 +5,7 @@ it only takes `SafeReply`s. The outbox accepts nothing else, so no code path can
 unchecked message.
 """
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Final
 from uuid import UUID
@@ -54,7 +55,7 @@ class ReplyPartsBuilder:
         audio_blob_id: UUID | None,
         preamble: SafeReply | None = None,
         template: TemplateRef | None = None,
-        trailer: SafeReply | None = None,
+        trailers: Sequence[SafeReply] = (),
     ) -> ReplyDelivery:
         """The parts that carry `reply`, in order.
 
@@ -63,8 +64,9 @@ class ReplyPartsBuilder:
           reply's text split to the channel limit; buttons attach to the last text part, which
           becomes INTERACTIVE.
         - A fixed CRISIS reply puts its text before the audio, so helpline numbers arrive first.
-        - The trailer's text (with its own buttons) comes last, e.g. the nudge-time question
-          after the first khoj (s10b §4.11): a message holds at most 3 buttons.
+        - The trailers' texts (each with its own buttons) come last, in order, e.g. the
+          child-talk and nudge-time questions after the first khoj (s10b §4.11): a message
+          holds at most 3 buttons.
         """
         if template is not None:
             return ReplyPartsBuilder._sealed([ReplyPartsBuilder._template_part(template)])
@@ -82,7 +84,7 @@ class ReplyPartsBuilder:
             contents.extend([*reply_text, _Content(PartKind.AUDIO, None, (), audio_blob_id)])
         else:
             contents.extend([_Content(PartKind.AUDIO, None, (), audio_blob_id), *reply_text])
-        if trailer is not None:
+        for trailer in trailers:
             contents.extend(ReplyPartsBuilder._text_contents(trailer.text, trailer.buttons))
         return ReplyPartsBuilder._sealed(
             [content.as_part(part_no) for part_no, content in enumerate(contents)]

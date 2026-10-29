@@ -118,6 +118,9 @@ PROFILE_EXTRACTION: Final = PromptSpec(
 @dataclass(frozen=True, slots=True)
 class FirstKhojHandoff:
     learner: Learner  # created in this turn; its LearnerUpsert comes first in the writes
+    # The child-talk question (C13), sent after the khoj rather than before it, so the khoj
+    # isn't buried under questions (owner's judge walkthrough, 2026-10-29). None: not asked.
+    then_ask: CanonicalReply | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -427,6 +430,12 @@ class OnboardingLayer:
             fixed_kind = FixedReplyKind.CONSENT_DECLINED
         language = transition.profile.language or Language.HINGLISH
         shown_keys = [CHANNEL_VARIANTS.get((key, ctx.profile.channel), key) for key in copy_keys]
+        if isinstance(handoff, FirstKhojHandoff) and CopyKey.ASK_CHILD_TALK in shown_keys:
+            shown_keys.remove(CopyKey.ASK_CHILD_TALK)
+            child_talk_question = self._reply(
+                [CopyKey.ASK_CHILD_TALK], language, child_named, new_learner, fixed_kind
+            )
+            handoff = FirstKhojHandoff(handoff.learner, then_ask=child_talk_question)
         reply = self._reply(shown_keys, language, child_named, new_learner, fixed_kind)
         return OnboardingResult(
             reply=reply,
