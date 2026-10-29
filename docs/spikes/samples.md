@@ -1,7 +1,9 @@
 # Village samples: voices, photos and video
 
-What we collect from the village, why, and how. The Hindi version for helpers is
-[sample-collection-hi.md](sample-collection-hi.md); keep the two in sync.
+What we collect from the village, why, and how. **The list itself (every voice note, text and
+photo, who gives it, what they say and in which language) is in
+[sample-collection-hi.md](sample-collection-hi.md), in Hindi and English, for helpers.** This
+file keeps the purpose, the rules, the video consent form and the manifest.
 
 Rewritten 2026-10-28: the MVP is now the parent journey (children 3–8, including child talk), the
 Aspirational engine brings students back, SAM 3.1 needs real photos, and the demo video needs
@@ -11,7 +13,7 @@ consent forms.
 
 | Set | Used for | Can code be built without it? |
 |---|---|---|
-| A. Voice notes | Spike A (speech-to-text accuracy, word error rate), spike C (listening to the voice replies), the filler, silence and too-long paths, golden eval cases | Yes. Synthetic cases stand in; these replace them and measure the real accuracy. |
+| A. Voice notes and texts | Spike A (speech-to-text accuracy, word error rate), Braj detection, the filler, silence and too-long paths, golden eval cases (spike C, the voice replies, waits until a Meta voice is cleared) | Yes. Synthetic cases stand in; these replace them and measure the real accuracy. |
 | B. Photos | SAM 3.1 person check (must reject any person) and counting accuracy | Yes. The call format is verified with generated test pictures; real photos measure accuracy. |
 | C. Video | The 3-minute demo video ([docs/submission/video-script.md](../submission/video-script.md)) | — |
 
@@ -48,86 +50,12 @@ consent forms.
 
 For a child's voice: say this to the parent first, and get their yes before the child records.
 
-## A. Voice notes (20)
+## A and B. Voice notes, texts and photos
 
-Each 5–30 seconds unless the row says otherwise. At least 6 different speakers in all.
-
-**Parents of children aged 3–8 (the MVP; most important)**
-
-| # | Speaker | Language | What they say |
-|---|---|---|---|
-| A1 | Mother | Hindi | Asks for today's activity ("aaj bachche ke saath kya karein?") |
-| A2 | Father | Hinglish | Reports a khoj: what the child did and said ("Munni ne patte… aur poocha ki…") |
-| A3 | Parent | Hindi | A report where the child refused or got bored |
-| A4 | Parent | Hinglish | Passes on the child's question ("yeh poochh rahi hai, chaand shape kyun badalta hai?") |
-| A5 | Parent | Their own dialect (Rajasthani, Bhojpuri, Haryanvi…) | Any question about the child's day |
-| A6 | Parent | Hindi | A parenting worry ("bachcha khana nahi khata…") |
-| A7 | Parent | Hindi or Hinglish | "Mera data hatao" or "roz ka message band karo" |
-
-**Children aged 3–8 talking on their own** (child talk; parent's consent first)
-
-| # | Speaker | What they say |
-|---|---|---|
-| A8 | Child, 4–5 | A "why" question in their own words ("paani neeche kyun girta hai?") |
-| A9 | Child, 6–8 | A question about an animal or a plant |
-| A10 | Child | Just "haan", "nahi" or "bye" |
-
-**Students, classes 6–12** (the Aspirational engine)
-
-| # | Speaker | Language | What they say |
-|---|---|---|---|
-| A11–A12 | Student | Hindi | "10vi ke baad kya karun?" in their own words |
-| A13–A14 | Student | Hinglish | Their dream job, or a subject they like |
-| A15 | Student | Dialect | Anything about school |
-| A16 | Student | Any | A question naming an exam or scheme (NEET, NMMS, Navodaya, a scholarship) |
-
-**Edge cases** (any speaker)
-
-| # | What |
-|---|---|
-| A17 | A noisy place: outdoors, a fan, animals, a TV |
-| A18 | Very short (under 3 seconds), or almost silent |
-| A19 | Only filler sounds: "umm… hmm…" |
-| A20 | One long note, **over 3 minutes** (tests the "too long" reply) |
-
-Teacher samples are optional, only if the teacher stretch (S10) is built: "Kal main class … mein
-… paath padha raha/rahi hoon…".
-
-## B. Photos (20)
-
-Phone camera, decent light.
-
-**B1. Things children make or collect** (no person at all)
-
-1. Leaves sorted into groups
-2. A tower of stones
-3. Shapes made of roti dough on a steel plate
-4. A stick in the ground with stones marking its shadow
-5. A bowl of water with some things floating and some sunk
-6. A child's drawing on paper (no name written on it)
-7. Folded clothes in piles
-
-**B2. Counting** (items spread out, not touching; write the true count)
-
-8. Exactly 7 leaves
-9. Exactly 5 stones
-10. Exactly 4 flowers or seeds
-11. Exactly 6 small things (buttons, marbles, bottle caps)
-12. About 12 leaves, some overlapping (write the true count)
-
-**B3. Adults only (18+), with their consent.** These test that the photo is **rejected**.
-
-13. A face, from the front
-14. Only one hand, holding a leaf or a stone
-15. A face cut off at the edge of the photo
-16. A person far in the background, with leaves or stones in front
-17. A person sitting and making something; only hands and shoulders visible
-18. A printed photo or poster of a person, in the frame
-
-**B4. Hard cases**
-
-19. A corner of a courtyard or field with no one in it and nothing made
-20. A very dark or blurry photo
+Rewritten 2026-10-29 as one table per part in [sample-collection-hi.md](sample-collection-hi.md):
+22 voice notes (A1–A22) and 4 texts (T1–T4) in Hindi and Hinglish, with Braj speakers among
+parents, children and students, and teachers now that teacher bridges are built; 20 photos
+(B1–B20) and the two eval photos (E1, E2).
 
 ## C. Demo video
 
@@ -171,6 +99,6 @@ Keep the signed forms on paper or as photos **outside git**; they contain names.
 
 ## Manifest (fill as samples arrive; no names, no numbers)
 
-| File | Set and number | Speaker type | Age group | Register | Accent / region | Background noise | Exact transcript or true count | Fixture consent |
-|---|---|---|---|---|---|---|---|---|
-| | | | | | | | | |
+| File | # | Who (age) | Activity | Language (dialect) | Background noise | Exact words or true count | Fixture consent |
+|---|---|---|---|---|---|---|---|
+| | | | | | | | |
