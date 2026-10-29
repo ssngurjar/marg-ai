@@ -417,15 +417,3 @@ async def test_a_spoken_crisis_gets_the_helpline_text_first_then_its_voice_note(
     assert kinds(result)[0] is not PartKind.AUDIO
     assert "14416" in result.delivered
     assert result.voice.synthesizer.requests
-
-
-async def test_words_the_voice_says_badly_are_swapped_in_the_voice_only() -> None:
-    # regression (owner's listening test, 2026-10-29): "पूछिए" was heard as "पूखिए"
-    answer = {
-        **HINGLISH_ANSWER,
-        "spoken_text": "रोज़ पास बिठाइए। आज पूछिए, क्या अच्छा लगा।",
-    }
-    result = await run(speaking(), llm=FakeLanguageModel([answer]), voice=hearing(SPOKEN_QUESTION))
-    [spoken] = result.voice.synthesizer.requests
-    assert spoken.text == "रोज़ पास बैठाइए। आज पूछ लीजिए, क्या अच्छा लगा।"
-    assert result.outcome.delivery is not None  # the written reply is the model's own text

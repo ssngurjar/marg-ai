@@ -39,7 +39,6 @@ from uuid import UUID
 from app.constants.child_talk_copy import PARENT_SUMMARY_AFTER_SADNESS, UNNAMED_CHILD_NAME
 from app.constants.journey_copy import NUDGE_ASK, NUDGE_BUTTONS
 from app.constants.photo_check import PERSON_PHRASES
-from app.constants.spoken_words import SPOKEN_WORD_SWAPS
 from app.constants.stt_keywords import STT_KEYWORDS
 from app.constants.teacher_copy import DASHBOARD_LINK, DASHBOARD_NO_DISTRICT
 from app.core.clock import Clock
@@ -97,7 +96,6 @@ from app.domain.rules.audio_analyser import AudioAnalyser
 from app.domain.rules.filler_detector import FillerDetector
 from app.domain.rules.indic_script_normaliser import IndicScriptNormaliser
 from app.domain.rules.register_chooser import RegisterChooser
-from app.domain.rules.spoken_word_swapper import SpokenWordSwapper
 from app.domain.rules.stage_rules import StageRules
 from app.layers.child_talk_layer import ChildTalkLayer
 from app.layers.exposure_layer import ExposureLayer
@@ -1143,9 +1141,8 @@ class _Turn:
 
     async def _with_voice(self, outcome: TurnOutcome) -> TurnOutcome:
         """The sealed reply as a voice note too, when voice replies are on and the user spoke (or
-        REPLY_AUDIO_FOR_TEXT_INPUT). Its spoken text passed safety_out with the text; only the
-        fixed SPOKEN_WORD_SWAPS (same meaning, said right by the voice) change it after that. Any
-        failure leaves the reply as text only (DEGRADED, s06 §8)."""
+        REPLY_AUDIO_FOR_TEXT_INPUT). Its spoken text passed safety_out with the text. Any failure
+        leaves the reply as text only (DEGRADED, s06 §8)."""
         voice = self.steps.voice
         if self.sealed is None or not voice.voice_replies_enabled:
             return outcome
@@ -1155,9 +1152,7 @@ class _Turn:
         started = self.steps.clock.now()
         try:
             clip, usage = await self._bounded(
-                voice.synthesizer.synthesize(
-                    SpokenWordSwapper.swap(safe.spoken_text, SPOKEN_WORD_SWAPS), safe.reply_register
-                ),
+                voice.synthesizer.synthesize(safe.spoken_text, safe.reply_register),
                 self.settings.synthesize_timeout,
             )
             blob_id = await voice.audio_store.save(self.ctx.profile.user_hash, clip)

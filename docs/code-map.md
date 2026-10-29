@@ -81,7 +81,6 @@ line of the module's docstring.
 | `model_prices.py` | `ModelPrice` | Model prices per million tokens, for cost accounting (s05 §4.1, s07 §4.3). |
 | `onboarding_copy.py` | `CopyEntry` | Onboarding copy: fixed, reviewed text in Hinglish, Hindi and English (s08 §4.8). |
 | `photo_check.py` | — | What SAM 3.1 looks for before a photo is used (s10b §4.14; owner, 2026-10-28). |
-| `spoken_words.py` | — | Words the voice says badly, and what is spoken instead (s06; owner's listening tests). |
 | `stt_keywords.py` | — | Speech-to-text hints: words Muse Voice Transcribe might mishear (s06 §4.5). Reviewed copy. |
 | `student_copy.py` | — | Fixed copy for students (s12): labels the mentor's reply uses, its plan button and the |
 | `teacher_copy.py` | — | Fixed copy for teachers (s10): the exposure bridge's labels and buttons, and the ask-for-chapter |
@@ -161,7 +160,6 @@ line of the module's docstring.
 | `register_chooser.py` | `RegisterChooser` | RegisterChooser: which language to answer this message in (owner, 2026-10-28). |
 | `register_detector.py` | `RegisterDetector` | RegisterDetector: which language and script a message is in (s09's detect_register). Pure. |
 | `session_rules.py` | `SessionRules` | SessionRules: the only definition of a session (contracts §2.2). Pure. |
-| `spoken_word_swapper.py` | `SpokenWordSwapper` | SpokenWordSwapper: the words the voice says badly, replaced in text about to be spoken. |
 | `stage_rules.py` | `StageRules` | StageRules: a learner's age and NEP stage from their birth year (s10b §4.2). Pure. |
 | `turn_batcher.py` | `TurnBatcher` | TurnBatcher: which pending messages a turn takes, and when it gives up (s04 §4.4, §4.9). Pure. |
 

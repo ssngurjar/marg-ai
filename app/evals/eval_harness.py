@@ -116,7 +116,13 @@ class EvalHarness:
         url = await EvalDatabase.create(self._admin_url, self._database)
         try:
             await EvalHarness.migrate(url, self.MIGRATION_TIMEOUT)
-            self._parts = self._wire(self._settings.model_copy(update={"database_url": url}))
+            # Voice replies on: the golden cases test the voice path (child talk answers by
+            # voice), and the recording synthesizer calls no speech model unless --with-tts,
+            # however VOICE_REPLIES_ENABLED is set for real users (off until MMS is cleared).
+            wired_settings = self._settings.model_copy(
+                update={"database_url": url, "voice_replies_enabled": True}
+            )
+            self._parts = self._wire(wired_settings)
             await self._ingest_corpus(self._parts)
         except BaseException:
             await self._close()
