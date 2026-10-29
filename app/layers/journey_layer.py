@@ -34,6 +34,7 @@ from app.constants.journey_copy import (
     KHOJ_BUTTONS,
     KHOJ_DONE,
     KHOJ_OTHER,
+    KHOJ_STILL_OPEN,
     KHOJ_TODAY,
     LISTEN_LABEL,
     NO_ACTIVITY_LEFT,
@@ -51,7 +52,7 @@ from app.constants.journey_copy import (
     UNNAMED_CHILD,
     WHICH_CHILD,
 )
-from app.constants.journey_words import CAREER_WORDS, LABEL_WORDS
+from app.constants.journey_words import CAREER_WORDS, LABEL_WORDS, SMALL_TALK
 from app.core.errors import ProviderError
 from app.domain.enums import ActivityStatus, AgeBand, Language, StepOutcome
 from app.domain.models.activity import Activity, OfferedActivity, PastActivity
@@ -72,6 +73,7 @@ from app.domain.rules.activity_validator import ActivityValidator
 from app.domain.rules.child_hazard_matcher import ChildHazardMatcher
 from app.domain.rules.child_question_detector import ChildQuestionDetector
 from app.domain.rules.conversation_machine import MAX_LEARNERS
+from app.domain.rules.onboarding_answer_parser import OnboardingAnswerParser
 from app.domain.rules.phrase_finder import PhraseFinder
 from app.domain.rules.register_detector import RegisterDetector
 from app.domain.rules.stage_rules import StageRules
@@ -183,13 +185,24 @@ class JourneyLayer:
         asks_for_khoj = PhraseFinder.contains_any(user_text, self.KHOJ_PHRASES)
         if (button is not None and button.startswith(KHOJ_TODAY)) or asks_for_khoj:
             return await self._today(ctx, ctx.active_learner, now, register, skipped=None)
-        reported = button == KHOJ_DONE or bool(user_text.strip()) or photo is not None
+        said_something = bool(user_text.strip()) and not JourneyLayer.small_talk(user_text)
+        reported = button == KHOJ_DONE or said_something or photo is not None
         if open_activity is not None and reported:
             return await self._reflect(ctx, open_activity, user_text, register, photo)
         if button == KHOJ_DONE:
             # Nothing is open (it expired or was reported): offer today's khoj instead.
             return await self._today(ctx, ctx.active_learner, now, register, skipped=None)
         return await self._question(ctx, user_text, now, register)
+
+    @staticmethod
+    def small_talk(text: str) -> bool:
+        """Only a greeting or a thank-you ("Hi", "ok", "शुक्रिया"): not a report on a khoj."""
+        if not text.strip():
+            return False
+        if OnboardingAnswerParser.is_greeting(text):
+            return True
+        said = " ".join(PhraseFinder.words(text))
+        return said in {" ".join(PhraseFinder.words(phrase)) for phrase in SMALL_TALK}
 
     def photo_phrases(self, ctx: TurnContext) -> list[str] | None:
         """What to count in a photo of the open activity, or None when no activity is open (a
@@ -204,6 +217,10 @@ class JourneyLayer:
     ) -> LayerResult:
         """D, or the curiosity moment when the parent passes on the child's own question.
         Raises ProviderError."""
+        open_activity = self._offered(ctx)
+        if open_activity is not None and JourneyLayer.small_talk(user_text):
+            waiting = KHOJ_STILL_OPEN[register].format(title=open_activity.activity.title)
+            return _fixed(waiting, register, KHOJ_BUTTONS[register])
         nicknames = [learner.nickname for learner in ctx.learners]
         not_the_childs: NotAChildQuestion | None = None
         if ChildQuestionDetector.relays_child_question(user_text, nicknames):

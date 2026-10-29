@@ -146,6 +146,10 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
   button (`ONE_MORE_KHOJ_BUTTON` in `journey_copy.py`), greyed-out old buttons on /demo.
   Glance at /demo on your phone once (headless Chrome can't render a true phone width).
 
+- [ ] **Small talk while a khoj is open (2026-10-29):** "Hi", "ok", "thanks" no longer count as
+  the khoj report; the copy `KHOJ_STILL_OPEN` (`journey_copy.py`) and the word list
+  `SMALL_TALK` (`journey_words.py`).
+
 ## 2e. Curiosity moment, C11 (from 2026-10-27)
 
 - [ ] **Prompt** `app/prompts/curiosity_moment.md.j2` (v1.0.0). Live check 2026-10-27 (synthetic

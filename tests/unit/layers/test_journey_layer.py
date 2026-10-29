@@ -9,6 +9,7 @@ from app.constants.journey_copy import (
     AGE_COMING_SOON,
     KHOJ_DONE,
     KHOJ_OTHER,
+    KHOJ_STILL_OPEN,
     KHOJ_TODAY,
     NUDGE_ASK,
     NUDGE_OFF_REPLY,
@@ -537,3 +538,22 @@ async def test_answering_the_time_question_keeps_the_open_khojs_buttons() -> Non
 async def test_answering_the_time_question_with_nothing_open_adds_no_buttons() -> None:
     result = await khoj(button="nudge:off")
     assert result.reply.buttons == []
+
+
+@pytest.mark.parametrize("text", ["Hi", "hello ji", "ok", "Thanks!", "शुक्रिया", "theek hai"])
+async def test_a_greeting_or_thanks_with_a_khoj_open_is_not_a_report(text: str) -> None:
+    # owner, 2026-10-29: "Hi" with a khoj open got a "Shabash!" reflection
+    layer, llm = layer_with()
+    result = await khoj(text=text, button=None, open_activity=offer(FIRST, MUNNI), layer=layer)
+    assert result.reply.body == KHOJ_STILL_OPEN[H].format(title=FIRST.title)
+    assert [button.id for button in result.reply.buttons] == ["jrn:done", "jrn:other"]
+    assert result.writes == []  # nothing recorded as reported
+    assert llm.by_prompt["parent_reflection"].prompts == []
+
+
+@pytest.mark.parametrize("text", ["ok she counted 7 leaves", "Munni did it", "haan ho gaya"])
+async def test_a_real_report_after_ok_is_still_a_report(text: str) -> None:
+    layer, llm = layer_with()
+    result = await khoj(text=text, button=None, open_activity=offer(FIRST, MUNNI), layer=layer)
+    assert result.reply.body.startswith(REFLECTION_PRAISE)
+    assert len(llm.by_prompt["parent_reflection"].prompts) == 1

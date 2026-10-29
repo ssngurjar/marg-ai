@@ -22,3 +22,12 @@ EXPOSURE_PUSH_WORDS: Final = (
     "tum ban sakte", "tum ban sakti", "ban sakte ho", "ban sakti ho", "banna chahiye", "bano",
     "तुम भी बन", "बन सकते हो", "बन सकती हो", "बनना चाहिए",
 )  # fmt: skip
+
+# A whole message that is only one of these is small talk, not a report on the open khoj
+# (owner, 2026-10-29: "Hi" got a "Shabash!" reflection). Greetings are added from
+# OnboardingAnswerParser.GREETINGS.
+SMALL_TALK: Final = (
+    "ok", "okay", "ok ji", "k", "thanks", "thank you", "thankyou", "thank u", "shukriya",
+    "dhanyavad", "dhanyawad", "accha", "acha", "achha", "theek hai", "thik hai", "theek",
+    "ठीक है", "धन्यवाद", "शुक्रिया", "अच्छा",
+)  # fmt: skip

@@ -84,6 +84,20 @@ AGE_COMING_SOON: Final[dict[Language, str]] = {
         "closely."
     ),
 }
+# A greeting or a thank-you while a khoj is open: not a report (owner, 2026-10-29).
+KHOJ_STILL_OPEN: Final[dict[Language, str]] = {
+    _HINGLISH: (
+        "Namaste! Aaj ki khoj abhi baaki hai: {title}. Bachche ke saath karke 'Ho gaya ✓'"
+        " dabaiye, ya mujhse kuch bhi poochhiye."
+    ),
+    _HINDI: (
+        "नमस्ते! आज की खोज अभी बाकी है: {title}। बच्चे के साथ करके 'हो गया ✓' दबाइए, या मुझसे कुछ भी पूछिए।"
+    ),
+    _ENGLISH: (
+        "Hello! Today's khoj is still waiting: {title}. Try it with your child and tap"
+        " 'Done ✓', or ask me anything."
+    ),
+}
 REFLECTION_FALLBACK: Final[dict[Language, str]] = {
     _HINGLISH: (
         "Bahut accha! Bachche ki baat sunna hi sabse badi seekh hai. Ek aur sawaal poochiye:"
