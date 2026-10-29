@@ -82,7 +82,8 @@ hear the real voice notes, and see Marg's real replies arrive with the real wait
 
 ## 2:06 – 2:33 · How it works (voice-over, ~65 words)
 
-*Visuals: the architecture diagram (built up part by part as each is named), the `/demo` page with
+*Visuals: the architecture diagram ([system-diagram.html](system-diagram.html): open it full screen,
+press → as each part is named; C hides the captions, H the buttons), the `/demo` page with
 its live trace filling in step by step, the eval scorecard, the GitHub repository.*
 
 > From the outside, it's just a WhatsApp contact. Under the hood, it's a compound AI system:
