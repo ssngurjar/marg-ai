@@ -25,6 +25,8 @@ def braj(text: str, district: str | None = None) -> bool:
         "Tero lala ka kar rae ho aaj?",
         "मोय बताओ, वाको का करनो है",
         "Mero lala din bhar mobile dekhto hai, vaako ka karun?",  # translation-007
+        "मेरो बच्चा दस साल को है, वाय कैसे पढ़ाऊं?",  # a mother's real voice note, 2026-10-29
+        "mero lala, vaay kaise padhaun",
     ],
 )
 def test_two_braj_forms_mean_a_braj_speaker(text: str) -> None:
@@ -37,6 +39,8 @@ def test_two_braj_forms_mean_a_braj_speaker(text: str) -> None:
         "Mera beta padhai nahi karta",  # standard Hindi
         "मेरा बेटा स्कूल नहीं गया",
         "chhora bahut shaitan hai",  # one form alone is common across north India
+        "वाह, मेरा बेटा पढ़ता है",  # "वाह" is not the Braj "वाय"
+        "waah, mera beta padhta hai",
         "My son doesn't study",
         "",
         "🙏😊",
