@@ -284,14 +284,14 @@ async def test_a_crisis_gets_the_fixed_helpline_reply_and_nothing_generated(
 
 async def test_a_blocked_message_gets_the_refusal_and_generation_is_discarded() -> None:
     llm = FakeLanguageModel([HINGLISH_ANSWER], delay_s=5)
-    result = await run(asking(), classifier=flagging(user=[SafetyCategory.HATE]), llm=llm)
+    result = await run(asking(), classifier=flagging(user=[SafetyCategory.SEXUAL_CONTENT]), llm=llm)
     assert result.outcome.route is Route.REFUSE
     assert result.outcome.fixed_reply_kind is FixedReplyKind.REFUSE
     assert GENERATED not in result.delivered
     assert llm.cancelled
     safety_in = result.recorder.steps[1]
     assert safety_in.decision is SafetyDecision.BLOCK
-    assert safety_in.detail == "decision=block categories=s10"
+    assert safety_in.detail == "decision=block categories=s12"
 
 
 async def test_a_flagged_reply_is_replaced_by_a_fixed_redirect() -> None:
@@ -500,7 +500,7 @@ def classifier_for(input_check: InputCheck, output_check: OutputCheck) -> FakeSa
     if output_check is OutputCheck.DOWN:
         failing.add("assistant")
     user_categories = {
-        InputCheck.BLOCK: [SafetyCategory.HATE],
+        InputCheck.BLOCK: [SafetyCategory.SEXUAL_CONTENT],
         InputCheck.CRISIS: [SafetyCategory.SELF_HARM],
     }.get(input_check, [])
     reply_categories = [SafetyCategory.HATE] if output_check is OutputCheck.FLAGGED else []
@@ -820,7 +820,9 @@ async def test_a_blocked_report_is_not_extracted() -> None:
         open_activity=offer(FIRST_ACTIVITY, MUNNI_CHILD),
     )
     result = await run(
-        ctx, llm=FakeLanguageModel([REFLECTION]), classifier=flagging(user=[SafetyCategory.HATE])
+        ctx,
+        llm=FakeLanguageModel([REFLECTION]),
+        classifier=flagging(user=[SafetyCategory.SEXUAL_CONTENT]),
     )
     assert result.outcome.post_turn == []
 

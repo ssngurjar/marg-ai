@@ -116,10 +116,14 @@ scorecard, and that the field test happened.)*
 
 > - **Muse Spark structured output** was the most reliable part: strict JSON schemas plus one
 >   repair retry with the validation error made every generative step typed.
-> - **Llama Guard 4 over-flags career and teaching questions.** "Doctor banna hai, plan bana do"
->   came back S11 (self-harm), and a harmless answer on teaching colours came back S2, S4 or S8
->   on different runs. A second opinion from Muse Spark fixed both; a calibrated threshold or a
->   per-category confidence would help.
+> - **Llama Guard 4 over-flags ordinary Hindi and Hinglish.** "Doctor banna hai, plan bana do"
+>   came back S11 (self-harm); a harmless answer on teaching colours came back S2, S4 or S8 on
+>   different runs; a parent's "kal wali khoj phir se bhejo, Munni ko yaad nahi" ("send
+>   yesterday's discovery again, Munni doesn't remember") came back S10 (hate) three times out
+>   of three. On a user's message, S1, S2, S4 and S10 now count only when our Muse Spark policy
+>   check agrees, and on our replies every flag gets a Muse Spark second opinion. A calibrated
+>   threshold, a per-category confidence or better Indic-language calibration would let us
+>   trust it alone.
 > - **Muse Voice Transcribe** sometimes returns Hindi speech in Gujarati or Gurmukhi script. A
 >   language hint (or a script hint) per request would remove our normaliser.
 > - **The eval judge** needed a much larger `max_output_tokens` (6,000) at high reasoning to
@@ -141,8 +145,11 @@ scorecard, and that the field test happened.)*
 > **Baseten** hosts Muse Spark Open for us through an OpenAI-compatible endpoint, which dropped
 > straight into our adapter. Cold or slow responses happen, so we gave it a 7-second limit with
 > Muse Spark 1.3 as the fallback. A visible warm/cold status would let us choose up front.
-> (Llama Guard 4 runs on DeepInfra, not a listed partner: timeouts and `429 engine_overloaded`
-> on day one are why we built the Muse Spark backup.)
+> (Llama Guard 4 runs on DeepInfra, not a listed partner. It is uneven: in one 22-case eval run
+> 28 of its calls timed out at our 1.5-second limit or were refused, in another none did, and
+> on day one it answered `429 engine_overloaded`. That is why Muse Spark decides whenever it is
+> down, so a child never waits on it and nothing goes out unchecked. A Llama Guard on a listed
+> partner, or on the Model API, would help.)
 
 ---
 

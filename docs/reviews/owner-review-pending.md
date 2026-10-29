@@ -153,7 +153,7 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
 - [ ] **Intent reading (2026-10-29):** the prompt `parent_intent.md.j2` (what each intent means,
   with examples), the copy `ADD_CHILD_PROMPT` (`journey_copy.py`), and the setting
   `INTENT_READING_ENABLED`. Try free sentences in /demo and the dialect recordings.
-- [ ] **Decide: Llama Guard S10 (hate) on a user's message.** "kal wali khoj phir se bhejo,
+- [x] **Decided 2026-10-29: S10 needs the policy check's confirmation, Llama Guard kept.** Was: Llama Guard S10 (hate) on a user's message. "kal wali khoj phir se bhejo,
   Munni ko yaad nahi" is flagged S10 every time (3/3) and refused; without "Munni ko yaad nahi"
   it passes. S1, S2 and S4 already count only when the Muse Spark policy check confirms (spike
   B); adding S10 to that set would fix it. Golden case parent-journey-025 fails until then.
