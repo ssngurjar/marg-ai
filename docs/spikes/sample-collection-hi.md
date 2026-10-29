@@ -49,8 +49,13 @@ first and get their yes.
 
 ## भाग 1: वॉइस नोट और मैसेज / Part 1: voice notes and texts
 
-हर वॉइस नोट 5 से 30 सेकंड (जहाँ अलग न लिखा हो)। कम से कम 6 अलग लोग।
-Each voice note 5–30 seconds unless the row says otherwise; at least 6 different people.
+हर वॉइस नोट 5 से 30 सेकंड (जहाँ अलग न लिखा हो)। **हर लाइन एक बार, एक व्यक्ति से।** पूरे सेट
+में कम से कम 6 अलग लोग हों, ताकि सब कुछ एक-दो लोग ही न बोलें। एक व्यक्ति कई लाइनें बोल सकता है।
+अगर कोई और भी वही लाइन बोलना चाहे, तो उसे "A1b" लिखकर भेजें (ज़रूरी नहीं)।
+Each voice note 5–30 seconds unless the row says otherwise. **Each row once, from one person.**
+Across the whole set, at least 6 different people, so one or two voices don't record everything;
+one person may do several rows. If someone else wants to record the same row too, send it as
+"A1b" (optional).
 
 | # | कौन (उम्र) / Who (age) | क्या भेजें / Activity | क्या बोलें या लिखें / Content | भाषा (बोली) / Language (dialect) |
 |---|---|---|---|---|
