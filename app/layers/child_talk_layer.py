@@ -134,6 +134,13 @@ class ChildTalkLayer:
     blocked (sexual content, medical, privacy…) keeps the fixed child refusal."""
     _REASON_ORDER: ClassVar[tuple[RedirectReason, ...]] = ("hurting", "weapons", "rules")
 
+    LAST_ANSWER_RULE: ClassVar[str] = (
+        "This is the child's last question for today, and a goodbye follows your reply: ask"
+        ' nothing. Make ask_back one warm line to keep wondering about on their own ("Kal'
+        ' Mummy ko batana tumne kya dekha!"), with no "?" anywhere, and ask nothing in'
+        " spoken_text either."
+    )
+    """On the session's last answer (owner's eval, 2026-10-29: a question back, then "bye")."""
     CARRY_WINDOW: ClassVar[timedelta] = timedelta(minutes=10)
     """How long after "Who's writing?" a tapped name still brings the child's message along."""
 
@@ -273,7 +280,10 @@ class ChildTalkLayer:
                 learner, user_text, now, register, voice=voice, reason=reason
             )
         else:
-            answer = await self._answer(learner, user_text, now, register, voice)
+            last_answer = ChildSessionRules.is_last_turn(session, self._limits)
+            answer = await self._answer(
+                learner, user_text, now, register, voice, last_answer=last_answer
+            )
         counted = ChildTalkTurn(session_id=session.id, topic=answer.topic)
         source = CuriositySource(
             learner_id=learner.id, kind="child_words", hint_domains=[], activity_title=None
@@ -345,8 +355,15 @@ class ChildTalkLayer:
             hazard_rule=frozenset(),
         )
 
-    async def _answer(
-        self, learner: Learner, user_text: str, now: datetime, register: Language, voice: str
+    async def _answer(  # noqa: PLR0913  # plus whether it's the session's last answer
+        self,
+        learner: Learner,
+        user_text: str,
+        now: datetime,
+        register: Language,
+        voice: str,
+        *,
+        last_answer: bool,
     ) -> _Answer:
         age = StageRules.age_on(learner.birth_year, now.date())
         band: Literal["young", "older"] = "young" if age <= YOUNGEST_BAND_MAX_AGE else "older"
@@ -362,6 +379,7 @@ class ChildTalkLayer:
                 "child_age": age,
                 "max_words": max_words,
                 "topics": ", ".join(domain.value for domain in CuriosityDomain),
+                "closing_rule": ChildTalkLayer.LAST_ANSWER_RULE if last_answer else "",
             },
             user_vars={"child": learner.nickname or "", "child_message": user_text},
             semantic_check=lambda reply: _ChildChecks.problems(reply, register, max_words),

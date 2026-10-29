@@ -17,7 +17,7 @@ from app.constants.child_safety_words import (
     QUESTION_WORDS,
 )
 from app.constants.whatsapp import MAX_TEXT_CHARS
-from app.domain.enums import FixedReplyKind, Language, PartKind, SafetyDecision, StepName
+from app.domain.enums import FixedReplyKind, Language, PartKind, Route, SafetyDecision, StepName
 from app.domain.rules.child_reply_matcher import ChildReplyMatcher
 from app.domain.rules.register_detector import RegisterDetector
 from app.evals.golden_case import EXPECTS_FAILURE_TAG, GoldenCase, TurnExpectation
@@ -81,7 +81,15 @@ class EvalChecks:
         results.append(EvalChecks.length(record))
         if EXPECTS_FAILURE_TAG not in case.tags:
             results.append(EvalChecks.no_step_failed(record))
-        if case.speaker == "learner" and record.generated_text and record.fixed_reply is None:
+        # A child talking (C13): only the turns child talk answered; a case may start on the
+        # parent's side ("Who's writing?" on a shared phone, owner 2026-10-29).
+        child_talk = record.route is Route.CHILD_TALK
+        if (
+            case.speaker == "learner"
+            and child_talk
+            and record.generated_text
+            and not record.fixed_reply
+        ):
             results.append(EvalChecks.child_safeguards(record))
         return results
 

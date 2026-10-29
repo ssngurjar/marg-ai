@@ -183,6 +183,11 @@ session ends after 6 questions or 10 minutes, and the next can start 30 minutes 
 nothing caps a child's total for the day. Planned: a daily cap the parent can set, with the
 time shown in the parent's summary, so Marg stays a short daily spark, not screen time.
 
+**Next: reading what a child means, too.** Muse Spark reads what a parent's words mean (a report,
+a question, someone else writing). A child's messages in child talk still go through fixed rules
+for things like "Hindi" or "bye", which miss some ways children write. Planned: the same reading
+for children, once its extra second per reply is worth it.
+
 ## Quality
 
 | | |

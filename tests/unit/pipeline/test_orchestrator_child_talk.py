@@ -278,6 +278,7 @@ async def test_a_child_who_taps_their_name_gets_their_message_answered_in_their_
     outcome = result.outcome
     assert outcome.route is Route.CHILD_TALK
     assert CHILD_ANSWER in result.delivered  # CHILD_REPLY is Hinglish: it passed its checks
+    assert outcome.delivery.parts[0].kind is PartKind.AUDIO  # voice-first for a child
     assert result.classifier.requests[0].text == CAME_WITH  # checked again, as this turn's
     assert result.classifier.speakers() == ["user", "assistant"]
     [prompt] = llm.prompts

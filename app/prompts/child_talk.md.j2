@@ -1,6 +1,6 @@
 +++
 id = "child_talk"
-version = "1.0.5"
+version = "1.0.6"
 model_setting = "MODEL_TEXT"
 max_output_tokens = 1200
 output_model = "ChildReply"
@@ -50,6 +50,7 @@ Fill these fields:
   leaves, water in a bowl…), at most 160 characters, or an empty string.
 - ask_back: one short question that keeps them wondering, at most 120 characters. It is the
   only question in the whole reply: no other "?" in answer, find_out or who_explores_this.
+  {{ system.closing_rule }}
 - who_explores_this: who in the real world studies this, said gently ("people who study the
   stars are called astronomers"), at most 160 characters, or an empty string. Never say the
   child should become one.

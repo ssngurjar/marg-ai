@@ -148,9 +148,10 @@ async def test_a_turn_answers_in_the_childs_register_and_says_tell_your_parents(
     assert result.reply.spoken_text.endswith(TELL_YOUR_PARENTS[Language.HINDI])
     assert result.writes == [ChildTalkTurn(session_id=SESSION_ID, topic=CuriosityDomain.EARTH_SKY)]
     assert result.hazard_rule == TALKABLE_HAZARDS
-    assert result.prompt_versions == {"child_talk": "1.0.5"}
+    assert result.prompt_versions == {"child_talk": "1.0.6"}
     assert "The child is 5 years old" in llm.prompts[0].system
     assert "at most 8 words" in llm.prompts[0].system
+    assert ChildTalkLayer.LAST_ANSWER_RULE not in llm.prompts[0].system  # more may follow
 
 
 async def test_an_older_child_may_have_longer_sentences() -> None:
@@ -190,7 +191,9 @@ async def test_the_model_down_is_raised_for_the_orchestrator() -> None:
 
 async def test_the_sixth_turn_is_answered_then_goodbye_and_the_parents_summary() -> None:
     session = open_session(MUNNI, turns=5, topics=[CuriosityDomain.NATURE_LIVING])
-    result, _ = await talk(session=session)
+    result, llm = await talk(session=session)
+    # A goodbye follows this answer: the model is told to ask nothing back (owner's eval)
+    assert ChildTalkLayer.LAST_ANSWER_RULE in llm.prompts[0].system
     body = result.reply.body
     assert body.startswith(CHILD_ANSWER)
     assert CHILD_GOODBYE[H] in body
