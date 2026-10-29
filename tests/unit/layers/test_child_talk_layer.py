@@ -224,6 +224,23 @@ async def test_a_goodbye_from_the_child_ends_the_session(goodbye: str) -> None:
 
 
 @pytest.mark.parametrize(
+    ("text", "started_minutes_ago"),
+    [("bye", 1), ("chaand kyun chamakta hai?", 10)],  # the child's goodbye; the time limit
+)
+async def test_a_session_where_nothing_was_asked_ends_without_a_parent_summary(
+    text: str, started_minutes_ago: int
+) -> None:
+    """Owner, 2026-10-29: "Munni talked with Marg" isn't true when she asked nothing."""
+    session = open_session(MUNNI, turns=0, started=NOW - timedelta(minutes=started_minutes_ago))
+    result, llm = await talk(text, session=session)
+    assert result.reply.body == CHILD_GOODBYE[H]
+    assert "Munni" not in result.reply.body
+    [end] = result.writes
+    assert isinstance(end, ChildSessionEnd)
+    assert llm.prompts == []
+
+
+@pytest.mark.parametrize(
     ("text", "buttons"),
     [
         ("mera data hatao", []),

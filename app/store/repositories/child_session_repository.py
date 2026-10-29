@@ -87,10 +87,15 @@ class ChildSessionRepository:
 
     @staticmethod
     async def last_ended_at(session: AsyncSession, user_hash: UserHash) -> datetime | None:
+        """When the last session in which the child asked something ended (for the cooldown).
+        A session with no answered question doesn't count (owner, 2026-10-29)."""
         ended: datetime | None = (
             await session.execute(
                 select(func.max(child_sessions.c.ended_at)).where(
-                    child_sessions.c.user_hash == user_hash
+                    and_(
+                        child_sessions.c.user_hash == user_hash,
+                        child_sessions.c.turns_count > 0,
+                    )
                 )
             )
         ).scalar_one()
@@ -170,7 +175,9 @@ class ChildSessionRepository:
 
     async def due_summaries(self, limit: int, window: timedelta) -> list[ExpiredSession]:
         """Expired sessions whose parent hasn't had the summary, still inside `window` (WhatsApp's
-        24 hours: a free-form reply can't go later; the web has none). Older ones are never sent."""
+        24 hours: a free-form reply can't go later; the web has none). Older ones are never sent,
+        nor one in which the child asked nothing: there's nothing true to tell (owner,
+        2026-10-29)."""
         window_open = or_(
             users.c.channel == Channel.WEB.value,
             users.c.last_inbound_at > func.now() - window,
@@ -190,6 +197,7 @@ class ChildSessionRepository:
                 and_(
                     child_sessions.c.end_reason == ChildSessionEndReason.EXPIRED.value,
                     child_sessions.c.summary_sent_at.is_(None),
+                    child_sessions.c.turns_count > 0,
                     child_sessions.c.ended_at > func.now() - window,
                     window_open,
                 )

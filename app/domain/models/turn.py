@@ -53,8 +53,9 @@ class TurnContext(DomainModel):
     messages: list[InboundMessage]  # oldest first; at least one
     recent_exchanges: list[Exchange]  # the last RECENT_EXCHANGES, oldest first
     is_session_start: bool  # first turn, or SESSION_GAP since the previous (SessionRules)
-    # S10b child talk (C13): the user's open child session, and when their last one ended (for
-    # the cooldown). Speaker is LEARNER exactly when a session is open.
+    # S10b child talk (C13): the user's open child session, and when the last one in which the
+    # child asked something ended (for the cooldown). Speaker is LEARNER exactly when a session
+    # is open.
     child_session: ChildSession | None = None
     last_child_session_ended_at: datetime | None = None
     # The parent's words read as Braj by intent reading, this turn only (owner, 2026-10-29):

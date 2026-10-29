@@ -150,6 +150,9 @@ async def test_an_ended_session_isnt_open_and_starts_the_cooldown(
 ) -> None:
     session_id = await started(sessions, MUNNI)
     async with sessions() as session, session.begin():
+        await ChildSessionRepository.count_turn(
+            session, PARENT, ChildTalkTurn(session_id=session_id, topic=None)
+        )
         await ChildSessionRepository.end(
             session,
             PARENT,
@@ -165,6 +168,23 @@ async def test_an_ended_session_isnt_open_and_starts_the_cooldown(
             )
         ).one()
     assert tuple(row) == ("child_ended", True)
+
+
+async def test_a_session_where_nothing_was_asked_starts_no_cooldown(
+    sessions: async_sessionmaker[AsyncSession],
+) -> None:
+    """Owner, 2026-10-29: the wait limits screen time; a session with no answered question
+    used none."""
+    session_id = await started(sessions, MUNNI)
+    async with sessions() as session, session.begin():
+        await ChildSessionRepository.end(
+            session,
+            PARENT,
+            ChildSessionEnd(session_id=session_id, reason=ChildSessionEndReason.TIME_LIMIT),
+        )
+    async with sessions() as session:
+        assert await ChildSessionRepository.open_for(session, PARENT) is None
+        assert await ChildSessionRepository.last_ended_at(session, PARENT) is None
 
 
 async def test_after_a_crisis_no_summary_is_recorded_as_sent(

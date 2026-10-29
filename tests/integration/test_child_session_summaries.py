@@ -141,6 +141,24 @@ async def test_the_parent_gets_the_topics_once(
     )
 
 
+async def test_a_session_where_nothing_was_asked_gets_no_summary(
+    engine: AsyncEngine, sessions: async_sessionmaker[AsyncSession]
+) -> None:
+    """Owner, 2026-10-29: "Munni talked with Marg" isn't true when she asked nothing."""
+    await a_parent_writing_recently(engine)
+    session_id = await started(sessions, MUNNI)
+    await run(
+        engine,
+        "UPDATE child_sessions SET started_at = now() - interval '11 minutes' WHERE id = :id",
+        id=session_id,
+    )
+    assert await ChildSessionRepository(sessions).close_abandoned(timedelta(minutes=10)) == 1
+    sender = FakeSender(FixedClock(SystemClock().now()))
+    assert await summary_sender(sessions, sender).send_due() == 0
+    assert sender.sent == []
+    assert await scalar(engine, "SELECT count(*) FROM turns WHERE route = 'child_talk'") == 0
+
+
 async def test_two_workers_send_one_summary(
     engine: AsyncEngine, sessions: async_sessionmaker[AsyncSession]
 ) -> None:

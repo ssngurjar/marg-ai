@@ -318,13 +318,19 @@ class ChildTalkLayer:
         reason: ChildSessionEndReason,
         new_topics: Sequence[CuriosityDomain],
     ) -> LayerResult:
-        """The goodbye to the child (spoken), then the parent's summary (text only)."""
-        summary = ChildTalkLayer.parent_summary(
-            learner.nickname, [*session.topics, *new_topics], register
-        )
+        """The goodbye to the child (spoken), then the parent's summary (text only). No summary
+        when the child asked nothing: "Munni talked with Marg" wouldn't be true (owner,
+        2026-10-29)."""
+        asked_something = session.turns_count > 0 or reason is ChildSessionEndReason.TURN_LIMIT
+        body = CHILD_GOODBYE[register]
+        if asked_something:
+            summary = ChildTalkLayer.parent_summary(
+                learner.nickname, [*session.topics, *new_topics], register
+            )
+            body = f"{body}\n\n{summary}"
         return LayerResult(
             reply=CanonicalReply(
-                body=f"{CHILD_GOODBYE[register]}\n\n{summary}",
+                body=body,
                 body_language=register,
                 spoken_text=CHILD_GOODBYE[_voice_language(register)],
                 citations=[],
