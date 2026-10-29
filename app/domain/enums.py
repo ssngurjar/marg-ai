@@ -276,6 +276,7 @@ class CopyKey(StrEnum):
     PROFILE_DONE = "profile_done"
     PROFILE_DONE_TEACHER = "profile_done_teacher"
     PROFILE_DONE_PARENT = "profile_done_parent"
+    PROFILE_DONE_PARENT_OTHER_AGE = "profile_done_parent_other_age"
     ASK_CHILD_TALK = "ask_child_talk"
     CHILD_TALK_ENABLED = "child_talk_enabled"
     CHILD_TALK_OFF = "child_talk_off"

@@ -32,6 +32,11 @@ class TtsTextPreparer:
     _SENTENCE_END: ClassVar[re.Pattern[str]] = re.compile(r"(?<=[।?!.])\s+|\n+")
     _DEVANAGARI: ClassVar[re.Pattern[str]] = re.compile(r"[\u0900-\u097F\uA8E0-\uA8FF]")
     _AFTER_COMMA: ClassVar[re.Pattern[str]] = re.compile(r"(?<=,)\s+")
+    # "छोटा-छोटा": MMS pauses at the hyphen and the doubled word sounds read out, not spoken
+    # (owner's listening test, 2026-10-29); a space between Hindi words reads naturally.
+    _HINDI_HYPHEN: ClassVar[re.Pattern[str]] = re.compile(
+        r"(?<=[\u0900-\u097F])-(?=[\u0900-\u097F])"
+    )
     _SPEAKABLE_PUNCTUATION: ClassVar[frozenset[str]] = frozenset("।?!.,;:'\"-()")
 
     @staticmethod
@@ -52,9 +57,10 @@ class TtsTextPreparer:
 
     @staticmethod
     def clean(text: str) -> str:
-        """NFC, links removed, only letters, marks, digits, spaces and sentence punctuation kept,
-        whitespace collapsed. Idempotent."""
+        """NFC, links removed, a hyphen between Hindi words made a space, only letters, marks,
+        digits, spaces and sentence punctuation kept, whitespace collapsed. Idempotent."""
         normalised = unicodedata.normalize("NFC", TtsTextPreparer._URL.sub(" ", text))
+        normalised = TtsTextPreparer._HINDI_HYPHEN.sub(" ", normalised)
         kept: list[str] = []
         for character in normalised:
             category = unicodedata.category(character)

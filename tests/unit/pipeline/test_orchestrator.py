@@ -198,7 +198,7 @@ async def test_an_allowed_question_gets_the_generated_answer() -> None:
     assert GENERATED in result.delivered
     assert outcome.reply_text == f"{GENERATED}\n\n{HINGLISH_ANSWER['try_this']}"
     assert outcome.reply_register is Language.HINGLISH
-    assert outcome.prompt_versions == {"parent_answer": "1.0.1"}
+    assert outcome.prompt_versions == {"parent_answer": "1.0.2"}
     assert outcome.user_text == QUESTION
 
 
@@ -394,7 +394,7 @@ async def test_safety_out_unavailable_fails_closed_and_sends_nothing_generated()
     assert GENERATED not in result.delivered
     assert result.outcome.first_failure is not None
     assert result.outcome.first_failure.step is StepName.SAFETY_OUT
-    assert result.outcome.prompt_versions == {"parent_answer": "1.0.1"}
+    assert result.outcome.prompt_versions == {"parent_answer": "1.0.2"}
 
 
 async def test_an_exhausted_turn_budget_fails_closed_without_calling_anyone() -> None:

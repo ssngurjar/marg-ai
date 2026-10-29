@@ -9,6 +9,7 @@ import math
 import stat
 import wave
 from array import array
+from itertools import pairwise
 from pathlib import Path
 
 import pytest
@@ -116,3 +117,55 @@ async def test_an_ffmpeg_without_libopus_fails_the_startup_check(tmp_path: Path)
     listing = fake_ffmpeg(tmp_path, "echo ' A....D pcm_s16le   PCM signed 16-bit'")
     with pytest.raises(ConfigError, match="ffmpeg lacks libopus"):
         await AudioTranscoder(timeout_s=5, ffmpeg=listing).check_encoders()
+
+
+def mono_tone(frequency: float, duration_ms: int, rate: int = 16000) -> bytes:
+    count = rate * duration_ms // 1000
+    samples = array(
+        "h", (int(8000 * math.sin(2 * math.pi * frequency * n / rate)) for n in range(count))
+    )
+    buffer = io.BytesIO()
+    with wave.open(buffer, "wb") as writer:
+        writer.setnchannels(1)
+        writer.setsampwidth(2)
+        writer.setframerate(rate)
+        writer.writeframes(samples.tobytes())
+    return buffer.getvalue()
+
+
+def dominant_frequency(wav_bytes: bytes) -> float:
+    """Of a pure tone: zero crossings per second, halved."""
+    with wave.open(io.BytesIO(wav_bytes), "rb") as reader:
+        rate = reader.getframerate()
+        samples = array("h", reader.readframes(reader.getnframes()))
+    crossings = sum(1 for before, after in pairwise(samples) if (before < 0) != (after < 0))
+    return crossings / (len(samples) / rate) / 2
+
+
+async def test_a_raised_pitch_keeps_the_length_and_raises_the_tone() -> None:
+    clip = AudioClip(data=mono_tone(200, 2000), mime_type="audio/wav", duration_ms=2000)
+    note = await AudioTranscoder(timeout_s=10, voice_pitch=1.28).to_voice_note(clip)
+    heard = await AudioTranscoder(timeout_s=10).to_stt_wav(note)
+    assert heard.duration_ms is not None
+    assert abs(heard.duration_ms - 2000) <= 80  # same speed: opus adds a few ms of padding
+    assert dominant_frequency(heard.data) == pytest.approx(256, rel=0.05)
+
+
+async def test_pitch_one_leaves_the_tone_as_it_was() -> None:
+    clip = AudioClip(data=mono_tone(200, 1000), mime_type="audio/wav", duration_ms=1000)
+    note = await AudioTranscoder(timeout_s=10).to_voice_note(clip)
+    heard = await AudioTranscoder(timeout_s=10).to_stt_wav(note)
+    assert dominant_frequency(heard.data) == pytest.approx(200, rel=0.05)
+
+
+@pytest.mark.parametrize("pitch", [0.49, 2.01, 0.0, -1.0])
+def test_a_pitch_ffmpeg_cant_do_in_one_step_is_refused_at_startup(pitch: float) -> None:
+    with pytest.raises(ConfigError, match=r"TTS_PITCH must be between 0\.5 and 2"):
+        AudioTranscoder(timeout_s=10, voice_pitch=pitch)
+
+
+@pytest.mark.parametrize("data", [b"", b"not a wav at all", b"RIFF\x00\x00"])
+async def test_speech_that_isnt_a_wav_cant_be_pitched(data: bytes) -> None:
+    clip = AudioClip(data=data, mime_type="audio/wav", duration_ms=None)
+    with pytest.raises(TranscodeFailed, match="isn't a readable WAV"):
+        await AudioTranscoder(timeout_s=10, voice_pitch=1.28).to_voice_note(clip)

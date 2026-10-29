@@ -19,6 +19,7 @@ from typing import ClassVar, Final
 
 from app.core.errors import InvalidProfileValue, InvalidTransition
 from app.domain.enums import (
+    AgeBand,
     ConsentEventKind,
     ConversationState,
     CopyKey,
@@ -58,6 +59,7 @@ from app.domain.models.conversation import (
     UpsertLearner,
 )
 from app.domain.models.turn import UserProfile
+from app.domain.rules.stage_rules import StageRules
 
 MAX_LEARNERS: Final = 3
 CHILD_AGES: Final = range(2, 20)  # contracts §2.2: learners are 2-19 years old
@@ -283,6 +285,13 @@ def _child_answered(step: _Step, event: ChildAnswered) -> Transition:
         return step.moved(_S.ACTIVE, SendCopy(CopyKey.MAX_CHILDREN))
     nickname = event.nickname.strip() if event.nickname else None
     effects: list[Effect] = [UpsertLearner(LearnerRelation.PARENT, event.birth_year, nickname)]
+    if StageRules.age_band(event.birth_year, step.now.date()) is not AgeBand.FOUNDATIONAL_3_8:
+        # The daily khoj and child talk are for 3-8-year-olds: no khoj promised or sent, no
+        # child talk offered and no daily time asked; the parent can still ask anything.
+        if step.learner_count == 0:
+            effects.append(RecordConsent(ConsentEventKind.CHILD_PROFILE_CONSENT))
+        effects.append(SendCopy(CopyKey.PROFILE_DONE_PARENT_OTHER_AGE))
+        return step.moved(_S.ACTIVE, *effects, pending_question=None)
     if step.learner_count == 0:
         # The first child completes onboarding: consent for the child's profile, then the first
         # khoj in the same turn, with the child-talk question (C13) in the preamble.

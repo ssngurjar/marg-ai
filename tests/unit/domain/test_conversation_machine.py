@@ -159,6 +159,40 @@ def test_a_second_child_gets_its_own_khoj_without_asking_consent_again() -> None
     assert HandoffFirstKhoj() in done.effects
 
 
+@pytest.mark.parametrize(("birth_year", "age"), [(2016, 10), (2017, 9), (2024, 2), (2010, 16)])
+def test_a_child_outside_3_to_8_gets_no_khoj_child_talk_or_daily_time(
+    birth_year: int, age: int
+) -> None:
+    # regression (a mother's voice note, 2026-10-29): a 10-year-old was promised a khoj, then
+    # told it was for 3-8 only, and offered child talk and daily times
+    profile = at(S.AWAITING_CHILD, role=Role.PARENT, **CONSENTED)
+    done = step(profile, ChildAnswered(birth_year, "Lala"))
+    assert NOW.year - birth_year == age
+    assert done.profile.state is S.ACTIVE
+    assert done.effects == (
+        UpsertLearner(LearnerRelation.PARENT, birth_year, "Lala"),
+        RecordConsent(ConsentEventKind.CHILD_PROFILE_CONSENT),
+        SendCopy(CopyKey.PROFILE_DONE_PARENT_OTHER_AGE),
+    )
+
+
+@pytest.mark.parametrize("birth_year", [2018, 2023])  # exactly 8 and exactly 3 still get it
+def test_the_khoj_age_boundaries_are_exact(birth_year: int) -> None:
+    profile = at(S.AWAITING_CHILD, role=Role.PARENT, **CONSENTED)
+    done = step(profile, ChildAnswered(birth_year, None))
+    assert HandoffFirstKhoj() in done.effects
+    assert CopyKey.PROFILE_DONE_PARENT_OTHER_AGE not in copies(done)
+
+
+def test_a_second_child_outside_3_to_8_gets_the_same_without_consent_again() -> None:
+    profile = at(S.AWAITING_CHILD, role=Role.PARENT, **CONSENTED)
+    done = step(profile, ChildAnswered(2016, None), learners=1)
+    assert done.effects == (
+        UpsertLearner(LearnerRelation.PARENT, 2016, None),
+        SendCopy(CopyKey.PROFILE_DONE_PARENT_OTHER_AGE),
+    )
+
+
 def test_a_teacher_answers_subject_grade_district_and_gets_the_invite() -> None:
     teacher = step(at(S.AWAITING_ROLE, **CONSENTED), RoleChosen(Role.TEACHER))
     assert copies(teacher) == [CopyKey.ASK_SUBJECT_TEACHER]

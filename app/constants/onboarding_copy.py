@@ -316,6 +316,27 @@ _TEXTS: Final[dict[CopyKey, dict[Language, str]]] = {
             "first one now."
         ),
     },
+    # A child outside 3-8 (owner, 2026-10-29: a mother of a 10-year-old was promised a khoj and
+    # then told it was for 3-8 only, and offered child talk and daily times).
+    CopyKey.PROFILE_DONE_PARENT_OTHER_AGE: {
+        _HINGLISH: (
+            "Shukriya! Roz ki khoj abhi 3 se 8 saal ke bachchon ke liye hai; is umar ke liye jald "
+            "aayegi. Tab tak bachche ke baare mein kuch bhi poochhiye: padhai, aadatein ya koi "
+            "chinta. Aur roz ek baat: bachche se poochhiye 'aaj tumne kya naya dekha?', aur poore "
+            "dhyan se suniye."
+        ),
+        _HINDI: (
+            "शुक्रिया! रोज़ की खोज अभी 3 से 8 साल के बच्चों के लिए है; इस उम्र के लिए जल्द आएगी। तब "
+            "तक बच्चे के बारे में कुछ भी पूछिए: पढ़ाई, आदतें या कोई चिंता। और रोज़ एक बात: बच्चे से "
+            "पूछिए 'आज तुमने क्या नया देखा?', और पूरे ध्यान से सुनिए।"
+        ),
+        _ENGLISH: (
+            "Thank you! The daily discovery is for children aged 3 to 8 for now; it's coming for "
+            "this age soon. Until then, ask me anything about your child: studies, habits or a "
+            "worry. And one thing every day: ask your child 'what did you notice today?', and "
+            "listen closely."
+        ),
+    },
     CopyKey.ASK_CHILD_TALK: {
         _HINGLISH: (
             "Ek sawaal: kya {child} khud bhi Marg se baat kar sakte hain? Sirf awaaz se, 10 "

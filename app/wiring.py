@@ -477,7 +477,9 @@ def build_voice_adapters(
 ) -> VoiceAdapters:
     """Voice notes in (WhatsApp download, ffmpeg, Muse Voice Transcribe) and out (the voice
     server running TTS_ENGINE, ffmpeg). s06."""
-    transcoder = AudioTranscoder(timeout_s=settings.transcode_timeout_s)
+    transcoder = AudioTranscoder(
+        timeout_s=settings.transcode_timeout_s, voice_pitch=settings.tts_pitch
+    )
     return VoiceAdapters(
         fetcher=WhatsAppMediaFetcher(
             config=MediaFetchConfig(

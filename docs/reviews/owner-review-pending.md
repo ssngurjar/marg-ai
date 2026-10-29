@@ -136,6 +136,11 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
   a question the corpus covers but Marg says it doesn't know needs that document's exam or
   scheme name added to its `keywords`. LASER (Meta, BSD) is the next step if quality drops.
 
+- [ ] **From your mother's voice note (2026-10-29):** the new onboarding copy for a child outside
+  3–8 (`PROFILE_DONE_PARENT_OTHER_AGE` in `onboarding_copy.py`); parent_answer 1.0.2 (anganwadi
+  only for under-6s, the teacher for studies); the warmer spoken rule; `TTS_PITCH=1.28`.
+  Listen to `~/Downloads/Marg-reply-to-mother-v2.ogg`.
+
 ## 2e. Curiosity moment, C11 (from 2026-10-27)
 
 - [ ] **Prompt** `app/prompts/curiosity_moment.md.j2` (v1.0.0). Live check 2026-10-27 (synthetic
