@@ -480,3 +480,28 @@ def test_copy_holds_only_known_placeholders_and_no_hardcoded_links() -> None:
         fields = {name for _, name, _, _ in string.Formatter().parse(entry.body) if name}
         assert fields <= {"child", "invite_link"}, (key, language)
         assert not re.search(r"https?://", entry.body), (key, language)
+
+
+@pytest.mark.parametrize(
+    ("state", "question"),
+    [
+        (S.AWAITING_CONSENT, CopyKey.INTRO_CONSENT),
+        (S.AWAITING_ROLE, CopyKey.ASK_ROLE),
+        (S.AWAITING_CHILD, CopyKey.ASK_CHILD),
+    ],
+)
+async def test_hi_again_while_waiting_repeats_the_question_without_sorry(
+    state: ConversationState, question: CopyKey
+) -> None:
+    # owner's judge walkthrough (2026-10-29): "Hi" after a reload got "Sorry, I didn't
+    # understand that." before the consent question
+    profile = at(state, role=Role.PARENT if state is S.AWAITING_CHILD else None)
+    result, llm = await handle(profile, text_message("Hi"))
+    assert result.reply.body == body(question)
+    assert body(CopyKey.NOT_UNDERSTOOD) not in result.reply.body
+    assert llm.prompts == []  # no extraction call for a greeting
+
+
+async def test_a_real_unclear_answer_still_says_sorry_and_repeats_the_question() -> None:
+    result, _ = await handle(at(S.AWAITING_ROLE), text_message("hmm maybe"))
+    assert result.reply.body.startswith(body(CopyKey.NOT_UNDERSTOOD))

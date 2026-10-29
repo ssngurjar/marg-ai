@@ -137,6 +137,9 @@ class QuestionNoted:
 @dataclass(frozen=True, slots=True)
 class Unrecognised:
     not_understood: CopyKey = CopyKey.NOT_UNDERSTOOD  # INVALID_GRADE for a grade outside 1-12
+    # Only a greeting ("Hi" again, after a reload): ask the waiting question again, without
+    # "Sorry, I didn't understand" (owner's judge walkthrough, 2026-10-29).
+    greeted: bool = False
 
 
 @dataclass(frozen=True, slots=True)

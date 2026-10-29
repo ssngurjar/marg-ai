@@ -218,6 +218,9 @@ class OnboardingLayer:
         profile = ctx.profile
         allowed = ConversationMachine.allowed_events(profile.state, profile.role)
         event = self._deterministic(ctx, user_text, interactive_ids, now)
+        waiting = profile.state is not _S.ACTIVE
+        if event is None and waiting and user_text.strip() and _P.is_greeting(user_text):
+            return _Reading(Unrecognised(greeted=True))
         if event is None and self._worth_extracting(profile.state, user_text):
             return await self._extract(ctx, user_text, now, allowed)
         if event is None or type(event) not in allowed:
