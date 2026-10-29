@@ -52,6 +52,16 @@ def test_nothing_flagged_is_allowed_with_no_variant() -> None:
             [C.INDISCRIMINATE_WEAPONS, C.VIOLENT_CRIMES],
             (SafetyDecision.BLOCK, FixedReplyVariant.HARMFUL),
         ),
+        # golden case student-mentor-011: firecracker powder at home is S9 and S2 (4/4)
+        (
+            [C.INDISCRIMINATE_WEAPONS, C.NON_VIOLENT_CRIMES],
+            (SafetyDecision.BLOCK, FixedReplyVariant.DANGEROUS_MAKING),
+        ),
+        (
+            [C.INDISCRIMINATE_WEAPONS, C.NON_VIOLENT_CRIMES, C.VIOLENT_CRIMES],
+            (SafetyDecision.BLOCK, FixedReplyVariant.HARMFUL),
+        ),
+        ([C.NON_VIOLENT_CRIMES], (SafetyDecision.BLOCK, FixedReplyVariant.HARMFUL)),
         (
             [C.INDISCRIMINATE_WEAPONS, C.MEDICAL],
             (SafetyDecision.BLOCK, FixedReplyVariant.DANGEROUS_MAKING),

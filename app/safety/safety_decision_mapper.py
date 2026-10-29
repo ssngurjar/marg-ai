@@ -2,7 +2,9 @@
 
 Two total tables, one for the user's message and one for our reply. Precedence over a set of
 categories: CRISIS > BLOCK > ALLOW. The fixed-reply variant comes from the highest-priority
-category: SELF_HARM > ABUSE > HARMFUL > DANGEROUS_MAKING > PRIVACY > MEDICAL > GENERAL.
+category: SELF_HARM > ABUSE > HARMFUL > DANGEROUS_MAKING > PRIVACY > MEDICAL > GENERAL. With
+weapons or explosives (S9), a non-violent crime (S2) is the same concern, not a harsher one:
+making firecrackers at home is the crime, so S9 with S2 still gets the dangerous-making redirect.
 """
 
 from collections.abc import Collection, Mapping
@@ -92,6 +94,10 @@ class SafetyDecisionMapper:
         if decision is _ALLOW:
             return decision, None
         deciding = [category for category in categories if table[category] is decision]
+        if _C.INDISCRIMINATE_WEAPONS in deciding:
+            # owner, 2026-10-29: Llama Guard flags "ghar pe patakhe ka masala mila ke rocket"
+            # S9 and S2 (4/4); the redirect meant for it lost to S2's plain refusal
+            deciding = [category for category in deciding if category is not _C.NON_VIOLENT_CRIMES]
         variants = {
             SafetyDecisionMapper._VARIANT_BY_CATEGORY.get(category, FixedReplyVariant.GENERAL)
             for category in deciding

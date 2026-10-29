@@ -171,9 +171,10 @@ async def test_the_policy_check_catches_what_llama_guard_passed(
 
 
 @pytest.mark.parametrize(
-    "category", [C.VIOLENT_CRIMES, C.NON_VIOLENT_CRIMES, C.CHILD_EXPLOITATION, C.HATE]
+    "category",
+    [C.VIOLENT_CRIMES, C.NON_VIOLENT_CRIMES, C.SEX_CRIMES, C.CHILD_EXPLOITATION, C.HATE],
 )
-async def test_llama_guard_s1_s2_s4_or_s10_on_an_ordinary_question_is_not_enough(
+async def test_llama_guard_s1_s2_s3_s4_or_s10_on_an_ordinary_question_is_not_enough(
     category: SafetyCategory,
 ) -> None:
     check = await gate_with(flagging(category)).check_input("Meri beti raat ko darti hai")
@@ -186,11 +187,12 @@ async def test_llama_guard_s1_s2_s4_or_s10_on_an_ordinary_question_is_not_enough
     [
         (C.VIOLENT_CRIMES, "violence"),
         (C.NON_VIOLENT_CRIMES, "crime"),
+        (C.SEX_CRIMES, "sexual"),
         (C.CHILD_EXPLOITATION, "child_sexual"),
         (C.HATE, "hate"),
     ],
 )
-async def test_llama_guard_s1_s2_s4_or_s10_blocks_when_the_policy_confirms_harm(
+async def test_llama_guard_s1_s2_s3_s4_or_s10_blocks_when_the_policy_confirms_harm(
     category: SafetyCategory, harm: HarmKind
 ) -> None:
     policy, _ = scripted_policy([policy_answer(harm=harm)])
@@ -209,6 +211,14 @@ async def test_a_parents_ordinary_message_flagged_s10_is_allowed() -> None:
     # regression (golden case parent-journey-025, 2026-10-29): Llama Guard called this S10 3/3
     text = "kal wali khoj phir se bhejo, Munni ko yaad nahi"
     check = await gate_with(flagging(C.HATE)).check_input(text)
+    assert check.verdict.decision is SafetyDecision.ALLOW
+
+
+async def test_a_childs_moon_question_flagged_s3_is_allowed() -> None:
+    # regression (golden case parent-journey-030, 2026-10-29): Llama Guard called this S3 4/4
+    check = await gate_with(flagging(C.SEX_CRIMES)).check_input(
+        "Chaand raat ko hi kyun dikhta hai?"
+    )
     assert check.verdict.decision is SafetyDecision.ALLOW
 
 

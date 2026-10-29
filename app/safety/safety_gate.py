@@ -136,6 +136,8 @@ class SafetyGate:
         {
             SafetyCategory.VIOLENT_CRIMES,
             SafetyCategory.NON_VIOLENT_CRIMES,
+            # owner, 2026-10-29: "Chaand raat ko hi kyun dikhta hai?" was S3 4/4
+            SafetyCategory.SEX_CRIMES,
             SafetyCategory.CHILD_EXPLOITATION,
             # owner, 2026-10-29: "kal wali khoj phir se bhejo, Munni ko yaad nahi" was S10 3/3
             SafetyCategory.HATE,
