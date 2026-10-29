@@ -223,7 +223,7 @@ async def test_a_report_gets_a_specific_reflection_and_is_recorded_done() -> Non
             summary="Munni noticed the shadow moved during the day.",
         )
     ]
-    assert [button.id for button in result.reply.buttons] == ["onb:add-child"]
+    assert [button.id for button in result.reply.buttons] == ["jrn:today", "onb:add-child"]
     assert result.prompt_versions == {"parent_reflection": "1.2.2"}
 
 
@@ -364,7 +364,23 @@ def test_the_reflection_checks_catch_labels_and_careers(
     changes: dict[str, object], problem: str
 ) -> None:
     reflection = ParentReflection.model_validate({**REFLECTION, **changes})
-    assert problem in _ReflectionChecks.problems(reflection, H)
+    assert problem in _ReflectionChecks.problems(reflection, H, ())
+
+
+def test_a_reflection_naming_an_undeclared_hazard_gets_a_repair_turn_naming_the_word() -> None:
+    # owner's judge walkthrough (2026-10-29): "frogs live near the pond" reached safety_out,
+    # was blocked by d7, and the parent got "couldn't answer"
+    reflection = ParentReflection.model_validate(
+        {**REFLECTION, "parent_tip": "Frogs live near the pond, so they jump."}
+    )
+    problems = _ReflectionChecks.problems(reflection, H, ())
+    assert any('"pond"' in problem and "without them" in problem for problem in problems)
+    assert not any("pond" in p for p in _ReflectionChecks.problems(reflection, H, ("water_body",)))
+
+
+def test_a_good_reflection_has_no_hazard_problem() -> None:
+    reflection = ParentReflection.model_validate(REFLECTION)
+    assert _ReflectionChecks.problems(reflection, H, ()) == []
 
 
 # --- the "Main bachcha hoon" button (C13) ------------------------------------------------------
@@ -508,3 +524,16 @@ async def test_if_the_reflection_fails_the_photo_counts_are_still_recorded() -> 
     [report] = result.writes
     assert isinstance(report, ActivityReported)
     assert report.photo_counts == [ObjectCount(phrase="stone", count=5)]
+
+
+async def test_answering_the_time_question_keeps_the_open_khojs_buttons() -> None:
+    # owner's judge walkthrough (2026-10-29): the time question comes with the first khoj;
+    # answering it first took "Done" away
+    result = await khoj(button="nudge:off", open_activity=offer(FIRST, MUNNI))
+    assert result.reply.body == NUDGE_OFF_REPLY[H]
+    assert [button.id for button in result.reply.buttons] == ["jrn:done", "jrn:other"]
+
+
+async def test_answering_the_time_question_with_nothing_open_adds_no_buttons() -> None:
+    result = await khoj(button="nudge:off")
+    assert result.reply.buttons == []

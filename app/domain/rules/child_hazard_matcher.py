@@ -30,6 +30,22 @@ class ChildHazardMatcher:
         return ChildHazardMatcher.find(text, hazard_words, safe_phrases) - frozenset(declared)
 
     @staticmethod
+    def undeclared_words(
+        text: str, hazard_words: Mapping[str, Sequence[str]], declared: Collection[str]
+    ) -> list[str]:
+        """The words naming an undeclared hazard, as listed, in list order: what a repair
+        message asks the model to leave out."""
+        words = PhraseFinder.words(text)
+        found: list[str] = []
+        for hazard, phrases in hazard_words.items():
+            if hazard in declared:
+                continue
+            for phrase in phrases:
+                if phrase not in found and PhraseFinder.positions(words, phrase):
+                    found.append(phrase)
+        return found
+
+    @staticmethod
     def spoken_only(
         spoken: str,
         written: str,

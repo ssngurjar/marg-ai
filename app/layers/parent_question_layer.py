@@ -13,6 +13,7 @@ from app.domain.enums import Language, StepOutcome
 from app.domain.models.reply import CanonicalReply
 from app.domain.models.turn import TurnContext
 from app.domain.rules.register_detector import RegisterDetector
+from app.layers.hazard_word_checks import HazardWordChecks
 from app.layers.layer_result import LayerResult
 from app.layers.local_voice import LocalVoice
 from app.prompts.prompt_registry import PromptRegistry, PromptSpec
@@ -101,8 +102,13 @@ class ParentQuestionLayer:
 
     @staticmethod
     def script_problems(answer: ParentAnswer, register: Language) -> list[str]:
-        """Fixed-vocabulary problems for the repair turn: is each field in the right script?"""
+        """Fixed-vocabulary problems for the repair turn: is each field in the right script, and
+        does it name a hazard (d7: safety_out blocks any for a parent's answer)?"""
         problems: list[str] = []
+        for problem in HazardWordChecks.problems(
+            f"{answer.answer} {answer.try_this} {answer.spoken_text}", ()
+        ):
+            problems.append("answer, try_this, spoken_text:" + problem.removeprefix("text:"))
         for problem in RegisterDetector.script_problems(
             f"{answer.answer} {answer.try_this}", answer.spoken_text, register
         ):

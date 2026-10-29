@@ -46,6 +46,13 @@ KHOJ_BUTTONS: Final[dict[Language, tuple[ReplyButton, ...]]] = {
         ReplyButton(id=KHOJ_OTHER, title="Another one"),
     ),
 }
+# After a reported khoj: the obvious next step (owner's judge walkthrough, 2026-10-29: the
+# reflection offered only "Another child").
+ONE_MORE_KHOJ_BUTTON: Final[dict[Language, ReplyButton]] = {
+    _HINGLISH: ReplyButton(id=KHOJ_TODAY, title="Ek aur khoj"),
+    _HINDI: ReplyButton(id=KHOJ_TODAY, title="एक और खोज"),
+    _ENGLISH: ReplyButton(id=KHOJ_TODAY, title="One more khoj"),
+}
 ADD_CHILD_BUTTON: Final[dict[Language, ReplyButton]] = {
     _HINGLISH: ReplyButton(id="onb:add-child", title="Doosra bachcha"),
     _HINDI: ReplyButton(id="onb:add-child", title="दूसरा बच्चा"),

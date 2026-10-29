@@ -141,6 +141,11 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
   only for under-6s, the teacher for studies); the warmer spoken rule; `TTS_PITCH` back to 1.0 (a raised voice still
   sounded male). Compare `~/Downloads/Marg-reply-to-mother-v2-natural.ogg` with the first reply.
 
+- [ ] **From the judge walkthrough (2026-10-29):** the hazard-word repair turn on reflections
+  and parent answers, the khoj buttons kept after the time question, the new "One more khoj"
+  button (`ONE_MORE_KHOJ_BUTTON` in `journey_copy.py`), greyed-out old buttons on /demo.
+  Glance at /demo on your phone once (headless Chrome can't render a true phone width).
+
 ## 2e. Curiosity moment, C11 (from 2026-10-27)
 
 - [ ] **Prompt** `app/prompts/curiosity_moment.md.j2` (v1.0.0). Live check 2026-10-27 (synthetic

@@ -437,3 +437,13 @@ def test_the_shipped_count_phrases_are_the_reviewed_ones() -> None:
     assert catalogue["sink-or-float"] == ["stone", "leaf", "bottle cap"]
     assert catalogue["shadow-time"] == ["stone"]
     assert catalogue["yesterday-story"] == []
+
+
+def test_undeclared_words_name_each_word_once_in_list_order() -> None:
+    text = "Frogs live near the pond and the river; the pond is cool. Mind the knife."
+    words = ChildHazardMatcher.undeclared_words(text, CHILD_HAZARD_WORDS, ())
+    assert words == ["pond", "river", "knife"]
+    assert ChildHazardMatcher.undeclared_words(text, CHILD_HAZARD_WORDS, ("water_body",)) == [
+        "knife"
+    ]
+    assert ChildHazardMatcher.undeclared_words("Look at the leaves.", CHILD_HAZARD_WORDS, ()) == []

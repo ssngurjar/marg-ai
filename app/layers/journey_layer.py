@@ -17,7 +17,7 @@ supervision line, added by code. If the model's text fails its checks, the revie
 text goes out instead (DEGRADED), never an unchecked one.
 """
 
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from dataclasses import dataclass
 from datetime import datetime, time, timedelta
 from typing import ClassVar, Final
@@ -45,6 +45,7 @@ from app.constants.journey_copy import (
     NUDGE_OFF_REPLY,
     NUDGE_ON,
     NUDGE_TIME_NAMES,
+    ONE_MORE_KHOJ_BUTTON,
     REFLECTION_FALLBACK,
     SUPERVISION_LINE,
     UNNAMED_CHILD,
@@ -76,6 +77,7 @@ from app.domain.rules.register_detector import RegisterDetector
 from app.domain.rules.stage_rules import StageRules
 from app.layers.activity_catalogue import CatalogueActivitySource
 from app.layers.curiosity_moment_layer import CuriosityMomentLayer, NotAChildQuestion
+from app.layers.hazard_word_checks import HazardWordChecks
 from app.layers.layer_result import LayerResult
 from app.layers.local_voice import LocalVoice
 from app.layers.parent_question_layer import ParentQuestionLayer
@@ -170,10 +172,12 @@ class JourneyLayer:
         user_text, photo = message.text, message.photo
         interactive_ids = message.interactive_ids
         button = interactive_ids[-1] if interactive_ids else None
-        nudge_settings = self._nudge_settings(button, user_text, register)
+        open_activity = self._offered(ctx)
+        nudge_settings = self._nudge_settings(
+            button, user_text, register, khoj_open=open_activity is not None
+        )
         if nudge_settings is not None:
             return nudge_settings
-        open_activity = self._offered(ctx)
         if button is not None and button.startswith(KHOJ_OTHER):
             return await self._another(ctx, open_activity, now, register)
         asks_for_khoj = PhraseFinder.contains_any(user_text, self.KHOJ_PHRASES)
@@ -231,20 +235,23 @@ class JourneyLayer:
         return await self._today(ctx, learner, now, register, skipped=None)
 
     def _nudge_settings(
-        self, button: str | None, user_text: str, register: Language
+        self, button: str | None, user_text: str, register: Language, *, khoj_open: bool
     ) -> LayerResult | None:
-        """Flow E: the daily message turned on at a time, off, or the choice offered again."""
+        """Flow E: the daily message turned on at a time, off, or the choice offered again.
+        The time question comes with the first khoj, so while a khoj is open the answer keeps
+        its "Done" and "Another one" buttons (owner's judge walkthrough, 2026-10-29)."""
+        after = KHOJ_BUTTONS[register] if khoj_open else ()
         if button in self.NUDGE_HOURS:
             hour = self.NUDGE_HOURS[button]
             confirmed = NUDGE_ON[register].format(time=NUDGE_TIME_NAMES[button][register])
             write = NudgePreference(enabled=True, local_time=hour)
-            return _fixed(confirmed, register, ()).model_copy(update={"writes": [write]})
+            return _fixed(confirmed, register, after).model_copy(update={"writes": [write]})
         turned_off = button == NUDGE_OFF or (
             button is None and PhraseFinder.contains_any(user_text, self.NUDGE_OFF_PHRASES)
         )
         if turned_off:
             write = NudgePreference(enabled=False, local_time=None)
-            return _fixed(NUDGE_OFF_REPLY[register], register, ()).model_copy(
+            return _fixed(NUDGE_OFF_REPLY[register], register, after).model_copy(
                 update={"writes": [write]}
             )
         if button is None and PhraseFinder.contains_any(user_text, self.NUDGE_CHANGE_PHRASES):
@@ -422,7 +429,9 @@ class JourneyLayer:
                 ],
             },
             user_vars={"child": learner.nickname or "", "parent_report": report or "Ho gaya"},
-            semantic_check=lambda output: _ReflectionChecks.problems(output, register),
+            semantic_check=lambda output: _ReflectionChecks.problems(
+                output, register, activity.hazards
+            ),
         )
         versions = {rendered.request.prompt.prompt_id: rendered.request.prompt.prompt_version}
         kid = _kid_buttons(learner, register) if self._settings.child_talk_enabled else ()
@@ -471,8 +480,8 @@ class JourneyLayer:
     @staticmethod
     def _after_report_buttons(ctx: TurnContext, register: Language) -> tuple[ReplyButton, ...]:
         if len(ctx.learners) < MAX_LEARNERS:
-            return (ADD_CHILD_BUTTON[register],)
-        return ()
+            return (ONE_MORE_KHOJ_BUTTON[register], ADD_CHILD_BUTTON[register])
+        return (ONE_MORE_KHOJ_BUTTON[register],)
 
 
 @dataclass(frozen=True, slots=True)
@@ -558,10 +567,13 @@ class _KhojChecks:
 
 class _ReflectionChecks:
     @staticmethod
-    def problems(output: ParentReflection, register: Language) -> list[str]:
+    def problems(
+        output: ParentReflection, register: Language, declared: Collection[str]
+    ) -> list[str]:
         written = f"{output.praise_specific} {output.next_question} {output.parent_tip}"
         problems = _ContentChecks.problems(f"{written} {output.summary_for_record}")
         problems.extend(RegisterDetector.script_problems(written, output.spoken_text, register))
+        problems.extend(HazardWordChecks.problems(f"{written} {output.spoken_text}", declared))
         return problems
 
 

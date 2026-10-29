@@ -190,6 +190,7 @@ line of the module's docstring.
 | `curiosity_moment_layer.py` | `CuriosityMoment`, `NotAChildQuestion`, `CuriosityMomentLayer` | CuriosityMomentLayer: the child's own question, answered through the parent (s10b §4.15, C11). |
 | `curriculum_catalogue.py` | `ChapterCatalogue` | ChapterCatalogue: the NCERT chapter titles, validated at startup (s10 §4.5). |
 | `exposure_layer.py` | `ExposureField`, `ExposureBridge`, `ExposureLayer` | ExposureLayer: a teacher's chapter connected to three real-world fields (s10, the Exposure |
+| `hazard_word_checks.py` | `HazardWordChecks` | HazardWordChecks: the d7 hazard rule as a repair problem, before safety_out sees the reply. |
 | `journey_layer.py` | `ActivityPersonalisation`, `ParentReflection`, `ParentMessage`, `JourneySettings`, `JourneyLayer` | JourneyLayer: "Aaj ki Khoj" for parents of children aged 3-8 (s10b §4.4 to §4.9). |
 | `khoj_card_maker.py` | `KhojCardText`, `CardRequest`, `KhojCard`, `KhojCardMaker` | KhojCardMaker: an illustrated card of a child's discovery (s10b §4.13, C6). |
 | `layer_result.py` | `LayerResult` | LayerResult: what every layer's generate step returns (s12 §4, s05 §4.4a). |

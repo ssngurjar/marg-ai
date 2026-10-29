@@ -133,3 +133,16 @@ def test_problems_never_quote_the_reply() -> None:
 def test_the_output_model_rejects_bad_shapes(fields: dict[str, object]) -> None:
     with pytest.raises(ValueError, match="validation error for ParentAnswer"):
         ParentAnswer.model_validate(fields)
+
+
+def test_a_parent_answer_naming_a_hazard_gets_a_repair_turn_naming_the_word() -> None:
+    # d7 blocks any hazard in a parent's answer at safety_out; the model first gets to rephrase
+    answer = ParentAnswer.model_validate(
+        {
+            "answer": "Bachche ko chhat par mat jaane dijiye.",
+            "try_this": "Aaj aangan mein khel kheliye.",
+            "spoken_text": "बच्चे को छत पर मत जाने दीजिए। आज आँगन में खेल खेलिए।",
+        }
+    )
+    problems = ParentQuestionLayer.script_problems(answer, Language.HINGLISH)
+    assert any('"chhat"' in problem and '"छत"' in problem for problem in problems)

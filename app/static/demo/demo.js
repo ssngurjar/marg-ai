@@ -200,6 +200,8 @@ function addListenButton(bubble, text) {
 }
 
 function renderReply(turn) {
+  // Only the newest reply's buttons can be pressed (the server checks too): grey out the rest.
+  for (const old of messages.querySelectorAll(".buttons button.reply")) old.disabled = true;
   let bubble = null;
   const hasAudio = turn.parts.some((part) => part.kind === "audio" && part.audio_url);
   for (const part of turn.parts) {
