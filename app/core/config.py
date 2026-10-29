@@ -125,9 +125,10 @@ class Settings(DatabaseSettings):
     model_stt: str = Field(default="muse-voice-transcribe-1.0", min_length=1)
     voice_replies_enabled: bool = False
     tts_engine: TtsEngine = "mms"
-    # MMS has one Hindi voice; 1.28 raises it toward a woman's at the same speed (owner's pick by
-    # ear, 2026-10-29). 1.0 leaves it as spoken.
-    tts_pitch: float = Field(default=1.28, ge=0.5, le=2.0)
+    # Raises or lowers the voice at the same speed; 1.0 leaves MMS's one Hindi voice as it is.
+    # 1.28 was tried for a woman's voice and rejected by ear: still a man's voice, and worse
+    # speech (owner, 2026-10-29).
+    tts_pitch: float = Field(default=1.0, ge=0.5, le=2.0)
     sidecar_base_url: HttpUrl
     sidecar_token: SecretStr
     timeout_fetch_media_s: float = Field(default=5.0, gt=0)

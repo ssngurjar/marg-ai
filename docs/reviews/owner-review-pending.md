@@ -138,8 +138,8 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
 
 - [ ] **From your mother's voice note (2026-10-29):** the new onboarding copy for a child outside
   3–8 (`PROFILE_DONE_PARENT_OTHER_AGE` in `onboarding_copy.py`); parent_answer 1.0.2 (anganwadi
-  only for under-6s, the teacher for studies); the warmer spoken rule; `TTS_PITCH=1.28`.
-  Listen to `~/Downloads/Marg-reply-to-mother-v2.ogg`.
+  only for under-6s, the teacher for studies); the warmer spoken rule; `TTS_PITCH` back to 1.0 (a raised voice still
+  sounded male). Compare `~/Downloads/Marg-reply-to-mother-v2-natural.ogg` with the first reply.
 
 ## 2e. Curiosity moment, C11 (from 2026-10-27)
 

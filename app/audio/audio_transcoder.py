@@ -2,9 +2,9 @@
 
 ffmpeg runs through FfmpegRunner (an argument list, stdin to stdout, a time limit). For
 speech-to-text it writes raw PCM and the WAV header is written here: ffmpeg can't seek back on a
-pipe, so its own header would carry no length. A voice note can be raised in pitch at the same
-speed (TTS_PITCH): MMS-TTS has one Hindi voice, and 1.28 makes it sound like a woman's (owner,
-2026-10-29). That is signal processing, not another model.
+pipe, so its own header would carry no length. A voice note can be raised or lowered in pitch
+at the same speed (TTS_PITCH, default 1.0: as spoken). That is signal processing, not another
+model; a raised male voice still sounds male (owner, 2026-10-29).
 """
 
 import io
