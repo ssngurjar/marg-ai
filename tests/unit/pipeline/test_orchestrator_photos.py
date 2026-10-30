@@ -42,9 +42,10 @@ from app.layers.onboarding_layer import OnboardingLayer
 from app.pipeline.null_turn_observer import NullTurnObserver
 from app.pipeline.orchestrator import Orchestrator, PhotoSteps, PipelineSteps
 from app.pipeline.step_models import TurnOutcome
+from app.safety.domain_policy import DomainPolicy
 from app.safety.safety_gate import PHOTO_WITHOUT_CAPTION, SafetyGate
 from tests.fakes.clock import FixedClock
-from tests.fakes.domain_policy import scripted_policy
+from tests.fakes.domain_policy import scripted_policies, scripted_policy
 from tests.fakes.image import FakeImageSegmenter
 from tests.fakes.language_model import FakeLanguageModel
 from tests.fakes.safety_classifier import FakeSafetyClassifier
@@ -118,6 +119,7 @@ async def run_photo(  # noqa: PLR0913  # one keyword per fake a test can replace
     classifier: FakeSafetyClassifier | None = None,
     llm: FakeLanguageModel | None = None,
     photos_on: bool = True,
+    policy: DomainPolicy | None = None,
 ) -> PhotoRun:
     segmenter = segmenter or FakeImageSegmenter({"stone": 5})
     fetcher = fetcher or FakeMediaFetcher()
@@ -126,7 +128,7 @@ async def run_photo(  # noqa: PLR0913  # one keyword per fake a test can replace
     recorder = MemoryStepRecorder()
     orchestrator = Orchestrator(
         PipelineSteps(
-            gate=SafetyGate(classifier, scripted_policy()[0]),
+            gate=SafetyGate(classifier, policy or scripted_policy()[0]),
             journey=journey_for(llm),
             onboarding=OnboardingLayer(llm, shipped_registry(), invite_link=INVITE_LINK),
             voice=FakeVoice().steps(),
@@ -299,11 +301,26 @@ async def test_a_photo_llama_guard_flags_is_refused_and_its_counts_are_never_use
     assert result.details(StepName.SAFETY_IN) == ["photo decision=block categories=s12"]
 
 
-async def test_when_llama_guard_is_down_the_photo_is_dropped_and_the_report_goes_on() -> None:
+async def test_when_llama_guard_is_down_muse_spark_checks_the_photo_and_it_is_counted() -> None:
+    """Owner, 2026-10-31: the service doesn't stop when Llama Guard does."""
     result = await run_photo(
         reporting(photo("Munni ne 5 patthar jode")),
         classifier=FakeSafetyClassifier(error=GUARD_DOWN),
         llm=FakeLanguageModel([REFLECTION]),
+    )
+    outcome = result.outcome
+    assert REFLECTION_PRAISE in result.delivered
+    assert report_of(outcome).photo_counts != []
+    assert "5 stone" in result.reflection_prompt
+
+
+async def test_when_llama_guard_and_the_backup_are_both_down_the_photo_is_dropped() -> None:
+    backup_down = ProviderUnavailable("503", provider="meta_model_api")
+    result = await run_photo(
+        reporting(photo("Munni ne 5 patthar jode")),
+        classifier=FakeSafetyClassifier(error=GUARD_DOWN),
+        llm=FakeLanguageModel([REFLECTION]),
+        policy=scripted_policies(image_outputs=[backup_down]).policy,
     )
     outcome = result.outcome
     assert outcome.route is Route.JOURNEY

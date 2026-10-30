@@ -280,9 +280,9 @@ class SafetyGate:
 
     async def check_card(self, caption: LocalisedReply, image: ImageClip) -> OutputCheck:
         """A khoj card (s10b §4.13, C6): the caption gets the rules every reply gets (d8, and d7
-        with nothing declared), then Llama Guard sees the caption with the image. A card is
-        optional, so there's no backup: if Llama Guard is down or flags anything, nothing is
-        sealed and no card goes out (fail closed)."""
+        with nothing declared), then Llama Guard sees the caption with the image; when it is
+        down, the Muse Spark image check does (owner, 2026-10-31). If both fail or anything is
+        flagged, nothing is sealed and no card goes out (fail closed)."""
         # the card is shown to the child, so d8 applies whoever asked for it
         rule = SafetyGate._child_rule(caption.text, Speaker.GUIDE, minor_audience=True)
         hazards = ChildHazardMatcher.undeclared(caption.text, CHILD_HAZARD_WORDS, ())
@@ -295,14 +295,9 @@ class SafetyGate:
         request = SafetyRequest(
             speaker="assistant", text=caption.text, prior_user_text=None, image=image
         )
-        guard = await self._guard(request)
-        if guard is None:
-            raise SafetyUnavailable("llama_guard is down for a khoj card; no backup for images")
-        categories = list(guard.verdict.categories)
-        decision = SafetyDecision.BLOCK if categories else SafetyDecision.ALLOW
-        verdict = SafetyVerdict(decision=decision, categories=categories, source="llama_guard")
-        if decision is not SafetyDecision.ALLOW:
-            return OutputCheck(verdict=verdict, safe_reply=None, usage=guard.usage)
+        verdict, usage = await self._image_verdict(request, "khoj card")
+        if verdict.decision is not SafetyDecision.ALLOW:
+            return OutputCheck(verdict=verdict, safe_reply=None, usage=usage)
         safe = SafeReply(
             text=caption.text,
             spoken_text=caption.spoken_text,
@@ -313,22 +308,44 @@ class SafetyGate:
             fixed_kind=None,
             _seal=_SEAL,
         )
-        return OutputCheck(verdict=verdict, safe_reply=safe, usage=guard.usage)
+        return OutputCheck(verdict=verdict, safe_reply=safe, usage=usage)
 
     async def check_photo(self, image: ImageClip, caption: str | None) -> PhotoCheck:
         """A parent's photo of the child's work (s10b §4.14, C7), after the person check. Llama
-        Guard sees it with its caption (the host needs a text part with an image). A photo is
-        optional, so there's no backup: if Llama Guard is down, SafetyUnavailable, and the photo
-        is dropped (fail closed); any flag blocks it."""
+        Guard sees it with its caption (the host needs a text part with an image); when it is
+        down, the Muse Spark image check does (owner, 2026-10-31). If both fail,
+        SafetyUnavailable and the photo is dropped (fail closed); any flag blocks it."""
         text = caption.strip() if caption and caption.strip() else PHOTO_WITHOUT_CAPTION
         request = SafetyRequest(speaker="user", text=text, prior_user_text=None, image=image)
+        verdict, usage = await self._image_verdict(request, "photo")
+        return PhotoCheck(verdict=verdict, usage=usage)
+
+    async def _image_verdict(
+        self, request: SafetyRequest, what: str
+    ) -> tuple[SafetyVerdict, StepUsage]:
+        """Llama Guard on an image; the Muse Spark image check when it is down. Raises
+        SafetyUnavailable when neither can answer."""
         guard = await self._guard(request)
-        if guard is None:
-            raise SafetyUnavailable("llama_guard is down for a photo; no backup for images")
-        categories = list(guard.verdict.categories)
+        if guard is not None:
+            categories = list(guard.verdict.categories)
+            decision = SafetyDecision.BLOCK if categories else SafetyDecision.ALLOW
+            verdict = SafetyVerdict(decision=decision, categories=categories, source="llama_guard")
+            return verdict, guard.usage
+        if request.image is None:
+            raise SafetyUnavailable(f"llama_guard is down for a {what} with no image to check")
+        try:
+            findings = await self._policy.check_image_model(request.image, request.text)
+        except ProviderError as exc:
+            raise SafetyUnavailable(
+                f"llama_guard and the backup image check both failed for a {what}: {exc}"
+            ) from exc
+        if findings is None:
+            raise SafetyUnavailable(f"llama_guard is down for a {what}; no backup is on")
+        logger.warning("image_backup_used", what=what)
+        categories = sorted(findings.categories)
         decision = SafetyDecision.BLOCK if categories else SafetyDecision.ALLOW
-        verdict = SafetyVerdict(decision=decision, categories=categories, source="llama_guard")
-        return PhotoCheck(verdict=verdict, usage=guard.usage)
+        verdict = SafetyVerdict(decision=decision, categories=categories, source="domain_policy")
+        return verdict, findings.usage
 
     @staticmethod
     def _child_rule(

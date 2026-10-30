@@ -28,6 +28,7 @@ from app.providers.ports import SafetyRequest
 from app.safety.domain_policy import DomainPolicy, HarmKind
 from app.safety.safety_gate import PHOTO_WITHOUT_CAPTION, SafeReply, SafetyGate
 from tests.fakes.domain_policy import (
+    image_answer,
     policy_answer,
     reply_answer,
     rules_only_policy,
@@ -585,11 +586,55 @@ async def test_a_flagged_card_is_not_sealed() -> None:
 
 
 @pytest.mark.parametrize("error", GUARD_FAILURES, ids=lambda error: type(error).__name__)
-async def test_llama_guard_down_means_no_card_there_is_no_backup_for_images(
-    error: ProviderError,
+async def test_llama_guard_down_means_muse_spark_checks_the_card(error: ProviderError) -> None:
+    """Owner, 2026-10-31: the service doesn't stop when Llama Guard does."""
+    scripted = scripted_policies()
+    gate = SafetyGate(FakeSafetyClassifier(error=error), scripted.policy)
+    check = await gate.check_card(CAPTION, CARD_IMAGE)
+    assert check.safe_reply is not None
+    assert check.verdict.decision is SafetyDecision.ALLOW
+    assert check.verdict.source == "domain_policy"
+    assert scripted.image_llm.images == [CARD_IMAGE]  # the backup saw the picture itself
+
+
+@pytest.mark.parametrize(
+    ("answer", "category"),
+    [
+        (image_answer(harm="sexual"), C.SEXUAL_CONTENT),
+        (image_answer(harm="weapons"), C.INDISCRIMINATE_WEAPONS),
+        (image_answer(self_harm=True), C.SELF_HARM),
+        (image_answer(endangers_child=True), C.CHILD_PHYSICAL_HAZARD),
+        (image_answer(private=True), C.PRIVACY),
+    ],
+)
+async def test_a_card_the_backup_flags_is_not_sent(
+    answer: dict[str, object], category: SafetyCategory
 ) -> None:
+    scripted = scripted_policies(image_outputs=[answer])
+    gate = SafetyGate(FakeSafetyClassifier(error=GUARD_FAILURES[0]), scripted.policy)
+    check = await gate.check_card(CAPTION, CARD_IMAGE)
+    assert check.safe_reply is None
+    assert check.verdict.categories == [category]
+
+
+async def test_with_llama_guard_and_the_backup_both_down_no_card_goes_out() -> None:
+    down = ProviderUnavailable("503", provider="meta_model_api")
+    scripted = scripted_policies(image_outputs=[down])
+    gate = SafetyGate(FakeSafetyClassifier(error=GUARD_FAILURES[0]), scripted.policy)
+    with pytest.raises(SafetyUnavailable, match="backup image check both failed for a khoj card"):
+        await gate.check_card(CAPTION, CARD_IMAGE)
+
+
+async def test_with_the_policy_model_off_a_card_has_no_backup() -> None:
+    gate = SafetyGate(FakeSafetyClassifier(error=GUARD_FAILURES[0]), rules_only_policy())
     with pytest.raises(SafetyUnavailable, match="llama_guard is down for a khoj card"):
-        await gate_with(FakeSafetyClassifier(error=error)).check_card(CAPTION, CARD_IMAGE)
+        await gate.check_card(CAPTION, CARD_IMAGE)
+
+
+async def test_when_llama_guard_answers_the_image_backup_is_not_called() -> None:
+    scripted = scripted_policies()
+    await SafetyGate(FakeSafetyClassifier(), scripted.policy).check_card(CAPTION, CARD_IMAGE)
+    assert scripted.image_llm.prompts == []
 
 
 @pytest.mark.parametrize(
@@ -637,8 +682,19 @@ async def test_any_flag_on_a_photo_blocks_it() -> None:
 
 
 @pytest.mark.parametrize("error", GUARD_FAILURES, ids=lambda error: type(error).__name__)
-async def test_llama_guard_down_means_the_photo_is_dropped_there_is_no_backup(
-    error: ProviderError,
-) -> None:
-    with pytest.raises(SafetyUnavailable, match="llama_guard is down for a photo"):
-        await gate_with(FakeSafetyClassifier(error=error)).check_photo(PHOTO, None)
+async def test_llama_guard_down_means_muse_spark_checks_the_photo(error: ProviderError) -> None:
+    scripted = scripted_policies()
+    gate = SafetyGate(FakeSafetyClassifier(error=error), scripted.policy)
+    check = await gate.check_photo(PHOTO, "Munni ke patte")
+    assert check.verdict.decision is SafetyDecision.ALLOW
+    assert check.verdict.source == "domain_policy"
+    assert scripted.image_llm.images == [PHOTO]
+    assert "Munni ke patte" in scripted.image_llm.prompts[0].user
+
+
+async def test_with_llama_guard_and_the_backup_both_down_the_photo_is_dropped() -> None:
+    down = ProviderUnavailable("503", provider="meta_model_api")
+    scripted = scripted_policies(image_outputs=[down])
+    gate = SafetyGate(FakeSafetyClassifier(error=GUARD_FAILURES[0]), scripted.policy)
+    with pytest.raises(SafetyUnavailable, match="backup image check both failed for a photo"):
+        await gate.check_photo(PHOTO, None)

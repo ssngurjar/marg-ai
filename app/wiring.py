@@ -94,7 +94,13 @@ from app.providers.safety.llama_guard_classifier import LlamaGuardClassifier, Sa
 from app.providers.speech.muse_voice_transcriber import MuseVoiceTranscriber, TranscriberConfig
 from app.providers.speech.sidecar_synthesizer import SidecarConfig, SidecarSynthesizer
 from app.rag.retriever import Retriever, RetrieverSettings
-from app.safety.domain_policy import MINOR_POLICY, REPLY_POLICY, DomainPolicy, PolicyModel
+from app.safety.domain_policy import (
+    IMAGE_POLICY,
+    MINOR_POLICY,
+    REPLY_POLICY,
+    DomainPolicy,
+    PolicyModel,
+)
 from app.safety.safety_gate import SafetyGate
 from app.store.db import (
     create_engine,
@@ -154,6 +160,7 @@ PROMPT_SPECS: Final = (
     PARENT_ANSWER,
     MINOR_POLICY,
     REPLY_POLICY,
+    IMAGE_POLICY,
     PROFILE_EXTRACTION,
     ACTIVITY_PERSONALISE,
     PARENT_REFLECTION,

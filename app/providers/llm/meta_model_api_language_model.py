@@ -6,6 +6,7 @@ s05 §4.1 specifies; a second failure raises ProviderResponseInvalid (not retrya
 from both attempts is summed into one StepUsage.
 """
 
+import base64
 import time
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -75,6 +76,26 @@ class MetaModelApiLanguageModel:
     async def aclose(self) -> None:
         await self._client.close()
 
+    @staticmethod
+    def _user_message[OutputT: BaseModel](
+        request: GenerationRequest[OutputT],
+    ) -> ChatCompletionMessageParam:
+        """The user text, and the image beside it when the request carries one (Muse Spark
+        reads images: checked live 2026-10-31)."""
+        if request.image is None:
+            return {"role": "user", "content": request.prompt.user}
+        encoded = base64.b64encode(request.image.data).decode("ascii")
+        return {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": request.prompt.user},
+                {
+                    "type": "image_url",
+                    "image_url": {"url": f"data:{request.image.mime_type};base64,{encoded}"},
+                },
+            ],
+        }
+
     async def generate[OutputT: BaseModel](
         self, request: GenerationRequest[OutputT]
     ) -> GenerationResult[OutputT]:
@@ -82,7 +103,7 @@ class MetaModelApiLanguageModel:
         schema = StrictJsonSchema.from_model(request.output_type)
         messages: list[ChatCompletionMessageParam] = [
             {"role": "system", "content": request.prompt.system},
-            {"role": "user", "content": request.prompt.user},
+            MetaModelApiLanguageModel._user_message(request),
         ]
         first = await self._complete_with_retries(request, schema, messages)
         completions = [first]

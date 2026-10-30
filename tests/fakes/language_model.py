@@ -7,6 +7,7 @@ from decimal import Decimal
 from pydantic import BaseModel
 
 from app.core.errors import ProviderError
+from app.domain.models.message import ImageClip
 from app.domain.models.usage import StepUsage
 from app.providers.ports import GenerationRequest, GenerationResult, RenderedPrompt
 
@@ -29,6 +30,7 @@ class FakeLanguageModel:
         self.outputs = list(outputs)
         self.prompts: list[RenderedPrompt] = []
         self.models: list[str] = []  # the model id each request asked for
+        self.images: list[ImageClip | None] = []  # the image each request carried
         self.cancelled = False
         self._delay_s = delay_s
 
@@ -37,6 +39,7 @@ class FakeLanguageModel:
     ) -> GenerationResult[OutputT]:
         self.prompts.append(request.prompt)
         self.models.append(request.model)
+        self.images.append(request.image)
         try:
             if self._delay_s:
                 await asyncio.sleep(self._delay_s)

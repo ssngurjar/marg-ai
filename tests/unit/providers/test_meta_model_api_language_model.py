@@ -4,6 +4,7 @@ A real AsyncOpenAI client talks to the endpoint, so the SDK's own parsing and er
 exercised.
 """
 
+import base64
 import json
 import random
 from collections.abc import AsyncIterator
@@ -24,6 +25,7 @@ from app.core.errors import (
     ProviderUnavailable,
 )
 from app.core.types import JsonValue
+from app.domain.models.message import ImageClip
 from app.providers.http import RetryPolicy, RetryTiming
 from app.providers.llm.meta_model_api_language_model import (
     MetaModelApiLanguageModel,
@@ -252,3 +254,29 @@ async def test_a_connection_failure_is_unavailable(harness_for: HarnessFactory) 
     harness = harness_for(httpx2.ConnectError("refused"))
     with pytest.raises(ProviderUnavailable, match="APIConnectionError unavailable"):
         await harness.model.generate(request())
+
+
+async def test_a_request_with_an_image_sends_it_beside_the_text(
+    harness_for: HarnessFactory,
+) -> None:
+    """The image backup check (owner, 2026-10-31): Muse Spark sees the card or photo itself."""
+    harness = harness_for(chat_completion(VALID))
+    picture = ImageClip(data=b"\xff\xd8\xff\xe0card", mime_type="image/jpeg")
+    await harness.model.generate(request().model_copy(update={"image": picture}))
+    user = harness.message(0, 1)
+    assert isinstance(user, dict)
+    assert user["content"] == [
+        {"type": "text", "text": USER_TEXT},
+        {
+            "type": "image_url",
+            "image_url": {
+                "url": f"data:image/jpeg;base64,{base64.b64encode(picture.data).decode()}"
+            },
+        },
+    ]
+
+
+async def test_a_request_without_an_image_sends_plain_text(harness_for: HarnessFactory) -> None:
+    harness = harness_for(chat_completion(VALID))
+    await harness.model.generate(request())
+    assert harness.message(0, 1) == {"role": "user", "content": USER_TEXT}

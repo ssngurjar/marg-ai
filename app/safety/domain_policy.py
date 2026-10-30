@@ -4,8 +4,9 @@ Two detectors next to Llama Guard:
 - the crisis phrase rules (CrisisPhraseMatcher over CRISIS_LEXICON), which need no provider;
 - the Muse Spark policy check (`minor_policy` prompt), behind SAFETY_POLICY_MODEL_ENABLED.
 
-And the backup for Llama Guard on our own reply (`reply_policy` prompt), used only when Llama
-Guard fails, so a reply is never sent unchecked and never held just because one host is down.
+And the backups for Llama Guard, used only when it fails, so nothing is sent or kept unchecked
+and nothing is held just because one host is down: on our own reply (`reply_policy` prompt), and
+on an image, a khoj card or a parent's photo (`image_policy` prompt; owner, 2026-10-31).
 
 Spike B (docs/spikes/safety-guard.md) showed Llama Guard 4 misses distress and abuse
 disclosures and flags ordinary parent questions as S1/S2/S4, so the policy check also reports
@@ -21,6 +22,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.constants.crisis_lexicon import CRISIS_LEXICON
 from app.domain.enums import SafetyCategory
+from app.domain.models.message import ImageClip
 from app.domain.models.safety import CrisisLexicon
 from app.domain.models.usage import StepUsage
 from app.domain.rules.crisis_phrase_matcher import CrisisPhraseMatcher
@@ -59,6 +61,21 @@ class ReplyPolicyCheck(BaseModel):
 
 
 REPLY_POLICY: Final = PromptSpec(prompt_id="reply_policy", output_type=ReplyPolicyCheck)
+
+
+class ImagePolicyCheck(BaseModel):
+    """The backup check on a card or a photo, used when Llama Guard is down (owner, 2026-10-31)."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    harm_kind: HarmKind
+    shows_self_harm: bool
+    endangers_child: bool
+    shows_private_details: bool
+    reason: str = Field(max_length=120)  # helps the model decide; never logged or stored
+
+
+IMAGE_POLICY: Final = PromptSpec(prompt_id="image_policy", output_type=ImagePolicyCheck)
 
 
 @dataclass(frozen=True, slots=True)
@@ -123,6 +140,35 @@ class DomainPolicy:
         )
         result = await self._model.llm.generate(rendered.request)
         return self.reply_findings_from(result.output, result.usage)
+
+    async def check_image_model(self, image: ImageClip, caption: str) -> PolicyFindings | None:
+        """The Muse Spark backup check on a card or a photo; None when the policy model is
+        switched off. Raises ProviderError."""
+        if self._model is None:
+            return None
+        rendered = self._model.registry.render(
+            IMAGE_POLICY, system_vars={}, user_vars={"caption": caption}
+        )
+        request = rendered.request.model_copy(update={"image": image})
+        result = await self._model.llm.generate(request)
+        return self.image_findings_from(result.output, result.usage)
+
+    @staticmethod
+    def image_findings_from(check: ImagePolicyCheck, usage: StepUsage) -> PolicyFindings:
+        categories: set[SafetyCategory] = set()
+        if check.harm_kind != "none":
+            categories.add(DomainPolicy.HARM_CATEGORIES[check.harm_kind])
+        if check.shows_self_harm:
+            categories.add(SafetyCategory.SELF_HARM)
+        if check.endangers_child:
+            categories.add(SafetyCategory.CHILD_PHYSICAL_HAZARD)
+        if check.shows_private_details:
+            categories.add(SafetyCategory.PRIVACY)
+        return PolicyFindings(
+            categories=frozenset(categories),
+            asks_for_harm=check.harm_kind != "none",
+            usage=usage,
+        )
 
     @staticmethod
     def reply_findings_from(check: ReplyPolicyCheck, usage: StepUsage) -> PolicyFindings:

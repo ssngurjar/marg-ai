@@ -284,7 +284,7 @@ line of the module's docstring.
 
 | Module | Classes | What it does |
 |---|---|---|
-| `domain_policy.py` | `MinorPolicyCheck`, `ReplyPolicyCheck`, `PolicyModel`, `PolicyFindings`, `DomainPolicy` | DomainPolicy: what Llama Guard misses about our users (s07 §4.5), on the user's message. |
+| `domain_policy.py` | `MinorPolicyCheck`, `ReplyPolicyCheck`, `ImagePolicyCheck`, `PolicyModel`, `PolicyFindings`, `DomainPolicy` | DomainPolicy: what Llama Guard misses about our users (s07 §4.5), on the user's message. |
 | `safety_decision_mapper.py` | `SafetyDecisionMapper` | SafetyDecisionMapper: flagged categories → ALLOW / BLOCK / CRISIS, and which reply (s07 §4.4). |
 | `safety_gate.py` | `SafeReply`, `InputCheck`, `OutputCheck`, `PhotoCheck`, `SafetyGate` | SafetyGate: every message in and every reply out is checked, and its sealed `SafeReply` |
 

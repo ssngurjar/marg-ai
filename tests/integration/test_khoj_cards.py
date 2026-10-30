@@ -25,6 +25,7 @@ from app.domain.models.learner import LearnerId
 from app.layers.khoj_card_maker import KhojCardMaker
 from app.providers.http import RetryPolicy, RetryTiming
 from app.providers.ports import ChannelSender
+from app.safety.domain_policy import DomainPolicy
 from app.safety.safety_gate import SafetyGate
 from app.store.db import create_engine, create_session_factory
 from app.store.repositories.curiosity_signal_repository import CuriositySignalRepository
@@ -35,7 +36,7 @@ from app.store.repositories.user_repository import UserRepository
 from app.worker.khoj_card_sender import CardDeps, KhojCardSender
 from app.worker.reply_deliverer import DeliveryDeps, DeliverySettings, ReplyDeliverer
 from tests.fakes.clock import FixedClock
-from tests.fakes.domain_policy import scripted_policy
+from tests.fakes.domain_policy import scripted_policies, scripted_policy
 from tests.fakes.image import FakeImageGenerator
 from tests.fakes.language_model import FakeLanguageModel
 from tests.fakes.safety_classifier import FakeSafetyClassifier
@@ -142,6 +143,7 @@ def card_sender(
     sender: FakeSender,
     classifier: FakeSafetyClassifier | None = None,
     channel: Channel = Channel.WHATSAPP,
+    policy: DomainPolicy | None = None,
 ) -> KhojCardSender:
     clock = FixedClock(SystemClock().now())  # today, as the database sees it
     senders: dict[Channel, ChannelSender] = {channel: sender}
@@ -169,7 +171,7 @@ def card_sender(
             maker=KhojCardMaker(
                 FakeLanguageModel([CARD_TEXT]), FakeImageGenerator(), shipped_registry()
             ),
-            gate=SafetyGate(classifier or FakeSafetyClassifier(), scripted_policy()[0]),
+            gate=SafetyGate(classifier or FakeSafetyClassifier(), policy or scripted_policy()[0]),
             cards=KhojCardRepository(sessions),
             signals=CuriositySignalRepository(sessions),
             deliverer=deliverer,
@@ -239,14 +241,29 @@ async def test_a_card_safety_flags_is_never_stored_or_sent(
     assert await count(engine, "SELECT count(*) FROM media_blobs") == 0
 
 
-async def test_with_llama_guard_down_no_card_goes_out(
+async def test_with_llama_guard_down_muse_spark_checks_the_card_and_it_goes_out(
+    engine: AsyncEngine, sessions: async_sessionmaker[AsyncSession]
+) -> None:
+    """Owner, 2026-10-31: the service doesn't stop when Llama Guard does."""
+    task = await reported(engine, sessions, engagement=2)
+    down = FakeSafetyClassifier(error=ProviderUnavailable("503", provider="llama_guard"))
+    sender = FakeSender(FixedClock(SystemClock().now()))
+    await card_sender(sessions, sender, down).send(task)
+    assert len(sender.sent) == 1
+    assert await count(engine, "SELECT count(*) FROM media_blobs") == 1
+
+
+async def test_with_llama_guard_and_the_backup_both_down_no_card_goes_out(
     engine: AsyncEngine, sessions: async_sessionmaker[AsyncSession]
 ) -> None:
     task = await reported(engine, sessions, engagement=2)
     down = FakeSafetyClassifier(error=ProviderUnavailable("503", provider="llama_guard"))
+    backup_down = scripted_policies(
+        image_outputs=[ProviderUnavailable("503", provider="meta_model_api")]
+    ).policy
     sender = FakeSender(FixedClock(SystemClock().now()))
-    with pytest.raises(SafetyUnavailable):
-        await card_sender(sessions, sender, down).send(task)
+    with pytest.raises(SafetyUnavailable, match="backup image check both failed"):
+        await card_sender(sessions, sender, down, policy=backup_down).send(task)
     assert sender.sent == []
     assert await count(engine, "SELECT count(*) FROM media_blobs") == 0
 

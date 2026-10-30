@@ -76,6 +76,7 @@ class GenerationRequest[OutputT: BaseModel](BaseModel):
     reasoning_effort: ReasoningEffort
     max_output_tokens: int  # includes reasoning tokens, which bill at the output rate
     semantic_check: Callable[[OutputT], list[str]] | None  # problems → one repair retry
+    image: ImageClip | None = None  # sent with the user text (the image backup check only)
 
 
 class GenerationResult[OutputT: BaseModel](BaseModel):
