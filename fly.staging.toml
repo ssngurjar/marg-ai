@@ -1,0 +1,40 @@
+# Staging on Fly.io (s16, decision B7): the production image and config, but it stops when idle
+# and starts on the next request. Postgres is a Neon branch. Torn down after the event.
+# Secrets (keys, tokens, DATABASE_URL) are set with `fly secrets`, never here.
+app = "marg-ai-staging"
+primary_region = "iad"  # Ashburn: next to the model APIs; one round trip to India is ~0.25 s
+
+[build]
+  dockerfile = "Dockerfile"
+
+[deploy]
+  # Before the new release takes traffic; a failed migration stops the deploy. Over the direct
+  # (unpooled) Neon address, as DATABASE_LISTEN_URL is: DDL shouldn't go through the pooler.
+  release_command = "sh -c 'DATABASE_URL=\"$DATABASE_LISTEN_URL\" .venv/bin/alembic upgrade head'"
+
+[env]
+  ENVIRONMENT = "staging"
+  RUN_WORKER_IN_API = "true"
+  VOICE_REPLIES_ENABLED = "false"  # until the organisers rule on MMS-TTS's licence
+  PUBLIC_BASE_URL = "https://marg-ai-staging.fly.dev"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  # Stops when idle (staging only: production stays on for the loops and the webhook).
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [[http_service.checks]]
+    # Liveness for routing. Not /readyz: a provider hiccup would take Marg off the internet,
+    # when it should stay up and send its fallback replies.
+    grace_period = "20s"
+    interval = "15s"
+    method = "GET"
+    path = "/healthz"
+    timeout = "5s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"  # idles at ~115 MB (measured 2026-10-30); room for bursts
