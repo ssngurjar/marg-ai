@@ -76,10 +76,13 @@ these words; the real recording replaces it. The final video uses only Santram's
 
 ---
 
-## 1:12 – 2:06 · Field test (NO voice-over, ~54 s)
+## 1:10 – 1:40 · Field test (NO voice-over, ~30 s)
 
 Raw footage and screen recording only. **No background music over the voices**: the judges must
 hear the real voice notes, and see Marg's real replies arrive with the real waiting time. Short captions on screen name each moment:
+
+*About 30 seconds: since cut v3 gives part 3 its real recordings, pick the five or six strongest
+moments below (consent, the voice note and reply, the activity, the report, the card).*
 
 | Moment | Caption on screen |
 |---|---|
@@ -97,40 +100,53 @@ hear the real voice notes, and see Marg's real replies arrive with the real wait
 
 ---
 
-## 2:06 – 2:33 · How it works (voice-over, ~62 words, one line per part of the diagram)
+## 1:40 – 2:35 · How it works (voice-over, ~130 words: the shape, then real evidence)
 
-*Visuals: the architecture diagram ([system-diagram.html](system-diagram.html): open it full screen,
-press → as each part is named; C hides the captions, H the buttons), the `/demo` page with
-its live trace filling in step by step, the eval scorecard, the GitHub repository.*
+*Cut v3 (2026-10-31) puts the field test at 1:10–1:40 and impact at 2:35–2:59; with the real
+field-test footage, take the time from the field test first, never from this part.*
 
-> *(over a title card: "How it works · System design and technical depth")* Now, the system behind it.
-> From the outside, it's just a WhatsApp contact.
-> Inside, a compound AI system: six Meta models, each with one job.
-> Voice Transcribe hears the parent.
-> Muse Spark plans and replies in the family's language.
-> Muse Spark Open, an open-weights model, reflects on the child.
-> SAM counts what they collected.
-> Muse Image draws the card.
-> Llama Guard 4 checks every message, both ways. If safety is down, nothing goes out unchecked.
-> Every model here is Meta's, open weights included, at about three US cents a family a day. A
-> real system doesn't need the most expensive model. It needs the right model for each job.
+*Visuals, in order: a title card; the pipeline diagram ([system-diagram.html](system-diagram.html),
+step 2); **two real screen recordings of the `/demo` page** with the pipeline trace filling in;
+the Muse Spark Open step of the diagram; a numbers card; the whole diagram with the models bar.*
 
-*Every diagram step carries a caption bar saying what it does (v2, 2026-10-31), e.g. "SAM 3.1
-drops any photo with a person, then counts what the child collected". The last step's bar names
-the six models and "about 3 US cents a family a day".*
+> *(title card: "How it works · System design and technical depth")* Now, the system behind it.
+> *(diagram, step 2)* Inside, a compound AI system: six Meta models, each with one job.
+> *(recording 1: a parent's voice note)* A real voice note on the live demo. Muse Voice
+> Transcribe hears it, Llama Guard and Muse Spark check it, Muse Spark answers in Braj, and it's
+> checked again. Under one cent.
+> *(recording 2: Llama Guard switched off)* Here, Llama Guard is switched off. Muse Spark checks
+> instead, the family still gets an answer, and nothing goes out unchecked.
+> *(diagram, Muse Spark Open step)* Muse Spark Open, an open-weights model, reflects on the child.
+> *(numbers card)* Underneath is a hexagonal architecture: every model sits behind a port, so
+> every test runs without a live model.
+> *(whole diagram, models bar)* Every model here is Meta's, open weights included, at about three
+> US cents a family a day. A real system doesn't need the most expensive model. It needs the
+> right model for each job.
 
-*Recording it (first take, 2026-10-29, ran 52 s against 27):* no opening line ("let's move on
-to…"): the diagram changes the topic. Read the lines as written, without "then" or "after
-that". Say "SAM" (the diagram shows 3.1) and "Llama Guard four". Record each line as its own
-take if that's easier; the editor joins them on the diagram's steps. A stumble: pause, say the
-whole line again; the editor cuts the bad one. Aim for about 2.3 words a second.
+*The recordings are real takes (2026-10-31), not mock-ups:*
+- *Recording 1: Hinglish setup, "Main parent hoon", "Lala, 10 saal", then a voice note. The
+  trace shows fetch_media, transcribe (muse-voice-transcribe-1.0, hindi, 4.4 s), safety_in
+  (Llama Guard 4 + Muse Spark, 1.9 s), generate (Muse Spark 1.3, 5.5 s), safety_out (0.5 s):
+  12.5 s and $0.0061 for the turn. Bar: "Live demo, real trace: transcribe · Llama Guard + Muse
+  Spark check · Muse Spark replies in Braj · check again · 12.5 s, $0.0061".*
+- *Recording 2: the same setup with Llama Guard's address pointed at a closed port for this take
+  only. Trace: safety_in and safety_out by muse-spark-1.3 with `guard=down`, a real reply,
+  $0.0070. The bar says so plainly: "Same demo, Llama Guard switched off for this take…".*
 
-*Caption over the scorecard (shown, not said): "Every change scored on 78 test cases by the
-real pipeline. Every crisis case must pass."*
+*Numbers card ("Built to be checked"), each line checked on 2026-10-31:*
+- *Hexagonal architecture: every model behind a port; tests never call a live model*
+- *2,487 unit · 205 integration tests (`pytest --collect-only`)*
+- *86 graded eval cases; crisis and adversarial hard gates pass*
+- *Every message checked twice, in and out; Muse Spark backs up Llama Guard*
+- *Under 1 US cent a reply: $0.0061 measured on the live demo*
+
+*Recording the voice:* this part is denser than the rest: about 2.4 words a second. Say "Llama
+Guard four" and "hexagonal". Record each line as its own take; the editor lays each one on its
+shot. A stumble: pause, say the whole line again; the editor cuts the bad one.
 
 ---
 
-## 2:33 – 3:00 · Impact (voice-over, ~60 words)
+## 2:35 – 3:00 · Impact (voice-over, ~60 words)
 
 This part answers the Impact criterion (30%): who benefits, how much it matters, and could
 people really use it. It claims reach, never lives changed: nothing in the repository measures
@@ -166,7 +182,7 @@ smartphone at home"*
 - [ ] The ASER figure is shown with its source on screen.
 - [ ] Total length 3:00 or less, checked on the exported file.
 - [ ] The "[if it happens]" Braj line is in the cut only if the field test shows it.
-- [ ] The "78 test cases" caption matches the newest scorecard in `evals/results/`.
+- [ ] The numbers card matches `pytest --collect-only` and the newest scorecard in `evals/results/`.
 - [ ] The Braj clause in the impact part ("the way it learned Braj") stays only if the field
       test or a recorded demo shows a Braj reply; otherwise end that sentence at "language".
 - [ ] Replies are text (`VOICE_REPLIES_ENABLED=false`): every model called must be a Meta model,
