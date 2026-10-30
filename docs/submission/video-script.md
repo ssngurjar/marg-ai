@@ -161,16 +161,17 @@ No dashboard on screen.*
 >
 > One parent, one child, every day. One teacher, a whole class.
 >
-> Nothing in Marg is only for my village. A new language is word lists and prompts, not a
-> rebuild: Braj took one day.
+> Two hundred and fifty million young children are at risk of missing their potential.
+> Nothing in Marg is only for my village: adding Braj took one day.
 > Thank you.
 
 *Caption while the first line is spoken: "ASER 2024: almost 90% of rural 14–16-year-olds have a
 smartphone at home"*
 
-*Caption under the last line (cut v5): "Per country, three things change, each reviewed
-locally: the language word lists, the official sources, the crisis helplines". It keeps the
-global claim honest: the design travels, the reviewed content is redone per place.*
+*Caption under the last line (cut v6): "250 million children under 5 at risk of not reaching
+their potential (The Lancet, 2017). Per region, only three things change: word lists, official
+sources, crisis helplines". It keeps the global claim honest: the design travels, the reviewed
+content is redone per place. The end card holds 2 s (the cut is 2:59.6).*
 
 ---
 
@@ -213,6 +214,10 @@ global claim honest: the design travels, the reviewed content is redone per plac
   play, listening, and talking. This should necessarily be conducted in the children's L1"
   (p. 76); "Parents and family are co-partners with the school in the child's learning and
   development" (p. 219). <https://ncert.nic.in/pdf/NCF_for_Foundational_Stage_20_October_2022.pdf> Retrieved 2026-10-31.
+- Black MM et al., "Early childhood development coming of age: science through the life
+  course", The Lancet 2017;389:77–90 (abstract): "250 million children (43%) younger than 5
+  years in low-income and middle-income countries are at risk of not reaching their
+  developmental potential." <https://pubmed.ncbi.nlm.nih.gov/27717614/> Retrieved 2026-10-31.
 - Serve and return (Harvard Center on the Developing Child): "Serve and return
   interactions—responsive, back-and-forth exchanges between a young child and a caring
   adult—play a key role in shaping brain architecture." <https://developingchild.harvard.edu/science/key-concepts/serve-and-return/> Retrieved 2026-10-31.
