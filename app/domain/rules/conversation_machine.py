@@ -253,6 +253,7 @@ def _guardian_declined(step: _Step, event: GuardianDeclined) -> Transition:
 def _profile_answered(step: _Step, event: ProfileAnswered) -> Transition:
     update = event.update
     fields: dict[str, object] = {}
+    pending = event.question or step.profile.pending_question
     if update.grade is not None:
         fields["grade"] = update.grade
     if update.subject is not None:
@@ -262,18 +263,21 @@ def _profile_answered(step: _Step, event: ProfileAnswered) -> Transition:
     answered = step.profile.model_copy(update=fields)
     question = ConversationMachine.next_profile_question(answered, step.learner_count)
     if question is not None:
-        return step.moved(_S.AWAITING_PROFILE, SendCopy(question), **fields)
-    if answered.role is Role.TEACHER:
-        # No teacher layer yet: the invite is the answer, and a pending question waits with it.
         return step.moved(
-            _S.ACTIVE, SendCopy(CopyKey.PROFILE_DONE_TEACHER), pending_question=None, **fields
+            _S.AWAITING_PROFILE, SendCopy(question), pending_question=pending, **fields
         )
+    if answered.role is Role.TEACHER:
+        # A chapter sent during onboarding is answered now, after the invite (owner, 2026-10-31)
+        teacher_effects: list[Effect] = [SendCopy(CopyKey.PROFILE_DONE_TEACHER)]
+        if pending:
+            teacher_effects.append(HandoffPendingQuestion(pending))
+        return step.moved(_S.ACTIVE, *teacher_effects, pending_question=None, **fields)
     effects: list[Effect] = [SendCopy(CopyKey.PROFILE_DONE)]
     if answered.grade is not None:
         birth_year = step.now.year - answered.grade - STUDENT_AGE_OFFSET
         effects.insert(0, UpsertLearner(LearnerRelation.SELF, birth_year, nickname=None))
-    if step.profile.pending_question:
-        effects.append(HandoffPendingQuestion(step.profile.pending_question))
+    if pending:
+        effects.append(HandoffPendingQuestion(pending))
     return step.moved(_S.ACTIVE, *effects, pending_question=None, **fields)
 
 

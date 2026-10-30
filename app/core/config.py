@@ -68,7 +68,7 @@ class Settings(DatabaseSettings):
     max_turn_attempts: int = Field(default=3, ge=1)
     stale_message_hours: int = Field(default=23, ge=1)
     recent_exchanges: int = Field(default=6, ge=0)
-    turn_budget_s: float = Field(default=25.0, gt=0)
+    turn_budget_s: float = Field(default=35.0, gt=0)
     outbox_max_attempts: int = Field(default=5, ge=1)
     maintenance_interval_s: float = Field(default=30.0, gt=0)
     shutdown_grace_s: float = Field(default=20.0, ge=0)
@@ -77,7 +77,7 @@ class Settings(DatabaseSettings):
     purge_sweep_after_s: int = Field(default=600, ge=60)  # s08 §4.10: purge even if undelivered
 
     # Added with E1's upgrade (s04 §4.3 to §4.11): several workers share the queue through leases
-    lease_duration_s: float = Field(default=60.0, gt=0)  # at least twice TURN_BUDGET_S
+    lease_duration_s: float = Field(default=75.0, gt=0)  # at least twice TURN_BUDGET_S
     worker_concurrency: int = Field(default=8, ge=1)
     outbox_concurrency: int = Field(default=4, ge=1)
     outbox_sending_stuck_s: float = Field(default=60.0, gt=0)
@@ -108,11 +108,11 @@ class Settings(DatabaseSettings):
     # 5 s: the policy check is a Muse Spark call (spike E: 2.3 s p50, 3.2 s p95 at minimal)
     timeout_safety_in_s: float = Field(default=5.0, gt=0)
     timeout_route_s: float = Field(default=4.0, gt=0)
-    timeout_generate_s: float = Field(default=12.0, gt=0)
+    timeout_generate_s: float = Field(default=20.0, gt=0)
     # A teacher's bridge (three fields, each with an activity) gets longer: teachers can wait
-    timeout_exposure_s: float = Field(default=18.0, gt=0)
+    timeout_exposure_s: float = Field(default=24.0, gt=0)
     # A student's mentor answer or plan (retrieval, then a cited reply) gets the same (owner)
-    timeout_mentor_s: float = Field(default=18.0, gt=0)
+    timeout_mentor_s: float = Field(default=24.0, gt=0)
     # Llama Guard's own limit inside a safety check: past it, the Muse Spark backup decides.
     timeout_guard_s: float = Field(default=1.5, gt=0)
     # 6 s: Llama Guard (≤ 1.5 s), then the Muse Spark backup reply check when it's down (~2.5 s)

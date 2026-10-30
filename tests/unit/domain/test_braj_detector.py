@@ -77,16 +77,31 @@ def test_standard_hindi_verb_endings_are_not_braj(text: str) -> None:
     assert not braj(text)
 
 
+BRAJ_BELT = ["Karauli, Rajasthan", "Mathura", "AGRA, Uttar Pradesh", "भरतपुर", "Deeg"]
+
+
+@pytest.mark.parametrize("district", BRAJ_BELT)
 @pytest.mark.parametrize(
-    "district", ["Karauli, Rajasthan", "Mathura", "AGRA, Uttar Pradesh", "भरतपुर", "Deeg"]
+    "text",
+    [
+        "Namaste",
+        "Main aage padhna chahti hoon par ghar wale shaadi ki baat kar rahe hain",  # owner's test
+        "मेरा बच्चा पढ़ाई में मन नहीं लगाता",
+    ],
 )
-def test_a_braj_district_is_enough(district: str) -> None:
-    assert braj("Namaste", district)
+def test_a_braj_district_alone_is_not_braj(district: str, text: str) -> None:
+    """Owner, 2026-10-31: in Karauli too, Hinglish or Hindi words get Hinglish or Hindi."""
+    assert not braj(text, district)
+
+
+@pytest.mark.parametrize("district", BRAJ_BELT)
+def test_in_a_braj_district_one_braj_form_is_enough(district: str) -> None:
+    assert braj("mero lala padhai mein dhyan nahi deta", district)
 
 
 @pytest.mark.parametrize("district", ["Barmer, Rajasthan", "Bahraich", "Nashik", None, ""])
-def test_other_districts_are_not(district: str | None) -> None:
-    assert not braj("Namaste", district)
+def test_elsewhere_one_form_is_not_enough(district: str | None) -> None:
+    assert not braj("mero lala padhai mein dhyan nahi deta", district)
 
 
 ORDINARY = st.text(
@@ -98,12 +113,12 @@ ORDINARY = st.text(
 @example("चल रहा है")
 def test_detection_is_a_pure_function_of_its_inputs(text: str) -> None:
     assert braj(text) == braj(text)
-    assert braj(text, "Mathura")  # a Braj district always counts
+    assert braj(text, "Mathura") >= braj(text)  # a Braj district only ever lowers the bar
 
 
 @pytest.mark.parametrize("register", [Language.HINDI, Language.HINGLISH])
 def test_a_braj_speaker_gets_light_braj_and_village_examples(register: Language) -> None:
-    line = LocalVoice.rule(register, "Karauli, Rajasthan", "Namaste")
+    line = LocalVoice.rule(register, "Karauli, Rajasthan", "mero lala padhai nahi karta")
     assert line.startswith(VILLAGE_RULE)
     assert BRAJ_RULE[register] in line
 

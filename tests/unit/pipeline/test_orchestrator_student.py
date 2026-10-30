@@ -229,6 +229,25 @@ async def test_a_question_asked_during_onboarding_is_answered_when_it_completes(
     assert result.outcome.route is Route.ONBOARDING
 
 
+async def test_a_teachers_chapter_sent_during_onboarding_gets_its_bridge_when_it_completes() -> (
+    None
+):
+    """Owner, 2026-10-31: the chapter went to onboarding and was never answered."""
+    profile = user_profile(
+        role=Role.TEACHER,
+        state=ConversationState.AWAITING_PROFILE,
+        pending_question="Tomorrow class 8 Force and Pressure",
+        language=Language.ENGLISH,  # BRIDGE is written in English
+    ).model_copy(update={"subject": "Science", "grade": 8})
+    result = await run_student(
+        turn_context(text_message("Karauli"), profile=profile), {"exposure": [BRIDGE]}
+    )
+    texts = [part.text or "" for part in result.outcome.delivery.parts]
+    assert result.outcome.route is Route.ONBOARDING
+    assert "Three fields this chapter leads to" not in texts[0]  # the invite comes first
+    assert any("Three fields this chapter leads to" in text for text in texts[1:])
+
+
 async def test_a_students_turn_also_records_where_they_are_heading() -> None:
     self_learner = Learner(
         id=LearnerId(UUID(int=21)),

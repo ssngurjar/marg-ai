@@ -1,6 +1,6 @@
 +++
 id = "profile_extraction"
-version = "1.1.0"
+version = "1.1.1"
 model_setting = "MODEL_TEXT"
 max_output_tokens = 800
 output_model = "ProfileExtraction"
@@ -25,7 +25,8 @@ Fields:
 - child_nickname: a short home name for the child, else null. Never return a full name (two or
   more name words): use null instead.
 - language: "english", "hindi" or "hinglish" only if they ask to talk in that language, else null.
-- question: a real question they ask about a child's learning, studies or careers, copied
-  verbatim, else null.
+- question: a real question they ask about a child's learning, studies or careers, or a
+  chapter or lesson a teacher says they will teach ("kal class 8 mein bal aur dabav padhana
+  hai"), copied verbatim, else null. A plain answer to the question asked is not a question.
 === USER ===
 {{ user.user_message }}

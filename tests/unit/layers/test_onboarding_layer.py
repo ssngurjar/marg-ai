@@ -32,6 +32,7 @@ from app.layers.onboarding_layer import (
     FirstKhojHandoff,
     OnboardingLayer,
     OnboardingResult,
+    PendingQuestionHandoff,
     ProfileExtraction,
 )
 from tests.fakes.language_model import FakeLanguageModel, ScriptedOutput
@@ -269,7 +270,7 @@ async def test_a_role_the_parser_cant_read_goes_to_the_model() -> None:
     )
     assert profile_change(result).role is Role.PARENT
     assert llm.prompts[0].prompt_id == "profile_extraction"
-    assert result.prompt_versions == {"profile_extraction": "1.1.0"}
+    assert result.prompt_versions == {"profile_extraction": "1.1.1"}
 
 
 async def test_a_prompt_injection_can_only_ever_produce_a_real_role_or_nothing() -> None:
@@ -281,6 +282,58 @@ async def test_a_prompt_injection_can_only_ever_produce_a_real_role_or_nothing()
     assert "ignore instructions" not in llm.prompts[0].system
     with pytest.raises(ValueError, match="validation error for ProfileExtraction"):
         ProfileExtraction.model_validate(extraction(role="admin"))
+
+
+# --- a teacher's chapter during onboarding (owner, 2026-10-31) ----------------------------------
+
+CHAPTER = "Kal class 8 mein bal aur dabav padhana hai"
+
+
+def teacher_onboarding(**fields: object) -> UserProfile:
+    """A teacher partway through the profile questions, with the given answers already in."""
+    return at(S.AWAITING_PROFILE, role=Role.TEACHER).model_copy(
+        update={"subject": "Science", **fields}
+    )
+
+
+async def test_a_long_message_at_the_class_question_is_read_by_the_model_and_the_chapter_kept() -> (
+    None
+):
+    teacher = teacher_onboarding()
+    result, llm = await handle(
+        teacher, text_message(CHAPTER), extracted=extraction(grade=8, question=CHAPTER)
+    )
+    assert llm.prompts[0].prompt_id == "profile_extraction"
+    change = profile_change(result)
+    assert change.grade == 8
+    assert change.pending_question == CHAPTER
+    assert result.reply.body.startswith(body(CopyKey.ASK_DISTRICT))
+
+
+async def test_the_chapter_is_handed_off_when_the_last_answer_completes_the_profile() -> None:
+    teacher = teacher_onboarding(grade=8, pending_question=CHAPTER)
+    result, _ = await handle(teacher, text_message("Karauli"))
+    assert isinstance(result.handoff, PendingQuestionHandoff)
+    assert result.handoff.question == CHAPTER
+    assert profile_change(result).clear_pending_question
+
+
+@pytest.mark.parametrize("answer", ["8", "class 8", "Class 8"])
+async def test_a_short_class_answer_needs_no_model(answer: str) -> None:
+    teacher = teacher_onboarding()
+    result, llm = await handle(teacher, text_message(answer))
+    assert llm.prompts == []
+    assert profile_change(result).grade == 8
+
+
+async def test_a_plain_long_class_answer_keeps_no_question() -> None:
+    teacher = teacher_onboarding()
+    result, _ = await handle(
+        teacher, text_message("main class 8 ko padhata hoon"), extracted=extraction(grade=8)
+    )
+    change = profile_change(result)
+    assert change.grade == 8
+    assert change.pending_question is None
 
 
 # --- the parent path -----------------------------------------------------------------------------

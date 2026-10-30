@@ -206,6 +206,61 @@ def test_a_teacher_answers_subject_grade_district_and_gets_the_invite() -> None:
     assert not any(isinstance(effect, UpsertLearner) for effect in done.effects)
 
 
+CHAPTER = "Kal class 8 mein bal aur dabav padhana hai"
+
+
+def test_a_teachers_chapter_sent_with_the_class_is_answered_when_onboarding_ends() -> None:
+    """Owner, 2026-10-31: the chapter was lost when it arrived as the class answer."""
+    teacher = at(S.AWAITING_PROFILE, role=Role.TEACHER, subject="Science", **CONSENTED)
+    graded = step(teacher, ProfileAnswered(ProfileUpdate(grade=8), question=CHAPTER))
+    assert graded.profile.state is S.AWAITING_PROFILE
+    assert graded.profile.pending_question == CHAPTER
+    assert copies(graded) == [CopyKey.ASK_DISTRICT]
+    done = step(graded.profile, ProfileAnswered(ProfileUpdate(district="Karauli")))
+    assert done.profile.state is S.ACTIVE
+    assert copies(done) == [CopyKey.PROFILE_DONE_TEACHER]
+    assert HandoffPendingQuestion(CHAPTER) in done.effects
+    assert done.profile.pending_question is None
+
+
+def test_a_teacher_with_nothing_pending_gets_only_the_invite() -> None:
+    teacher = at(S.AWAITING_PROFILE, role=Role.TEACHER, subject="Science", grade=8, **CONSENTED)
+    done = step(teacher, ProfileAnswered(ProfileUpdate(district="Karauli")))
+    assert not any(isinstance(effect, HandoffPendingQuestion) for effect in done.effects)
+
+
+def test_a_question_with_the_last_answer_is_handed_off_at_once() -> None:
+    student = at(
+        S.AWAITING_PROFILE, role=Role.STUDENT, guardian_confirmed=True, grade=10, **CONSENTED
+    )
+    done = step(student, ProfileAnswered(ProfileUpdate(district="Karauli"), question=QUESTION))
+    assert HandoffPendingQuestion(QUESTION) in done.effects
+
+
+def test_a_newer_question_replaces_the_older_one() -> None:
+    teacher = at(
+        S.AWAITING_PROFILE,
+        role=Role.TEACHER,
+        subject="Science",
+        pending_question="purana sawaal",
+        **CONSENTED,
+    )
+    graded = step(teacher, ProfileAnswered(ProfileUpdate(grade=8), question=CHAPTER))
+    assert graded.profile.pending_question == CHAPTER
+
+
+def test_an_answer_without_a_question_keeps_the_one_waiting() -> None:
+    teacher = at(
+        S.AWAITING_PROFILE,
+        role=Role.TEACHER,
+        subject="Science",
+        pending_question=CHAPTER,
+        **CONSENTED,
+    )
+    graded = step(teacher, ProfileAnswered(ProfileUpdate(grade=8)))
+    assert graded.profile.pending_question == CHAPTER
+
+
 def test_several_profile_fields_in_one_answer_skip_their_questions() -> None:
     teacher = at(S.AWAITING_PROFILE, role=Role.TEACHER, subject="Maths", **CONSENTED)
     done = step(teacher, ProfileAnswered(ProfileUpdate(grade=9, district="Barmer")))

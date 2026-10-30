@@ -85,6 +85,9 @@ class GuardianDeclined:
 @dataclass(frozen=True, slots=True)
 class ProfileAnswered:
     update: ProfileUpdate
+    # A question or a teacher's chapter in the same message ("kal class 8 mein bal aur dabav
+    # padhana hai"): kept and answered once the profile is complete (owner, 2026-10-31).
+    question: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

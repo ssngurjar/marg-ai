@@ -435,9 +435,10 @@ class _Turn:
     async def _pending_answer(
         self, handoff: PendingQuestionHandoff, writes: Sequence[TurnWrite], register: Language
     ) -> "_Sent | None":
-        """A student's first question, asked before onboarding, answered once their profile is
-        complete (s08 §4.7). It passed safety_in in the turn that asked it. If it fails,
-        onboarding still completes and the student can ask again."""
+        """A student's question, or a teacher's chapter, sent before onboarding finished, answered
+        once the profile is complete (s08 §4.7): the student's by the mentor, the teacher's by
+        the Exposure layer (owner, 2026-10-31). It passed safety_in in the turn that sent it. If
+        it fails, onboarding still completes and they can send it again."""
         student = self.steps.student
         if student is None:
             return None
@@ -453,11 +454,14 @@ class _Turn:
                 profile = profile.model_copy(update=changed)
         ctx = self.ctx.model_copy(update={"profile": profile})
         started = self.steps.clock.now()
+        if profile.role is Role.TEACHER and student.exposure is not None:
+            work = student.exposure.generate(ctx, handoff.question, [], register)
+            limit = self.settings.exposure_timeout
+        else:
+            work = student.mentor.answer(ctx, handoff.question, register)
+            limit = self.settings.mentor_timeout
         try:
-            layer_result = await self._bounded(
-                student.mentor.answer(ctx, handoff.question, register),
-                self.settings.generate_timeout,
-            )
+            layer_result = await self._bounded(work, limit)
         except (ProviderError, StoreError, TimeoutError) as error:
             await self._record_failure(StepName.GENERATE, started, error, "pending_question")
             return None

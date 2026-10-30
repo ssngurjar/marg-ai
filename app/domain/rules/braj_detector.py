@@ -1,8 +1,10 @@
 """BrajDetector: does this person speak Braj (owner, 2026-10-28)? Pure; the word and district
 lists are reviewed constants passed in.
 
-Yes when their message uses two Braj forms ("mero chhora naay padh rao"), or their district is
-a Braj district. One form alone isn't enough: "chhora" is said all over north India.
+Yes when their own words are Braj: two Braj forms ("mero chhora naay padh rao"), or one in a
+Braj district ("mero lala…" in Karauli). One form alone elsewhere isn't enough: "chhora" is said
+all over north India. A district alone never is: a family in Karauli writing Hinglish or Hindi
+gets Hinglish or Hindi (owner, 2026-10-31).
 
 Voice notes arrive through speech-to-text, which slips (owner's check, 2026-10-28): it doubles a
 word ("मेरोमेरो") or runs two together ("ललितक्षु"). So a doubled word counts once as itself,
@@ -19,6 +21,7 @@ from app.domain.rules.phrase_finder import PhraseFinder
 
 class BrajDetector:
     MARKERS_NEEDED: ClassVar[int] = 2
+    MARKERS_NEEDED_IN_A_BRAJ_DISTRICT: ClassVar[int] = 1
     SHORTEST_INSIDE_A_WORD: ClassVar[int] = 3  # letters, counting vowel signs
     DEVANAGARI_FIRST: ClassVar[int] = 0x0900
     DEVANAGARI_LAST: ClassVar[int] = 0x097F
@@ -30,11 +33,15 @@ class BrajDetector:
         markers: Sequence[str],
         districts: Sequence[str],
     ) -> bool:
-        if district and PhraseFinder.contains_any(district, districts):
-            return True
+        in_braj_district = bool(district) and PhraseFinder.contains_any(district or "", districts)
+        needed = (
+            BrajDetector.MARKERS_NEEDED_IN_A_BRAJ_DISTRICT
+            if in_braj_district
+            else BrajDetector.MARKERS_NEEDED
+        )
         words = [BrajDetector._undoubled(word) for word in PhraseFinder.words(text)]
         found = sum(1 for marker in markers if BrajDetector._found(words, marker))
-        return found >= BrajDetector.MARKERS_NEEDED
+        return found >= needed
 
     @staticmethod
     def _undoubled(word: str) -> str:

@@ -329,10 +329,7 @@ class OnboardingLayer:
     def _profile_event(self, ctx: TurnContext, user_text: str) -> ConversationEvent | None:
         asked = ConversationMachine.next_profile_question(ctx.profile, len(ctx.learners))
         if asked in {CopyKey.ASK_GRADE_STUDENT, CopyKey.ASK_GRADE_TEACHER}:
-            grade = _P.parse_grade(user_text)
-            if grade.problem is Found.OUT_OF_RANGE:
-                return Unrecognised(not_understood=CopyKey.INVALID_GRADE)
-            return ProfileAnswered(ProfileUpdate(grade=grade.grade)) if grade.grade else None
+            return self._grade_event(user_text)
         is_short_value = (
             0 < len(user_text.split()) <= self.SHORT_VALUE_WORDS
             and "?" not in user_text
@@ -346,6 +343,17 @@ class OnboardingLayer:
         except InvalidProfileValue:
             return Unrecognised()  # malformed ("12345" as a district): ask again, store nothing
         return None
+
+    def _grade_event(self, user_text: str) -> ConversationEvent | None:
+        """The class, from a short answer. A longer message may also carry a question or a
+        teacher's chapter ("kal class 8 mein bal aur dabav padhana hai"): the model reads both,
+        so the request isn't lost (owner, 2026-10-31)."""
+        if len(user_text.split()) > self.LONG_ANSWER_WORDS:
+            return None
+        grade = _P.parse_grade(user_text)
+        if grade.problem is Found.OUT_OF_RANGE:
+            return Unrecognised(not_understood=CopyKey.INVALID_GRADE)
+        return ProfileAnswered(ProfileUpdate(grade=grade.grade)) if grade.grade else None
 
     def _worth_extracting(self, state: ConversationState, user_text: str) -> bool:
         if state in {_S.NEW, _S.ACTIVE} or not user_text.strip():
@@ -499,7 +507,8 @@ class _ExtractionMapper:
         if state is _S.AWAITING_PROFILE:
             update = _ExtractionMapper._profile_update(extraction)
             if update is not None and not update.is_empty:
-                return ProfileAnswered(update)
+                question = extraction.question[:QUESTION_MAX_CHARS] if extraction.question else None
+                return ProfileAnswered(update, question=question)
         if state is _S.AWAITING_CHILD and extraction.child_age is not None:
             return _ExtractionMapper._child(extraction, current_year)
         if extraction.question:
