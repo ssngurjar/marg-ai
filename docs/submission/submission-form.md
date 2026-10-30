@@ -109,7 +109,7 @@ balance on the day, $32 on 2026-10-31.)*
 ## Why are Meta's models important to your solution?
 
 > Because the families I build for speak, they don't type. Muse Voice Transcribe hears a
-> parent's Hindi, Hinglish or Braj voice note on a cheap phone, and Muse Spark reads what the
+> parent's Hindi, Hinglish or Braj voice note on a basic phone, and Muse Spark reads what the
 > words mean: a report on the child, a question, a child writing on the parent's phone, "send
 > that again". In a live check it read 33 of 33 real-style messages right, Braj included.
 >
@@ -167,7 +167,7 @@ this build; for each, what it did to a family, what we did, and the change that 
 >    convert it back. **Ask:** a language or script hint per request.
 > 8. **Smaller things:** Muse Image returns a ~5 MB PNG (a size or format option would save a
 >    re-encode for WhatsApp); the WhatsApp Cloud API messaging token can't read its own
->    phone-number object, so there is no cheap health check for the channel.
+>    phone-number object, so there is no lightweight health check for the channel.
 >
 > What worked best: **Muse Spark structured output.** Strict JSON schemas plus one repair retry
 > with the validation error made every generative step typed, and its intent reading (33 of 33)

@@ -41,7 +41,7 @@ Marg needs no app, only WhatsApp, and anyone can ask by voice note.
   class; one record carries a child from their first *why* to their first career decision.
 - **It travels.** A new language or dialect is word lists and prompt work, not a rebuild: Braj
   was added in a day.
-- **It's cheap to run.** About 0.6 US cents per reply in model calls, measured in a full eval run
+- **Affordable at village scale.** About 0.6 US cents per reply in model calls, measured in a full eval run
   ($0.65 for 111 replies), so about 3 US cents a day for an active family (around five replies),
   not counting WhatsApp fees and hosting. The whole build, with every test and evaluation, used
   about $32 of Model API credits (Baseten and DeepInfra are billed separately).
