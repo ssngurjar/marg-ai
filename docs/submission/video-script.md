@@ -161,11 +161,16 @@ No dashboard on screen.*
 >
 > One parent, one child, every day. One teacher, a whole class.
 >
-> From a child's first *why* to their first career decision: one guide that grows with them.
+> Nothing in Marg is only for my village. A new language is word lists and prompts, not a
+> rebuild: Braj took one day.
 > Thank you.
 
 *Caption while the first line is spoken: "ASER 2024: almost 90% of rural 14–16-year-olds have a
 smartphone at home"*
+
+*Caption under the last line (cut v5): "Per country, three things change, each reviewed
+locally: the language word lists, the official sources, the crisis helplines". It keeps the
+global claim honest: the design travels, the reviewed content is redone per place.*
 
 ---
 

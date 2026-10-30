@@ -48,7 +48,10 @@ Marg needs no app, only WhatsApp, and anyone can ask by voice note.
 - **It multiplies.** One equipped parent reaches a child every day; one teacher reaches a whole
   class; one record carries a child from their first *why* to their first career decision.
 - **It travels.** A new language or dialect is word lists and prompt work, not a rebuild: Braj
-  was added in a day.
+  was added in a day. Nothing in the design is only for one village: it fits anywhere families
+  share one phone and speak a language at home that school doesn't. Per country, three things
+  change, each reviewed locally: the language word lists, the official sources, and the crisis
+  helplines. Channels and models sit behind ports, so the core stays the same.
 - **Affordable at village scale.** About 0.6 US cents per reply in model calls, measured in a full eval run
   ($0.65 for 111 replies), so about 3 US cents a day for an active family (around five replies),
   not counting WhatsApp fees and hosting. The whole build, with every test and evaluation, used
