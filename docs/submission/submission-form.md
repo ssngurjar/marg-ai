@@ -52,9 +52,22 @@ Two rules shape every answer:
 > hand-written cases through the real pipeline, and a field test in my village. Every bug found
 > by using Marg like a family would (a shared phone, mixed languages, a refresh) became a fix
 > and a permanent test.
+>
+> Most AI for education puts a screen in front of a child. Marg does the opposite: it coaches
+> the people already around a rural child by voice, in the dialect they speak at home, and the
+> child's learning happens offline, with leaves and shadows. It answers families who share one
+> phone, mix languages and come back after a refresh, because that is how a village uses
+> WhatsApp.
+>
+> What this proves: a real, safe product for families who will never pay for software can run
+> entirely on Meta's models, including open weights, for about 3 US cents a family per day. The
+> whole build, with every test and evaluation, used about $32 of Model API credits. Reaching a
+> village doesn't need the most expensive model; it needs the right model for each job, and
+> careful engineering between them.
 
 *(Recheck before submitting: the test count from `pytest`, the case count from the newest
-scorecard, and that the field test happened.)*
+scorecard, that the field test happened, and the credits used: $150 minus the Model API
+balance on the day, $32 on 2026-10-31.)*
 
 ---
 

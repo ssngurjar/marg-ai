@@ -41,8 +41,10 @@ Marg needs no app, only WhatsApp, and anyone can ask by voice note.
   class; one record carries a child from their first *why* to their first career decision.
 - **It travels.** A new language or dialect is word lists and prompt work, not a rebuild: Braj
   was added in a day.
-- **It's cheap to run.** Under one US cent per reply in model calls, measured in our eval runs
-  ($0.44 for 73 cases), not counting WhatsApp fees and hosting.
+- **It's cheap to run.** About 0.6 US cents per reply in model calls, measured in a full eval run
+  ($0.65 for 111 replies), so about 3 US cents a day for an active family (around five replies),
+  not counting WhatsApp fees and hosting. The whole build, with every test and evaluation, used
+  about $32 of Model API credits (Baseten and DeepInfra are billed separately).
 - **The need is large.** An estimated 250 million children under five in low- and middle-income
   countries are at risk of not reaching their developmental potential
   ([Lancet series, 2016](https://pmc.ncbi.nlm.nih.gov/articles/PMC5884058); 2010 data).
