@@ -35,7 +35,7 @@ Every line has its own picture; pure village scenery only under the first line.
 
 | Voice-over | Screen |
 |---|---|
-| "Hi, I'm Santram. This track asks us to build for our world, so I built for mine: a village in Rajasthan." | The village, wide (3–4 s), then a lane or courtyard |
+| "Hi, I'm Santram. I built this for my village in Rajasthan." | The village, wide (3–4 s), then a lane or courtyard |
 | "I grew up there, where learning meant memorising books. It took me thirty years to learn how to think: to ask *why*, and to build." | A child reciting from a book, **from behind**; the sound of rote chanting under the voice |
 | "Parents here still say: '*padho, padho*.' Read. But nobody shows them how to make a child curious." | A parent's hands holding a phone, unsure what to do |
 | "In rural India, fewer than one in four Class 3 children in government schools can read a Class 2 story." | **An animated grid of 100 children; 23 light up.** Caption: "ASER 2024, rural India, government schools: 23.4%" |
@@ -103,6 +103,7 @@ hear the real voice notes, and see Marg's real replies arrive with the real wait
 press → as each part is named; C hides the captions, H the buttons), the `/demo` page with
 its live trace filling in step by step, the eval scorecard, the GitHub repository.*
 
+> *(over a title card: "How it works · System design and technical depth")* Now, the system behind it.
 > From the outside, it's just a WhatsApp contact.
 > Inside, a compound AI system: six Meta models, each with one job.
 > Voice Transcribe hears the parent.
@@ -110,7 +111,13 @@ its live trace filling in step by step, the eval scorecard, the GitHub repositor
 > Muse Spark Open, an open-weights model, reflects on the child.
 > SAM counts what they collected.
 > Muse Image draws the card.
-> Llama Guard 4 checks every message, both ways. If safety is down, nothing goes out.
+> Llama Guard 4 checks every message, both ways. If safety is down, nothing goes out unchecked.
+> Every model here is Meta's, open weights included, at about three US cents a family a day. A
+> real system doesn't need the most expensive model. It needs the right model for each job.
+
+*Every diagram step carries a caption bar saying what it does (v2, 2026-10-31), e.g. "SAM 3.1
+drops any photo with a person, then counts what the child collected". The last step's bar names
+the six models and "about 3 US cents a family a day".*
 
 *Recording it (first take, 2026-10-29, ran 52 s against 27):* no opening line ("let's move on
 to…"): the diagram changes the topic. Read the lines as written, without "then" or "after
@@ -136,8 +143,7 @@ No dashboard on screen.*
 > Almost nine in ten rural teenagers already have a smartphone at home. That phone is Marg's
 > reach: no app, no reading, just a voice note.
 >
-> One parent, one child, every day. One teacher, a whole class. And wherever WhatsApp works,
-> Marg can learn the next language, the way it learned Braj.
+> One parent, one child, every day. One teacher, a whole class.
 >
 > From a child's first *why* to their first career decision: one guide that grows with them.
 > Thank you.
