@@ -715,6 +715,11 @@ class EngineBasics:
     outbox: OutboxRepository
 
 
+def spark_call_limit(settings: Settings) -> float:
+    """How long one Muse Spark call may take: the longest step that makes one."""
+    return max(settings.timeout_generate_s, settings.timeout_exposure_s, settings.timeout_mentor_s)
+
+
 def build_providers(
     settings: Settings,
     session_factory: async_sessionmaker[AsyncSession],
@@ -725,7 +730,10 @@ def build_providers(
         config=ModelApiConfig(
             base_url=str(settings.model_api_base_url),
             api_key=settings.model_api_key,
-            timeout_s=settings.timeout_generate_s,
+            # The longest step limit: each step's own limit cuts its work (Orchestrator._bounded).
+            # Was TIMEOUT_GENERATE_S, which cut a teacher's or a student's single call at the
+            # parent limit (a three-field bridge timed out at 20 s, 2026-10-31).
+            timeout_s=spark_call_limit(settings),
         ),
         retry=retry,
         clock=clock,
