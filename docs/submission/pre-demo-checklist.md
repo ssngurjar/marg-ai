@@ -20,6 +20,12 @@ fixed or written down with its workaround before going on.
 - [ ] `VOICE_REPLIES_ENABLED=false` unless the organisers have cleared MMS-TTS; if it's on, the
       ML sidecar (`make sidecar`) is running and stays up through judging.
 - [ ] The corpus is ingested (`marg ingest-corpus --yes` on prod): 53 documents, verified from India.
+- [ ] **Production is running again** (scaled to 0 on 2026-10-30 to save Neon compute hours):
+  `~/.fly/bin/fly scale count 1 -a marg-ai --yes`, then `/readyz` is `200`. The WhatsApp
+  webhook points at `https://marg-ai.fly.dev/webhooks/whatsapp`, not a tunnel.
+- [ ] **On Nov 8:** Neon console → Billing: the project's CU-hours this month. Free is 100;
+  production uses ~6 a day. To run until the community vote ends (Nov 16) and it won't last,
+  move to Neon's Launch plan ($0.106 per CU-hour).
 - [ ] **On Nov 4, before judging:** raise the per-IP demo limit so judges and testers sharing one
   network don't share 90 messages an hour: `~/.fly/bin/fly secrets set DEMO_IP_RATE_LIMIT_PER_HOUR=300 -a marg-ai`
   (owner decision 2026-10-30; the $5/day web cap stays).
