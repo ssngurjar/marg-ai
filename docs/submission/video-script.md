@@ -12,50 +12,67 @@ repository shows; one line marked **[if it happens]** goes in only if the field 
 
 ---
 
-## 0:00 – 0:05 · Consent card (text on screen, no voice)
+## 0:00 – 0:08 · Cold open: a real voice (no voice-over)
 
-> Everyone shown in this video gave written consent.
-> Children's faces and real names are not shown.
-> Everything in this demo was built during the Meta hackathon, Oct 26 – Nov 4, 2026.
+The first seconds decide whether the judges lean in: open on the problem and the product in one
+breath, not on a title card.
+
+| Time | Sound | Screen |
+|---|---|---|
+| 0:00–0:04 | A mother's real voice note, in her own Braj or Hindi, asking what to do with her child today (a consented sample, e.g. A1 or A5) | Black; her words as subtitles, Devanagari above, English below |
+| 0:04–0:06 | Soft WhatsApp arrival sound | A phone screen: Marg's reply arrives in her language |
+| 0:06–0:08 | (silence) | Title: **Marg.ai**, and under it "*Marg* means path" |
+
+Along the bottom for all 8 seconds, small: "Everyone shown gave written consent. No child's face
+or real name. Built during the Meta hackathon, Oct 26 – Nov 4, 2026." (This replaces the
+5-second consent card.)
 
 ---
 
-## 0:05 – 0:40 · My world (voice-over, ~75 words)
+## 0:08 – 0:40 · My world (voice-over, ~65 words)
 
-*Visuals: the village, a courtyard, a lane, parents at work. No faces of children.*
+Every line has its own picture; pure village scenery only under the first line.
 
-> Hi, I'm Santram. This track asks us to build for our world, so I built for mine: a village in
-> Rajasthan.
->
-> I grew up there, where learning meant memorising books. It took me thirty years to learn how to
-> think: how to ask *why*, and how to build. Parents here still say what mine said: "padho,
-> padho." Read. But nobody shows them how to make a child curious.
-
-*On screen while speaking the next line, with the source:*
-
-> In rural India, fewer than one in four Class 3 children in government schools can read a
-> Class 2 story.
-
-*Caption: "ASER 2024, rural India, government schools: 23.4%"*
+| Voice-over | Screen |
+|---|---|
+| "Hi, I'm Santram. This track asks us to build for our world, so I built for mine: a village in Rajasthan." | The village, wide (3–4 s), then a lane or courtyard |
+| "I grew up there, where learning meant memorising books. It took me thirty years to learn how to think: to ask *why*, and to build." | A child reciting from a book, **from behind**; the sound of rote chanting under the voice |
+| "Parents here still say: '*padho, padho*.' Read. But nobody shows them how to make a child curious." | A parent's hands holding a phone, unsure what to do |
+| "In rural India, fewer than one in four Class 3 children in government schools can read a Class 2 story." | **An animated grid of 100 children; 23 light up.** Caption: "ASER 2024, rural India, government schools: 23.4%" |
 
 ---
 
 ## 0:40 – 1:12 · What Marg.ai is (voice-over, ~70 words)
 
-*Visuals: children's hands sorting leaves in a courtyard (no faces), then a parent's hands
-holding a phone, WhatsApp open on the Marg.ai chat.*
+A 30-second preview of the product, matched line by line, so that when the raw field test
+starts the judges already know what they are watching.
 
-> Children here don't lack talent. They lack exposure: someone to ask them *why*, and anyone
-> who's walked a path beyond the village.
->
-> So I built Marg.ai. *Marg* means path. It isn't a tutor, and it isn't screen time for children.
-> It coaches the people already around a child, by voice, on WhatsApp. The world is the
-> curriculum; the phone is the coach.
->
-> Does it work? Here's a real field test, in my village.
+| Voice-over | Screen |
+|---|---|
+| "Children here don't lack talent. They lack exposure: someone to ask them *why*, and anyone who's walked a path beyond the village." | Children's hands sorting leaves (no faces), then Marg's reply on the phone asking the child's question back |
+| "So I built Marg.ai. *Marg* means path. It isn't a tutor, and it isn't screen time for children." | The Marg.ai chat on a parent's phone |
+| "It coaches the people already around a child, by voice, on WhatsApp." | A voice note's waveform being sent; the reply arriving |
+| "The world is the curriculum; the phone is the coach." | Hands with leaves, then the khoj card from Muse Image. Caption: "Aaj ki Khoj: a two-minute discovery, every day" |
+| (between lines) | Three labels, one after another: **Hindi · Hinglish · Braj**, **6 Meta models, each with one job**, **about 3 US cents a family a day** |
+| "Does it work? Here's a real field test, in my village." | Cut to the raw field test |
 
-*Caption while "the world is the curriculum" is spoken: "Aaj ki Khoj: a two-minute discovery,
-every day"*
+### Shot list for these 1:12 (what to record in the village)
+
+- The village wide, and one lane or courtyard (5–10 s each, steady, morning light).
+- A child reciting from a book, **from behind only**, with the sound.
+- A parent's hands holding a phone (no face needed).
+- Children's hands sorting leaves on the ground (hands only).
+- A mother's voice note asking what to do with her child today, if she agrees in writing to its
+  use in the video **and by Meta** (her earlier consent covered testing only).
+
+Made on the computer (no recording needed): the ASER grid animation, the title and the three
+labels, and phone-sized screen recordings of Marg's replies from the web demo.
+
+### The voice-over
+
+Santram records it in one take while watching the finished cut, so the timing is already set.
+The cut is first built with a temporary voice (an Indian English voice built into macOS) timed to
+these words; the real recording replaces it. The final video uses only Santram's own voice.
 
 ---
 
