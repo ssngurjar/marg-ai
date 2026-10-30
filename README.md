@@ -273,8 +273,8 @@ lint, types and unit tests, the sidecar's included) and `make test-int` (Postgre
 | Muse Spark Open | Muse Model License (Meta) |
 | Llama Guard 4 | Llama 4 Community License (Meta) |
 | MMS-TTS (`facebook/mms-tts-hin`, `-eng`): only with `VOICE_REPLIES_ENABLED=true`, off | CC-BY-NC 4.0 |
-| PyTorch, transformers (the sidecar only) | BSD-3-Clause; Apache-2.0 |
-| FastAPI, Pydantic, SQLAlchemy, Alembic, PyYAML, structlog | MIT (structlog MIT or Apache-2.0) |
+| PyTorch, transformers, NumPy (the sidecar only) | BSD-3-Clause; Apache-2.0; BSD-3-Clause |
+| FastAPI, Pydantic, pydantic-settings, SQLAlchemy, Alembic, PyYAML, structlog | MIT (structlog MIT or Apache-2.0) |
 | asyncpg, openai, cryptography | Apache-2.0 (cryptography Apache-2.0 or BSD-3-Clause) |
 | httpx, Jinja2, uvicorn | BSD-3-Clause |
 
