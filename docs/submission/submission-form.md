@@ -96,50 +96,72 @@ scorecard, and that the field test happened.)*
 ## Why are Meta's models important to your solution?
 
 > Because the families I build for speak, they don't type. Muse Voice Transcribe hears a
-> parent's Hindi, Hinglish or Braj voice note on a cheap phone, and Marg replies in the same
-> language and register.
+> parent's Hindi, Hinglish or Braj voice note on a cheap phone, and Muse Spark reads what the
+> words mean: a report on the child, a question, a child writing on the parent's phone, "send
+> that again". In a live check it read 33 of 33 real-style messages right, Braj included.
 >
 > Because children are involved, safety can't be one model's guess. Llama Guard 4 and a Muse
-> Spark policy check read every message in parallel, and each covers the other's blind spots: on
-> real tests Llama Guard flagged "I want to become a doctor, make me a plan" as self-harm, which
-> Muse Spark cleared, while Muse Spark caught a quiet "mujhe jeena nahi hai" that needs a
-> helpline. SAM 3.1 lets us accept a child's photo at all: it proves no person is in it before
-> anything else looks.
+> Spark policy check read every message in parallel, and each covers the other's blind spots:
+> Llama Guard flagged "I want to become a doctor, make me a plan" as self-harm, which Muse Spark
+> cleared, while Muse Spark caught a quiet "mujhe jeena nahi hai" that needs a helpline. SAM
+> 3.1 lets us accept a child's photo at all: it proves no person is in it before anything else
+> looks.
 >
 > Because cost decides whether this reaches a village. Muse Spark Open, an open-weights model,
-> runs the high-volume reflection and signal work, and the whole pipeline costs under one US
-> cent per reply in model calls, measured in our eval runs.
+> did 13% of the generation steps in a full 86-case eval run (the child's reflection and the
+> curiosity signals), and the whole pipeline costs under one US cent per reply in model calls.
+> Open weights also mean that work could one day run where Indian children's data must stay.
 >
 > And because one family of models covers voice in, text, images, segmentation and safety, the
-> whole system speaks one structured-output contract end to end.
+> whole system speaks one structured-output contract end to end: six models, each with one job,
+> and rules and code between them.
 
 ---
 
 ## Provide feedback from your experience using Meta products
 
-> - **Muse Spark structured output** was the most reliable part: strict JSON schemas plus one
->   repair retry with the validation error made every generative step typed.
-> - **Llama Guard 4 over-flags ordinary Hindi and Hinglish.** "Doctor banna hai, plan bana do"
->   came back S11 (self-harm); a harmless answer on teaching colours came back S2, S4 or S8 on
->   different runs; a parent's "kal wali khoj phir se bhejo, Munni ko yaad nahi" ("send
->   yesterday's discovery again, Munni doesn't remember") came back S10 (hate) three times out
->   of three. On a user's message, S1, S2, S4 and S10 now count only when our Muse Spark policy
->   check agrees, and on our replies every flag gets a Muse Spark second opinion. A calibrated
->   threshold, a per-category confidence or better Indic-language calibration would let us
->   trust it alone.
-> - **Muse Voice Transcribe** sometimes returns Hindi speech in Gujarati or Gurmukhi script. A
->   language hint (or a script hint) per request would remove our normaliser.
-> - **The eval judge** needed a much larger `max_output_tokens` (6,000) at high reasoning to
->   finish its JSON; the limit being shared between reasoning and output wasn't obvious.
-> - **WhatsApp Cloud API:** the messaging token can't read its own phone-number object, so there
->   is no cheap health check for the channel.
-> - **No commercially licensed Meta text-to-speech.** Our users often can't read long messages,
->   and MMS-TTS, the only Meta voice for Hindi, is CC-BY-NC. A Meta speech model under a
->   permissive licence, or speech output in the Model API, would let Marg reply by voice.
-> - **Muse Image** returns a ~5 MB PNG; a size or format option would save a re-encode before
->   sending on WhatsApp.
+What we'd ask Meta to change, most important for our users first. Each point was measured in
+this build; for each, what it did to a family, what we did, and the change that would help.
 
-*(Each point is from this build: s07, s09 and S15 decision logs, the readiness probe notes.)*
+> 1. **Llama Guard 4 misreads ordinary Hindi and Hinglish.** On a user's message it flagged a
+>    child's "Chaand raat ko hi kyun dikhta hai?" ("why is the moon seen only at night?") as S3,
+>    sex crimes, 4 times out of 4; a parent's "kal wali khoj phir se bhejo, Munni ko yaad nahi"
+>    as S10, hate, 3 of 3; and "doctor banna hai, plan bana do" as S11, self-harm. The child got
+>    a refusal for a question about the moon. We now count S1, S2, S3, S4 and S10 on a user's
+>    message only when our Muse Spark check agrees. **Ask:** Indic-language calibration, and a
+>    per-category score or threshold, so one model can be trusted alone.
+> 2. **No Meta embedding model.** Every runtime model must be Meta's, so our multilingual
+>    embeddings had to go, and the student mentor now searches 53 official documents by keyword
+>    only. A student who asks in their own words, naming no exam, finds less. **Ask:** a
+>    multilingual (Indic) embedding model in the Model API.
+> 3. **No commercially licensed Meta text-to-speech.** Many of our parents can't read long
+>    messages, and MMS-TTS, the only Meta voice for Hindi, is CC-BY-NC, so Marg replies in text
+>    and the web demo uses the browser's voice. **Ask:** a Meta speech model under a permissive
+>    licence, or speech output in the Model API.
+> 4. **Llama Guard 4 isn't on the Model API or a listed partner.** We run it on DeepInfra: in
+>    one 22-case eval run 28 calls timed out at our 1.5 s limit or were refused, in another none
+>    did, and on day one it answered `429 engine_overloaded`. Muse Spark decides whenever it's
+>    down, so nothing goes out unchecked, but a reply then waits for the backup. **Ask:** Llama
+>    Guard on the Model API.
+> 5. **One combined category list hides intent.** A class-8 student asking to make a rocket from
+>    firecracker powder came back S9 (weapons) and S2 (crime) every time, so the safe-curiosity
+>    redirect we wrote for S9 lost to a flat refusal until we special-cased the pair. **Ask:** a
+>    signal for "asks how to make" versus "asks about".
+> 6. **Reasoning tokens share `max_output_tokens`.** Our query rewriter and intent reader
+>    returned cut-off JSON until we raised their limits to 1,200, and the eval judge needed
+>    6,000. **Ask:** a separate reasoning budget, or a clear error when reasoning used the limit.
+> 7. **Muse Voice Transcribe** sometimes returns Hindi speech in Gujarati or Gurmukhi script; we
+>    convert it back. **Ask:** a language or script hint per request.
+> 8. **Smaller things:** Muse Image returns a ~5 MB PNG (a size or format option would save a
+>    re-encode for WhatsApp); the WhatsApp Cloud API messaging token can't read its own
+>    phone-number object, so there is no cheap health check for the channel.
+>
+> What worked best: **Muse Spark structured output.** Strict JSON schemas plus one repair retry
+> with the validation error made every generative step typed, and its intent reading (33 of 33)
+> is what lets Marg follow a family that takes the conversation anywhere.
+
+*(Each point is from this build: the s07, s09, s10b, s11 and S15 decision logs and the live checks
+behind them.)*
 
 ---
 
@@ -148,11 +170,7 @@ scorecard, and that the field test happened.)*
 > **Baseten** hosts Muse Spark Open for us through an OpenAI-compatible endpoint, which dropped
 > straight into our adapter. Cold or slow responses happen, so we gave it a 7-second limit with
 > Muse Spark 1.3 as the fallback. A visible warm/cold status would let us choose up front.
-> (Llama Guard 4 runs on DeepInfra, not a listed partner. It is uneven: in one 22-case eval run
-> 28 of its calls timed out at our 1.5-second limit or were refused, in another none did, and
-> on day one it answered `429 engine_overloaded`. That is why Muse Spark decides whenever it is
-> down, so a child never waits on it and nothing goes out unchecked. A Llama Guard on a listed
-> partner, or on the Model API, would help.)
+> (Llama Guard 4 runs on DeepInfra, not a listed partner: see point 4 of the Meta feedback.)
 
 ---
 
