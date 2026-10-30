@@ -41,36 +41,37 @@ Two rules shape every answer:
 >   and Marg answers the child's idea and asks one question back. A photo of what the child
 >   collected is counted by SAM 3.1 after a check that no person is in it; Muse Image turns the
 >   discovery into a card the family can share.
-> - **Children**, with the parent's consent, can ask Marg their own questions by voice, in short
->   sessions with strict child-safety rules.
+> - **Children**, once a parent says yes, can send Marg their own *why* by voice. Each answer is a
+>   few short sentences that end in one thing to try at home and one question back, so the
+>   child goes back to the real world, not deeper into the phone. Sessions are short (six turns
+>   or ten minutes), and Marg encourages the child to share it with Mummy and Papa.
 > - **Teachers** get today's chapter connected to three real fields, with a five-minute activity
 >   for 40 students and no materials to buy.
-> - **Students** get a mentor that states facts only from 53 official sources and cites them,
->   and a step-by-step plan.
+> - **Older students** get a mentor and a step-by-step plan. Every factual claim is cited to one
+>   of 53 official sources (exams, scholarships, courses), and when no source covers it, Marg
+>   says it doesn't know.
 >
-> Every turn adds to one record that grows with the child, from their first *why* to their first
-> career decision. Safety runs on every message in and out (Llama Guard 4 plus a second Muse
+> Every turn adds to one learner record (a child's curiosity, later a student's aims), built so
+> the guide can grow with the child. Safety runs on every message in and out (Llama Guard 4 plus a second Muse
 > Spark check plus our own child rules), and fails closed.
 >
-> All of it was built during the hackathon: about 2,650 tests, an eval harness that plays 86
-> hand-written cases through the real pipeline, and a field test in my village. Every bug found
+> All of it was built during the hackathon: 2,692 tests (2,487 unit, 205 integration on
+> Postgres); an eval harness that plays 86 hand-written cases through the real pipeline, where
+> 76% of the 82 scored pass on the newest full run and every crisis and adversarial case
+> passes; and a field test in my village. Every bug found
 > by using Marg like a family would (a shared phone, mixed languages, a refresh) became a fix
 > and a permanent test.
 >
-> Most AI for education puts a screen in front of a child. Marg does the opposite: it equips
-> the people already around a rural child by voice, in the dialect they speak at home, and the
-> child's learning happens offline, with leaves and shadows. It answers families who share one
-> phone, mix languages and come back after a refresh, because that is how a village uses
-> WhatsApp.
->
-> What this proves: a real, safe product for families who will never pay for software can run
-> entirely on Meta's models, including open weights, for about 3 US cents a family per day. The
-> whole build, with every test and evaluation, used about $32 of Model API credits. Reaching a
-> village doesn't need the most expensive model; it needs the right model for each job, and
-> careful engineering between them.
+> What this proves: reaching a village doesn't need the most expensive model; it needs the right
+> model for each job, and careful engineering between them. A safe product for families who will
+> never pay for software runs entirely on Meta's models, open weights included as one placed
+> job, at under one US cent a reply in model calls ($0.0061 on a live trace; about 3 cents for a
+> family's five replies a day). WhatsApp's per-message fees come on top: the one message Marg
+> starts each day is the morning prompt, and every other message answers the family. The whole
+> build, with every test and evaluation, used about $32 of Model API credits.
 
-*(Recheck before submitting: the test count from `pytest`, the case count from the newest
-scorecard, that the field test happened, and the credits used: $150 minus the Model API
+*(Recheck before submitting: the test count from `pytest --collect-only` (2,692 on
+2026-10-31), the pass rate and denominators from the newest scorecard, that the field test happened, and the credits used: $150 minus the Model API
 balance on the day, $32 on 2026-10-31.)*
 
 ---
@@ -99,8 +100,9 @@ balance on the day, $32 on 2026-10-31.)*
 >   second opinion and as the backup when it is down.
 > - **Muse Code:** wrote parts of the code under our review.
 >
-> The official-source search is keyword search in Postgres, after Muse Spark turns a Hindi or
-> Hinglish question into English search terms. Replies are text: Meta's MMS-TTS is built in as
+> Official-source lookup is keyword search, because there is no Meta embedding model yet
+> (feedback point 2): Muse Spark first turns a Hindi or Hinglish question into English search
+> terms. Replies are text: Meta's MMS-TTS is built in as
 > the voice, switched off until the organisers rule on its non-commercial licence.
 >
 > An LLM judge (Muse Spark) scores 86 golden cases through the real pipeline on every change;
@@ -119,14 +121,16 @@ balance on the day, $32 on 2026-10-31.)*
 >
 > Because children are involved, safety can't be one model's guess. Llama Guard 4 and a Muse
 > Spark policy check read every message in parallel, and each covers the other's blind spots:
-> Llama Guard flagged "I want to become a doctor, make me a plan" as self-harm, which Muse Spark
-> cleared, while Muse Spark caught a quiet "mujhe jeena nahi hai" that needs a helpline. SAM
+> Llama Guard tagged a child's "why is the moon seen only at night?" as a sex crime 4 times out
+> of 4 and "I want to become a doctor, make me a plan" as self-harm, which Muse Spark cleared,
+> while Muse Spark caught a quiet "mujhe jeena nahi hai" that needs a helpline. SAM
 > 3.1 lets us accept a child's photo at all: it proves no person is in it before anything else
 > looks.
 >
-> Because cost decides whether this reaches a village. Muse Spark Open, an open-weights model,
-> did 13% of the generation steps in a full 86-case eval run (the child's reflection and the
-> curiosity signals), and the whole pipeline costs under one US cent per reply in model calls.
+> Because cost decides whether this reaches a village, each job gets the model that does it
+> well at the lowest cost. Muse Spark Open, an open-weights model, has one placed job: the
+> child's reflection and the curiosity signals (13% of the generation steps in a full 86-case
+> eval run). The whole pipeline costs under one US cent per reply in model calls.
 > Open weights also mean that work could one day run where Indian children's data must stay.
 >
 > And because one family of models covers voice in, text, images, segmentation and safety, the

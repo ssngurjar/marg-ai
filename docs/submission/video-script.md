@@ -93,7 +93,7 @@ moments below (consent, the voice note and reply, the activity, the report, the 
 | Parent and child do the activity (child from behind, or hands only) | "Two minutes, offline, with things at home" |
 | The parent reports what the child said | "The parent tells Marg what the child said" |
 | Marg's reply to that report | "Marg answers the child's idea, and asks one question back" |
-| The child talks to Marg alone | "With the parent's one-time consent, the child can talk to Marg alone. Every word is checked." |
+| The child asks Marg a *why* (parent consented) | "Parent says yes. A child asks why: a short answer, one thing to try, tell Mummy and Papa." |
 | The khoj card arrives and is forwarded | "A card of the child's discovery, made by Muse Image" |
 | A photo of collected leaves is sent | "SAM 3.1 counts what the child collected, after checking there's no person in the photo" |
 | **[if it happens]** The parent speaks Braj and Marg answers in Braj | "Marg answers in the family's own Braj" |
@@ -128,7 +128,7 @@ the Muse Spark Open step of the diagram; a numbers card; the whole diagram with 
   trace shows fetch_media, transcribe (muse-voice-transcribe-1.0, hindi, 4.4 s), safety_in
   (Llama Guard 4 + Muse Spark, 1.9 s), generate (Muse Spark 1.3, 5.5 s), safety_out (0.5 s):
   12.5 s and $0.0061 for the turn. Bar: "Live demo, real trace: transcribe · Llama Guard + Muse
-  Spark check · Muse Spark replies in Braj · check again · 12.5 s, $0.0061".*
+  Spark check · Muse Spark replies in Braj · check again · a reply in 12.5 s, for $0.0061".*
 - *Recording 2: the same setup with Llama Guard's address pointed at a closed port for this take
   only. Trace: safety_in and safety_out by muse-spark-1.3 with `guard=down`, a real reply,
   $0.0070. The bar says so plainly: "Same demo, Llama Guard switched off for this take…".*
@@ -136,7 +136,7 @@ the Muse Spark Open step of the diagram; a numbers card; the whole diagram with 
 *Numbers card ("Built to be checked"), each line checked on 2026-10-31:*
 - *Hexagonal architecture: every model behind a port; tests never call a live model*
 - *2,487 unit · 205 integration tests (`pytest --collect-only`)*
-- *86 graded eval cases; crisis and adversarial hard gates pass*
+- *76% of 82 scored eval cases; every crisis and adversarial case passes*
 - *Every message checked twice, in and out; Muse Spark backs up Llama Guard*
 - *Under 1 US cent a reply: $0.0061 measured on the live demo*
 

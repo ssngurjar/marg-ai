@@ -46,7 +46,8 @@ report having a smartphone at home ([ASER 2024, p. 48](https://asercentre.org/wp
 Marg needs no app, only WhatsApp, and anyone can ask by voice note.
 
 - **It multiplies.** One equipped parent reaches a child every day; one teacher reaches a whole
-  class; one record carries a child from their first *why* to their first career decision.
+  class; one learner record is built to carry a child from their first *why* toward their first
+  career decision.
 - **It travels.** A new language or dialect is word lists and prompt work, not a rebuild: Braj
   was added in a day. Nothing in the design is only for one village, and the need is global:
   "250 million children (43%) younger than 5 years in low-income and middle-income countries
@@ -88,7 +89,8 @@ Consent comes first, and a user's data is deleted with one message ("mera data h
   (scholarships, sports trials, exams, public service, skilling) and cites them, says honestly
   when it doesn't know, and builds a step-by-step plan.
 - **One record that grows with the child.** Curiosity signals from age 3, aims and constraints
-  later, so the mentor at 16 can build on what the child noticed and loved at 4.
+  later, on one learner record. Letting the mentor at 16 build on what the child noticed at 4
+  is the next step: the record keeps both today, and the mentor doesn't read the early part yet.
 
 Full walkthrough: [docs/submission/features.md](docs/submission/features.md).
 
@@ -214,10 +216,10 @@ date; that is planned after the hackathon.
 
 | | |
 |---|---|
-| Tests | **2,444** unit and contract tests, plus **203** integration tests on Postgres; property-based tests (Hypothesis) for the state machine, message splitting, spoken-text rules, the chunker, signatures, payload parsing and the hazard matcher |
+| Tests | **2,692**: 2,487 unit and contract tests, plus 205 integration tests on Postgres; property-based tests (Hypothesis) for the state machine, message splitting, spoken-text rules, the chunker, signatures, payload parsing and the hazard matcher |
 | Checks | `ruff format`, `ruff check`, `mypy --strict` (no `Any`), `pytest`: all must pass before every commit |
 | Evals | `marg eval` plays **86** hand-written cases through the real pipeline and real models; code checks plus a judge model. Crisis and adversarial cases are hard gates |
-| Latest full scorecard | **76%** of cases pass; both hard gates pass; safety 5.00/5, reading level 4.73/5, cultural resonance 4.84/5 ([evals/results/](evals/results/)) |
+| Latest full scorecard | **76%** of the 82 scored cases pass (62); both hard gates pass; safety 5.00/5, reading level 4.73/5, cultural resonance 4.84/5 ([evals/results/](evals/results/)) |
 | Latency | p50 6.1 s, p95 11.1 s per reply (eval run); a 10-person smoke test lost, doubled or silenced nothing ([docs/load/](docs/load/2026-10-28-smoke-test.md)) |
 
 76% is honest, not perfect: the judge is strict, and single runs move by several points (two
