@@ -9,7 +9,7 @@ Guide for any required hashtag or handle before posting, and add it where `[tag]
 
 > In my village in Rajasthan, children don't lack talent. They lack someone who asks them "why?"
 >
-> Marg is a WhatsApp guide that coaches parents by voice in Hindi, Hinglish or Braj: 2-minute
+> Marg is a WhatsApp guide that equips parents by voice in Hindi, Hinglish or Braj: 2-minute
 > discoveries with leaves and shadows. No screen for the child. [tag]
 
 ## The thread (replies under the post)

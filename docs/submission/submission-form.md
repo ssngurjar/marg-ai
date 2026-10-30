@@ -8,7 +8,7 @@ Two rules shape every answer:
 
 - **Banned categories** include "AI for education" chatbots, basic RAG apps, AI medical or health
   advice and simple image analyzers. Marg is none of these, and the wording must make that
-  obvious: it coaches the adults around a child, the child's discovery happens offline, the
+  obvious: it equips the adults around a child, the child's discovery happens offline, the
   student mentor is one part of a larger system, and medical questions are referred, never
   answered.
 - **Identify your contributions.** Everything in the code was built Oct 26 – Nov 4. Before
@@ -30,7 +30,11 @@ Two rules shape every answer:
 > such a village in Rajasthan, and I built Marg for it.
 >
 > Marg isn't a tutor or a chatbot for children. It is a voice-first guide on WhatsApp that
-> coaches the people already around a child, in Hindi, Hinglish, English or Braj:
+> equips the people already around a child, in Hindi, Hinglish, English or Braj, to help
+> children learn the way India's national curriculum for ages 3–8 asks: through play, talk
+> and the world around them (NCF Foundational Stage 2022, NCERT).
+>
+> Who it serves:
 >
 > - **Parents of 3–8-year-olds** get *Aaj ki Khoj*, a two-minute discovery to do offline with
 >   things at home (shadows, leaves, sounds). The parent reports what the child said, by voice,
@@ -53,7 +57,7 @@ Two rules shape every answer:
 > by using Marg like a family would (a shared phone, mixed languages, a refresh) became a fix
 > and a permanent test.
 >
-> Most AI for education puts a screen in front of a child. Marg does the opposite: it coaches
+> Most AI for education puts a screen in front of a child. Marg does the opposite: it equips
 > the people already around a rural child by voice, in the dialect they speak at home, and the
 > child's learning happens offline, with leaves and shadows. It answers families who share one
 > phone, mix languages and come back after a refresh, because that is how a village uses

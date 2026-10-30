@@ -1,10 +1,18 @@
 # Marg.ai
 
 **A voice-first WhatsApp guide that closes the exposure gap for rural Indian children, by
-coaching the people already around them.** Parents of 3–8-year-olds get a two-minute discovery to
+equipping the people already around them.** Parents of 3–8-year-olds get a two-minute discovery to
 do offline with things at home; teachers get today's chapter connected to real work; students get
 a mentor that states facts only from official sources. It isn't a tutor, and it isn't screen time
-for children: the world is the curriculum, the phone is the coach.
+for children: the world is the curriculum, the parent is the teacher, and Marg is the guide.
+
+The way it teaches is the one India's national curriculum for ages 3–8 sets out: children
+"learn best through play", and "most learning occurs through play, listening, and talking",
+in the child's home language, with parents as "co-partners" in the child's learning
+([NCF Foundational Stage 2022, NCERT, pp. 38, 76, 219](https://ncert.nic.in/pdf/NCF_for_Foundational_Stage_20_October_2022.pdf)).
+Marg's replies follow *serve and return*: "responsive, back-and-forth exchanges between a young
+child and a caring adult" that "play a key role in shaping brain architecture"
+([Harvard Center on the Developing Child](https://developingchild.harvard.edu/science/key-concepts/serve-and-return/)).
 
 Built for the Meta Global AI Developer Hackathon (Indie track, **Build for Your World**),
 Oct 26 – Nov 4, 2026, by Santram Gurjar.
@@ -37,7 +45,7 @@ Marg's reach is the phone already in the house. In rural India, almost 90% of 14
 report having a smartphone at home ([ASER 2024, p. 48](https://asercentre.org/wp-content/uploads/2022/12/ASER-2024-National-findings.pdf)).
 Marg needs no app, only WhatsApp, and anyone can ask by voice note.
 
-- **It multiplies.** One coached parent reaches a child every day; one teacher reaches a whole
+- **It multiplies.** One equipped parent reaches a child every day; one teacher reaches a whole
   class; one record carries a child from their first *why* to their first career decision.
 - **It travels.** A new language or dialect is word lists and prompt work, not a rebuild: Braj
   was added in a day.
@@ -79,7 +87,7 @@ Consent comes first, and a user's data is deleted with one message ("mera data h
 
 Full walkthrough: [docs/submission/features.md](docs/submission/features.md).
 
-**What Marg is not.** Not an "AI for education" chatbot: it coaches adults, and a young child's
+**What Marg is not.** Not an "AI for education" chatbot: it equips adults, and a young child's
 learning happens offline with their hands. Not a basic RAG app: retrieval serves one part of the
 system, with structured claims, citations and an honest "I don't know", inside a pipeline with
 safety on both sides. Not medical advice: health and medicine questions are referred to the

@@ -14,7 +14,7 @@ platform by **Wed Nov 4, 9:00 PM ET = Thu Nov 5, 07:30 IST**. Our target: **Nov 
 ## README must state
 
 - [x] First line: what Marg.ai is, in one sentence that cannot be mistaken for a chatbot
-      ("a voice-first WhatsApp coach that helps rural parents turn everyday moments into
+      ("a voice-first WhatsApp guide that helps rural parents turn everyday moments into
       discovery for their 3–8-year-olds; the child never touches a screen").
 - [x] **Built during the hackathon (Oct 26–Nov 4):** all code, prompts, activity catalogue, the
       ML sidecar, the web demo. **Prepared before kickoff:** planning and design docs, golden eval
@@ -37,7 +37,7 @@ platform by **Wed Nov 4, 9:00 PM ET = Thu Nov 5, 07:30 IST**. Our target: **Nov 
       *(2026-10-30: ASER, the Lancet series and the cost are in the README; UDISE+ and the
       WhatsApp India figure are not, and need their primary sources)*
 - [x] **Not a banned category:** say plainly why Marg isn't an "AI for education" chatbot, a basic
-      RAG app or medical advice (the child's discovery is offline; the parent is coached; the
+      RAG app or medical advice (the child's discovery is offline; the parent is equipped; the
       mentor is one part, with claims, citations and an honest "I don't know"; health questions
       are referred).
 - [x] Licences of every model and library used (the rules require them to be followed): the

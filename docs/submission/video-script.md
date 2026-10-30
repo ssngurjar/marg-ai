@@ -51,8 +51,8 @@ starts the judges already know what they are watching.
 |---|---|
 | "Children here don't lack talent. They lack exposure: someone to ask them *why*, and anyone who's walked a path beyond the village." | Children's hands sorting leaves (no faces), then Marg's reply on the phone asking the child's question back |
 | "So I built Marg.ai. *Marg* means path. It isn't a tutor, and it isn't screen time for children." | The Marg.ai chat on a parent's phone |
-| "It coaches the people already around a child, by voice, on WhatsApp." | A voice note's waveform being sent; the reply arriving |
-| "The world is the curriculum; the phone is the coach." | Hands with leaves, then the khoj card from Muse Image. Caption: "Aaj ki Khoj: a two-minute discovery, every day" |
+| "It equips the people already around a child to teach the way India's national curriculum asks: through play, talk, and the world around them." | A voice note's waveform being sent; the reply arriving |
+| "The world is the curriculum; Marg is the guide." | Hands with leaves, then the khoj card from Muse Image. Caption: "Aaj ki Khoj: a two-minute discovery, every day" |
 | (between lines) | Three labels, one after another: **Hindi · Hinglish · Braj**, **6 Meta models, each with one job**, **about 3 US cents a family a day** |
 | "Does it work? Here's a real field test, in my village." | Cut to the raw field test |
 
@@ -192,7 +192,7 @@ smartphone at home"*
       and the student mentor never leads a scene: the rules ban basic RAG apps and AI-for-
       education chatbots, so the parent's offline discovery is the story.
 - [ ] Never call Marg "AI for education" or a tutor on screen or in captions: it closes the
-      exposure gap by coaching the adults around a child.
+      exposure gap by equipping the adults around a child.
 - [ ] "Six Meta models" stays true: Muse Spark, Muse Spark Open, Muse Voice Transcribe, Muse
       Image, SAM 3.1 and Llama Guard 4 (see [features.md](features.md)). Add "MMS-TTS" only if
       voice replies are cleared and on.
@@ -200,6 +200,17 @@ smartphone at home"*
       video names the village. `/status` and the `/demo` trace are safe to show.
 
 ## Sources for the facts spoken
+
+- National Curriculum Framework for Foundational Stage 2022 (NCERT), ages 3–8 (p. 11):
+  "Children learn best through play - through activity and doing" (p. 38); "Play is thus
+  central to children's learning and development" (p. 39); "Learning through Play - Using the
+  Immediate Environment" (p. 43); "For the age group of 3-8 years, most learning occurs through
+  play, listening, and talking. This should necessarily be conducted in the children's L1"
+  (p. 76); "Parents and family are co-partners with the school in the child's learning and
+  development" (p. 219). <https://ncert.nic.in/pdf/NCF_for_Foundational_Stage_20_October_2022.pdf> Retrieved 2026-10-31.
+- Serve and return (Harvard Center on the Developing Child): "Serve and return
+  interactions—responsive, back-and-forth exchanges between a young child and a caring
+  adult—play a key role in shaping brain architecture." <https://developingchild.harvard.edu/science/key-concepts/serve-and-return/> Retrieved 2026-10-31.
 
 - ASER 2024, National findings (ASER Centre), p. 47: Std III children in rural government
   schools who can read a Std II level text: 23.4% (16.3% in 2022). P. 48 (digital literacy,
