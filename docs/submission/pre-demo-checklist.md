@@ -19,7 +19,10 @@ fixed or written down with its workaround before going on.
   (`docs/load/2026-10-28-smoke-test.md`).
 - [ ] `VOICE_REPLIES_ENABLED=false` unless the organisers have cleared MMS-TTS; if it's on, the
       ML sidecar (`make sidecar`) is running and stays up through judging.
-- [ ] The corpus is ingested (`marg ingest-corpus`): 50 documents, verified from India.
+- [ ] The corpus is ingested (`marg ingest-corpus --yes` on prod): 53 documents, verified from India.
+- [ ] **On Nov 4, before judging:** raise the per-IP demo limit so judges and testers sharing one
+  network don't share 90 messages an hour: `~/.fly/bin/fly secrets set DEMO_IP_RATE_LIMIT_PER_HOUR=300 -a marg-ai`
+  (owner decision 2026-10-30; the $5/day web cap stays).
 - [ ] Nudge template approved in WhatsApp Manager in all three languages, or
   `NUDGES_ENABLED=false`.
 - [ ] Activities loaded at startup: the 10 reviewed ones (exception E3).
