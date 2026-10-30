@@ -70,8 +70,9 @@ scorecard, and that the field test happened.)*
 >   runs our second safety check. Every call uses structured output into a typed model, with
 >   one repair retry on a failed check.
 > - **Muse Spark Open, open weights (on Baseten):** reflects on what the child said and extracts
->   curiosity and aspiration signals and the student's memory. Spark 1.3 takes over if it is
->   slow.
+>   curiosity and aspiration signals. Spark 1.3 takes over if it is slow. Measured in a full
+>   86-case eval run: 16 of 126 generation steps (13%), namely every parent reflection and 13 of
+>   15 signal extractions (Spark 1.3 took the other two when Open was slow).
 > - **Muse Voice Transcribe:** every voice note. We normalise Gujarati, Gurmukhi, Bengali and
 >   Oriya script slips back to Devanagari, and detect Braj from the words.
 > - **Muse Image:** the khoj card, with no child or name in the image prompt.
