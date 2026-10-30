@@ -47,8 +47,8 @@ platform by **Wed Nov 4, 9:00 PM ET = Thu Nov 5, 07:30 IST**. Our target: **Nov 
       licence texts themselves are gated, read them once when logged in). Marg's own code: all rights
       reserved, viewing and running to evaluate the entry allowed (`LICENSE`, 2026-10-29). The sidecar is MMS-TTS only
       now (CC-BY-NC 4.0, off by default); the GPL phonemiser left with Kokoro.
-- [ ] How to try it: the WhatsApp number / QR and the `/demo` link. *(after deployment: both
-      are placeholders in the README)*
+- [ ] How to try it: the WhatsApp number / QR and the `/demo` link. *(2026-10-30: the demo link
+      <https://marg-ai.fly.dev/demo> is in; the WhatsApp number waits for Meta's new token)*
 
 ## Demo video (3 minutes; the final round watches it live)
 

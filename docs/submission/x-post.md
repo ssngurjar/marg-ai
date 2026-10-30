@@ -29,4 +29,4 @@ Guide for any required hashtag or handle before posting, and add it where `[tag]
 > 4/ Students get a mentor that answers only from official sources, cites them, and says "I
 > don't know" when it has no source. Every model Marg calls is a Meta model.
 
-> 5/ Try it: [demo link] · Code: [GitHub link]
+> 5/ Try it: https://marg-ai.fly.dev/demo · Code: https://github.com/ssngurjar/marg-ai
