@@ -26,6 +26,8 @@ from app.worker.turn_processor import TurnProcessor
 
 HEARTBEATS_PER_LEASE: Final = 3
 SHORTEST_IDLE_CHECK: Final = timedelta(milliseconds=20)
+# A message waiting on a user whose turn is still running is checked again at most this often.
+SHORTEST_BURST_CHECK: Final = timedelta(milliseconds=200)
 
 logger = get_logger(__name__)
 
@@ -69,11 +71,23 @@ class TurnLoop:
             self.wake.clear()
             try:
                 await self.claim_available()
-                pause = self._settings.poll_interval
+                pause = await self._until_next_claim()
             except StoreError as exc:
                 logger.exception("turn_claim_failed", exc_info=exc)
                 pause = self._settings.error_backoff
             await _wait_for(self.wake, pause)
+
+    async def _until_next_claim(self) -> timedelta:
+        """The wait before looking again: until a message still inside its burst window (or
+        backoff) becomes claimable, at most the poll interval. Without it, a message that woke
+        the loop inside its window waited for the next poll: 2 s instead of the 1 s debounce."""
+        poll = self._settings.poll_interval
+        if len(self._running) >= self._settings.concurrency:
+            return poll  # full: a finished turn wakes the loop
+        until = await self._leases.until_claimable()
+        if until is None:
+            return poll
+        return min(max(until, SHORTEST_BURST_CHECK), poll)
 
     async def claim_available(self) -> int:
         """Claim users and start their turns until this worker is full or nobody is waiting.

@@ -134,6 +134,7 @@ class Tuning:
     lease: timedelta = LEASE
     poll_interval: timedelta = timedelta(seconds=2)
     listener_engine: AsyncEngine | None = None  # None: no LISTEN, polling only
+    debounce: timedelta = timedelta(milliseconds=50)
 
 
 def build(
@@ -153,7 +154,7 @@ def build(
     senders: dict[Channel, ChannelSender] = {Channel.WHATSAPP: resolved_sender}
     turns = TurnRepository(sessions)
     outbox = OutboxRepository(sessions)
-    leases = LeaseRepository(sessions, LeaseTimes(lease=lease, debounce=timedelta(milliseconds=50)))
+    leases = LeaseRepository(sessions, LeaseTimes(lease=lease, debounce=tuning.debounce))
     processor = TurnProcessor(
         TurnDeps(
             store=turns,
@@ -780,6 +781,32 @@ async def test_a_stored_message_wakes_the_worker_through_notify(
         await parts.worker.stop()
         await listen_engine.dispose()
     assert len(parts.sender.sent) == 1
+
+
+async def test_a_message_is_taken_when_its_burst_window_ends_not_at_the_next_poll(
+    engine: AsyncEngine,
+) -> None:
+    """Regression (2026-10-30): woken inside the 1 s burst window, the worker found nothing and
+    slept until the next poll, so every reply waited the poll interval (2 s), not the debounce."""
+    window = Tuning(poll_interval=timedelta(seconds=60), debounce=timedelta(seconds=1))
+    parts = build(engine, FakeOrchestrator(), tuning=window)
+    await parts.worker.start()
+    try:
+        await asyncio.sleep(0.2)  # the loops' first pass found nothing
+        user = await store_messages(parts, wa.text_message())
+        async with engine.begin() as connection:  # received now, as a live message is
+            await connection.execute(text("UPDATE inbox_messages SET received_at = now()"))
+        sent_at = asyncio.get_running_loop().time()
+        parts.worker.wake(user)  # as the ingress does
+        for _ in range(100):  # up to 5 s; the poll would take 60
+            if parts.sender.sent:
+                break
+            await asyncio.sleep(0.05)
+        waited = asyncio.get_running_loop().time() - sent_at
+    finally:
+        await parts.worker.stop()
+    assert len(parts.sender.sent) == 1
+    assert 1.0 <= waited < 2.0  # the burst window is kept, and no poll is waited for
 
 
 FINISHED_FOR_LEASE_TEST = FinishedTurn(

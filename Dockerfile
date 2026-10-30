@@ -9,6 +9,10 @@ WORKDIR /srv
 COPY pyproject.toml uv.lock .python-version ./
 RUN uv sync --frozen --no-dev --no-install-project
 COPY app ./app
+# Read at runtime: the khoj catalogue, the NCERT chapters for teachers, and the corpus that
+# `marg ingest-corpus` loads into the database.
+COPY content ./content
+COPY corpus ./corpus
 COPY alembic ./alembic
 COPY alembic.ini ./
 RUN uv sync --frozen --no-dev

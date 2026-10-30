@@ -11,5 +11,6 @@
 tests
 docs
 evals
-corpus
 *.md
+# The corpus is markdown and the app reads it
+!corpus/**
