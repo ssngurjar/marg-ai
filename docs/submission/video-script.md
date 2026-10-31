@@ -38,8 +38,13 @@ or real name. Built during the Meta hackathon, Oct 26 – Nov 4, 2026." (This re
   owner's 21:42 take), with the "don't lack talent" line from the 21:41 take of the same sitting
   because it is the clearest "lack". Natural pauses kept, no speed change, warm-up and low rumble
   removed. Part 1 runs 44 s.
-- **Part 3 and impact:** temporary takes from the earlier session; to be re-recorded the same way
-  (continuous read, [voice-over-takes.md](voice-over-takes.md)).
+- **Part 3 and impact: locked, cut v15 (2026-10-31).** The second continuous read of the 22:16
+  session, with the thesis line and "Thank you" from its first read (slower, warmer), "Nine in
+  ten…" at 0.93×, and the pause in "the right… model" shortened to a normal gap. Part 1's
+  "memorising books" line now shows the village school (img15) instead of the village video.
+- **Ending (cut v16):** "Thank you" over the village path, then a silent "Not in this video"
+  card (students' mentor, children's own questions, crisis replies, decision logs → the README),
+  then the end card with a reason for each link. 2:43 in all.
 - **Subtitles, later:** burned-in subtitles for every spoken line, in case an accent is hard to
   follow for some judges. They go at the bottom; the existing caption bars move up or merge with
   them where both would show at once.
