@@ -32,6 +32,18 @@ or real name. Built during the Meta hackathon, Oct 26 – Nov 4, 2026." (This re
 
 ---
 
+## Recording status
+
+- **Part 1 (My world → What Marg is): locked, cut v12 (2026-10-31).** One continuous read (the
+  owner's 21:42 take), with the "don't lack talent" line from the 21:41 take of the same sitting
+  because it is the clearest "lack". Natural pauses kept, no speed change, warm-up and low rumble
+  removed. Part 1 runs 44 s.
+- **Part 3 and impact:** temporary takes from the earlier session; to be re-recorded the same way
+  (continuous read, [voice-over-takes.md](voice-over-takes.md)).
+- **Subtitles, later:** burned-in subtitles for every spoken line, in case an accent is hard to
+  follow for some judges. They go at the bottom; the existing caption bars move up or merge with
+  them where both would show at once.
+
 ## 0:08 – 0:40 · My world (voice-over, ~65 words)
 
 Every line has its own picture; pure village scenery only under the first line.
