@@ -1,8 +1,8 @@
 # Voice-over: recording sheet
 
 For: Santram, at the mic. The words are locked (cut v9, [video-script.md](video-script.md)); this
-sheet is how to say them. Record each line on its own, in 2–3 takes, and the editor picks the take
-that fits.
+sheet is how to say them. Record each part as one continuous story first (next section), then
+retake single lines only where needed; the editor picks the take that fits.
 
 ## Before you start
 
@@ -19,9 +19,100 @@ that fits.
 - **Pace:** about 130 words a minute. If a take runs past the "longest" time, it can still be sped
   up slightly (up to 1.1×, voice unchanged), so choose the take that *sounds* best.
 
+## Continuous takes: read each part as one story
+
+Lines recorded one by one, in different sittings, sound joined in the video: the mood jumps from
+one line to the next. So record each part **straight through, as one paragraph**, the way you'd
+tell it to someone, and let the tone change by itself as the story moves. Do the whole read 2–3
+times in the same sitting; the editor cuts the lines apart at your pauses and lays each on its shot.
+
+How to read the paragraphs below:
+
+- `/` a short breath (a comma's worth); `//` a full pause, about one second (the editor cuts here
+  and the picture changes). Never run two lines together across a `//`.
+- The small grey ids (`a1`, `t1`…) are only there so we can talk about a line; don't say them.
+- **Bold** words carry the weight. Smile through all of it; slow down where it says so.
+- If one line goes wrong, don't restart the part: pause, say that line again *starting from the
+  line before it*, and carry on.
+
+### Part 1 · My world → what Marg is (about 45–50 s)
+
+The arc: warm and personal → honest and serious on the problem → a lift of energy at "don't lack
+talent" → proud on Marg → calm and slow on the line to remember → curious and bright at the end.
+
+> `a1` I'm **Santram**, / from a village in **Rajasthan**. //
+>
+> `a2` I grew up memorising books; / it took me **thirty years** to learn to ask **why**. /
+> Parents here still say, / *padho, padho*, / but nobody shows them how to make a child
+> **curious**. //
+>
+> `a4` In rural government schools, / fewer than **one in four** Class 3 children / can read a
+> Class 2 story. //
+>
+> `a5` *(lift)* Children here don't **laaack** talent. / They lack **exposure**: / someone to ask
+> them **why**. //
+>
+> `a6` So I built **Marg**, / which means **path**. / Not a tutor, and not screen time for
+> children. //
+>
+> `a7` It **ee-quips** the people around a child / to teach the way children **learn best**: /
+> through **play**, / **talk**, / and the **world around them**. //
+>
+> `a8` *(slow, a breath first)* The **world** is **the** curriculum; / Marg is the **guide**. //
+>
+> `a9` *(curious, smiling)* Does it **work**? / **Here's** a real field test, / in my village.
+
+### Part 3 · How it works → impact (about 40 s, then about 20 s)
+
+The arc: clear and steady, like showing your work → reassuring on safety → proud and firm on the
+thesis (slowest sentence of the video) → then warm and hopeful for the impact → a genuine thank you.
+
+> `t1` A **real** voice note on the live demo: / transcribed, / checked by **Lah-ma Guard** / and
+> **Muse** **Spark**, / answered in **Braj**, / and **checked again**. //
+>
+> `t2` Here, / Lah-ma Guard is **off**. / Muse Spark checks instead, / and **nothing** goes out
+> unchecked. //
+>
+> `h5` Muse Spark Open, / an **open-weights** model, / reflects on the child. //
+>
+> `t3` Underneath, / a **hexagonal** architecture: / every model sits behind a port, / so **every
+> test** runs without a live model. //
+>
+> `h9` Six Meta models, / each with **one job**, / at about **three cents** a family a day in model
+> calls. / *(pause, then slower)* A real system doesn't need the **most expensive** model. / It
+> needs the **right model** for each job. //
+>
+> `i1` *(warm, brighter)* **Nine in ten** rural teenagers have a smartphone at home: / that's
+> Marg's **reach**, / with no **app**, / just a **voice note**. //
+>
+> `i3` One parent, / one child, / **every day**. / One teacher, / a **whole class**. //
+>
+> `i5` *(slower)* Two hundred and fifty **million** young children / are at risk of missing their
+> potential. / *(smile)* Nothing in Marg is **only** for my **vil-lij**. //
+>
+> `i6` *(a real smile)* Thank you.
+
+### Words to watch (from the 2026-10-31 session)
+
+A speech recognizer misheard these in every take, so a judge might too:
+
+| Say | It came out as | How to fix it |
+|---|---|---|
+| don't **lack** talent | "don't like talent" (reverses the meaning) | open vowel as in "back": *laaack* |
+| it **equips** | "it keeps" / "it takes" | don't swallow the start: *ee-KWIPS* |
+| The world is **the** curriculum | "The world is curriculum" | say both "the"s |
+| my **village** | "my values" / "my beliefs" | two clear syllables, slower: *VIL-lij* |
+| **Llama Guard** · **Muse Spark** | "Lalmagard" · "music spark" | a tiny gap: *Lah-ma… Guard*, *Muse… Spark* |
+| **Braj** | "press" / "brush" | land the "j": *Bruj* |
+| an open-**weights** model · no **app** | "weight" · "apps" | small, but say them as written |
+
+**Pace:** last time it was 170–200 words a minute, and up to 240 when smiling. Keep the smile, and
+slow down most on `a8`, the second half of `h9`, and `i5`.
+
 ## The lines
 
-Time: **aim** = the temporary voice's length; **longest** = the most that still fits.
+Use these for single-line retakes. Time: **aim** = the temporary voice's length; **longest** = the
+most that still fits.
 
 ### Part 1 · My world (warm, personal, like telling a friend)
 
