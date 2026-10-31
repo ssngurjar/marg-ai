@@ -1,7 +1,7 @@
 # Demo video: final script
 
 For: Santram (voice-over) and the editor. Length: **3:00 at most**; the final judges watch it live.
-Cut v8 (2026-10-31): about 275 spoken words, 2:49 with the temporary voice, so about 10 s of
+Cut v9 (2026-10-31, words locked): about 280 spoken words, 2:51 with the temporary voice, so about 10 s of
 room for a natural pace; if a line runs long, it is sped up slightly (up to about 1.1×,
 pitch kept) rather than cut.
 
@@ -120,7 +120,8 @@ the Muse Spark Open step of the diagram; a numbers card; the whole diagram with 
 > *(numbers card)* Underneath, a hexagonal architecture: every model sits behind a port, so
 > every test runs without a live model.
 > *(whole diagram, models bar)* Six Meta models, each with one job, at about three cents a
-> family a day in model calls. Not the most expensive model: the right model for each job.
+> family a day in model calls. A real system doesn't need the most expensive model. It needs
+> the right model for each job.
 
 *The recordings are real takes (2026-10-31), not mock-ups:*
 - *Recording 1: Hinglish setup, "Main parent hoon", "Lala, 10 saal", then a voice note. The
