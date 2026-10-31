@@ -33,9 +33,10 @@ How to read the paragraphs below:
 - The small grey ids (`a1`, `t1`…) are only there so we can talk about a line; don't say them.
 - **Bold** words carry the weight. Smile through all of it; slow down where it says so.
 - Some words are **spelled the way to say them**, because they didn't come through clearly last
-  time: *laaack* (lack), *ee-quips* (equips), *vil-lij* (village), *Maarg* (Marg), *Myooz Spark*
-  (Muse Spark), *Lah-ma Guard* (Llama Guard), *Bruj* (Braj), *HEK-sa-gonal* (hexagonal). Read them
-  exactly as written.
+  time: *laaack* (lack), *ee-quips* (equips), *vil-lij* (village), *Maarg* (Marg), *Myooz Sparrk*
+  (Muse Spark: say the r), *Lah-ma Garrd* (Llama Guard: say the r), *Bruj* (Braj), *HEK-sa-gonal*
+  (hexagonal), *un-checkt* (unchecked: say the t), *an open-weightss* (say the a and the s), **in**
+  model calls, and *Maarg's · reach* (two words, not one). Read them exactly as written.
 - If one line goes wrong, don't restart the part: pause, say that line again *starting from the
   line before it*, and carry on.
 
@@ -71,23 +72,23 @@ talent" → proud on Marg → calm and slow on the line to remember → curious 
 The arc: clear and steady, like showing your work → reassuring on safety → proud and firm on the
 thesis (slowest sentence of the video) → then warm and hopeful for the impact → a genuine thank you.
 
-> `t1` A **real** voice note on the live demo: / transcribed, / checked by **Lah-ma Guard** / and
-> **Myooz Spark**, / answered in **Bruj**, / and **checked again**. //
+> `t1` A **real** voice note on the live demo: / transcribed, / checked by **Lah-ma Garrd** / and
+> **Myooz Sparrk**, / answered in **Bruj**, / and **checked again**. //
 >
-> `t2` Here, / Lah-ma Guard is **off**. / Myooz Spark checks instead, / and **nothing** goes out
-> unchecked. //
+> `t2` Here, / Lah-ma Garrd is **off**. / Myooz Sparrk checks instead, / and **nothing** goes out
+> un-checkt. //
 >
-> `h5` Myooz Spark Open, / an **open-weights** model, / reflects on the child. //
+> `h5` Myooz Sparrk Open, / **an** open-**weightss** model, / reflects on the child. //
 >
 > `t3` Underneath, / a **HEK-sa-gonal** architecture: / every model sits behind a port, / so **every
 > test** runs without a live model. //
 >
-> `h9` Six Meta models, / each with **one job**, / at about **three cents** a family a day in model
+> `h9` Six Meta models, / each with **one job**, / at about **three cents** a family a day **in** model
 > calls. / *(pause, then slower)* A real system doesn't need the **most expensive** model. / It
 > needs the **right model** for each job. //
 >
 > `i1` *(warm, brighter)* **Nine in ten** rural teenagers have a smartphone at home: / that's
-> Maarg's **reach**, / with no **app**, / just a **voice note**. //
+> Maarg's · **reach**, / with no **app**, / just a **voice note**. //
 >
 > `i3` One parent, / one child, / **every day**. / One teacher, / a **whole class**. //
 >
@@ -106,11 +107,14 @@ A speech recognizer misheard these in every take, so a judge might too:
 | it **equips** | "it keeps" / "it takes" | don't swallow the start: *ee-KWIPS* |
 | The world is **the** curriculum | "The world is curriculum" | say both "the"s |
 | my **village** | "my values" / "my beliefs" | two clear syllables, slower: *VIL-lij* |
-| **Llama Guard** · **Muse Spark** | "Lalmagard" · "music spark" | a tiny gap: *Lah-ma… Guard*, *Myooz… Spark* |
+| **Llama Guard** · **Muse Spark** | "Lalmagard", "lalma guide" · "music spark", "news is part" | a tiny gap, and say the r: *Lah-ma… Garrd*, *Myooz… Sparrk* |
+| nothing goes out **unchecked** | "uncheck" | finish the word: *un-checkt* |
+| **in** model calls | "and model calls" | a clear short *in* |
+| Marg's **reach** | "Margreach" | two words: *Maarg's · reach* |
 | **Marg** | "mark" / "marl" | a long "aa", soft "g": *Maarg* (मार्ग) |
 | **hexagonal** | (clear last time; keep it that way) | *HEK-sa-gonal* |
 | **Braj** | "press" / "brush" | land the "j": *Bruj* |
-| an open-**weights** model · no **app** | "weight" · "apps" | small, but say them as written |
+| **an** open-**weights** model · no **app** | "and open weight model" · "apps" | *an* (not "and"), and finish with the s: *weightss*; one *app* |
 
 **Pace:** last time it was 170–200 words a minute, and up to 240 when smiling. Keep the smile, and
 slow down most on `a8`, the second half of `h9`, and `i5`.
@@ -144,17 +148,17 @@ most that still fits.
 
 | Id | Say this | Aim / longest | Tone | Lean on | Notes |
 |---|---|---|---|---|---|
-| t1 | A real voice note on the live demo: transcribed, checked by Lah-ma Guard and Myooz Spark, answered in Bruj, and checked again. | 9.2 / 10 s | Clear, steady, one step at a time | **real**, **Bruj**, **checked again** | A short beat at each comma, like ticking off steps. Myooz rhymes with "news"; a tiny gap in "Lah-ma… Guard" |
-| t2 | Here, Lah-ma Guard is off. Myooz Spark checks instead, and nothing goes out unchecked. | 6.4 / 7 s | Calm, reassuring | **off**, **nothing** | "Nothing goes out unchecked" slower: it's the safety promise |
-| h5 | Myooz Spark Open, an open-weights model, reflects on the child. | 5 / 5.5 s | Even, informative | **open-weights** | "open weights" as two clear words |
+| t1 | A real voice note on the live demo: transcribed, checked by Lah-ma Garrd and Myooz Sparrk, answered in Bruj, and checked again. | 9.2 / 10 s | Clear, steady, one step at a time | **real**, **Bruj**, **checked again** | A short beat at each comma, like ticking off steps. Myooz rhymes with "news"; a tiny gap in "Lah-ma… Guard" |
+| t2 | Here, Lah-ma Garrd is off. Myooz Sparrk checks instead, and nothing goes out un-checkt. | 6.4 / 7 s | Calm, reassuring | **off**, **nothing** | "Nothing goes out un-checkt" slower: it's the safety promise |
+| h5 | Myooz Sparrk Open, **an** open-weightss model, reflects on the child. | 5 / 5.5 s | Even, informative | **open-weights** | "open weights" as two clear words |
 | t3 | Underneath, a HEK-sa-gonal architecture: every model sits behind a port, so every test runs without a live model. | 8.2 / 9 s | Confident, matter-of-fact | **HEK-sa-gonal**, **every test** | Say "HEK-sa-gonal" clearly, every syllable. Don't rush the second half |
-| h9 | Six Meta models, each with one job, at about three cents a family a day in model calls. A real system doesn't need the most expensive model. It needs the right model for each job. | 13.4 / 14.5 s | Proud, then slower and firmer for the last two sentences | **one job**, **three cents**, **most expensive**, **right model** | A pause before "A real system". The last sentence is the thesis: slow, every word clear |
+| h9 | Six Meta models, each with one job, at about three cents a family a day **in** model calls. A real system doesn't need the most expensive model. It needs the right model for each job. | 13.4 / 14.5 s | Proud, then slower and firmer for the last two sentences | **one job**, **three cents**, **most expensive**, **right model** | A pause before "A real system". The last sentence is the thesis: slow, every word clear |
 
 ### Impact (proud, hopeful, warm)
 
 | Id | Say this | Aim / longest | Tone | Lean on | Notes |
 |---|---|---|---|---|---|
-| i1 | Nine in ten rural teenagers have a smartphone at home: that's Maarg's reach, with no app, just a voice note. | 7.8 / 8.5 s | Bright, a discovery | **nine in ten**, **reach**, **voice note** | Lift on "that's Maarg's reach" |
+| i1 | Nine in ten rural teenagers have a smartphone at home: that's Maarg's · reach, with no app, just a voice note. | 7.8 / 8.5 s | Bright, a discovery | **nine in ten**, **reach**, **voice note** | Lift on "that's Maarg's · reach" |
 | i3 | One parent, one child, every day. One teacher, a whole class. | 5.1 / 5.5 s | Rhythmic, growing | **every day**, **whole class** | Two halves, a beat between them; slightly bigger on the second |
 | i5 | Two hundred and fifty million young children are at risk of missing their potential. Nothing in Maarg is only for my vil-lij. | 8 / 9 s | Serious on the number, then warm and open | **two hundred and fifty million**, **only** | Pause after "potential." The second sentence with a smile: an invitation |
 | i6 | Thank you. | 0.8 / 1.5 s | Warm, genuine, a smile | | Like thanking someone in person, not an announcer |
