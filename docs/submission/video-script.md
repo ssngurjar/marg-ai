@@ -1,6 +1,9 @@
 # Demo video: final script
 
 For: Santram (voice-over) and the editor. Length: **3:00 at most**; the final judges watch it live.
+Cut v8 (2026-10-31): about 275 spoken words, 2:49 with the temporary voice, so about 10 s of
+room for a natural pace; if a line runs long, it is sped up slightly (up to about 1.1×,
+pitch kept) rather than cut.
 
 The video has four voice-over parts and one part with **no voice-over at all**: the field test,
 which is shown raw. Read at a calm pace (about 130 words a minute). The word counts are there so
@@ -35,10 +38,9 @@ Every line has its own picture; pure village scenery only under the first line.
 
 | Voice-over | Screen |
 |---|---|
-| "Hi, I'm Santram. I built this for my village in Rajasthan." | The village, wide (3–4 s), then a lane or courtyard |
-| "I grew up there, where learning meant memorising books. It took me thirty years to learn how to think: to ask *why*, and to build." | A child reciting from a book, **from behind**; the sound of rote chanting under the voice |
-| "Parents here still say: '*padho, padho*.' Read. But nobody shows them how to make a child curious." | A parent's hands holding a phone, unsure what to do |
-| "In rural India, fewer than one in four Class 3 children in government schools can read a Class 2 story." | **An animated grid of 100 children; 23 light up.** Caption: "ASER 2024, rural India, government schools: 23.4%" |
+| "I'm Santram, from a village in Rajasthan." | The village, wide (3–4 s), then a lane or courtyard |
+| "I grew up memorising books; it took me thirty years to learn to ask *why*. Parents here still say, *padho, padho*, but nobody shows them how to make a child curious." | A child reciting from a book, **from behind**; the sound of rote chanting under the voice |
+| "In rural government schools, fewer than one in four Class 3 children can read a Class 2 story." | **An animated grid of 100 children; 23 light up.** Caption: "ASER 2024, rural India, government schools: 23.4%" |
 
 ---
 
@@ -49,9 +51,9 @@ starts the judges already know what they are watching.
 
 | Voice-over | Screen |
 |---|---|
-| "Children here don't lack talent. They lack exposure: someone to ask them *why*, and anyone who's walked a path beyond the village." | Children's hands sorting leaves (no faces), then Marg's reply on the phone asking the child's question back |
-| "So I built Marg.ai. *Marg* means path. It isn't a tutor, and it isn't screen time for children." | The Marg.ai chat on a parent's phone |
-| "It equips the people already around a child to teach the way India's national curriculum asks: through play, talk, and the world around them." | A voice note's waveform being sent; the reply arriving |
+| "Children here don't lack talent. They lack exposure: someone to ask them *why*." | Children's hands sorting leaves (no faces), then Marg's reply on the phone asking the child's question back |
+| "So I built Marg, which means path. Not a tutor, and not screen time for children." | The Marg.ai chat on a parent's phone |
+| "It equips the people around a child to teach the way children learn best: through play, talk, and the world around them." | A voice note's waveform being sent; the reply arriving. Caption: 'NCF 2022 (NCERT): "Children learn best through play"' |
 | "The world is the curriculum; Marg is the guide." | Hands with leaves, then the khoj card from Muse Image. Caption: "Aaj ki Khoj: a two-minute discovery, every day" |
 | (between lines) | Three labels, one after another: **Hindi · Hinglish · Braj**, **6 Meta models, each with one job**, **about 3 US cents a family a day** |
 | "Does it work? Here's a real field test, in my village." | Cut to the raw field test |
@@ -109,19 +111,16 @@ field-test footage, take the time from the field test first, never from this par
 step 2); **two real screen recordings of the `/demo` page** with the pipeline trace filling in;
 the Muse Spark Open step of the diagram; a numbers card; the whole diagram with the models bar.*
 
-> *(title card: "How it works · System design and technical depth")* Now, the system behind it.
-> *(diagram, step 2)* Inside, a compound AI system: six Meta models, each with one job.
-> *(recording 1: a parent's voice note)* A real voice note on the live demo. Muse Voice
-> Transcribe hears it, Llama Guard and Muse Spark check it, Muse Spark answers in Braj, and it's
-> checked again. Under one cent.
-> *(recording 2: Llama Guard switched off)* Here, Llama Guard is switched off. Muse Spark checks
-> instead, the family still gets an answer, and nothing goes out unchecked.
+> *(title card, silent: "How it works · System design and technical depth")*
+> *(recording 1: a parent's voice note)* A real voice note on the live demo: transcribed, checked
+> by Llama Guard and Muse Spark, answered in Braj, and checked again.
+> *(recording 2: Llama Guard switched off)* Here, Llama Guard is off. Muse Spark checks instead,
+> and nothing goes out unchecked.
 > *(diagram, Muse Spark Open step)* Muse Spark Open, an open-weights model, reflects on the child.
-> *(numbers card)* Underneath is a hexagonal architecture: every model sits behind a port, so
+> *(numbers card)* Underneath, a hexagonal architecture: every model sits behind a port, so
 > every test runs without a live model.
-> *(whole diagram, models bar)* Every model here is Meta's, open weights included, at about three
-> US cents a family a day. A real system doesn't need the most expensive model. It needs the
-> right model for each job.
+> *(whole diagram, models bar)* Six Meta models, each with one job, at about three cents a
+> family a day in model calls. Not the most expensive model: the right model for each job.
 
 *The recordings are real takes (2026-10-31), not mock-ups:*
 - *Recording 1: Hinglish setup, "Main parent hoon", "Lala, 10 saal", then a voice note. The
@@ -156,13 +155,13 @@ that yet.
 student's answer with its official source links (each shown, not said); the village at dusk.
 No dashboard on screen.*
 
-> Almost nine in ten rural teenagers already have a smartphone at home. That phone is Marg's
-> reach: no app, no reading, just a voice note.
+> Nine in ten rural teenagers have a smartphone at home: that's Marg's reach, with no app, just
+> a voice note.
 >
 > One parent, one child, every day. One teacher, a whole class.
 >
 > Two hundred and fifty million young children are at risk of missing their potential.
-> Nothing in Marg is only for my village: adding Braj took one day.
+> Nothing in Marg is only for my village.
 > Thank you.
 
 *Caption while the first line is spoken: "ASER 2024: almost 90% of rural 14–16-year-olds have a
