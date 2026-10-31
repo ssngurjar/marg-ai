@@ -36,7 +36,8 @@ How to read the paragraphs below:
   time: *laaack* (lack), *ee-quips* (equips), *vil-lij* (village), *Maarg* (Marg), *Myooz Sparrk*
   (Muse Spark: say the r), *Lah-ma Garrd* (Llama Guard: say the r), *Bruj* (Braj), *HEK-sa-gonal*
   (hexagonal), *un-checkt* (unchecked: say the t), *an open-weightss* (say the a and the s), **in**
-  model calls, and *Maarg's · reach* (two words, not one). Read them exactly as written.
+  model calls, *Maarg's · reach* (two words, not one), and *TYOO-ter* (tutor). Read them exactly as
+  written.
 - If one line goes wrong, don't restart the part: pause, say that line again *starting from the
   line before it*, and carry on.
 
@@ -57,7 +58,7 @@ talent" → proud on Marg → calm and slow on the line to remember → curious 
 > `a5` *(lift)* Children here don't **laaack** talent. / They laaack **exposure**: / someone to ask
 > them **why**. //
 >
-> `a6` So I built **Maarg**, / which means **path**. / Not a tutor, and not screen time for
+> `a6` So I built **Maarg**, / which means **path**. / Not a TYOO-ter, and not screen time for
 > children. //
 >
 > `a7` It **ee-quips** the people around a child / to teach the way children **learn best**: /
@@ -111,6 +112,7 @@ A speech recognizer misheard these in every take, so a judge might too:
 | nothing goes out **unchecked** | "uncheck" | finish the word: *un-checkt* |
 | **in** model calls | "and model calls" | a clear short *in* |
 | Marg's **reach** | "Margreach" | two words: *Maarg's · reach* |
+| not a **tutor** | "not a total" | two clear parts: *TYOO-ter* |
 | **Marg** | "mark" / "marl" | a long "aa", soft "g": *Maarg* (मार्ग) |
 | **hexagonal** | (clear last time; keep it that way) | *HEK-sa-gonal* |
 | **Braj** | "press" / "brush" | land the "j": *Bruj* |
@@ -137,7 +139,7 @@ most that still fits.
 | Id | Say this | Aim / longest | Tone | Lean on | Notes |
 |---|---|---|---|---|---|
 | a5 | Children here don't laaack talent. They laaack exposure: someone to ask them why. | 5.4 / 6 s | Conviction, a lift in energy | **talent**, **exposure**, **why** | A small pause after "talent." This is the heart of the video |
-| a6 | So I built Maarg, which means path. Not a tutor, and not screen time for children. | 6.3 / 7 s | Proud, clear | **Maarg**, **path** | Say "Maarg" as in Hindi (मार्ग), a long "aa" and a soft "g". "Not a tutor…" quicker, almost a side note |
+| a6 | So I built Maarg, which means path. Not a TYOO-ter, and not screen time for children. | 6.3 / 7 s | Proud, clear | **Maarg**, **path** | Say "Maarg" as in Hindi (मार्ग), a long "aa" and a soft "g". "Not a TYOO-ter…" quicker, almost a side note |
 | a7 | It ee-quips the people around a child to teach the way children learn best: through play, talk, and the world around them. | 7.8 / 8.5 s | Warm, confident | **ee-quips**, **learn best**, **play, talk, world** | List the three slowly, one beat each |
 | a8 | The world is the curriculum; Maarg is the guide. | 3.1 / 3.5 s | Slower, a line to remember | **world**, **guide** | A breath before you say it. The best take is calm, not loud |
 | a9 | Does it work? Here's a real field test, in my vil-lij. | 4 / 4.5 s | Curious, inviting, a smile | **work**, **real** | Ask "Does it work?" as a real question, then answer it brightly |
