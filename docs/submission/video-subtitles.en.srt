@@ -1,0 +1,169 @@
+1
+00:00:00,300 --> 00:00:08,000
+[A mother in Karauli, speaking Braj]
+“My child is ten… how do I teach him?”
+
+2
+00:00:11,090 --> 00:00:13,330
+I'm Santram, from a village in Rajasthan.
+
+3
+00:00:13,350 --> 00:00:18,200
+I grew up memorising books; it took
+me thirty years to learn to ask why.
+
+4
+00:00:18,220 --> 00:00:20,420
+Parents here still say,
+“padho, padho” (study!),
+
+5
+00:00:20,440 --> 00:00:23,430
+but nobody shows them how
+to make a child curious.
+
+6
+00:00:23,450 --> 00:00:26,700
+In rural government schools,
+fewer than one in four
+
+7
+00:00:26,720 --> 00:00:29,630
+Class 3 children can read a Class 2 story.
+
+8
+00:00:30,350 --> 00:00:32,470
+Children here don't lack talent.
+
+9
+00:00:32,490 --> 00:00:35,280
+They lack exposure:
+someone to ask them why.
+
+10
+00:00:35,300 --> 00:00:37,930
+So I built Marg, which means path.
+
+11
+00:00:37,950 --> 00:00:41,560
+Not a tutor, and not
+screen time for children.
+
+12
+00:00:41,750 --> 00:00:44,390
+It equips the people
+around a child to teach
+
+13
+00:00:44,410 --> 00:00:45,790
+the way children learn best:
+
+14
+00:00:45,810 --> 00:00:49,080
+through play, talk, and
+the world around them.
+
+15
+00:00:49,410 --> 00:00:52,380
+The world is the curriculum;
+Marg is the guide.
+
+16
+00:00:52,530 --> 00:00:53,680
+Does it work?
+
+17
+00:00:53,700 --> 00:00:56,160
+Here's a real field test, in my village.
+
+18
+00:01:33,030 --> 00:01:36,010
+A real voice note on the
+live demo: transcribed,
+
+19
+00:01:36,030 --> 00:01:38,460
+checked by Llama Guard and Muse Spark,
+
+20
+00:01:38,480 --> 00:01:40,500
+answered in Braj, and checked again.
+
+21
+00:01:41,480 --> 00:01:44,840
+Here, Llama Guard is off.
+Muse Spark checks instead,
+
+22
+00:01:44,860 --> 00:01:46,950
+and nothing goes out unchecked.
+
+23
+00:01:48,010 --> 00:01:50,470
+Muse Spark Open, an open-weights model,
+
+24
+00:01:50,490 --> 00:01:52,200
+reflects on the child.
+
+25
+00:01:52,220 --> 00:01:54,760
+Underneath, a hexagonal architecture:
+
+26
+00:01:54,780 --> 00:01:56,660
+every model sits behind a port,
+
+27
+00:01:56,680 --> 00:01:58,980
+so every test runs without a live model.
+
+28
+00:01:59,640 --> 00:02:02,390
+Six Meta models, each with one job,
+
+29
+00:02:02,410 --> 00:02:05,450
+at about three cents a
+family a day in model calls.
+
+30
+00:02:05,470 --> 00:02:08,770
+A real system doesn't need
+the most expensive model.
+
+31
+00:02:08,790 --> 00:02:11,330
+It needs the right model for each job.
+
+32
+00:02:12,610 --> 00:02:15,550
+Nine in ten rural teenagers
+have a smartphone at home:
+
+33
+00:02:15,570 --> 00:02:18,740
+that's Marg's reach, with
+no app, just a voice note.
+
+34
+00:02:19,040 --> 00:02:21,400
+One parent, one child, every day.
+
+35
+00:02:21,420 --> 00:02:23,410
+One teacher, a whole class.
+
+36
+00:02:23,760 --> 00:02:27,870
+250 million young children are at
+risk of missing their potential.
+
+37
+00:02:27,890 --> 00:02:30,430
+Nothing in Marg is only for my village.
+
+38
+00:02:30,450 --> 00:02:31,470
+Thank you.
+
