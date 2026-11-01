@@ -92,6 +92,13 @@ class OnboardingAnswerParser:
             "हाँ", "हां", "जी", "ठीक", "है", "धन्यवाद", "शुक्रिया", "अच्छा", "ओके",
         }
     )  # fmt: skip
+    GRADUATE_WORDS: ClassVar[frozenset[str]] = frozenset(
+        {
+            "graduate", "graduation", "graduated", "grad", "college", "ba", "bsc", "bcom", "btech",
+            "ma", "msc", "mcom", "postgraduate", "pg", "degree", "स्नातक", "ग्रेजुएट", "ग्रेजुएशन",
+            "कॉलेज", "कालेज",
+        }
+    )  # fmt: skip
     NO: ClassVar[frozenset[str]] = frozenset(
         {
             "nahi", "nahin", "nai", "no", "mat karo", "abhi nahi", "nahi chahiye", "नहीं", "नही",
@@ -220,6 +227,13 @@ class OnboardingAnswerParser:
         if len(words) > OnboardingAnswerParser.SHORT_ANSWER_WORDS:
             return False
         return all(_known(word, _GREETING_WORDS) in _GREETING_WORDS for word in words)
+
+    @staticmethod
+    def is_graduate(text: str) -> bool:
+        """A student past class 12: "mai graduate hun", "graduation kar li", "college mein hoon",
+        "BA final year" (owner's field test, 2026-11-01)."""
+        words = set(PhraseFinder.words(text))
+        return bool(words & _GRADUATE_WORDS)
 
     @staticmethod
     def is_acknowledgement(text: str) -> bool:
@@ -434,6 +448,7 @@ _NOT_A_NAME: Final = _normalised_set(OnboardingAnswerParser._NOT_A_NAME)
 _AGE_UNITS: Final = _normalised_set(OnboardingAnswerParser._AGE_UNITS)
 _MONTH_UNITS: Final = _normalised_set(OnboardingAnswerParser.MONTH_UNITS)
 _ACKNOWLEDGEMENT_WORDS: Final = _normalised_set(OnboardingAnswerParser.ACKNOWLEDGEMENTS)
+_GRADUATE_WORDS: Final = _normalised_set(OnboardingAnswerParser.GRADUATE_WORDS)
 _GREETING_WORDS: Final = frozenset(
     word
     for greeting in (*OnboardingAnswerParser.GREETINGS, "ji", "sir", "madam", "marg", "जी")

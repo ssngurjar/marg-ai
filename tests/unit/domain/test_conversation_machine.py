@@ -421,7 +421,7 @@ def test_a_child_outside_2_to_19_is_refused(birth_year: int) -> None:
     ("fields", "message"),
     [
         ({"grade": 0}, "grade 0 is outside 1-12"),
-        ({"grade": 13}, "grade 13 is outside 1-12"),
+        ({"grade": 14}, "grade 14 is outside 1-12"),
         ({"district": ""}, "district"),
         ({"district": "   "}, "district"),
         ({"district": "12345"}, "district"),

@@ -52,6 +52,8 @@ from app.domain.enums import (
     StepOutcome,
 )
 from app.domain.models.conversation import (
+    GRADUATE,
+    STUDENT_LEVELS,
     AboutMargAsked,
     AddChild,
     ChildAnswered,
@@ -369,7 +371,7 @@ class OnboardingLayer:
     def _profile_event(self, ctx: TurnContext, user_text: str) -> ConversationEvent | None:
         asked = ConversationMachine.next_profile_question(ctx.profile, len(ctx.learners))
         if asked in {CopyKey.ASK_GRADE_STUDENT, CopyKey.ASK_GRADE_TEACHER}:
-            return self._grade_event(user_text)
+            return self._grade_event(user_text, student=asked is CopyKey.ASK_GRADE_STUDENT)
         is_short_value = (
             0 < len(user_text.split()) <= self.SHORT_VALUE_WORDS
             and "?" not in user_text
@@ -384,11 +386,16 @@ class OnboardingLayer:
             return Unrecognised()  # malformed ("12345" as a district): ask again, store nothing
         return None
 
-    def _grade_event(self, user_text: str) -> ConversationEvent | None:
+    def _grade_event(self, user_text: str, *, student: bool) -> ConversationEvent | None:
         """The class, from a short answer. A longer message may also carry a question or a
         teacher's chapter ("kal class 8 mein bal aur dabav padhana hai"): the model reads both,
-        so the request isn't lost (owner, 2026-10-31)."""
-        if len(user_text.split()) > self.LONG_ANSWER_WORDS:
+        so the request isn't lost (owner, 2026-10-31). A student past class 12 ("mai graduate
+        hun") is GRADUATE (owner's field test, 2026-11-01)."""
+        words = len(user_text.split())
+        short_graduate = words <= _P.SHORT_ANSWER_WORDS and "?" not in user_text
+        if student and short_graduate and _P.is_graduate(user_text):
+            return ProfileAnswered(ProfileUpdate(grade=GRADUATE))
+        if words > self.LONG_ANSWER_WORDS:
             return None
         grade = _P.parse_grade(user_text)
         if grade.problem is Found.OUT_OF_RANGE:
@@ -696,7 +703,7 @@ class _ExtractionMapper:
         ctx: TurnContext, extraction: ProfileExtraction
     ) -> ConversationEvent | None:
         """The profile fields read, or a district to check on its own (D4)."""
-        update = _ExtractionMapper._profile_update(extraction)
+        update = _ExtractionMapper._profile_update(extraction, ctx.profile.role)
         if update is not None and not update.is_empty:
             question = extraction.question[:QUESTION_MAX_CHARS] if extraction.question else None
             return ProfileAnswered(update, question=question)
@@ -705,10 +712,12 @@ class _ExtractionMapper:
         return None
 
     @staticmethod
-    def _profile_update(extraction: ProfileExtraction) -> ProfileUpdate | None:
+    def _profile_update(extraction: ProfileExtraction, role: Role | None) -> ProfileUpdate | None:
         """Out-of-range or malformed values count as absent, never as the nearest valid one. A
-        district counts only when LGD's list names it exactly; otherwise it's asked on its own."""
-        grade = extraction.grade if extraction.grade in OnboardingAnswerParser.GRADES else None
+        district counts only when LGD's list names it exactly; otherwise it's asked on its own.
+        GRADUATE only for a student."""
+        grades = STUDENT_LEVELS if role is Role.STUDENT else OnboardingAnswerParser.GRADES
+        grade = extraction.grade if extraction.grade in grades else None
         district = None
         if extraction.district:
             found = DistrictMatcher.match(extraction.district, DISTRICTS).found

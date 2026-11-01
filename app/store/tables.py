@@ -95,7 +95,7 @@ users = Table(
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
     Column("updated_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
     CheckConstraint("user_hash ~ '^[0-9a-f]{64}$'", name="user_hash_is_hex64"),
-    CheckConstraint("grade BETWEEN 1 AND 12", name="grade_range"),
+    CheckConstraint("grade BETWEEN 1 AND 13", name="grade_range"),  # 13: a graduate
     allowed_values("channel", Channel),
     allowed_values("state", ConversationState),
     allowed_values("role", Role),

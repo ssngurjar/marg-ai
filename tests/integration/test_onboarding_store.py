@@ -258,3 +258,19 @@ async def test_role_and_language_are_stored_as_their_values(
     change = to_active().model_copy(update={"role": Role.PARENT, "consent_events": []})
     await TurnRepository(sessions).finalize(await started_turn(engine), FINISHED, None, [change])
     assert await scalar(engine, "SELECT role FROM users WHERE user_hash = :h", h=USER) == "parent"
+
+
+async def test_a_graduate_is_stored_as_13_and_14_is_refused(engine: AsyncEngine) -> None:
+    # owner's field test, 2026-11-01: grade 13 is a student past class 12 (s08_graduate_level)
+    set_grade = text("UPDATE users SET grade = :g WHERE user_hash = :h")
+    async with engine.begin() as connection:
+        await connection.execute(set_grade, {"g": 13, "h": USER})
+        stored = (
+            await connection.execute(
+                text("SELECT grade FROM users WHERE user_hash = :h"), {"h": USER}
+            )
+        ).scalar_one()
+    assert stored == 13
+    with pytest.raises(IntegrityError, match="ck_users_grade_range"):
+        async with engine.begin() as connection:
+            await connection.execute(set_grade, {"g": 14, "h": USER})

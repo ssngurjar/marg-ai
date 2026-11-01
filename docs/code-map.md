@@ -170,6 +170,7 @@ line of the module's docstring.
 | `sentence_case.py` | `SentenceCase` | SentenceCase: a model-written line shown on its own, starting with a capital and ending with |
 | `session_rules.py` | `SessionRules` | SessionRules: the only definition of a session (contracts §2.2). Pure. |
 | `stage_rules.py` | `StageRules` | StageRules: a learner's age and NEP stage from their birth year (s10b §4.2). Pure. |
+| `student_level.py` | `StudentLevel` | StudentLevel: how a student's grade reads to a model, and which sources it may see (owner's |
 | `turn_batcher.py` | `TurnBatcher` | TurnBatcher: which pending messages a turn takes, and when it gives up (s04 §4.4, §4.9). Pure. |
 
 ## `evals`

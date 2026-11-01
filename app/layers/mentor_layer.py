@@ -34,6 +34,7 @@ from app.domain.models.usage import StepUsage
 from app.domain.rules.phrase_finder import PhraseFinder
 from app.domain.rules.register_detector import RegisterDetector
 from app.domain.rules.stage_rules import StageRules
+from app.domain.rules.student_level import StudentLevel
 from app.layers.layer_result import LayerResult
 from app.layers.local_voice import LocalVoice
 from app.layers.mentor_context import LabelledChunk, MentorContext, MentorContextBuilder
@@ -176,7 +177,7 @@ class MentorLayer:
             if usage is not None:
                 usages.append(usage)
             degraded = failed
-        result = await self._retriever.retrieve(query, grade)
+        result = await self._retriever.retrieve(query, StudentLevel.retrieval_grade(grade))
         return _Retrieved(result, usages, versions, degraded)
 
     @staticmethod

@@ -1,6 +1,6 @@
 +++
 id = "profile_extraction"
-version = "1.3.0"
+version = "1.4.0"
 model_setting = "MODEL_TEXT"
 max_output_tokens = 800
 output_model = "ProfileExtraction"
@@ -18,7 +18,8 @@ We asked them: {{ system.asked }}
 Fields:
 - role: "parent" if they say they are a mother, father or guardian of a child; "teacher" if they
   teach; "student" if they are a student; else null.
-- grade: a school class number they state (1-12), else null.
+- grade: a school class number they state (1-12); 13 for a student past class 12 (a graduate,
+  in college, or doing BA/BSc); else null.
 - subject: the subject they teach, as said, else null.
 - district: the district or place they name, as said, else null.
 - child_age: the child's age in years, as a number, else null.

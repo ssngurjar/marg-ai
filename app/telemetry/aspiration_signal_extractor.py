@@ -9,6 +9,7 @@ from typing import Final
 
 from app.domain.models.aspiration import AspirationSignals, ExtractAspiration
 from app.domain.models.usage import StepUsage
+from app.domain.rules.student_level import StudentLevel
 from app.prompts.prompt_registry import PromptRegistry, PromptSpec
 from app.providers.ports import LanguageModel
 
@@ -33,7 +34,7 @@ class AspirationSignalExtractor:
         """Raises ProviderError when the model can't give valid signals."""
         rendered = self._registry.render(
             ASPIRATION_EXTRACT,
-            system_vars={"grade": str(task.grade) if task.grade is not None else "unknown"},
+            system_vars={"grade": StudentLevel.describe(task.grade)},
             user_vars={"previous_exchange": task.previous_exchange, "student": task.user_text},
         )
         result = await self._llm.generate(rendered.request)

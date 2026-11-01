@@ -108,6 +108,11 @@ cases:
   - {state: awaiting_profile, role: student, known: {grade: 10}, text: "jila Sitapur, UP", expect: {event: DistrictUnclear, offered: "Sitapur, Uttar Pradesh"}}
   - {state: awaiting_profile, role: student, known: {grade: 10}, text: "मैं धार ज़िले से हूँ", expect: {event: ProfileAnswered, district: "Dhar, Madhya Pradesh"}}
   - {state: awaiting_profile, role: student, known: {grade: 12}, text: "district kyun chahiye?", expect: {event: AboutMargAsked}}
+  # a student past class 12 (owner's field test, 2026-11-01): grade 13
+  - {state: awaiting_profile, role: student, text: "mai graduate hun", expect: {event: ProfileAnswered, grade: 13}}
+  - {state: awaiting_profile, role: student, text: "arey graduation ho gyi", expect: {event: ProfileAnswered, grade: 13}}
+  - {state: awaiting_profile, role: student, text: "college mein BA kar rahi hoon", expect: {event: ProfileAnswered, grade: 13}}
+  - {state: awaiting_profile, role: student, text: "maine pichle saal BSc khatam kiya, ab UPSC ki taiyari", expect: {event: ProfileAnswered, grade: 13}}
   # districts checked against LGD's list (critic review D4, 2026-11-01)
   - {state: awaiting_profile, role: student, known: {grade: 10}, text: "Karoli", expect: {event: DistrictUnclear, offered: "Karauli, Rajasthan"}}
   - {state: awaiting_profile, role: student, known: {grade: 10}, text: "बाड़मेर", expect: {event: DistrictUnclear, offered: "Barmer, Rajasthan"}}

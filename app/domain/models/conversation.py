@@ -14,6 +14,8 @@ from app.domain.models.learner import LearnerId
 from app.domain.models.turn import UserProfile
 
 GRADE_RANGE = range(1, 13)
+GRADUATE = 13  # a student past class 12: a graduate or in college (field test, 2026-11-01)
+STUDENT_LEVELS = range(1, GRADUATE + 1)
 SUBJECT_MAX_CHARS = 40
 DISTRICT_LENGTHS = range(2, 81)  # LGD's longest "district, state" label is 68
 NICKNAME_MAX_CHARS = 20
@@ -29,14 +31,14 @@ class ProfileUpdate:
     district: str | None = None
 
     def __post_init__(self) -> None:
-        if self.grade is not None and self.grade not in GRADE_RANGE:
-            raise InvalidProfileValue(f"grade {self.grade} is outside 1-12")
+        if self.grade is not None and self.grade not in STUDENT_LEVELS:
+            raise InvalidProfileValue(f"grade {self.grade} is outside 1-12 (or 13, a graduate)")
         if self.subject is not None and not 1 <= len(self.subject.strip()) <= SUBJECT_MAX_CHARS:
             raise InvalidProfileValue(f"subject must be 1-{SUBJECT_MAX_CHARS} characters")
         if self.district is not None:
             district = self.district.strip()
             if len(district) not in DISTRICT_LENGTHS or not any(c.isalpha() for c in district):
-                raise InvalidProfileValue("district must be 2-60 characters with a letter")
+                raise InvalidProfileValue("district must be 2-80 characters with a letter")
 
     @property
     def is_empty(self) -> bool:

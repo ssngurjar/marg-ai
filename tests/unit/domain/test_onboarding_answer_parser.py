@@ -342,3 +342,17 @@ def test_short_acknowledgements_are_recognised(text: str) -> None:
 )
 def test_anything_more_than_an_acknowledgement_is_not_one(text: str) -> None:
     assert not P.is_acknowledgement(text)
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["mai graduate hun", "arey graduation ho gyi", "college mein hoon", "BA final year", "ग्रेजुएट हूँ"],
+)
+def test_a_student_past_class_12_is_recognised(text: str) -> None:
+    # owner's field test, 2026-11-01: "mai graduate hun" got "samajh nahi aaya" three times
+    assert P.is_graduate(text)
+
+
+@pytest.mark.parametrize("text", ["class 12", "12", "baarahvi", "kuch samajh nahi aata", ""])
+def test_a_school_class_or_other_words_are_not_graduate(text: str) -> None:
+    assert not P.is_graduate(text)

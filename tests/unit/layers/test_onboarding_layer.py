@@ -21,6 +21,7 @@ from app.domain.enums import (
     Route,
     StepOutcome,
 )
+from app.domain.models.conversation import GRADUATE
 from app.domain.models.district import LgdDistrict
 from app.domain.models.learner import Learner, LearnerId
 from app.domain.models.message import InboundMessage
@@ -303,7 +304,7 @@ async def test_a_role_the_parser_cant_read_goes_to_the_model() -> None:
     )
     assert profile_change(result).role is Role.PARENT
     assert llm.prompts[0].prompt_id == "profile_extraction"
-    assert result.prompt_versions == {"profile_extraction": "1.3.0"}
+    assert result.prompt_versions == {"profile_extraction": "1.4.0"}
 
 
 async def test_a_prompt_injection_can_only_ever_produce_a_real_role_or_nothing() -> None:
@@ -781,6 +782,35 @@ async def test_an_extracted_district_with_other_fields_is_kept_only_when_exact()
     )
     assert profile_change(result).grade == 4
     assert profile_change(result).district is None  # asked on its own next
+
+
+@pytest.mark.parametrize("answer", ["mai graduate hun", "arey graduation ho gyi", "college"])
+async def test_a_graduate_student_is_stored_as_past_class_12(answer: str) -> None:
+    # owner's field test, 2026-11-01: a UPSC aspirant was asked for 1-12 three times
+    student = at(S.AWAITING_PROFILE, role=Role.STUDENT).model_copy(
+        update={"guardian_confirmed": True}
+    )
+    result, llm = await handle(student, text_message(answer))
+    assert profile_change(result).grade == GRADUATE
+    assert llm.prompts == []
+
+
+async def test_a_teacher_is_never_given_the_graduate_level() -> None:
+    teacher = at(S.AWAITING_PROFILE, role=Role.TEACHER).model_copy(update={"subject": "Maths"})
+    result, _ = await handle(teacher, text_message("graduate"))
+    assert profile_change(result).grade != GRADUATE
+
+
+async def test_the_model_reading_13_is_kept_only_for_a_student() -> None:
+    student = at(S.AWAITING_PROFILE, role=Role.STUDENT).model_copy(
+        update={"guardian_confirmed": True}
+    )
+    long_answer = "maine pichle saal BA khatam kiya aur ab UPSC ki taiyari kar rahi hoon"
+    result, _ = await handle(student, text_message(long_answer), extracted=extraction(grade=13))
+    assert profile_change(result).grade == GRADUATE
+    teacher = at(S.AWAITING_PROFILE, role=Role.TEACHER).model_copy(update={"subject": "Maths"})
+    result, _ = await handle(teacher, text_message(long_answer), extracted=extraction(grade=13))
+    assert profile_change(result).grade is None
 
 
 async def test_pata_nahi_is_not_stored_as_a_district() -> None:

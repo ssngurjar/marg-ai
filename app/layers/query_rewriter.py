@@ -16,6 +16,7 @@ from app.domain.enums import CorpusTopic
 from app.domain.models.retrieval import RetrievalQuery
 from app.domain.models.turn import Exchange
 from app.domain.models.usage import StepUsage
+from app.domain.rules.student_level import StudentLevel
 from app.prompts.prompt_registry import PromptRegistry, PromptSpec
 from app.providers.ports import LanguageModel
 
@@ -51,7 +52,7 @@ class QueryRewriter:
         )
         rendered = self._registry.render(
             QUERY_REWRITE,
-            system_vars={"grade": str(grade) if grade is not None else "not known"},
+            system_vars={"grade": StudentLevel.describe(grade)},
             user_vars={"recent_conversation": conversation, "message": user_text},
         )
         try:

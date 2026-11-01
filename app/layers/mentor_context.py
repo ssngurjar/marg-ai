@@ -13,6 +13,7 @@ from typing import ClassVar
 
 from app.domain.models.retrieval import RetrievedChunk
 from app.domain.models.turn import TurnContext
+from app.domain.rules.student_level import StudentLevel
 from app.rag.chunker import Chunker
 
 
@@ -101,7 +102,7 @@ class MentorContextBuilder:
     @staticmethod
     def _profile(ctx: TurnContext) -> str:
         profile = ctx.profile
-        grade = f"class {profile.grade}" if profile.grade else "class not known"
+        grade = StudentLevel.describe(profile.grade)
         district = profile.district or "district not known"
         language = profile.language.value if profile.language else "not known"
         return f"{grade}, {district}, prefers {language}"

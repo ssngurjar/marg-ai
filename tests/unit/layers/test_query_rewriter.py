@@ -32,7 +32,7 @@ async def test_a_rewrite_becomes_the_retrieval_query() -> None:
     assert usage is not None
     assert failed is None
     [prompt] = llm.prompts
-    assert "Student's class: 8" in prompt.system
+    assert "Student's level: class 8" in prompt.system
     question = "क्लास 8 में कोई स्कॉलरशिप मिलती है क्या"
     assert question in prompt.user
     assert question not in prompt.system

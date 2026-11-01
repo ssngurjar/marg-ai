@@ -49,7 +49,7 @@ through `information_schema` that no table is missed.
 | `address_ciphertext` | `bytea` NULL | `nonce(12) ‖ AES-256-GCM(wa_id, aad=user_hash)`. NULL for web. See §3 |
 | `state` | `text` | `ConversationState`, default `new` |
 | `role` | `text` NULL | `Role` |
-| `grade` | `smallint` NULL | `CHECK (grade BETWEEN 1 AND 12)`; students and teachers |
+| `grade` | `smallint` NULL | `CHECK (grade BETWEEN 1 AND 13)`; students and teachers; 13 = a student past class 12 (graduate or college; teachers stay 1-12) |
 | `subject` | `text` NULL | teachers |
 | `district` | `text` NULL | students and teachers: LGD's label ("Karauli, Rajasthan") once confirmed, or as typed after one re-ask (unverified); 2–80 chars; not asked of parents |
 | `language` | `text` NULL | `Language` |

@@ -20,7 +20,7 @@ from typing import Final
 from app.domain.enums import Channel, CopyKey, Language
 from app.domain.models.reply import ReplyButton
 
-COPY_VERSION: Final = "onb-2026-11-01.4"
+COPY_VERSION: Final = "onb-2026-11-01.5"
 
 _HINGLISH = Language.HINGLISH
 _HINDI = Language.HINDI
@@ -215,9 +215,9 @@ _TEXTS: Final[dict[CopyKey, dict[Language, str]]] = {
         _ENGLISH: "Okay. Please ask at home or a teacher first, then tap 'Yes'.",
     },
     CopyKey.ASK_GRADE_STUDENT: {
-        _HINGLISH: "Aap kaunsi class mein padhte hain? (1 se 12)",
-        _HINDI: "आप कौन-सी कक्षा में पढ़ते हैं? (1 से 12)",
-        _ENGLISH: "Which class are you in? (1 to 12)",
+        _HINGLISH: "Aap kaunsi class mein padhte hain? (1 se 12, ya college/graduate)",
+        _HINDI: "आप कौन-सी कक्षा में पढ़ते हैं? (1 से 12, या कॉलेज/ग्रेजुएट)",
+        _ENGLISH: "Which class are you in? (1 to 12, or college/graduate)",
     },
     CopyKey.ASK_SUBJECT_TEACHER: {
         _HINGLISH: "Aap kaunsa subject padhate hain?",

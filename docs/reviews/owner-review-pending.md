@@ -539,4 +539,6 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
 - [ ] **Read the age question for a name given alone** (`ASK_CHILD_AGE` in
   `app/constants/onboarding_copy.py`) and the new fact about the chat on the phone after a deletion
   (`MARG_FACTS`, "messages still on my phone").
+- [ ] **Read the student's class question** (`ASK_GRADE_STUDENT` in
+  `app/constants/onboarding_copy.py`): it now says "(1 se 12, ya college/graduate)".
 
