@@ -20,7 +20,7 @@ from typing import Final
 from app.domain.enums import Channel, CopyKey, Language
 from app.domain.models.reply import ReplyButton
 
-COPY_VERSION: Final = "onb-2026-11-01.5"
+COPY_VERSION: Final = "onb-2026-11-01.6"
 
 _HINGLISH = Language.HINGLISH
 _HINDI = Language.HINDI
@@ -263,6 +263,22 @@ _TEXTS: Final[dict[CopyKey, dict[Language, str]]] = {
         _ENGLISH: (
             "I couldn't find that district on the official list. Please write it as it appears"
             " on official papers (for example 'Barmer')."
+        ),
+    },
+    # "Can you talk in Braj?" during onboarding (owner's field test, 2026-11-01). True as LocalVoice
+    # works: Braj is understood typed or spoken, and a Braj speaker's replies take light Braj.
+    CopyKey.BRAJ_SUPPORT: {
+        _HINGLISH: (
+            "Haan! Marg Braj samajhta hai, likh kar bhi aur bol kar bhi. Jawab Hindi ya Hinglish"
+            " mein aata hai, aur aap Braj mein baat karenge toh jawab mein thodi Braj bhi hogi."
+        ),
+        _HINDI: (
+            "हाँ! मार्ग ब्रज समझता है, लिख कर भी और बोल कर भी। जवाब हिंदी या हिंग्लिश में आता है, और"
+            " आप ब्रज में बात करेंगे तो जवाब में थोड़ी ब्रज भी होगी।"
+        ),
+        _ENGLISH: (
+            "Yes! Marg understands Braj, typed or spoken. Replies come in Hindi or Hinglish, and if"
+            " you write in Braj, they'll have a little Braj in them too."
         ),
     },
     # A child's name given alone (owner's field test, 2026-11-01)

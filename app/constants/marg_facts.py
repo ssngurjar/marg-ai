@@ -162,6 +162,12 @@ MARG_FACTS: Final[tuple[MargFact, ...]] = (
         "transcribe step; app/core/config.py voice_replies_enabled=False",
     ),
     MargFact(
+        "Braj",
+        "Marg understands Braj, typed or spoken. Replies come in Hindi or Hinglish, and someone"
+        " who writes in Braj, or lives in a Braj district, gets a little Braj in them.",
+        "app/layers/local_voice.py, BrajDetector, BRAJ_RULE",
+    ),
+    MargFact(
         "language",
         "Marg talks in Hindi, Hinglish or English; write the language's name to switch.",
         "OnboardingAnswerParser.language_named",

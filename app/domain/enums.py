@@ -267,6 +267,7 @@ class CopyKey(StrEnum):
     ASK_GRADE_TEACHER = "ask_grade_teacher"
     ASK_DISTRICT = "ask_district"
     ASK_CHILD_AGE = "ask_child_age"  # a name given alone: "{child} ki umar kitni hai?" (field test)
+    BRAJ_SUPPORT = "braj_support"  # "kya aap braj bhasha mein baat kar sakte ho" (field test)
     # the district checked against LGD's list (critic review D4, 2026-11-01)
     DISTRICT_CONFIRM_ONE = "district_confirm_one"  # "Karauli, Rajasthan?" yes / no
     DISTRICT_CONFIRM_MANY = "district_confirm_many"  # which of these, one button each

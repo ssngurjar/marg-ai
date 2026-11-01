@@ -261,13 +261,23 @@ class OnboardingLayer:
             return DeletionRequested()
         if profile.state is _S.NEW:
             return self._first_contact(user_text, profile.channel)
+        about_language = self._language_event(ctx, user_text)
+        if about_language is not None:
+            return about_language
+        if profile.state is _S.ACTIVE:
+            return self._active_event(profile, user_text)
+        return self._answer_event(ctx, user_text, now)
+
+    def _language_event(self, ctx: TurnContext, user_text: str) -> ConversationEvent | None:
+        """A language named to switch to, or, before onboarding ends, a question whether Marg
+        speaks Braj (owner's field test, 2026-11-01)."""
+        if ctx.profile.state is not _S.ACTIVE and _P.asks_about_braj(user_text):
+            return AboutMargAsked(braj=True)
         language = _P.language_named(user_text)
         if language is not None and not self._asks_subject(ctx):
             # "Hindi" answering "which subject do you teach?" is a subject, not a switch.
             return LanguageSwitched(language)
-        if profile.state is _S.ACTIVE:
-            return self._active_event(profile, user_text)
-        return self._answer_event(ctx, user_text, now)
+        return None
 
     def _first_contact(self, user_text: str, channel: Channel) -> FirstContact:
         """A greeting says nothing about the language unless it's in Devanagari ("Namaste" is

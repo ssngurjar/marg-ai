@@ -402,7 +402,7 @@ def _language_switched(step: _Step, event: LanguageSwitched) -> Transition:
 def _about_marg(step: _Step, event: AboutMargAsked) -> Transition:
     """What Marg does and keeps, at once; then the question still waiting (owner, 2026-11-01)."""
     question = ConversationMachine.question_for(step.profile, step.learner_count)
-    effects: list[Effect] = [SendCopy(CopyKey.ABOUT_MARG)]
+    effects: list[Effect] = [SendCopy(CopyKey.BRAJ_SUPPORT if event.braj else CopyKey.ABOUT_MARG)]
     if question:
         effects.append(SendCopy(question))
     return step.moved(step.profile.state, *effects)

@@ -92,6 +92,10 @@ class OnboardingAnswerParser:
             "हाँ", "हां", "जी", "ठीक", "है", "धन्यवाद", "शुक्रिया", "अच्छा", "ओके",
         }
     )  # fmt: skip
+    BRAJ_QUESTION_WORDS: ClassVar[int] = 12
+    BRAJ_NAMES: ClassVar[frozenset[str]] = frozenset(
+        {"braj", "vraj", "brij", "brajbhasha", "ब्रज", "बृज", "व्रज"}
+    )
     GRADUATE_WORDS: ClassVar[frozenset[str]] = frozenset(
         {
             "graduate", "graduation", "graduated", "grad", "college", "ba", "bsc", "bcom", "btech",
@@ -227,6 +231,15 @@ class OnboardingAnswerParser:
         if len(words) > OnboardingAnswerParser.SHORT_ANSWER_WORDS:
             return False
         return all(_known(word, _GREETING_WORDS) in _GREETING_WORDS for word in words)
+
+    @staticmethod
+    def asks_about_braj(text: str) -> bool:
+        """Names Braj in a short message: "kya aap braj bhasha mein baat kar sakte ho", "Braj aati
+        hai?" (owner's field test, 2026-11-01)."""
+        words = PhraseFinder.words(text)
+        return len(words) <= OnboardingAnswerParser.BRAJ_QUESTION_WORDS and bool(
+            set(words) & _BRAJ_NAMES
+        )
 
     @staticmethod
     def is_graduate(text: str) -> bool:
@@ -449,6 +462,7 @@ _AGE_UNITS: Final = _normalised_set(OnboardingAnswerParser._AGE_UNITS)
 _MONTH_UNITS: Final = _normalised_set(OnboardingAnswerParser.MONTH_UNITS)
 _ACKNOWLEDGEMENT_WORDS: Final = _normalised_set(OnboardingAnswerParser.ACKNOWLEDGEMENTS)
 _GRADUATE_WORDS: Final = _normalised_set(OnboardingAnswerParser.GRADUATE_WORDS)
+_BRAJ_NAMES: Final = _normalised_set(OnboardingAnswerParser.BRAJ_NAMES)
 _GREETING_WORDS: Final = frozenset(
     word
     for greeting in (*OnboardingAnswerParser.GREETINGS, "ji", "sir", "madam", "marg", "जी")

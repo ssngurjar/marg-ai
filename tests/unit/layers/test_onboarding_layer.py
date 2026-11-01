@@ -467,6 +467,15 @@ async def test_a_one_word_nickname_is_read_by_the_rules_without_the_model() -> N
     assert upsert.nickname == "Munni"
 
 
+async def test_can_you_talk_in_braj_gets_a_true_answer_during_onboarding() -> None:
+    # owner's field test, 2026-11-01: it got the general "what Marg does" paragraph
+    result, llm = await handle(
+        at(S.AWAITING_CONSENT), text_message("kya aap braj bhasha mein baat kar sakte ho")
+    )
+    assert result.reply.body.startswith(body(CopyKey.BRAJ_SUPPORT))
+    assert llm.prompts == []
+
+
 async def test_a_question_about_the_child_during_onboarding_is_kept_for_after() -> None:
     parent = at(S.AWAITING_CHILD, role=Role.PARENT)
     result, _ = await handle(

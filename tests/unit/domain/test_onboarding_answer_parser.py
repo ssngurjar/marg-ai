@@ -356,3 +356,16 @@ def test_a_student_past_class_12_is_recognised(text: str) -> None:
 @pytest.mark.parametrize("text", ["class 12", "12", "baarahvi", "kuch samajh nahi aata", ""])
 def test_a_school_class_or_other_words_are_not_graduate(text: str) -> None:
     assert not P.is_graduate(text)
+
+
+@pytest.mark.parametrize(
+    "text", ["kya aap braj bhasha mein baat kar sakte ho", "Braj aati hai?", "ब्रज में बात करोगे?"]
+)
+def test_a_question_about_braj_is_recognised(text: str) -> None:
+    # owner's field test, 2026-11-01: it got the general "what Marg does" paragraph
+    assert P.asks_about_braj(text)
+
+
+@pytest.mark.parametrize("text", ["Hindi mein baat karo", "mera beta 5 saal ka hai", ""])
+def test_other_messages_are_not_about_braj(text: str) -> None:
+    assert not P.asks_about_braj(text)

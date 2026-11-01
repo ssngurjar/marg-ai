@@ -27,6 +27,8 @@ cases:
   - {state: awaiting_consent, text: "aap kya kya data rakhte ho mera?", expect: {event: AboutMargAsked}}
   - {state: awaiting_consent, text: "pehle batao ye kya hai aur kitne paise lagenge", expect: {event: AboutMargAsked}}
   - {state: awaiting_consent, text: "English please", expect: {event: LanguageSwitched, language: english}}
+  - {state: awaiting_consent, text: "kya aap braj bhasha mein baat kar sakte ho", expect: {event: AboutMargAsked}}
+  - {state: awaiting_role, text: "braj boli samajh aati hai aapko?", expect: {event: AboutMargAsked}}
   - {state: awaiting_consent, text: "हिंदी में बात करो", expect: {event: LanguageSwitched, language: hindi}}
 
   # --- role --------------------------------------------------------------------------------------

@@ -178,7 +178,10 @@ class QuestionNoted:
 @dataclass(frozen=True, slots=True)
 class AboutMargAsked:
     """A question about Marg itself during onboarding ("what can you do?", "why do you need
-    this?"): answered at once, then the waiting question again (owner, 2026-11-01)."""
+    this?"): answered at once, then the waiting question again (owner, 2026-11-01). `braj`: it
+    asks whether Marg speaks Braj (owner's field test, 2026-11-01)."""
+
+    braj: bool = False
 
 
 @dataclass(frozen=True, slots=True)

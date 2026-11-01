@@ -505,6 +505,13 @@ def test_an_out_of_range_child_among_several_adds_none() -> None:
         step(profile, ChildrenAnswered(children))
 
 
+def test_a_braj_question_gets_the_braj_answer_then_the_waiting_question() -> None:
+    profile = at(S.AWAITING_CONSENT)
+    done = step(profile, AboutMargAsked(braj=True))
+    assert copies(done)[0] is CopyKey.BRAJ_SUPPORT
+    assert done.profile.state is S.AWAITING_CONSENT
+
+
 def test_a_name_alone_stores_nothing_and_asks_the_age() -> None:
     # owner's field test, 2026-11-01
     done = step(at(S.AWAITING_CHILD, role=Role.PARENT, **CONSENTED), ChildNamed("Pinku"))
