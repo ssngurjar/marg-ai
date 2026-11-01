@@ -17,6 +17,50 @@ Two rules shape every answer:
 
 ---
 
+## The form, field by field (as the live form asks, 2026-11-01)
+
+| # | Field | Answer |
+|---|---|---|
+| 1 | Team Name * | **Your call** (suggested: Marg.ai) |
+| 2 | Team Members | Santram Gurjar (filled in by the form) |
+| 3 | Which track * | **Indie** |
+| 4 | Which problem statement * | **Build for Your World** (below) |
+| 5 | Most Viral Track: X post link | after posting the video (below) |
+| 6 | Project Description * | below |
+| 7 | Public GitHub Repository * | below |
+| 8 | 3-Minute Demo Video * | below |
+| 9 | Describe your use of Meta products * | below |
+| 10 | Why are Meta's models important * | below |
+| 11 | Feedback on partner technologies | below |
+| 12 | How likely to build with Meta Model API * | **your call** |
+| 13 | Overall opinion of Meta Model API * | **your call** |
+| 14 | Permission for Meta and Cerebral Valley to publish the materials | **read first:** it covers the demo video, so every family filmed must have agreed in writing to the video being published and promoted by Meta and Cerebral Valley, not only to being filmed |
+| 15 | Recommend Meta Model API, 0–5 | **your call** |
+| 16 | Recommend Muse Code, 0–5 | **your call** (Muse Code wrote parts of this build) |
+| 17 | Biggest obstacle | suggested from what this build measured (below) |
+| 18 | Meta's models compared with others | **your call**: every runtime model is Meta's; the build itself was written with coding assistants, which is a different job |
+| 19 | What matters most when choosing | **your call**; what this build needed most: reliability, data privacy and terms (users are minors), quality of answers in Hindi and Hinglish |
+| 20 | Hardest part of switching | **your call**; in this build: 24 prompts and four understanding banks tuned to Muse Spark's behaviour |
+| 21 | What would stop production use | suggested: reliability (Llama Guard isn't on the Model API), how users' data is stored and used (minors, DPDP Act 2023), and "something else": no commercially licensed Meta voice for Hindi |
+
+The form has **no field for feedback on Meta products**; the measured points in "Provide feedback
+from your experience using Meta products" below go into field 17's "please specify" boxes,
+shortened (next section).
+
+### Field 17, biggest obstacle: suggested ticks and what to write
+
+- **A model capability we needed was missing (please specify):** "No Meta embedding model (our
+  student mentor searches by keyword only), no commercially licensed Meta text-to-speech for
+  Hindi (we reply in text), and Llama Guard 4 isn't on the Model API (we host it on DeepInfra)."
+- **Code or answers from the model that were wrong or not useful:** "Llama Guard 4 misreads
+  ordinary Hindi and Hinglish: a child's 'why is the moon seen only at night?' was S3, sex crimes,
+  4 of 4. We count six of its categories only when a Muse Spark check agrees."
+- **Something else (please specify):** "Reasoning tokens share max_output_tokens, so structured
+  replies came back cut off until we raised the limits; Muse Voice Transcribe sometimes returns
+  Hindi speech in Gujarati or Gurmukhi script."
+
+---
+
 ## Which problem statement did you build towards?
 
 **Build for Your World.**
@@ -142,6 +186,10 @@ balance on the day, $32 on 2026-10-31.)*
 
 ## Provide feedback from your experience using Meta products
 
+*(No such field on the live form: this is the full version of field 17, for the README or a
+follow-up. Its six-category note is current: S1, S2, S3, S4, S7 and S10 count on a user's message
+only when the Muse Spark check agrees, S7 since 2026-11-01.)*
+
 What we'd ask Meta to change, most important for our users first. Each point was measured in
 this build; for each, what it did to a family, what we did, and the change that would help.
 
@@ -149,8 +197,9 @@ this build; for each, what it did to a family, what we did, and the change that 
 >    child's "Chaand raat ko hi kyun dikhta hai?" ("why is the moon seen only at night?") as S3,
 >    sex crimes, 4 times out of 4; a parent's "kal wali khoj phir se bhejo, Munni ko yaad nahi"
 >    as S10, hate, 3 of 3; and "doctor banna hai, plan bana do" as S11, self-harm. The child got
->    a refusal for a question about the moon. We now count S1, S2, S3, S4 and S10 on a user's
->    message only when our Muse Spark check agrees. **Ask:** Indic-language calibration, and a
+>    a refusal for a question about the moon. We now count S1, S2, S3, S4, S7 and S10 on a
+>    user's message only when our Muse Spark check agrees (S7 since it called "I can't read, how do I
+>    use it?" a privacy breach). **Ask:** Indic-language calibration, and a
 >    per-category score or threshold, so one model can be trusted alone.
 > 2. **No Meta embedding model.** Every runtime model must be Meta's, so our multilingual
 >    embeddings had to go, and the student mentor now searches 53 official documents by keyword
