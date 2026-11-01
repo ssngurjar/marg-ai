@@ -350,6 +350,13 @@ class StudentIntent(StrEnum):
     QUESTION = "question"  # anything else: a fact, a choice, a worry, what a job is
 
 
+class TeacherIntent(StrEnum):
+    """What a teacher's free text asks for (owner, 2026-11-01): read by Muse Spark."""
+
+    BRIDGE = "bridge"  # a chapter or topic to connect to real work: the three fields
+    TEACHING = "teaching"  # how to teach, start, explain or check a chapter, or a subject question
+
+
 class CorpusTopic(StrEnum):
     """The corpus folders (s11 §4.1); a document's topic must equal its folder."""
 

@@ -4,9 +4,10 @@ from collections import Counter
 
 import pytest
 
-from app.domain.enums import ConversationState
+from app.domain.enums import ConversationState, TeacherIntent
 from scripts.onboarding_bank import OnboardingBank
 from scripts.student_route_bank import StudentRouteBank
+from scripts.teacher_bank import TeacherBank
 
 pytestmark = pytest.mark.unit
 
@@ -43,4 +44,13 @@ def test_the_student_bank_has_both_routes_and_no_repeats() -> None:
     texts = Counter(case.text.strip().lower() for case in STUDENT.cases)
     assert routes["roadmap"] >= 10
     assert routes["mentor"] >= 10
+    assert [text for text, count in texts.items() if count > 1] == []
+
+
+def test_the_teacher_bank_has_both_intents_and_no_repeats() -> None:
+    bank = TeacherBank.load()
+    intents = Counter(case.intent for case in bank.cases)
+    texts = Counter(case.text.strip().lower() for case in bank.cases)
+    assert intents[TeacherIntent.BRIDGE] >= 8
+    assert intents[TeacherIntent.TEACHING] >= 8
     assert [text for text, count in texts.items() if count > 1] == []

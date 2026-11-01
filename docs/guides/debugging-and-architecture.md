@@ -229,7 +229,7 @@ The turn row's `route` column and the `route` step's `detail` tell you which rul
 | Khoj card (C6) | `layers/khoj_card_maker.py`, `worker/khoj_card_sender.py`, `providers/image/` | `khoj_card_text.md.j2`, `constants/khoj_card_style.py` | `media_blobs`, `learner_activities.card_blob_id` |
 | Voice in/out (S6) | `orchestrator._hear` / `_with_voice`, `audio/`, `providers/speech/` | `audio/tts_text_preparer.py` (what the voice may say) | `media_blobs` |
 | Safety | `safety/safety_gate.py`, `safety/domain_policy.py`, `domain/rules/crisis_phrase_matcher.py`; the breaker: `core/circuit_breaker.py`, `core/provider_breaker.py` | `minor_policy.md.j2`, `reply_policy.md.j2`, `image_policy.md.j2`, `constants/crisis_*.py`, `child_hazards.py` | — |
-| Teacher bridges (S10) | `layers/exposure_layer.py`, `layers/curriculum_catalogue.py`, `domain/rules/chapter_matcher.py` | `exposure.md.j2` | — |
+| Teacher bridges and teaching help (S10) | `layers/exposure_layer.py` (reads the message, then a bridge or teaching help), `layers/teacher_intent_reader.py`, `layers/teaching_layer.py`, `layers/curriculum_catalogue.py`, `domain/rules/chapter_matcher.py` | `exposure.md.j2`, `teacher_intent.md.j2`, `teaching_answer.md.j2`; bank `evals/intents/teacher_messages.yaml` | — |
 | Student mentor (S11/S12) | `layers/mentor_layer.py`, `layers/query_rewriter.py`, `rag/retriever.py` (keyword search in Postgres, `domain/rules/rank_fusion.py`) | `mentor.md.j2`, `query_rewrite.md.j2`, `corpus/` (each file has `source_url`, `retrieved_on`) | `corpus_documents`, `corpus_chunks` |
 | Plans (S12) | `layers/roadmap_layer.py` | `roadmap.md.j2` | `roadmaps`, `roadmap_steps` |
 | Student memory and aims (S12/S13) | `layers/memory_layer.py`, `telemetry/` aspiration extractor, `domain/rules/aspiration_trajectory.py` | `memory.md.j2`, `aspiration_extract.md.j2` | `profile_memory`, `aspiration_signals` |
@@ -380,6 +380,7 @@ through the live reader (as a turn does) and prints every miss; it exits with an
 | `.venv/bin/python -m scripts.intent_bank [--repeat 2]` | 156 parent messages → intent and asked language |
 | `.venv/bin/python -m scripts.onboarding_bank [--repeat 2]` | 72 onboarding answers → event and values (age, nickname, grade, district…) |
 | `.venv/bin/python -m scripts.student_route_bank [--repeat 2]` | 37 student messages → mentor or plan |
+| `.venv/bin/python -m scripts.teacher_bank [--repeat 2]` | 20 teacher messages → bridge or teaching help |
 
 For any other prompt, the pattern is a small script: load settings, build the adapter and
 `prompt_registry(settings)` from `app/wiring.py`, call the layer, print the reply (synthetic

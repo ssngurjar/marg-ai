@@ -246,6 +246,11 @@ on the way ("class 8, kal bal aur dabav padhana hai") is kept and answered once 
 done.
 
 ### What the teacher gets
+- **Teaching help:** "how do I start this so everyone understands?", "students confuse mass and
+  weight": an opening from village life, the idea in three simple steps, a question to check
+  they understood, and a mistake students often make. Marg remembers the chapter, so a follow-up
+  needn't name it again.
+- **The bridge:**
 1. "Kal class 8 mein Force and Pressure padhana hai", or a whole subject.
 2. Marg connects it to **three real fields**, at least one outside science and one reachable
    without a degree: why it connects, a plain example of the work, a five-minute activity for 40

@@ -105,7 +105,7 @@ line of the module's docstring.
 
 | Module | Classes | What it does |
 |---|---|---|
-| `enums.py` | `Channel`, `MessageKind`, `ConversationState`, `InboxStatus`, `OutboxStatus`, `AudioVerdict`, `Speaker`, `ChildSessionEndReason`, `MediaPurpose`, `PartKind`, `Language`, `Route`, `StepName`, `StepOutcome`, `FailureKind`, `TurnStatus`, `SafetyDecision`, `SafetyCategory`, `FixedReplyKind`, `FixedReplyVariant`, `Mode`, `Role`, `ConsentEventKind`, `LearnerRelation`, `CopyKey`, `CuriosityDomain`, `ActivityStatus`, `AgeBand`, `ParentIntent`, `StudentIntent`, `CorpusTopic`, `RoadmapStatus`, `RoadmapStepStatus`, `AspirationField`, `ConstraintKind`, `Sentiment` | Closed sets of values shared across the app (contracts.md §1). |
+| `enums.py` | `Channel`, `MessageKind`, `ConversationState`, `InboxStatus`, `OutboxStatus`, `AudioVerdict`, `Speaker`, `ChildSessionEndReason`, `MediaPurpose`, `PartKind`, `Language`, `Route`, `StepName`, `StepOutcome`, `FailureKind`, `TurnStatus`, `SafetyDecision`, `SafetyCategory`, `FixedReplyKind`, `FixedReplyVariant`, `Mode`, `Role`, `ConsentEventKind`, `LearnerRelation`, `CopyKey`, `CuriosityDomain`, `ActivityStatus`, `AgeBand`, `ParentIntent`, `StudentIntent`, `TeacherIntent`, `CorpusTopic`, `RoadmapStatus`, `RoadmapStepStatus`, `AspirationField`, `ConstraintKind`, `Sentiment` | Closed sets of values shared across the app (contracts.md §1). |
 
 ## `domain/models`
 
@@ -210,6 +210,8 @@ line of the module's docstring.
 | `query_rewriter.py` | `RewrittenQuery`, `QueryRewriter` | QueryRewriter: a student's question as an English search with exam and scheme names |
 | `roadmap_layer.py` | `RoadmapDraftStep`, `RoadmapDraft`, `RoadmapLayer` | RoadmapLayer: a student's goal as 3-6 concrete, sourced steps (s12 §4.4). |
 | `student_intent_reader.py` | `StudentIntentReading`, `StudentIntentRead`, `StudentIntentReader` | StudentIntentReader: whether a student's free text asks for a plan, read by Muse Spark. |
+| `teacher_intent_reader.py` | `TeacherIntentReading`, `TeacherIntentRead`, `TeacherIntentReader` | TeacherIntentReader: whether a teacher's free text asks for the three-field bridge or for |
+| `teaching_layer.py` | `TeachingAnswer`, `TeachingLayer` | TeachingLayer: practical help to teach a chapter (owner, 2026-11-01): how to open the class |
 
 ## `pipeline`
 

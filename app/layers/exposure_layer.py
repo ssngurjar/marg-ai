@@ -11,6 +11,7 @@ money in any field (one repair retry). The reply is assembled by code in the tea
 title, when the catalogue recognises one, is a hint, never a gate.
 """
 
+import re
 from collections.abc import Sequence
 from typing import Annotated, Final, Literal, Self
 
@@ -26,7 +27,7 @@ from app.constants.teacher_copy import (
     NEW_CHAPTER,
 )
 from app.core.errors import DomainError
-from app.domain.enums import Language, Role, Route, StepOutcome
+from app.domain.enums import Language, Role, Route, StepOutcome, TeacherIntent
 from app.domain.models.reply import CanonicalReply
 from app.domain.models.turn import Exchange, TurnContext
 from app.domain.rules.chapter_matcher import ChapterMatcher
@@ -37,6 +38,8 @@ from app.layers.layer_result import LayerResult
 from app.layers.local_voice import LocalVoice
 from app.layers.mentor_layer import MentorLayer
 from app.layers.parent_question_layer import ParentQuestionLayer
+from app.layers.teacher_intent_reader import TeacherIntentRead, TeacherIntentReader
+from app.layers.teaching_layer import TeachingLayer
 from app.prompts.prompt_registry import PromptRegistry, PromptSpec
 from app.providers.ports import LanguageModel
 
@@ -104,17 +107,28 @@ def _bridge_rules(bridge: ExposureBridge) -> None:
 
 
 THREE_FIELDS: Final = 3
+CLASS_NOTE: Final = re.compile(r"\s*\(class \d{1,2}\)$")
 EXPOSURE: Final = PromptSpec(prompt_id="exposure", output_type=ExposureBridge)
 CHAPTER_EXAMPLES: Final = 8
 
 
 class ExposureLayer:
     def __init__(
-        self, llm: LanguageModel, registry: PromptRegistry, catalogue: ChapterCatalogue
+        self,
+        llm: LanguageModel,
+        registry: PromptRegistry,
+        catalogue: ChapterCatalogue,
+        *,
+        intents: TeacherIntentReader | None = None,
+        teaching: TeachingLayer | None = None,
     ) -> None:
+        """`intents` and `teaching`: a teacher's teaching question gets teaching help, not a
+        bridge (owner, 2026-11-01); without them every message makes a bridge."""
         self._llm = llm
         self._registry = registry
         self._catalogue = catalogue
+        self._intents = intents
+        self._teaching = teaching
 
     async def generate(
         self, ctx: TurnContext, user_text: str, interactive_ids: Sequence[str], register: Language
@@ -127,6 +141,30 @@ class ExposureLayer:
         wants_more = MORE_ACTIVITY in interactive_ids
         if NEW_CHAPTER in interactive_ids or (wants_more and previous is None):
             return ExposureLayer._ask_chapter(register)
+        if interactive_ids or not user_text.strip() or self._intents is None:
+            return await self._bridge(ctx, user_text, interactive_ids, register, previous)
+        last_topic = ExposureLayer.last_topic(ctx.recent_exchanges)
+        read = await self._intents.read(user_text, last_topic)
+        if read.intent is TeacherIntent.TEACHING and self._teaching is not None:
+            topic = read.topic or last_topic
+            if topic is None:
+                result = ExposureLayer._ask_chapter(register)
+            else:
+                result = await self._teaching.answer(ctx, user_text, topic, register)
+        else:
+            result = await self._bridge(ctx, user_text, interactive_ids, register, previous)
+        return _with_reading(result, read)
+
+    async def _bridge(
+        self,
+        ctx: TurnContext,
+        user_text: str,
+        interactive_ids: Sequence[str],
+        register: Language,
+        previous: str | None,
+    ) -> LayerResult:
+        """The three fields (s10), or another activity, or a clarifying question."""
+        wants_more = MORE_ACTIVITY in interactive_ids
         profile = ctx.profile
         subject = ChapterMatcher.subject_of(profile.subject)
         match = ChapterMatcher.match(user_text, profile.grade, subject, self._catalogue.books)
@@ -173,6 +211,21 @@ class ExposureLayer:
             degraded_reason=None,
             hazard_rule=None,
         )
+
+    @staticmethod
+    def last_topic(exchanges: Sequence[Exchange]) -> str | None:
+        """The chapter of the latest bridge or teaching answer: its first line ("Topic: Newton's
+        laws of motion (class 9)") without the class, so a follow-up needn't name it again."""
+        previous = ExposureLayer.previous_reply(exchanges)
+        if previous is None:
+            return None
+        first_line = previous.split("\n", 1)[0]
+        for labels in LABELS.values():
+            prefix = f"{labels['topic']}: "
+            if first_line.startswith(prefix):
+                topic = first_line.removeprefix(prefix)
+                return CLASS_NOTE.sub("", topic).strip() or None
+        return None
 
     @staticmethod
     def previous_reply(exchanges: Sequence[Exchange]) -> str | None:
@@ -268,3 +321,15 @@ class ExposureLayer:
             degraded_reason=None,
             hazard_rule=None,
         )
+
+
+def _with_reading(result: LayerResult, read: TeacherIntentRead) -> LayerResult:
+    """The reading's usage and prompt version go with the turn's result; a failed reading (the
+    bridge was made instead) marks the turn DEGRADED."""
+    update: dict[str, object] = {
+        "usages": [read.usage, *result.usages] if read.usage else result.usages,
+        "prompt_versions": {**read.prompt_versions, **result.prompt_versions},
+    }
+    if read.failed and result.outcome is StepOutcome.OK:
+        update |= {"outcome": StepOutcome.DEGRADED, "degraded_reason": read.failed}
+    return result.model_copy(update=update)

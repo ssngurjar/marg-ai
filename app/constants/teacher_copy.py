@@ -47,6 +47,21 @@ LABELS: Final[dict[Language, dict[str, str]]] = {
         "another": "Another activity",
     },
 }  # fmt: skip
+# A teaching answer's sections (owner, 2026-11-01: teachers asked how to start a chapter)
+TEACHING_LABELS: Final[dict[Language, dict[str, str]]] = {
+    Language.HINGLISH: {
+        "start": "Class aise shuru kijiye", "steps": "Teen aasaan kadam mein samjhaiye",
+        "check": "Samjha ya nahi, poochhiye", "mistake": "Aam galti",
+    },
+    Language.HINDI: {
+        "start": "कक्षा ऐसे शुरू कीजिए", "steps": "तीन आसान कदमों में समझाइए",
+        "check": "समझा या नहीं, पूछिए", "mistake": "आम ग़लती",
+    },
+    Language.ENGLISH: {
+        "start": "Start the class like this", "steps": "Explain it in three simple steps",
+        "check": "Check they understood", "mistake": "A common mistake",
+    },
+}  # fmt: skip
 DEVICE_OR_PURCHASE_WORDS: Final[tuple[str, ...]] = (
     "projector", "laptop", "computer", "smartphone", "tablet", "internet", "wifi", "youtube",
     "printout", "buy", "purchase", "kharid", "kharidna", "kharidein", "ख़रीद", "खरीद",

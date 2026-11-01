@@ -61,6 +61,8 @@ from app.layers.parent_question_layer import PARENT_ANSWER, ParentQuestionLayer
 from app.layers.query_rewriter import QUERY_REWRITE
 from app.layers.roadmap_layer import ROADMAP, RoadmapLayer
 from app.layers.student_intent_reader import STUDENT_INTENT, StudentIntentReader
+from app.layers.teacher_intent_reader import TEACHER_INTENT, TeacherIntentReader
+from app.layers.teaching_layer import TEACHING_ANSWER, TeachingLayer
 from app.pipeline.channel_media_fetcher import ChannelMediaFetcher
 from app.pipeline.fixed_reply_service import FixedReplyService
 from app.pipeline.orchestrator import (
@@ -172,6 +174,8 @@ PROMPT_SPECS: Final = (
     CHILD_REDIRECT,
     PARENT_INTENT,
     STUDENT_INTENT,
+    TEACHER_INTENT,
+    TEACHING_ANSWER,
     CURIOSITY_EXTRACT,
     KHOJ_CARD_TEXT,
     QUERY_REWRITE,
@@ -585,7 +589,17 @@ def student_steps(
     return StudentSteps(
         mentor=mentor,
         roadmap=RoadmapLayer(language_model, registry, mentor),
-        exposure=ExposureLayer(language_model, registry, ChapterCatalogue.load()),
+        exposure=ExposureLayer(
+            language_model,
+            registry,
+            ChapterCatalogue.load(),
+            intents=(
+                TeacherIntentReader(language_model, registry)
+                if settings.intent_reading_enabled
+                else None
+            ),
+            teaching=TeachingLayer(language_model, registry),
+        ),
         intents=(
             StudentIntentReader(language_model, registry)
             if settings.intent_reading_enabled

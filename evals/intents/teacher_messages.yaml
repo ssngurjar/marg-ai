@@ -1,0 +1,28 @@
+# The teacher bank: how teachers ask, and whether it's a chapter to connect (bridge) or a
+# teaching question (teaching). Synthetic. Run it live with
+# `.venv/bin/python -m scripts.teacher_bank`; `last_topic` is the chapter talked about before.
+
+cases:
+  # --- bridge: a chapter to connect to real work -----------------------------------------------
+  - {text: "Class 9 newtons laws of motion", intent: bridge}
+  - {text: "kal class 8 mein bal aur dabav padhana hai", intent: bridge}
+  - {text: "Class 7 nutrition in plants tomorrow", intent: bridge}
+  - {text: "मुझे कक्षा 6 में भिन्न पढ़ानी है", intent: bridge}
+  - {text: "economics padhne wale kya ban sakte hain", intent: bridge}
+  - {text: "what jobs use fractions", intent: bridge}
+  - {text: "next chapter is electricity, class 10", intent: bridge}
+  - {text: "photosynthesis", intent: bridge}
+  - {text: "agle hafte class 9 mein sound padhaunga", intent: bridge}
+  - {text: "Class 11 thermodynamics", intent: bridge}
+
+  # --- teaching: how to teach it --------------------------------------------------------------
+  - {text: "Can you tell me first how to start in class so everyone understand it", last_topic: "Newton's laws of motion", intent: teaching}
+  - {text: "students confuse mass and weight, what should I do", intent: teaching}
+  - {text: "inertia ko aasaan bhasha mein kaise samjhaun", intent: teaching}
+  - {text: "how do I check if they understood pressure", last_topic: "Force and Pressure", intent: teaching}
+  - {text: "बच्चे भिन्न में बहुत गलती करते हैं, कैसे समझाऊँ", intent: teaching}
+  - {text: "is chapter ko interesting kaise banaun", last_topic: "Sound", intent: teaching}
+  - {text: "give me a quick revision game for this", last_topic: "Fractions", intent: teaching}
+  - {text: "what is the difference between speed and velocity, how to explain", intent: teaching}
+  - {text: "kids get bored in the first 5 minutes, how to start", last_topic: "Electricity", intent: teaching}
+  - {text: "how do I teach this to students who are weak in maths", last_topic: "Fractions", intent: teaching}

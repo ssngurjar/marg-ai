@@ -158,9 +158,10 @@ When a change touches a prompt or a layer, also run `marg eval` on the affected 
 and report the scorecard delta. A prompt change that lowers a rubric score needs a reason.
 
 When a change touches how Marg reads people (`parent_intent`, `profile_extraction`,
-`student_intent`, the onboarding parser, the router's word rules), also run the matching bank
-(`scripts.intent_bank`, `scripts.onboarding_bank`, `scripts.student_route_bank`; each exits non-zero
-below 97%) and add the case that prompted the change.
+`student_intent`, `teacher_intent`, the onboarding parser, the router's word rules), also run the
+matching bank (`scripts.intent_bank`, `scripts.onboarding_bank`, `scripts.student_route_bank`,
+`scripts.teacher_bank`; each exits non-zero below 97%) and add the case that prompted the change.
+Run the integration tests too: their scripted readings must carry every field the readers add.
 
 **Then update the docs the change touched, in the same commit** (owner, 2026-11-01). Code whose
 docs still describe the old behaviour is not done. Check each, and update what no longer holds:

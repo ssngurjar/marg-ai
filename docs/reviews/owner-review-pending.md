@@ -517,3 +517,5 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
 - [ ] **Read the onboarding lines** (`ABOUT_MARG`, `KHOJ_OR_QUESTION` in
   `app/constants/onboarding_copy.py`): what Marg does and keeps, said during onboarding, and the
   "today's khoj, or a question?" choice after the child-talk answer.
+- [ ] **Read the teaching-answer section names** (`TEACHING_LABELS` in
+  `app/constants/teacher_copy.py`), and try "how do I start this chapter?" after a bridge.

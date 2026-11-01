@@ -5,12 +5,14 @@ from datetime import UTC, datetime
 import pytest
 
 from app.constants.teacher_copy import ASK_CHAPTER, MORE_ACTIVITY, NEW_CHAPTER
-from app.core.errors import DomainError
-from app.domain.enums import Language, Role, Route
+from app.core.errors import DomainError, ProviderUnavailable
+from app.domain.enums import Language, Role, Route, StepOutcome
 from app.domain.models.turn import Exchange, TurnContext
 from app.layers.curriculum_catalogue import ChapterCatalogue
 from app.layers.exposure_layer import ExposureBridge, ExposureLayer
-from tests.fakes.language_model import FakeLanguageModel
+from app.layers.teacher_intent_reader import TeacherIntentReader
+from app.layers.teaching_layer import TeachingAnswer, TeachingLayer
+from tests.fakes.language_model import FakeLanguageModel, PromptRoutedLanguageModel, ScriptedOutput
 from tests.support.prompts import shipped_registry
 from tests.support.turn_context import text_message, turn_context, user_profile
 
@@ -177,3 +179,131 @@ def test_devices_purchases_and_money_are_refused(activity: str, problem: str) ->
 
 def test_a_clean_bridge_has_no_problems() -> None:
     assert ExposureLayer.problems(ExposureBridge.model_validate(BRIDGE), E) == []
+
+
+# --- teaching help, not only bridges (owner, 2026-11-01) -----------------------------------------
+
+TEACHING: dict[str, object] = {
+    "opening": "Ask: at the haat, why do sacks slide forward when the cart stops?",
+    "steps": [
+        "Things keep doing what they do until a push or pull changes it.",
+        "A heavier thing needs more force to start or stop.",
+        "Every push has an equal push back.",
+    ],
+    "check_question": "Why do we lean forward when the bus stops?",
+    "common_mistake": "Students think force keeps things moving; force changes motion.",
+    "spoken_text": "Ask the class why sacks slide forward when the cart stops.",
+}
+LAST_BRIDGE = Exchange(
+    user_text="Class 9 newtons laws of motion",
+    reply_text="Topic: Newton's laws of motion (class 9)\nThree fields this chapter leads to: …",
+    route=Route.EXPOSURE,
+    at=datetime(2026, 11, 1, 12, 0, tzinfo=UTC),
+)
+
+
+def teacher_reading(intent: str, topic: str | None = None) -> dict[str, object]:
+    return {"intent": intent, "topic": topic}
+
+
+def reading_layer(
+    reading: ScriptedOutput, teaching: ScriptedOutput = TEACHING, bridge: ScriptedOutput = BRIDGE
+) -> tuple[ExposureLayer, PromptRoutedLanguageModel]:
+    llm = PromptRoutedLanguageModel(
+        {
+            "teacher_intent": FakeLanguageModel([reading]),
+            "teaching_answer": FakeLanguageModel([teaching]),
+            "exposure": FakeLanguageModel([bridge]),
+        }
+    )
+    registry = shipped_registry()
+    return (
+        ExposureLayer(
+            llm,
+            registry,
+            ChapterCatalogue(()),
+            intents=TeacherIntentReader(llm, registry),
+            teaching=TeachingLayer(llm, registry),
+        ),
+        llm,
+    )
+
+
+async def test_how_to_start_the_class_gets_teaching_help_for_the_last_chapter() -> None:
+    # Owner's demo: "how to start in class so everyone understands it" got "which chapter?"
+    layer_with_reader, llm = reading_layer(teacher_reading("teaching"))
+    text = "Can you tell me first how to start in class so everyone understand it"
+    result = await layer_with_reader.generate(teacher_ctx(text, [LAST_BRIDGE]), text, [], E)
+    assert result.reply.body.startswith("Topic: Newton's laws of motion\n")
+    assert "Start the class like this:" in result.reply.body
+    assert "1. Things keep doing" in result.reply.body
+    [prompt] = llm.by_prompt["teaching_answer"].prompts
+    assert "The chapter: Newton's laws of motion." in prompt.system
+    assert llm.by_prompt["exposure"].prompts == []
+    assert result.prompt_versions == {"teacher_intent": "1.0.0", "teaching_answer": "1.0.0"}
+
+
+async def test_a_teaching_question_naming_its_topic_uses_that_topic() -> None:
+    layer_with_reader, _ = reading_layer(teacher_reading("teaching", "mass and weight"))
+    text = "students confuse mass and weight"
+    result = await layer_with_reader.generate(teacher_ctx(text, [LAST_BRIDGE]), text, [], E)
+    assert result.reply.body.startswith("Topic: mass and weight\n")
+
+
+async def test_a_teaching_question_with_no_chapter_anywhere_asks_for_one() -> None:
+    layer_with_reader, llm = reading_layer(teacher_reading("teaching"))
+    result = await layer_with_reader.generate(
+        teacher_ctx("how do I start it"), "how do I start it", [], E
+    )
+    assert result.reply.body == ASK_CHAPTER[E]
+    assert llm.by_prompt["teaching_answer"].prompts == []
+
+
+async def test_a_chapter_read_as_a_bridge_gets_the_three_fields() -> None:
+    layer_with_reader, llm = reading_layer(teacher_reading("bridge", "Force and Pressure"))
+    result = await layer_with_reader.generate(
+        teacher_ctx(), "Kal class 8 Force and Pressure", [], E
+    )
+    assert len(llm.by_prompt["exposure"].prompts) == 1
+    assert llm.by_prompt["teaching_answer"].prompts == []
+    assert result.outcome is StepOutcome.OK
+
+
+async def test_if_the_reading_fails_the_bridge_is_made_and_the_turn_says_so() -> None:
+    layer_with_reader, llm = reading_layer(ProviderUnavailable("503", provider="meta_model_api"))
+    result = await layer_with_reader.generate(
+        teacher_ctx(), "Kal class 8 Force and Pressure", [], E
+    )
+    assert len(llm.by_prompt["exposure"].prompts) == 1
+    assert result.outcome is StepOutcome.DEGRADED
+    assert result.degraded_reason == "teacher_intent_failed=ProviderUnavailable"
+
+
+async def test_buttons_never_call_the_reader() -> None:
+    layer_with_reader, llm = reading_layer(teacher_reading("teaching"))
+    await layer_with_reader.generate(teacher_ctx("", [LAST_BRIDGE]), "", [MORE_ACTIVITY], E)
+    assert llm.by_prompt["teacher_intent"].prompts == []
+
+
+@pytest.mark.parametrize(
+    ("first_line", "topic"),
+    [
+        ("Topic: Newton's laws of motion (class 9)", "Newton's laws of motion"),
+        ("Chapter: Bal aur dabav (class 8)", "Bal aur dabav"),
+        ("अध्याय: बल और दाब", "बल और दाब"),
+        ("Which chapter are you teaching next?", None),
+    ],
+)
+def test_the_last_chapter_is_read_from_the_last_teacher_reply(
+    first_line: str, topic: str | None
+) -> None:
+    earlier = LAST_BRIDGE.model_copy(update={"reply_text": f"{first_line}\nmore"})
+    assert ExposureLayer.last_topic([earlier]) == topic
+
+
+@pytest.mark.parametrize(
+    "text", ["Use a projector to show it.", "Ask them to buy a magnet.", "A mechanic earns 2 lakh."]
+)
+def test_teaching_help_needing_a_device_purchase_or_money_is_sent_back(text: str) -> None:
+    answer = TeachingAnswer.model_validate({**TEACHING, "opening": text})
+    assert TeachingLayer.problems(answer, E) != []
