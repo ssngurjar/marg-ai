@@ -39,3 +39,8 @@ cases:
   - {text: "ITI ke baad job milti hai kya", route: mentor}
   - {text: "mere gaon mein koi coaching nahi hai", route: mentor}
   - {text: "how much does a nurse earn", route: mentor}
+  - {text: "pilot kaise bante hain? hamare zile mein airport nahi hai", route: mentor}
+  - {text: "mujhe apna kaam shuru karna hai, silai ka, kahan se shuru karun", route: mentor}
+  - {text: "doctor banne ke liye kya karna hoga", route: mentor}
+  - {text: "how do I become a lawyer", route: mentor}
+  - {text: "पुलिस में जाने के लिए क्या करना पड़ता है", route: mentor}

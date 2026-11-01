@@ -67,6 +67,7 @@ from app.domain.enums import (
     Speaker,
     StepName,
     StepOutcome,
+    StudentIntent,
 )
 from app.domain.models.aspiration import ExtractAspiration
 from app.domain.models.curiosity import (
@@ -109,6 +110,7 @@ from app.layers.onboarding_layer import (
     PendingQuestionHandoff,
 )
 from app.layers.roadmap_layer import RoadmapLayer
+from app.layers.student_intent_reader import StudentIntentReader
 from app.pipeline.failure_policy import FailurePolicy
 from app.pipeline.fixed_reply_service import FixedReplyService
 from app.pipeline.reply_parts_builder import ReplyDelivery, ReplyPartsBuilder
@@ -146,6 +148,7 @@ class OrchestratorSettings:
     synthesize_timeout: timedelta
     exposure_timeout: timedelta = timedelta(seconds=18)  # TIMEOUT_EXPOSURE_S
     mentor_timeout: timedelta = timedelta(seconds=18)  # TIMEOUT_MENTOR_S: mentor and roadmap
+    route_timeout: timedelta = timedelta(seconds=4)  # TIMEOUT_ROUTE_S: reading a student's ask
     fetch_image_timeout: timedelta = timedelta(seconds=5)  # TIMEOUT_FETCH_IMAGE_S
     analyze_image_timeout: timedelta = timedelta(seconds=6)  # TIMEOUT_ANALYZE_IMAGE_S
 
@@ -180,6 +183,9 @@ class StudentSteps:
     mentor: MentorLayer
     roadmap: RoadmapLayer
     exposure: ExposureLayer | None = None
+    # Reads a student's free text the plan words didn't catch (owner, 2026-11-01); None: the
+    # router's choice stands (INTENT_READING_ENABLED off).
+    intents: StudentIntentReader | None = None
 
     def serves(self, route: Route) -> bool:
         if route is Route.EXPOSURE:
@@ -323,9 +329,37 @@ class _Turn:
             decision = decision.model_copy(
                 update={"route": route, "reason": "child talk switched off"}
             )
-        await self._record(_StepRecord(StepName.ROUTE, routed_at, decision, None, decision.reason))
+        decision, reading_usage = await self._student_reading(decision)
+        await self._record(
+            _StepRecord(StepName.ROUTE, routed_at, decision, reading_usage, decision.reason)
+        )
         await self._safely(self.recorder.set_turn_route(self.ctx.turn_id, decision.route))
         return await self._dispatch(decision, interactive_ids)
+
+    async def _student_reading(
+        self, decision: RouteDecision
+    ) -> tuple[RouteDecision, StepUsage | None]:
+        """A student's free text the plan words didn't catch: Muse Spark reads whether it asks
+        for a plan, and a plan goes to the roadmap. A failed or slow reading keeps the mentor."""
+        student = self.steps.student
+        reader = student.intents if student is not None else None
+        if reader is None or decision.route is not Route.MENTOR or not self.user_text.strip():
+            return decision, None
+        try:
+            read = await self._bounded(reader.read(self.user_text), self.settings.route_timeout)
+        except TimeoutError:
+            logger.warning("student_intent_slow")
+            return decision.model_copy(update={"reason": "student default; reading too slow"}), None
+        self.prompt_versions = {**self.prompt_versions, **read.prompt_versions}
+        if read.intent is StudentIntent.PLAN:
+            plan = decision.model_copy(
+                update={"route": Route.ROADMAP, "reason": "plan asked for (read)"}
+            )
+            return plan, read.usage
+        if read.failed is not None:
+            logger.warning("student_intent_failed", error=read.failed)
+            return decision.model_copy(update={"reason": f"student default; {read.failed}"}), None
+        return decision.model_copy(update={"reason": "question (read)"}), read.usage
 
     async def _dispatch(self, decision: RouteDecision, interactive_ids: list[str]) -> TurnOutcome:
         """A photo is looked at first (its fixed replies end the turn), then the route's step."""
@@ -606,7 +640,7 @@ class _Turn:
             layer_result = await generation
         except (ProviderError, StoreError, DomainError, TimeoutError) as error:
             return await self._failed(StepName.GENERATE, started, error, route)
-        self.prompt_versions = dict(layer_result.prompt_versions)
+        self.prompt_versions = {**self.prompt_versions, **layer_result.prompt_versions}
         await self._record(
             _StepRecord(
                 StepName.GENERATE,

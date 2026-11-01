@@ -337,6 +337,14 @@ class ParentIntent(StrEnum):
     DELETE_DATA = "delete_data"  # wants Marg to delete everything it keeps about them
 
 
+class StudentIntent(StrEnum):
+    """What a student's free text asks for, when no plan words decided it (owner, 2026-11-01):
+    read by Muse Spark, and code routes on it."""
+
+    PLAN = "plan"  # wants a step-by-step plan toward a goal made, shown or redone
+    QUESTION = "question"  # anything else: a fact, a choice, a worry, what a job is
+
+
 class CorpusTopic(StrEnum):
     """The corpus folders (s11 §4.1); a document's topic must equal its folder."""
 

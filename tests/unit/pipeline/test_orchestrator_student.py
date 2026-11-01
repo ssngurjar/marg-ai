@@ -33,6 +33,7 @@ from app.layers.exposure_layer import ExposureLayer
 from app.layers.mentor_layer import MentorLayer, MentorSettings
 from app.layers.onboarding_layer import OnboardingLayer
 from app.layers.roadmap_layer import RoadmapLayer
+from app.layers.student_intent_reader import StudentIntentReader
 from app.pipeline.null_turn_observer import NullTurnObserver
 from app.pipeline.orchestrator import (
     DashboardLinks,
@@ -52,7 +53,7 @@ from tests.fakes.corpus import FakeChunkStore
 from tests.fakes.domain_policy import CLEAR, reply_answer, scripted_policy
 from tests.fakes.language_model import FakeLanguageModel, PromptRoutedLanguageModel, ScriptedOutput
 from tests.fakes.safety_classifier import FakeSafetyClassifier
-from tests.fakes.step_recorder import MemoryStepRecorder
+from tests.fakes.step_recorder import MemoryStepRecorder, RecordedStep
 from tests.fakes.voice import FakeVoice
 from tests.support.app_factory import make_settings
 from tests.support.prompts import shipped_registry
@@ -109,6 +110,7 @@ async def run_student(  # noqa: PLR0913  # one keyword per fake or setting a tes
     policy: DomainPolicy | None = None,
     settings: OrchestratorSettings = SETTINGS,
     delay_s: float = 0.0,
+    read_intent: bool = False,
 ) -> StudentRun:
     llm = PromptRoutedLanguageModel(
         {
@@ -135,6 +137,7 @@ async def run_student(  # noqa: PLR0913  # one keyword per fake or setting a tes
                 mentor=mentor,
                 roadmap=RoadmapLayer(llm, shipped_registry(), mentor),
                 exposure=ExposureLayer(llm, shipped_registry(), ChapterCatalogue(())),
+                intents=StudentIntentReader(llm, shipped_registry()) if read_intent else None,
             ),
         ),
         settings,
@@ -331,3 +334,81 @@ async def test_a_mentor_past_its_own_limit_gets_try_again_later() -> None:
     )
     assert result.outcome.fixed_reply_kind is FixedReplyKind.TRY_AGAIN_LATER
     assert result.outcome.route is Route.MENTOR
+
+
+# --- a plan asked for in words the plan list doesn't know (owner, 2026-11-01) -------------------
+
+UNLISTED_PLAN = "Mujhe IAS ka step by step rasta batao"
+
+
+def route_step(result: StudentRun) -> RecordedStep:
+    [step] = [row for row in result.recorder.steps if row.step is StepName.ROUTE]
+    return step
+
+
+async def test_a_plan_read_from_free_words_goes_to_the_roadmap_and_is_recorded_so() -> None:
+    result = await run_student(
+        student_ctx(UNLISTED_PLAN),
+        {"student_intent": [{"intent": "plan"}], "roadmap": [ROADMAP_DRAFT]},
+        read_intent=True,
+    )
+    assert result.outcome.route is Route.ROADMAP
+    assert result.recorder.turn_route is Route.ROADMAP
+    assert route_step(result).detail == "plan asked for (read)"
+    assert route_step(result).usage is not None
+    assert result.outcome.prompt_versions["student_intent"] == "1.1.0"
+
+
+async def test_a_question_read_as_a_question_stays_with_the_mentor() -> None:
+    result = await run_student(
+        student_ctx(QUESTION),
+        {"student_intent": [{"intent": "question"}], "mentor": [MENTOR_ANSWER]},
+        read_intent=True,
+    )
+    assert result.outcome.route is Route.MENTOR
+    assert route_step(result).detail == "question (read)"
+
+
+async def test_plan_words_route_without_calling_the_model() -> None:
+    result = await run_student(
+        student_ctx(PLAN),
+        {
+            "student_intent": [ProviderTimeout("should not be called", provider="meta_model_api")],
+            "roadmap": [ROADMAP_DRAFT],
+        },
+        read_intent=True,
+    )
+    assert result.outcome.route is Route.ROADMAP
+    assert route_step(result).detail == "plan asked for"
+
+
+async def test_a_failed_reading_keeps_the_mentor_and_says_why() -> None:
+    result = await run_student(
+        student_ctx(UNLISTED_PLAN),
+        {
+            "student_intent": [ProviderTimeout("timed out", provider="meta_model_api")],
+            "mentor": [MENTOR_ANSWER],
+        },
+        read_intent=True,
+    )
+    assert result.outcome.route is Route.MENTOR
+    assert route_step(result).detail == "student default; student_intent_failed=ProviderTimeout"
+
+
+async def test_a_reading_slower_than_the_route_limit_keeps_the_mentor() -> None:
+    quick = dataclasses.replace(SETTINGS, route_timeout=timedelta(milliseconds=5))
+    result = await run_student(
+        student_ctx(UNLISTED_PLAN),
+        {"student_intent": [{"intent": "plan"}], "mentor": [MENTOR_ANSWER]},
+        read_intent=True,
+        settings=quick,
+        delay_s=0.05,
+    )
+    assert result.outcome.route is Route.MENTOR
+    assert route_step(result).detail == "student default; reading too slow"
+
+
+async def test_with_intent_reading_off_free_words_go_to_the_mentor_as_before() -> None:
+    result = await run_student(student_ctx(UNLISTED_PLAN), {"mentor": [MENTOR_ANSWER]})
+    assert result.outcome.route is Route.MENTOR
+    assert route_step(result).detail == "student default"

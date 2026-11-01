@@ -60,6 +60,7 @@ from app.layers.onboarding_layer import PROFILE_EXTRACTION, OnboardingLayer
 from app.layers.parent_question_layer import PARENT_ANSWER, ParentQuestionLayer
 from app.layers.query_rewriter import QUERY_REWRITE
 from app.layers.roadmap_layer import ROADMAP, RoadmapLayer
+from app.layers.student_intent_reader import STUDENT_INTENT, StudentIntentReader
 from app.pipeline.channel_media_fetcher import ChannelMediaFetcher
 from app.pipeline.fixed_reply_service import FixedReplyService
 from app.pipeline.orchestrator import (
@@ -170,6 +171,7 @@ PROMPT_SPECS: Final = (
     CHILD_TALK,
     CHILD_REDIRECT,
     PARENT_INTENT,
+    STUDENT_INTENT,
     CURIOSITY_EXTRACT,
     KHOJ_CARD_TEXT,
     QUERY_REWRITE,
@@ -584,6 +586,11 @@ def student_steps(
         mentor=mentor,
         roadmap=RoadmapLayer(language_model, registry, mentor),
         exposure=ExposureLayer(language_model, registry, ChapterCatalogue.load()),
+        intents=(
+            StudentIntentReader(language_model, registry)
+            if settings.intent_reading_enabled
+            else None
+        ),
     )
 
 
@@ -663,6 +670,7 @@ def build_orchestrator(
             generate_timeout=timedelta(seconds=settings.timeout_generate_s),
             exposure_timeout=timedelta(seconds=settings.timeout_exposure_s),
             mentor_timeout=timedelta(seconds=settings.timeout_mentor_s),
+            route_timeout=timedelta(seconds=settings.timeout_route_s),
             safety_out_timeout=timedelta(seconds=settings.timeout_safety_out_s),
             fetch_media_timeout=timedelta(seconds=settings.timeout_fetch_media_s),
             transcribe_timeout=timedelta(seconds=settings.timeout_transcribe_s),
