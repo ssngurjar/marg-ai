@@ -45,3 +45,16 @@ cases:
   - {text: "doctor banne ke liye kya karna hoga", route: mentor}
   - {text: "how do I become a lawyer", route: mentor}
   - {text: "पुलिस में जाने के लिए क्या करना पड़ता है", route: mentor}
+
+  # --- "plan" and its neighbours that don't ask for a plan (critic review §8, 2026-11-01) ---
+  - {text: "mujhe plan nahi chahiye, bas batao ki nurse kitna kamati hai", route: mentor}
+  - {text: "family planning ka chapter samajh nahi aaya", route: mentor}
+  - {text: "planets ke baare mein batao, mujhe ISRO jaana hai", route: mentor}
+  - {text: "plant cell aur animal cell mein kya fark hai", route: mentor}
+  - {text: "aeroplane kaise udta hai", route: mentor}
+  - {text: "mera plan tha doctor banne ka par marks kam aaye, ab kya karun", route: mentor}
+  - {text: "papa ka plan hai ki main shaadi kar lun, mujhe padhna hai", route: mentor}
+  - {text: "what is the government's plan for girls' education", route: mentor}
+  - {text: "मेरा प्लान बना दो इंजीनियर बनने का", route: roadmap}
+  - {text: "teacher banne ka roadmap dikhao", route: roadmap}
+  - {text: "plan bana do na nursing ke liye please", route: roadmap}

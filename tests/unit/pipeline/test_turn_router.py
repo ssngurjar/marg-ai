@@ -245,6 +245,21 @@ def test_a_plan_request_goes_to_the_roadmap(text: str) -> None:
     assert TurnRouter.decide(STUDENT, text, []).route is Route.ROADMAP
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        "mera plan tha doctor banne ka par marks kam aaye, ab kya karun",
+        "my plan was to join the army but I failed",
+        "mujhe plan nahi chahiye, bas batao nurse kitna kamati hai",
+        "मेरा प्लान था पुलिस में जाने का",
+    ],
+)
+def test_a_plan_that_was_or_isnt_wanted_is_not_a_plan_request(text: str) -> None:
+    # critic review §8, 2026-11-01: "mera plan tha…" made a new plan by words
+    decision = TurnRouter.decide(STUDENT, text, [])
+    assert (decision.route, decision.reason) == (Route.MENTOR, "student default")
+
+
 def test_the_plan_button_goes_to_the_roadmap_and_other_buttons_ask_again() -> None:
     assert TurnRouter.decide(STUDENT, "", ["rm:create"]).route is Route.ROADMAP
     assert TurnRouter.decide(STUDENT, "", ["jrn:today"]).route is Route.REPEAT_PLEASE

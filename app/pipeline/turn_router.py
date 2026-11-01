@@ -30,6 +30,12 @@ ROADMAP_PHRASES: Final = (
     "my plan", "new plan", "योजना बनाओ", "प्लान बनाओ", "मेरा प्लान", "नया प्लान",
 )  # fmt: skip
 """A student asking for (or to see) a plan, s12 §4.6. "plan" alone is too common to route on."""
+NOT_A_PLAN_REQUEST: Final = (
+    "plan tha", "plan thi", "plan was", "plan nahi chahiye", "plan nahi chahta", "no plan",
+    "don't want a plan", "प्लान था", "प्लान नहीं चाहिए",
+)  # fmt: skip
+"""A plan that was ("mera plan tha doctor banne ka") or isn't wanted: not a plan request, so the
+student intent reader decides (critic review §8, 2026-11-01)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -126,7 +132,8 @@ class TurnRouter:
             return _to(Route.REPEAT_PLEASE, "unknown interactive id")
         if not user_text.strip():
             return _to(Route.REPEAT_PLEASE, "blank message")
-        if PhraseFinder.contains_any(user_text, ROADMAP_PHRASES):
+        not_a_request = PhraseFinder.contains_any(user_text, NOT_A_PLAN_REQUEST)
+        if not not_a_request and PhraseFinder.contains_any(user_text, ROADMAP_PHRASES):
             return _to(Route.ROADMAP, "plan asked for")
         return _to(Route.MENTOR, "student default")
 
