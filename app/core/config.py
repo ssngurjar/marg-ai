@@ -117,6 +117,14 @@ class Settings(DatabaseSettings):
     timeout_guard_s: float = Field(default=1.5, gt=0)
     # 6 s: Llama Guard (≤ 1.5 s), then the Muse Spark backup reply check when it's down (~2.5 s)
     timeout_safety_out_s: float = Field(default=6.0, gt=0)
+    # The breakers in front of Llama Guard and Muse Spark Open (owner, 2026-11-01): after
+    # BREAKER_FAILURES failures in a row within BREAKER_WINDOW_S, the provider is skipped (its
+    # backup answers at once) for up to BREAKER_OPEN_S; meanwhile a probe every BREAKER_PROBE_S
+    # (Llama Guard only) closes it on the first success.
+    breaker_failures: int = Field(default=2, ge=1)
+    breaker_window_s: float = Field(default=60.0, gt=0)
+    breaker_open_s: float = Field(default=300.0, gt=0)
+    breaker_probe_s: float = Field(default=30.0, gt=0)
 
     # What a web demo visitor's greeting ("Hi") gets: English, for judges and visitors; a
     # message in Hindi or Hinglish still gets its own language. WhatsApp greetings keep

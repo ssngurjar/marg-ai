@@ -37,6 +37,7 @@ from app.constants.child_safety_words import (
 )
 from app.core.errors import ProviderError, SafetyUnavailable
 from app.core.logging import get_logger
+from app.core.provider_breaker import ProviderBreaker
 from app.domain.enums import (
     FixedReplyKind,
     FixedReplyVariant,
@@ -59,6 +60,7 @@ from app.safety.safety_decision_mapper import SafetyDecisionMapper
 _SEAL: Final = object()
 DEFAULT_GUARD_TIMEOUT: Final = timedelta(seconds=1.5)  # TIMEOUT_GUARD_S; wiring passes the setting
 PHOTO_WITHOUT_CAPTION: Final = "A photo of something a young child made or collected."
+GUARD_PROBE_TEXT: Final = "Namaste"  # what the breaker's probe asks Llama Guard to classify
 """Sent with a photo that has no caption: Llama Guard's host takes an image only with text."""
 
 logger = get_logger(__name__)
@@ -158,10 +160,13 @@ class SafetyGate:
         policy: DomainPolicy,
         *,
         guard_timeout: timedelta = DEFAULT_GUARD_TIMEOUT,
+        breaker: ProviderBreaker | None = None,
     ) -> None:
+        """`breaker`: skips Llama Guard while it keeps failing (owner, 2026-11-01)."""
         self._classifier = classifier
         self._policy = policy
         self._guard_timeout = guard_timeout
+        self._breaker = breaker
 
     async def check_input(
         self, user_text: str, earlier_exchange: Exchange | None = None
@@ -427,14 +432,33 @@ class SafetyGate:
         return findings
 
     async def _guard(self, request: SafetyRequest) -> _GuardAnswer | None:
-        """Llama Guard within its own limit; None when it fails, so the backup decides."""
+        """Llama Guard within its own limit; None when it fails, so the backup decides. While
+        its breaker is open, None at once (no wait) and, when due, a probe in the background."""
+        if self._breaker is not None and self._breaker.is_open():
+            self._breaker.probe_if_due(self._probe)
+            return None
         try:
             async with asyncio.timeout(self._guard_timeout.total_seconds()):
                 verdict, usage = await self._classifier.classify(request)
         except (ProviderError, TimeoutError) as exc:
             logger.warning("llama_guard_down", speaker=request.speaker, error=type(exc).__name__)
+            if self._breaker is not None:
+                self._breaker.failed()
             return None
+        if self._breaker is not None:
+            self._breaker.succeeded()
         return _GuardAnswer(verdict, usage)
+
+    async def _probe(self) -> bool:
+        """Is Llama Guard answering again? A harmless greeting, within the usual limit."""
+        request = SafetyRequest(speaker="user", text=GUARD_PROBE_TEXT, prior_user_text=None)
+        try:
+            async with asyncio.timeout(self._guard_timeout.total_seconds()):
+                await self._classifier.classify(request)
+        except (ProviderError, TimeoutError) as exc:
+            logger.warning("llama_guard_probe_failed", error=type(exc).__name__)
+            return False
+        return True
 
     @staticmethod
     def _input_check(

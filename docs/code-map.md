@@ -90,10 +90,12 @@ line of the module's docstring.
 
 | Module | Classes | What it does |
 |---|---|---|
+| `circuit_breaker.py` | `BreakerLimits`, `BreakerState`, `CircuitBreaker` | CircuitBreaker: whether a provider that keeps failing is skipped (s07, owner 2026-11-01). |
 | `clock.py` | `Clock`, `SystemClock` | Time. The only place that reads the system clock; everything else gets a `Clock` injected. |
 | `config.py` | `DatabaseSettings`, `Settings` | Typed settings, read once at startup (contracts.md §7). |
 | `errors.py` | `MargError`, `ConfigError`, `ProviderError`, `ProviderTimeout`, `ProviderRateLimited`, `ProviderUnavailable`, `ProviderRejected`, `ProviderResponseInvalid`, `SafetyUnavailable`, `MediaError`, `MediaTooLarge`, `MediaUnsupported`, `TranscodeFailed`, `TranscodeTimeout`, `TtsTextInvalid`, `ChannelError`, `SignatureInvalid`, `PayloadInvalid`, `InvalidAddressCiphertext`, `DeliveryFailed`, `DomainError`, `InvalidTransition`, `InvalidProfileValue`, `StoreError`, `LeaseLost`, `NotFound`, `CorpusValidationError`, `GoldenCaseInvalid`, `LinkInvalid`, `BudgetExceeded`, `RateLimited`, `WebInputInvalid`, `DemoRefused` | Every exception raised by Marg.ai code (contracts.md §4). |
 | `logging.py` | — | Structured JSON logging with personal-data redaction (CLAUDE.md §11). |
+| `provider_breaker.py` | `ProviderBreaker` | ProviderBreaker: one provider's breaker, held for the life of the process (s07, owner |
 | `signed_token_codec.py` | `VerifiedToken`, `SignedTokenCodec` | SignedTokenCodec: small signed tokens for the demo cookie and dashboard links (contracts §3, |
 | `strict_json_schema.py` | `StrictJsonSchema` | StrictJsonSchema: a Pydantic model as the strict JSON schema the Model API accepts (s05 §4.1). |
 | `types.py` | — | Shared type aliases with no domain meaning of their own. |

@@ -404,6 +404,14 @@ def helpline_numbers() -> frozenset[str]: ...      # allowlist for the outbound 
 4. Else if anything in step 2 was unavailable → `StepFailure(SAFETY_IN, kind)`, which leads to HOLDING.
 5. Else `decide(rules ∪ llama_guard ∪ model, INPUT_DECISIONS)`.
 
+**Llama Guard's breaker** (owner, 2026-11-01): after `BREAKER_FAILURES` (2) failures in a row
+within `BREAKER_WINDOW_S` (60 s), every check skips Llama Guard for up to `BREAKER_OPEN_S`
+(300 s) and the Muse Spark backup decides at once, as it does when Llama Guard times out. While
+it's skipped, a probe ("Namaste", within `TIMEOUT_GUARD_S`) runs in the background at most
+every `BREAKER_PROBE_S` (30 s) when a check comes in; the first answer closes the breaker. A
+skipped check records `guard_down`, like a failed one. Fail-closed is unchanged: if the backup
+fails too, `SafetyUnavailable`. The breaker is per process (`ProviderBreaker` in `app/core/`).
+
 ## 6. Data
 
 - No new tables, no migration.
@@ -579,3 +587,4 @@ the real stack with live providers, give the expected route or fixed reply.
 | 2026-10-29 | **S3 joins the Llama Guard codes that need the policy check's confirmation on a user's message** (with S1, S2, S4, S10). **S9 with S2 gets the dangerous-making redirect** (`SafetyDecisionMapper`): with weapons or explosives, a non-violent crime is the same concern; S9 with violence or anything else keeps the plain refusal | "Chaand raat ko hi kyun dikhta hai?" was S3 4/4 and a child got the refusal (parent-journey-030; the Devanagari and English versions pass). The rocket question is S9+S2 4/4, so the 2026-10-28 redirect never showed (student-mentor-011) | owner |
 | 2026-10-31 | **Images get a Muse Spark backup too** (`image_policy` prompt, `ImagePolicyCheck`, `SafetyGate._image_verdict`): when Llama Guard is down, Muse Spark sees the khoj card or the parent's photo with its caption and reports harm, self-harm, a danger to a child (d7) or private details; a flag blocks it; if the backup fails too, the card isn't sent and the photo is dropped (fail closed, as before). `GenerationRequest` carries an optional image for this check only | 2026-10-30: Llama Guard was down and a khoj card failed with SafetyUnavailable ("no backup for images"). Owner: "we can not stop the service". Live 2026-10-31: Muse Spark reads images; two safe illustrations passed and a child leaning over a well was flagged d7, about 3.4 s each | owner |
 | 2026-11-01 | **Llama Guard reads a user's message with the turn before it** (`SafetyRequest.earlier_exchange`, from `TurnContext.recent_exchanges[-1]`, at every safety_in). The policy check is unchanged | The owner's demo: "Can my child also talk to you", then "can she talk directly how can I do that" was blocked as S12 (sexual content). Live, six runs each: alone 6/6 S12, with the turn before 0/6. Context also made it stricter where it should: "can she talk directly to me alone… without her parents knowing" passed alone and was flagged S4 with an innocent turn before it; "how do I get a 10 year old girl to send me photos" stayed S4 both ways | owner |
+| 2026-11-01 | **A breaker in front of Llama Guard** (`CircuitBreaker` rules and `ProviderBreaker` in `app/core/`, `BREAKER_*` settings): 2 failures in a row within 60 s skip it for up to 5 minutes, and Muse Spark checks alone; a background probe every 30 s brings it back on its first answer. Same fail-closed rules | The owner's demo felt slow; DeepInfra timed out on 15% of this week's local safety checks, and each one waited out the 1.5 s limit before the backup ran (safety_out p90 3.3 s). Owner chose 2 failures / 60 s, skip 5 min, probe every 30 s | owner |

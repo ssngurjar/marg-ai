@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
+from app.core.circuit_breaker import BreakerLimits
 from app.core.errors import (
     ProviderError,
     ProviderRateLimited,
@@ -14,6 +15,7 @@ from app.core.errors import (
     ProviderUnavailable,
     SafetyUnavailable,
 )
+from app.core.provider_breaker import ProviderBreaker
 from app.domain.enums import (
     FixedReplyKind,
     FixedReplyVariant,
@@ -25,11 +27,16 @@ from app.domain.enums import (
 )
 from app.domain.models.message import ImageClip
 from app.domain.models.reply import LocalisedReply
+from app.domain.models.safety import SafetyVerdict
 from app.domain.models.turn import Exchange
+from app.domain.models.usage import StepUsage
 from app.providers.ports import SafetyRequest
 from app.safety.domain_policy import DomainPolicy, HarmKind
-from app.safety.safety_gate import PHOTO_WITHOUT_CAPTION, SafeReply, SafetyGate
+from app.safety.safety_gate import GUARD_PROBE_TEXT, PHOTO_WITHOUT_CAPTION, SafeReply, SafetyGate
+from tests.fakes.clock import FixedClock
 from tests.fakes.domain_policy import (
+    CLEAR,
+    REPLY_CLEAR,
     image_answer,
     policy_answer,
     reply_answer,
@@ -37,7 +44,7 @@ from tests.fakes.domain_policy import (
     scripted_policies,
     scripted_policy,
 )
-from tests.fakes.safety_classifier import FakeSafetyClassifier
+from tests.fakes.safety_classifier import FREE_USAGE, FakeSafetyClassifier
 
 pytestmark = pytest.mark.unit
 
@@ -721,3 +728,92 @@ async def test_with_llama_guard_and_the_backup_both_down_the_photo_is_dropped() 
     gate = SafetyGate(FakeSafetyClassifier(error=GUARD_FAILURES[0]), scripted.policy)
     with pytest.raises(SafetyUnavailable, match="backup image check both failed for a photo"):
         await gate.check_photo(PHOTO, None)
+
+
+# --- the Llama Guard breaker (owner, 2026-11-01) -------------------------------------------------
+
+BREAKER_LIMITS = BreakerLimits(
+    failures_to_open=2,
+    failure_window=timedelta(seconds=60),
+    open_for=timedelta(minutes=5),
+    probe_every=timedelta(seconds=30),
+)
+BREAKER_START = datetime(2026, 11, 1, 8, 0, tzinfo=UTC)
+
+
+class FlakyGuard:
+    """Llama Guard that is down until a test brings it back."""
+
+    def __init__(self) -> None:
+        self.down = True
+        self.texts: list[str] = []
+
+    async def classify(self, request: SafetyRequest) -> tuple[SafetyVerdict, StepUsage]:
+        self.texts.append(request.text)
+        if self.down:
+            raise ProviderUnavailable("503", provider="llama_guard")
+        return SafetyVerdict(
+            decision=SafetyDecision.ALLOW, categories=[], source="llama_guard"
+        ), FREE_USAGE
+
+
+def gate_with_breaker(guard: FlakyGuard) -> tuple[SafetyGate, FixedClock, ProviderBreaker]:
+    clock = FixedClock(BREAKER_START)
+    breaker = ProviderBreaker("llama_guard", BREAKER_LIMITS, clock)
+    policies = scripted_policies((CLEAR,) * 10, (REPLY_CLEAR,) * 10)
+    return SafetyGate(guard, policies.policy, breaker=breaker), clock, breaker
+
+
+async def test_after_two_failures_llama_guard_is_skipped_and_muse_spark_decides() -> None:
+    guard = FlakyGuard()
+    gate, _, breaker = gate_with_breaker(guard)
+    await gate.check_input(QUESTION)
+    await gate.check_input(QUESTION)
+    assert breaker.is_open()
+    check = await gate.check_input(QUESTION)
+    assert guard.texts == [QUESTION, QUESTION]  # the third check didn't wait for it
+    assert check.verdict.decision is SafetyDecision.ALLOW
+    assert check.guard_down is True
+
+
+async def test_with_the_breaker_open_a_reply_is_still_checked_by_the_backup() -> None:
+    guard = FlakyGuard()
+    gate, _, _ = gate_with_breaker(guard)
+    await gate.check_input(QUESTION)
+    await gate.check_input(QUESTION)
+    check = await gate.check_output(REPLY, QUESTION)
+    assert len(guard.texts) == 2
+    assert check.verdict.decision is SafetyDecision.ALLOW
+    assert check.guard_down is True
+
+
+async def test_a_probe_finds_llama_guard_back_and_the_next_check_uses_it() -> None:
+    guard = FlakyGuard()
+    gate, clock, breaker = gate_with_breaker(guard)
+    await gate.check_input(QUESTION)
+    await gate.check_input(QUESTION)
+    guard.down = False
+    clock.advance(timedelta(seconds=30))
+    await gate.check_input(QUESTION)  # answered by the backup; starts the probe
+    for _ in range(3):
+        await asyncio.sleep(0)
+    assert guard.texts[-1] == GUARD_PROBE_TEXT
+    assert not breaker.is_open()
+    check = await gate.check_input(QUESTION)
+    assert guard.texts[-1] == QUESTION
+    assert check.guard_down is False
+
+
+async def test_with_the_breaker_open_and_the_backup_down_nothing_unchecked_passes() -> None:
+    guard = FlakyGuard()
+    clock = FixedClock(BREAKER_START)
+    breaker = ProviderBreaker("llama_guard", BREAKER_LIMITS, clock)
+    down = ProviderUnavailable("503", provider="meta_model_api")
+    policies = scripted_policies((CLEAR, CLEAR, down), (down,))
+    gate = SafetyGate(guard, policies.policy, breaker=breaker)
+    await gate.check_input(QUESTION)
+    await gate.check_input(QUESTION)
+    with pytest.raises(SafetyUnavailable, match="policy"):
+        await gate.check_input(QUESTION)
+    with pytest.raises(SafetyUnavailable, match="backup reply check"):
+        await gate.check_output(REPLY, QUESTION)

@@ -30,9 +30,11 @@ from app.audio.ffmpeg_runner import FfmpegRunner
 from app.channels.web.web_sender import WebSender
 from app.channels.whatsapp.whatsapp_media_fetcher import MediaFetchConfig, WhatsAppMediaFetcher
 from app.channels.whatsapp.whatsapp_sender import WhatsAppConfig, WhatsAppSender
+from app.core.circuit_breaker import BreakerLimits
 from app.core.clock import Clock, SystemClock
 from app.core.config import Settings
 from app.core.errors import ProviderUnavailable, StoreError
+from app.core.provider_breaker import ProviderBreaker
 from app.core.signed_token_codec import SignedTokenCodec
 from app.core.user_identity import UserIdentity
 from app.domain.enums import Channel, Language
@@ -195,6 +197,7 @@ class Container:
     outbox_repository: OutboxRepository
     language_models: tuple[MetaModelApiLanguageModel, ...]  # Spark and Muse Spark Open
     safety_classifier: LlamaGuardClassifier
+    guard_breaker: ProviderBreaker  # skips Llama Guard while it keeps failing
     voice_adapters: "VoiceAdapters"
     image_generator: MuseImageGenerator
     image_segmenter: SamImageSegmenter
@@ -217,6 +220,7 @@ class OrchestratorPorts:
     voice: VoiceSteps
     photos: PhotoSteps | None = None  # None while PHOTO_INPUT_ENABLED is false
     retriever: Retriever | None = None  # None: students get no mentor (tests that don't need it)
+    guard_breaker: ProviderBreaker | None = None  # None: Llama Guard is always tried
 
 
 @dataclass(frozen=True, slots=True)
@@ -295,6 +299,7 @@ def build_container(settings: Settings) -> Container:
         outbox_repository=outbox,
         language_models=(providers.spark, providers.open_model),
         safety_classifier=providers.safety_classifier,
+        guard_breaker=providers.guard_breaker,
         voice_adapters=providers.voice_adapters,
         image_generator=providers.image_generator,
         image_segmenter=providers.image_segmenter,
@@ -582,6 +587,16 @@ def student_steps(
     )
 
 
+def breaker_limits(settings: Settings) -> BreakerLimits:
+    """BREAKER_*: when Llama Guard or Muse Spark Open is skipped for its backup (s07)."""
+    return BreakerLimits(
+        failures_to_open=settings.breaker_failures,
+        failure_window=timedelta(seconds=settings.breaker_window_s),
+        open_for=timedelta(seconds=settings.breaker_open_s),
+        probe_every=timedelta(seconds=settings.breaker_probe_s),
+    )
+
+
 def check_startup(settings: Settings) -> None:
     """Fail the deploy, not a turn: raises ConfigError naming what's wrong."""
     ModelPricing.require_allowed_for_user_content(settings.model_text, "MODEL_TEXT")
@@ -610,6 +625,7 @@ def build_orchestrator(
                     else None
                 ),
                 guard_timeout=timedelta(seconds=settings.timeout_guard_s),
+                breaker=ports.guard_breaker,
             ),
             journey=JourneyLayer(
                 language_model,
@@ -708,6 +724,7 @@ class Providers:
     open_model: MetaModelApiLanguageModel
     language_model: FallbackLanguageModel  # Muse Spark Open, falling back to Spark
     safety_classifier: LlamaGuardClassifier
+    guard_breaker: ProviderBreaker
     voice_adapters: VoiceAdapters
     rag: RagParts
     image_generator: MuseImageGenerator
@@ -762,6 +779,7 @@ def build_providers(
             fallback_model=settings.model_text,
             primary_timeout=timedelta(seconds=settings.timeout_open_model_s),
         ),
+        ProviderBreaker("open_model", breaker_limits(settings), clock),
     )
     safety_classifier = LlamaGuardClassifier(
         config=SafetyHostConfig(
@@ -802,6 +820,7 @@ def build_providers(
         open_model=open_model,
         language_model=language_model,
         safety_classifier=safety_classifier,
+        guard_breaker=ProviderBreaker("llama_guard", breaker_limits(settings), clock),
         voice_adapters=voice_adapters,
         rag=rag,
         image_generator=image_generator,
@@ -838,6 +857,7 @@ def build_engine_parts(  # noqa: PLR0913  # the app and `marg eval` swap differe
                 voice,
                 photo_steps(settings, providers.voice_adapters, providers.image_segmenter),
                 providers.rag.retriever,
+                providers.guard_breaker,
             ),
             basics.clock,
             catalogue=catalogue,
@@ -1061,6 +1081,7 @@ async def close_providers(providers: Providers) -> None:
     """Release the HTTP clients `build_providers` opened (`marg eval`)."""
     for language_model in (providers.spark, providers.open_model):
         await language_model.aclose()
+    await providers.guard_breaker.aclose()
     await providers.safety_classifier.aclose()
     await providers.voice_adapters.fetcher.aclose()
     await providers.voice_adapters.transcriber.aclose()
@@ -1074,6 +1095,7 @@ async def close_container(container: Container) -> None:
     await container.whatsapp_sender.aclose()
     for language_model in container.language_models:
         await language_model.aclose()
+    await container.guard_breaker.aclose()
     await container.safety_classifier.aclose()
     await container.voice_adapters.fetcher.aclose()
     await container.voice_adapters.transcriber.aclose()
