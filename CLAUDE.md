@@ -105,6 +105,27 @@ as done without a clean run of all four stages is a failed task.
 When a change touches a prompt or a layer, also run `marg eval` on the affected golden cases
 and report the scorecard delta. A prompt change that lowers a rubric score needs a reason.
 
+When a change touches how Marg reads people (`parent_intent`, `profile_extraction`,
+`student_intent`, the onboarding parser, the router's word rules), also run the matching bank
+(`scripts.intent_bank`, `scripts.onboarding_bank`, `scripts.student_route_bank`; each exits non-zero
+below 97%) and add the case that prompted the change.
+
+**Then update the docs the change touched, in the same commit** (owner, 2026-11-01). Code whose
+docs still describe the old behaviour is not done. Check each, and update what no longer holds:
+
+| If the change… | Update |
+|---|---|
+| changes or settles a design decision | the step's design doc and its "Decisions log" (`docs/design/`), and `contracts.md` / `data-model.md` for a changed name or field |
+| changes what a user sees or can do, or how a journey starts or ends | `docs/submission/features.md` |
+| changes a route, step, setting, log event, timeout or failure path | `docs/guides/debugging-and-architecture.md` (and its "Symptom → where to look" table) |
+| adds, renames or removes a module or class | regenerate `docs/code-map.md` (`.venv/bin/python -m scripts.code_map`; a unit test fails while it's stale) |
+| adds a setting | `.env.example` |
+| adds or changes reviewed copy (fixed replies, onboarding or journey text) | an item in `docs/reviews/owner-review-pending.md` |
+| changes a public number or claim (test count, eval score, sources, a feature named in public copy) | `README.md` and `docs/submission/` (form, YouTube description); the video script only with a new cut |
+| changes a rule in this file | `AGENTS.md`, the same section |
+
+Say in the final report which docs were updated, or that none needed it.
+
 ## 3. Mandatory property-based testing
 
 Core logic carries `hypothesis` property tests in addition to example-based tests. In Marg.ai,
