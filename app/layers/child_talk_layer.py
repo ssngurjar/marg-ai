@@ -82,6 +82,7 @@ from app.domain.rules.child_question_detector import ChildQuestionDetector
 from app.domain.rules.child_reply_matcher import ChildReplyMatcher
 from app.domain.rules.child_session_rules import KID_START, ChildSessionLimits, ChildSessionRules
 from app.domain.rules.onboarding_answer_parser import OnboardingAnswerParser
+from app.domain.rules.parent_mention import ParentMention
 from app.domain.rules.phrase_finder import PhraseFinder
 from app.domain.rules.register_detector import RegisterDetector
 from app.domain.rules.sentence_case import SentenceCase
@@ -282,7 +283,13 @@ class ChildTalkLayer:
         else:
             last_answer = ChildSessionRules.is_last_turn(session, self._limits)
             answer = await self._answer(
-                learner, user_text, now, register, voice, last_answer=last_answer
+                learner,
+                user_text,
+                now,
+                register,
+                voice,
+                last_answer=last_answer,
+                first_answer=session.turns_count == 0,
             )
         counted = ChildTalkTurn(session_id=session.id, topic=answer.topic)
         source = CuriositySource(
@@ -364,6 +371,7 @@ class ChildTalkLayer:
         voice: str,
         *,
         last_answer: bool,
+        first_answer: bool,
     ) -> _Answer:
         age = StageRules.age_on(learner.birth_year, now.date())
         band: Literal["young", "older"] = "young" if age <= YOUNGEST_BAND_MAX_AGE else "older"
@@ -399,7 +407,9 @@ class ChildTalkLayer:
                 {**versions, **redirect.prompt_versions},
                 redirect.degraded_reason or "child_redirect_after=ProviderResponseInvalid",
             )
-        reply = _ChildText.reply(result.output, register)
+        # "Tell Mummy and Papa too" at the start and on feelings; the goodbye says it at the end
+        remind = first_answer or result.output.topic is CuriosityDomain.PEOPLE_FEELINGS
+        reply = _ChildText.reply(result.output, register, remind=remind and not last_answer)
         return _Answer(reply, result.output.topic, [result.usage], versions, None)
 
     async def _redirect(  # noqa: PLR0913  # the same inputs as an answer, plus the reason
@@ -445,13 +455,14 @@ class ChildTalkLayer:
                 versions,
                 "child_fallback=ProviderResponseInvalid",
             )
-        reply = _ChildText.reply(result.output, register)
+        # a redirect is always about something sensitive: always "tell Mummy and Papa"
+        reply = _ChildText.reply(result.output, register, remind=True)
         return _Answer(reply, result.output.topic, [result.usage], versions, None)
 
     @staticmethod
     def _redirect_fallback(reason: RedirectReason, register: Language) -> CanonicalReply:
         if reason == "unanswered":
-            return _child_reply_text(CHILD_FALLBACK[register], None, register)
+            return _child_reply_text(CHILD_FALLBACK[register], None, register, remind=True)
         copy = {
             "hurting": CHILD_REFUSE_HURTING,
             "weapons": CHILD_REFUSE_DANGER,
@@ -497,20 +508,35 @@ class ChildTalkLayer:
 
 class _ChildText:
     @staticmethod
-    def reply(child_reply: ChildReply, register: Language) -> CanonicalReply:
+    def reply(child_reply: ChildReply, register: Language, *, remind: bool) -> CanonicalReply:
         parts = [child_reply.answer]
         if child_reply.find_out.strip():
             parts.append(child_reply.find_out)
         parts.append(child_reply.ask_back)
         if child_reply.who_explores_this.strip():
             parts.append(SentenceCase.of(child_reply.who_explores_this))
-        return _child_reply_text("\n\n".join(parts), child_reply.spoken_text, register)
+        return _child_reply_text(
+            "\n\n".join(parts), child_reply.spoken_text, register, remind=remind
+        )
 
 
-def _child_reply_text(body: str, spoken: str | None, register: Language) -> CanonicalReply:
-    """A reply to the child: "tell Mummy and Papa too" is added by code to every one."""
+def _child_reply_text(
+    body: str, spoken: str | None, register: Language, *, remind: bool
+) -> CanonicalReply:
+    """A reply to the child. "Tell Mummy and Papa too" is added by code when `remind` (the
+    session's first answer, a feeling, a redirect, the fallback) and the reply doesn't already
+    say it: on every reply it read as a parrot (owner, 2026-11-01)."""
     voice = _voice_language(register)
     spoken_body = spoken if spoken is not None else CHILD_FALLBACK[voice]
+    if not remind or ParentMention.found(body):
+        return CanonicalReply(
+            body=body,
+            body_language=register,
+            spoken_text=spoken_body,
+            citations=[],
+            buttons=[],
+            fixed_kind=None,
+        )
     return CanonicalReply(
         body=f"{body}\n\n{TELL_YOUR_PARENTS[register]}",
         body_language=register,

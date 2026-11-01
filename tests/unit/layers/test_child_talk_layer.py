@@ -140,7 +140,7 @@ async def test_a_question_in_the_first_message_is_answered_and_counted() -> None
 # --- a turn ---------------------------------------------------------------------------------
 
 
-async def test_a_turn_answers_in_the_childs_register_and_says_tell_your_parents() -> None:
+async def test_the_first_answer_says_tell_your_parents() -> None:
     result, llm = await talk(session=open_session(MUNNI))
     assert result.reply.body.startswith(CHILD_ANSWER)
     assert result.reply.body.endswith(TELL_YOUR_PARENTS[H])
@@ -148,10 +148,32 @@ async def test_a_turn_answers_in_the_childs_register_and_says_tell_your_parents(
     assert result.reply.spoken_text.endswith(TELL_YOUR_PARENTS[Language.HINDI])
     assert result.writes == [ChildTalkTurn(session_id=SESSION_ID, topic=CuriosityDomain.EARTH_SKY)]
     assert result.hazard_rule == TALKABLE_HAZARDS
-    assert result.prompt_versions == {"child_talk": "1.0.6"}
+    assert result.prompt_versions == {"child_talk": "1.1.0"}
     assert "The child is 5 years old" in llm.prompts[0].system
     assert "at most 8 words" in llm.prompts[0].system
     assert ChildTalkLayer.LAST_ANSWER_RULE not in llm.prompts[0].system  # more may follow
+
+
+async def test_a_later_answer_about_the_world_doesnt_repeat_it() -> None:
+    # Owner's demo, 2026-11-01: on every reply it read as a parrot
+    result, _ = await talk(session=open_session(MUNNI, turns=2))
+    assert TELL_YOUR_PARENTS[H] not in result.reply.body
+    assert result.reply.spoken_text is not None
+    assert TELL_YOUR_PARENTS[Language.HINDI] not in result.reply.spoken_text
+
+
+async def test_a_later_answer_about_feelings_says_it_again() -> None:
+    feelings = {**CHILD_REPLY, "topic": "people_feelings"}
+    result, _ = await talk(session=open_session(MUNNI, turns=2), output=feelings)
+    assert result.reply.body.endswith(TELL_YOUR_PARENTS[H])
+
+
+async def test_a_reply_that_already_sends_the_child_to_mummy_papa_isnt_doubled() -> None:
+    # Owner's demo, 2026-11-01: the model's own line and code's line, one after the other
+    says_it = {**CHILD_REPLY, "ask_back": "Mummy Papa ko bataoge ki chaand kaisa tha?"}
+    result, _ = await talk(session=open_session(MUNNI), output=says_it)
+    assert TELL_YOUR_PARENTS[H] not in result.reply.body
+    assert result.reply.body.count("Mummy") == 1
 
 
 async def test_an_older_child_may_have_longer_sentences() -> None:

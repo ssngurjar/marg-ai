@@ -170,8 +170,9 @@ band karo" stops the daily reminder; deleting their data ends everything (§1).
 
 ### What the child gets
 - Short, true answers in a child's words, and one thing to go and look at.
-- Never asks for personal details; never secrecy or "our secret"; always "tell Mummy and Papa
-  too".
+- Never asks for personal details; never secrecy or "our secret". "Tell Mummy and Papa too" at
+  the start and end of a talk, and whenever the child talks about feelings or something that
+  happened to them.
 - When Marg won't answer something directly (how a gun works, "I'll hit Raju"), it replies like a
   kind elder: why, gently, and something safe to wonder about or a way to calm down. The blocked
   answer itself is never used; the redirect is checked like any reply.

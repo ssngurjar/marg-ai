@@ -157,6 +157,7 @@ line of the module's docstring.
 | `message_splitter.py` | `MessageSplitter` | MessageSplitter: a reply cut into channel-sized messages (s05 §4.7). Pure. |
 | `nudge_schedule.py` | `NudgeSchedule` | NudgeSchedule: when the daily khoj message is due, in India time (s10b §4.11). Pure. |
 | `onboarding_answer_parser.py` | `Found`, `GradeParse`, `ChildAgeParse`, `NicknameParse`, `OnboardingAnswerParser` | OnboardingAnswerParser: what an onboarding answer says, without a model (s08 §4.4 step 4). Pure. |
+| `parent_mention.py` | `ParentMention` | ParentMention: whether a reply to a child already sends them to Mummy and Papa (owner, |
 | `phrase_finder.py` | `PhraseFinder` | PhraseFinder: whole-phrase matching on normalised text, for keyword rules (s07, s08). Pure. |
 | `rank_fusion.py` | `RankedHit`, `FusedHit`, `RankFusion` | RankFusion: two ranked candidate lists into one (s11 §4.7). Pure. |
 | `register_chooser.py` | `RegisterChooser` | RegisterChooser: which language to answer this message in (owner, 2026-10-28). |

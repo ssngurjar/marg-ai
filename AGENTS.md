@@ -404,7 +404,7 @@ app/constants/  reviewed copy (fixed and onboarding replies, crisis words) and e
   reviewed catalogue; personalisation may not add steps or materials, the `d7` hazard rule runs
   on every journey reply, and the supervision line is appended by code (s10b). **Direct child talk**
   (s10b §4.16) requires the parent's recorded consent; it never asks a child for personal details,
-  never uses secrecy or attachment language (`d8`), always encourages telling a parent, ends at
+  never uses secrecy or attachment language (`d8`), encourages telling a parent (at the start and end of a session, on feelings or anything that happened to the child, and on every redirect; owner 2026-11-01), ends at
   the session limits, uses child-worded crisis replies, and the parent summary never quotes a disclosure. Phone numbers are
   stored as salted hashes. Raw audio is deleted after transcription. Logs never contain phone
   numbers, transcripts or generated replies, only ids and hashes (enforced by the redaction
