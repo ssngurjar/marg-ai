@@ -12,7 +12,7 @@ title, when the catalogue recognises one, is a hint, never a gate.
 """
 
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import Annotated, Final, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
@@ -25,6 +25,8 @@ from app.constants.teacher_copy import (
     MONEY_WORDS,
     MORE_ACTIVITY,
     NEW_CHAPTER,
+    TEACHER_CONCERN,
+    TEACHER_OUT_OF_SCOPE,
 )
 from app.core.errors import DomainError
 from app.domain.enums import Language, Role, Route, StepOutcome, TeacherIntent
@@ -145,7 +147,10 @@ class ExposureLayer:
             return await self._bridge(ctx, user_text, interactive_ids, register, previous)
         last_topic = ExposureLayer.last_topic(ctx.recent_exchanges)
         read = await self._intents.read(user_text, last_topic)
-        if read.intent is TeacherIntent.TEACHING and self._teaching is not None:
+        fixed = ExposureLayer._fixed_reply(read.intent, register)
+        if fixed is not None:
+            result = fixed
+        elif read.intent is TeacherIntent.TEACHING and self._teaching is not None:
             topic = read.topic or last_topic
             if topic is None:
                 result = ExposureLayer._ask_chapter(register)
@@ -304,13 +309,27 @@ class ExposureLayer:
         )
 
     @staticmethod
+    def _fixed_reply(intent: TeacherIntent | None, register: Language) -> LayerResult | None:
+        """A worry about a child gets what to do now, and anything not about teaching an honest
+        "this is what I do", both in fixed words (critic review D2, 2026-11-01)."""
+        if intent is TeacherIntent.CONCERN:
+            return ExposureLayer._said(TEACHER_CONCERN, register)
+        if intent is TeacherIntent.OUT_OF_SCOPE:
+            return ExposureLayer._said(TEACHER_OUT_OF_SCOPE, register)
+        return None
+
+    @staticmethod
     def _ask_chapter(register: Language) -> LayerResult:
+        return ExposureLayer._said(ASK_CHAPTER, register)
+
+    @staticmethod
+    def _said(copy: Mapping[Language, str], register: Language) -> LayerResult:
         voice = Language.HINDI if register is Language.HINGLISH else register
         return LayerResult(
             reply=CanonicalReply(
-                body=ASK_CHAPTER[register],
+                body=copy[register],
                 body_language=register,
-                spoken_text=ASK_CHAPTER[voice],
+                spoken_text=copy[voice],
                 citations=[],
                 buttons=[],
                 fixed_kind=None,

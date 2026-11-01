@@ -4,7 +4,14 @@ from datetime import UTC, datetime
 
 import pytest
 
-from app.constants.teacher_copy import ASK_CHAPTER, MORE_ACTIVITY, NEW_CHAPTER
+from app.constants.crisis_replies import CHILD_HELPLINE
+from app.constants.teacher_copy import (
+    ASK_CHAPTER,
+    MORE_ACTIVITY,
+    NEW_CHAPTER,
+    TEACHER_CONCERN,
+    TEACHER_OUT_OF_SCOPE,
+)
 from app.core.errors import DomainError, ProviderUnavailable
 from app.domain.enums import Language, Role, Route, StepOutcome
 from app.domain.models.turn import Exchange, TurnContext
@@ -240,7 +247,7 @@ async def test_how_to_start_the_class_gets_teaching_help_for_the_last_chapter() 
     [prompt] = llm.by_prompt["teaching_answer"].prompts
     assert "The chapter: Newton's laws of motion." in prompt.system
     assert llm.by_prompt["exposure"].prompts == []
-    assert result.prompt_versions == {"teacher_intent": "1.0.0", "teaching_answer": "1.0.0"}
+    assert result.prompt_versions == {"teacher_intent": "1.1.0", "teaching_answer": "1.0.0"}
 
 
 async def test_a_teaching_question_naming_its_topic_uses_that_topic() -> None:
@@ -277,6 +284,39 @@ async def test_if_the_reading_fails_the_bridge_is_made_and_the_turn_says_so() ->
     assert len(llm.by_prompt["exposure"].prompts) == 1
     assert result.outcome is StepOutcome.DEGRADED
     assert result.degraded_reason == "teacher_intent_failed=ProviderUnavailable"
+
+
+@pytest.mark.parametrize("register", list(Language))
+async def test_a_worry_about_a_child_gets_the_fixed_steps_and_the_helpline_never_a_lesson(
+    register: Language,
+) -> None:
+    # critic review D2, 2026-11-01: a welfare concern must never get a lesson plan
+    layer_with_reader, llm = reading_layer(teacher_reading("concern", "Force and Pressure"))
+    text = "ek bachcha roz chot ke nishaan lekar aata hai, kal Force and Pressure padhana hai"
+    result = await layer_with_reader.generate(teacher_ctx(text, [LAST_BRIDGE]), text, [], register)
+    assert result.reply.body == TEACHER_CONCERN[register]
+    assert CHILD_HELPLINE.number in result.reply.body
+    assert llm.by_prompt["exposure"].prompts == []
+    assert llm.by_prompt["teaching_answer"].prompts == []
+    assert result.reply.buttons == []
+    assert result.prompt_versions == {"teacher_intent": "1.1.0"}
+
+
+async def test_a_message_not_about_teaching_gets_an_honest_reply_and_no_bridge() -> None:
+    layer_with_reader, llm = reading_layer(teacher_reading("out_of_scope"))
+    text = "mera transfer kaise hoga"
+    result = await layer_with_reader.generate(teacher_ctx(text, [LAST_BRIDGE]), text, [], E)
+    assert result.reply.body == TEACHER_OUT_OF_SCOPE[E]
+    assert llm.by_prompt["exposure"].prompts == []
+    assert llm.by_prompt["teaching_answer"].prompts == []
+    assert result.outcome is StepOutcome.OK
+
+
+def test_the_concern_reply_gives_the_sourced_helpline_in_every_language() -> None:
+    # the number is copied from an official page (crisis_replies), never typed into copy
+    for register in Language:
+        assert f"{CHILD_HELPLINE.number}" in TEACHER_CONCERN[register]
+    assert CHILD_HELPLINE.source_url.endswith(".gov.in")
 
 
 async def test_buttons_never_call_the_reader() -> None:

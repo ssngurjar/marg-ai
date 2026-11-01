@@ -261,6 +261,11 @@ done.
    students with nothing to buy and no electricity, careers, and a local hook.
 3. "Dashboard" sends a 15-minute signed link to the district's anonymous numbers (groups smaller
    than five are hidden).
+- **A worry about a child:** "ek bachcha roz chot ke nishaan lekar aata hai" gets fixed, reviewed
+  steps, never a lesson: talk to the child gently and alone, don't promise secrecy, tell the head
+  teacher today, and the Child Helpline (1098) if the child may be unsafe.
+- **Anything else** (a transfer, salary, leave): an honest "I help with teaching", and the way
+  back to a chapter.
 
 ### How it ends
 Each bridge ends with **Another activity** (one more activity for the same chapter) and **New

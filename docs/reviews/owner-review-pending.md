@@ -522,3 +522,9 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
 - [ ] **Read the "stop what?" question** (`STOP_WHICH`, `STOP_DAILY_BUTTON` in
   `app/constants/journey_copy.py`, three languages), and try "sab band karo, mujhe ye nahi
   chahiye" (critic review D1).
+- [ ] **Read the teacher's child-welfare reply** (`TEACHER_CONCERN` in
+  `app/constants/teacher_copy.py`, three languages): what to do now and the Child Helpline, for
+  "ek bachcha roz chot ke nishaan lekar aata hai" (critic review D2). Worth a look by someone who
+  knows school safeguarding practice in Rajasthan / UP.
+- [ ] **Read the teacher's "not about teaching" reply** (`TEACHER_OUT_OF_SCOPE`, same file), and
+  try "mera transfer kaise hoga".

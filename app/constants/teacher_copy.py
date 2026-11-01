@@ -3,6 +3,7 @@ text. Hinglish, Hindi and English. Pending the owner's review."""
 
 from typing import Final
 
+from app.constants.crisis_replies import CHILD_HELPLINE
 from app.domain.enums import Language
 from app.domain.models.reply import ReplyButton
 
@@ -88,4 +89,40 @@ DASHBOARD_NO_DISTRICT: Final[dict[Language, str]] = {
     Language.HINGLISH: "Dashboard ke liye pehle apna zila batayiye.",
     Language.HINDI: "डैशबोर्ड के लिए पहले अपना ज़िला बताइए।",
     Language.ENGLISH: "Please tell me your district first, to see its dashboard.",
+}
+# A teacher worried about a child (critic review D2, owner 2026-11-01): what to do now, in fixed
+# words; the helpline number is the sourced one in crisis_replies. Pending the owner's review.
+TEACHER_CONCERN: Final[dict[Language, str]] = {
+    Language.HINGLISH: (
+        "Aapne dhyan diya, yeh bahut zaroori hai. Bachche se akele mein, aaraam se baat kijiye,"
+        " bina daante, aur yeh wada mat kijiye ki baat kisi ko nahi batayenge. Aaj hi apne head"
+        " teacher ko batayiye. Bachche ki suraksha khatre mein lage toh Child Helpline"
+        f" {CHILD_HELPLINE.number} par muft call kijiye."
+    ),
+    Language.HINDI: (
+        "आपने ध्यान दिया, यह बहुत ज़रूरी है। बच्चे से अकेले में, आराम से बात कीजिए, बिना डाँटे, और"
+        " यह वादा मत कीजिए कि बात किसी को नहीं बताएँगे। आज ही अपने प्रधानाध्यापक को बताइए। बच्चे की"
+        f" सुरक्षा ख़तरे में लगे तो चाइल्ड हेल्पलाइन {CHILD_HELPLINE.number} पर मुफ़्त कॉल कीजिए।"
+    ),
+    Language.ENGLISH: (
+        "Thank you for noticing; this matters. Talk to the child gently and alone, without blame,"
+        " and don't promise to keep it secret. Tell your head teacher today. If the child may be"
+        f" unsafe, call the Child Helpline on {CHILD_HELPLINE.number}, free."
+    ),
+}
+# Not about teaching (critic review D2): an honest "this is what I do", and the way back in.
+TEACHER_OUT_OF_SCOPE: Final[dict[Language, str]] = {
+    Language.HINGLISH: (
+        "Isme main madad nahi kar paunga: Marg padhane mein madad karta hai. Kisi chapter ko asli"
+        " kaam aur careers se jodna ho, ya use class mein kaise padhayein, yeh poochhiye. Kaunsa"
+        " chapter?"
+    ),
+    Language.HINDI: (
+        "इसमें मैं मदद नहीं कर पाऊँगा: मार्ग पढ़ाने में मदद करता है। किसी अध्याय को असली काम और"
+        " करियर से जोड़ना हो, या उसे कक्षा में कैसे पढ़ाएँ, यह पूछिए। कौन-सा अध्याय?"
+    ),
+    Language.ENGLISH: (
+        "I can't help with that: Marg helps with teaching. Ask me to connect a chapter to real"
+        " work and careers, or how to teach it in class. Which chapter?"
+    ),
 }

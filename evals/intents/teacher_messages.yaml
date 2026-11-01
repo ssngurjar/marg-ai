@@ -1,5 +1,6 @@
-# The teacher bank: how teachers ask, and whether it's a chapter to connect (bridge) or a
-# teaching question (teaching). Synthetic. Run it live with
+# The teacher bank: how teachers ask, and whether it's a chapter to connect (bridge), a
+# teaching question (teaching), a worry about a child (concern) or not about teaching
+# (out_of_scope). Synthetic. Run it live with
 # `.venv/bin/python -m scripts.teacher_bank`; `last_topic` is the chapter talked about before.
 
 cases:
@@ -26,3 +27,23 @@ cases:
   - {text: "what is the difference between speed and velocity, how to explain", intent: teaching}
   - {text: "kids get bored in the first 5 minutes, how to start", last_topic: "Electricity", intent: teaching}
   - {text: "how do I teach this to students who are weak in maths", last_topic: "Fractions", intent: teaching}
+
+  # --- a worry about a child: fixed steps and the helpline, never a lesson (critic review D2) ---
+  - {text: "ek bachcha roz chot ke nishaan lekar aata hai", intent: concern}
+  - {text: "a girl in my class says her uncle touches her, what should I do", intent: concern}
+  - {text: "Raju 2 hafte se school nahi aaya, ghar pe kaam karwa rahe hain", intent: concern}
+  - {text: "मेरी कक्षा की एक बच्ची की शादी करवा रहे हैं, वो 13 साल की है", intent: concern}
+  - {text: "ek ladka roz bhookha aata hai aur class mein so jaata hai", intent: concern}
+  - {text: "bachcha bahut dara hua rehta hai, kehta hai papa maarte hain. kal fractions padhana hai", last_topic: "Fractions", intent: concern}
+  # rural classrooms, still teaching (critic review §7)
+  - {text: "ek hi kamre mein class 3 aur 5 dono ko padhana hai, ek saath kaise karun", last_topic: "Fractions", intent: teaching}
+  - {text: "bachche Hindi samajhte hain par kitaab English mein hai, kaise samjhaun", last_topic: "Photosynthesis", intent: teaching}
+  - {text: "bijli nahi hai school mein, bina projector ke kaise dikhaun", last_topic: "Electricity", intent: teaching}
+  - {text: "kaksha 5 paryavaran, paani ka chakra", intent: bridge}
+
+  # --- not about teaching: an honest reply (critic review D2) --------------------------------------
+  - {text: "mera transfer kaise hoga", intent: out_of_scope}
+  - {text: "DA kab badhega sir", intent: out_of_scope}
+  - {text: "please write my leave application for 3 days", intent: out_of_scope}
+  - {text: "BEO sahab ka inspection hai kal, kya karun", intent: out_of_scope}
+  - {text: "मेरी सैलरी तीन महीने से नहीं आई", intent: out_of_scope}

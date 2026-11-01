@@ -357,6 +357,9 @@ class TeacherIntent(StrEnum):
 
     BRIDGE = "bridge"  # a chapter or topic to connect to real work: the three fields
     TEACHING = "teaching"  # how to teach, start, explain or check a chapter, or a subject question
+    # critic review D2, 2026-11-01: fixed replies, never a lesson plan or a bridge
+    CONCERN = "concern"  # worried about a child's safety or welfare: hurt, beaten, unfed, missing
+    OUT_OF_SCOPE = "out_of_scope"  # not about teaching: a transfer, salary, leave, a complaint
 
 
 class CorpusTopic(StrEnum):
