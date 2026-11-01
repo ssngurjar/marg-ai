@@ -13,6 +13,7 @@ from app.constants.journey_copy import (
     ADD_CHILD_PROMPT,
     AGE_COMING_SOON,
     DELETE_DATA_OFFER,
+    DONE_THANKS,
     HELLO_NOTHING_OPEN,
     KHOJ_DONE,
     KHOJ_OTHER,
@@ -20,6 +21,7 @@ from app.constants.journey_copy import (
     KHOJ_TODAY,
     NICKNAME_ONLY,
     NICKNAME_SAVED,
+    NO_DETAILS_SUMMARY,
     NUDGE_ASK,
     NUDGE_OFF_REPLY,
     PROGRESS_HEADER,
@@ -246,19 +248,29 @@ async def test_a_report_gets_a_specific_reflection_and_is_recorded_done() -> Non
             summary="Munni noticed the shadow moved during the day.",
         )
     ]
-    assert [button.id for button in result.reply.buttons] == ["jrn:today", "onb:add-child"]
+    assert [button.id for button in result.reply.buttons] == ["jrn:today"]
     assert result.prompt_versions == {"parent_reflection": "1.3.0"}
 
 
-async def test_done_button_with_an_open_activity_reflects() -> None:
-    result = await khoj(button=KHOJ_DONE, open_activity=offer(FIRST, MUNNI))
-    assert result.reply.body.startswith(REFLECTION_PRAISE)
+async def test_done_with_nothing_said_gets_thanks_and_a_question_by_code() -> None:
+    # Owner's demo, 2026-11-01: the model praised a khoj nobody had described
+    layer, llm = layer_with()
+    result = await khoj(button=KHOJ_DONE, open_activity=offer(FIRST, MUNNI), layer=layer)
+    assert result.reply.body == DONE_THANKS[H].format(child="Munni")
+    assert [button.id for button in result.reply.buttons] == ["jrn:today"]
+    assert llm.by_prompt["parent_reflection"].prompts == []
+    [written] = result.writes
+    assert isinstance(written, ActivityReported)
+    assert written.status is ActivityStatus.DONE
+    assert written.summary == NO_DETAILS_SUMMARY
 
 
-async def test_done_without_words_tells_the_model_it_doesnt_know_what_happened() -> None:
+async def test_a_photo_without_words_tells_the_model_it_doesnt_know_what_happened() -> None:
     # Owner's demo, 2026-11-01: a photo alone got "your little helper sorted the piles…"
     layer, llm = layer_with()
-    await khoj(button=KHOJ_DONE, open_activity=offer(FIRST, MUNNI), layer=layer)
+    open_one = offer(FIRST, MUNNI)
+    ctx = turn_context(text_message(""), learners=[MUNNI], open_activity=open_one)
+    await layer.handle(ctx, ParentMessage("", [], STONES), NOW, H)
     [prompt] = llm.by_prompt["parent_reflection"].prompts
     assert "You don't know what the child said, did or noticed" in prompt.system
 
@@ -1148,13 +1160,11 @@ async def test_a_khoj_older_than_48_hours_isnt_asked_about(hours_ago: float) -> 
 
 
 async def test_tapping_the_earlier_khoj_reports_on_it_and_leaves_the_open_one() -> None:
-    layer, llm = layer_with(reflect={**REFLECTION})
+    layer, _ = layer_with(reflect={**REFLECTION})
     result = await report(ParentMessage("", [f"jrn:about:{UUID(int=61)}"]), layer)
     [written] = [write for write in result.writes if isinstance(write, ActivityReported)]
     assert written.learner_activity_id == UUID(int=61)
     assert written.status is ActivityStatus.DONE
-    [prompt] = llm.by_prompt["parent_reflection"].prompts
-    assert SKIPPED_EARLIER.title in prompt.system
 
 
 async def test_words_sent_before_the_question_come_with_the_tapped_khoj() -> None:

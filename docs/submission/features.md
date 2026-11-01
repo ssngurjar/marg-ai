@@ -121,8 +121,9 @@ Tested on 156 real-style messages in Hinglish, Hindi, Braj and English (99.7%).
 1. The parent says what the child said or did, by voice or text, or taps **Done**, optionally with
    a photo.
 2. **Muse Spark Open** (open weights) replies: praise for what the child noticed, one question to
-   extend the idea, one short tip. A "Done" tap or a photo without words gets thanks and a
-   question about what the child said, never a guess at what happened.
+   extend the idea, one short tip. A "Done" tap with nothing said gets a short thanks and one
+   question ("What did Munni say or notice?"), and a photo without words is never described:
+   nothing is guessed about what happened.
 3. If another khoj from the last two days is still waiting, a report goes to the khoj it's about
    ("he jumped like a frog" → the animal walk). A photo without words, or words that don't say
    which, gets **Which khoj is this about?** with a button per khoj. If the child's idea isn't true (the sun doesn't move; the Earth

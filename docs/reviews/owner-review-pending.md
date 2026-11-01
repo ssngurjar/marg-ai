@@ -513,3 +513,4 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
   it: ask for another khoj, then send a photo of the first with no words.
 - [ ] **Read the progress summary lines** (`PROGRESS_*` in `app/constants/journey_copy.py`), and try
   "how is my child doing?" after a few khojs.
+- [ ] **Read the "Done" thanks** (`DONE_THANKS` in `app/constants/journey_copy.py`).

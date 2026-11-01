@@ -158,6 +158,13 @@ PROGRESS_NOTHING_YET: Final[dict[Language, str]] = {
     _HINDI: "{name} ने अभी तक कोई खोज नहीं की। आज की खोज माँगिए, शुरू करते हैं!",
     _ENGLISH: "{name} hasn't done a khoj yet. Ask for today's khoj to begin!",
 }
+# "Done" with nothing said (owner's demo, 2026-11-01)
+DONE_THANKS: Final[dict[Language, str]] = {
+    _HINGLISH: "Shukriya, aapne saath mein khoj ki! {child} ne karte hue kya kaha ya kya dekha?",
+    _HINDI: "शुक्रिया, आपने साथ में खोज की! {child} ने करते हुए क्या कहा या क्या देखा?",
+    _ENGLISH: "Thank you for doing it together! What did {child} say or notice while doing it?",
+}
+NO_DETAILS_SUMMARY: Final = "Done; the parent didn't say how it went."  # the learner record
 WHICH_CHILD: Final[dict[Language, str]] = {
     _HINGLISH: "Aaj ki khoj kis bachche ke liye bhejun?",
     _HINDI: "आज की खोज किस बच्चे के लिए भेजूँ?",

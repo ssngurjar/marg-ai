@@ -42,6 +42,7 @@ from app.constants.journey_copy import (
     CHILD_IN_HELLO,
     DELETE_DATA_BUTTON,
     DELETE_DATA_OFFER,
+    DONE_THANKS,
     HELLO_NOTHING_OPEN,
     KHOJ_ABOUT,
     KHOJ_BUTTONS,
@@ -53,6 +54,7 @@ from app.constants.journey_copy import (
     NICKNAME_ONLY,
     NICKNAME_SAVED,
     NO_ACTIVITY_LEFT,
+    NO_DETAILS_SUMMARY,
     NUDGE_ASK,
     NUDGE_AT_8,
     NUDGE_AT_18,
@@ -880,6 +882,16 @@ class JourneyLayer:
     ) -> LayerResult:
         activity = open_activity.activity
         learner = _learner_named(ctx.learners, open_activity)
+        kid = _kid_buttons(learner, register) if self._settings.child_talk_enabled else ()
+        buttons = (*self._after_report_buttons(ctx, register), *kid)
+        if not report.strip() and photo is None:
+            # "Done" with nothing said: thanks and one question, by code (owner's demo,
+            # 2026-11-01: the model's praise for a khoj nobody described read as absurd)
+            child = learner.nickname or CHILD_IN_HELLO[register]
+            thanks = _fixed(DONE_THANKS[register].format(child=child), register, buttons)
+            return thanks.model_copy(
+                update={"writes": [_done(open_activity, summary=NO_DETAILS_SUMMARY)]}
+            )
         child_age = StageRules.age_on(learner.birth_year, open_activity.offered_at.date())
         rendered = self._registry.render(
             PARENT_REFLECTION,
@@ -906,8 +918,6 @@ class JourneyLayer:
             ),
         )
         versions = {rendered.request.prompt.prompt_id: rendered.request.prompt.prompt_version}
-        kid = _kid_buttons(learner, register) if self._settings.child_talk_enabled else ()
-        buttons = (*self._after_report_buttons(ctx, register), *kid)
         try:
             result = await self._llm.generate(rendered.request)
         except ProviderError as exc:
@@ -951,8 +961,8 @@ class JourneyLayer:
 
     @staticmethod
     def _after_report_buttons(ctx: TurnContext, register: Language) -> tuple[ReplyButton, ...]:
-        if len(ctx.learners) < MAX_LEARNERS:
-            return (ONE_MORE_KHOJ_BUTTON[register], ADD_CHILD_BUTTON[register])
+        """One more khoj. Adding a child after a report read as random (owner's demo,
+        2026-11-01): it stays one message away ("add my son too")."""
         return (ONE_MORE_KHOJ_BUTTON[register],)
 
 
