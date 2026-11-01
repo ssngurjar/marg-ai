@@ -45,7 +45,6 @@ class AboutMargLayer:
         Role.STUDENT: "student",
         Role.TEACHER: "teacher",
     }
-    FACTS: ClassVar[str] = "\n".join(f"- {fact.topic}: {fact.text}" for fact in MARG_FACTS)
 
     def __init__(self, llm: LanguageModel, registry: PromptRegistry) -> None:
         self._llm = llm
@@ -58,7 +57,7 @@ class AboutMargLayer:
             ABOUT_MARG,
             system_vars={
                 "role": self.ROLE_NAMES[role] if role is not None else "person",
-                "facts": self.FACTS,
+                "facts": AboutMargLayer.facts_for(role),
                 "language_rule": self.LANGUAGE_RULES[register],
                 "spoken_rule": ParentQuestionLayer.SPOKEN_RULES[register],
             },
@@ -85,6 +84,15 @@ class AboutMargLayer:
             degraded_reason="truncated=true" if degraded else None,
             step_note="about_marg=unknown" if reply.unknown else "about_marg=true",
         )
+
+    @staticmethod
+    def facts_for(role: Role | None) -> str:
+        """The facts true for whoever is asking: every role's own, and everyone's."""
+        lines: list[str] = []
+        for fact in MARG_FACTS:
+            if fact.roles is None or (role is not None and role in fact.roles):
+                lines.append(f"- {fact.topic}: {fact.text}")
+        return "\n".join(lines)
 
     @staticmethod
     def script_problems(answer: AboutMargAnswer, register: Language) -> list[str]:

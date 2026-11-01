@@ -84,6 +84,14 @@ class OnboardingAnswerParser:
             "जी", "जी हाँ", "ठीक है", "सहमत", "हाँ ठीक है",
         }
     )  # fmt: skip
+    ACKNOWLEDGEMENTS: ClassVar[frozenset[str]] = frozenset(
+        {
+            "ok", "okay", "okk", "k", "haan", "ha", "han", "haa", "ji", "yes", "thanks",
+            "thank", "you", "thanku", "dhanyavad", "dhanyawad", "shukriya", "theek", "thik",
+            "hai", "accha", "acha", "achha", "hmm", "hm", "sure", "done", "fine",
+            "हाँ", "हां", "जी", "ठीक", "है", "धन्यवाद", "शुक्रिया", "अच्छा", "ओके",
+        }
+    )  # fmt: skip
     NO: ClassVar[frozenset[str]] = frozenset(
         {
             "nahi", "nahin", "nai", "no", "mat karo", "abhi nahi", "nahi chahiye", "नहीं", "नही",
@@ -212,6 +220,16 @@ class OnboardingAnswerParser:
         if len(words) > OnboardingAnswerParser.SHORT_ANSWER_WORDS:
             return False
         return all(_known(word, _GREETING_WORDS) in _GREETING_WORDS for word in words)
+
+    @staticmethod
+    def is_acknowledgement(text: str) -> bool:
+        """Only "ok", "haan", "thanks", "theek hai" and the like: a first message that says it
+        heard something, never a question to keep (owner's field test, 2026-11-01: "Ok" after a
+        deletion got "I've noted your question")."""
+        words = PhraseFinder.words(text)
+        if not words or len(words) > OnboardingAnswerParser.SHORT_ANSWER_WORDS:
+            return False
+        return all(word in _ACKNOWLEDGEMENT_WORDS for word in words)
 
     @staticmethod
     def yes_or_no(text: str) -> bool | None:
@@ -415,6 +433,7 @@ _FRACTIONS: Final = _normalised_keys(OnboardingAnswerParser._FRACTION_WORDS)
 _NOT_A_NAME: Final = _normalised_set(OnboardingAnswerParser._NOT_A_NAME)
 _AGE_UNITS: Final = _normalised_set(OnboardingAnswerParser._AGE_UNITS)
 _MONTH_UNITS: Final = _normalised_set(OnboardingAnswerParser.MONTH_UNITS)
+_ACKNOWLEDGEMENT_WORDS: Final = _normalised_set(OnboardingAnswerParser.ACKNOWLEDGEMENTS)
 _GREETING_WORDS: Final = frozenset(
     word
     for greeting in (*OnboardingAnswerParser.GREETINGS, "ji", "sir", "madam", "marg", "जी")

@@ -330,3 +330,15 @@ def test_any_named_children_with_ages_are_read_in_order(
     assert P.parse_children(text, YEAR) == ChildrenParse(
         tuple(ChildParse(YEAR - age, name) for name, age in children), None
     )
+
+
+@pytest.mark.parametrize("text", ["Ok", "okay", "ok ji", "theek hai", "thank you", "हाँ जी", "Hmm"])
+def test_short_acknowledgements_are_recognised(text: str) -> None:
+    assert P.is_acknowledgement(text)
+
+
+@pytest.mark.parametrize(
+    "text", ["", "Ok what is this", "haan mera beta 5 saal ka hai", "kya hai ye", "🙏"]
+)
+def test_anything_more_than_an_acknowledgement_is_not_one(text: str) -> None:
+    assert not P.is_acknowledgement(text)

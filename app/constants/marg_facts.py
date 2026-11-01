@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from typing import Final
 
 from app.constants.crisis_replies import CHILD_HELPLINE, TELE_MANAS
+from app.domain.enums import Role
 
 
 @dataclass(frozen=True, slots=True)
@@ -16,6 +17,9 @@ class MargFact:
     topic: str  # what the line answers, for the model to find it
     text: str  # the fact, in plain English; the model says it in the person's language
     where: str  # the code that makes it true, for a reviewer
+    # who it is true for; None: everyone (owner's field test, 2026-11-01: a parent was told Marg
+    # keeps their "class and district", which only students and teachers give)
+    roles: frozenset[Role] | None = None
 
 
 MARG_FACTS: Final[tuple[MargFact, ...]] = (
@@ -77,10 +81,25 @@ MARG_FACTS: Final[tuple[MargFact, ...]] = (
     # --- privacy -------------------------------------------------------------------------------
     MargFact(
         "what Marg keeps",
-        "Marg keeps only what it needs: the role (parent, student or teacher), a class, a"
-        " district and the language; for a child, only a home name and the year of birth, never"
-        " a full name or a school.",
-        "data-model.md, OnboardingAnswerParser (full names refused)",
+        "Marg keeps only what it needs: that you are a parent, your language, and for each child"
+        " only a home name and the year of birth, never a full name or a school. It doesn't ask"
+        " a parent's class or district.",
+        "data-model.md, ConversationMachine (parents: ASK_CHILD only), OnboardingAnswerParser",
+        frozenset({Role.PARENT}),
+    ),
+    MargFact(
+        "what Marg keeps",
+        "Marg keeps only what it needs: that you are a student, your class, your district and"
+        " your language; never your full name or your school.",
+        "data-model.md, ConversationMachine._PROFILE_QUESTIONS[STUDENT]",
+        frozenset({Role.STUDENT}),
+    ),
+    MargFact(
+        "what Marg keeps",
+        "Marg keeps only what it needs: that you are a teacher, your subject, the class you"
+        " teach, your district and your language; never your full name or your school.",
+        "data-model.md, ConversationMachine._PROFILE_QUESTIONS[TEACHER]",
+        frozenset({Role.TEACHER}),
     ),
     MargFact(
         "phone number",

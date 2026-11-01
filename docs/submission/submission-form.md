@@ -55,7 +55,7 @@ Two rules shape every answer:
 > the guide can grow with the child. Safety runs on every message in and out (Llama Guard 4 plus a second Muse
 > Spark check plus our own child rules), and fails closed.
 >
-> All of it was built during the hackathon: 3,044 tests (2,835 unit, 209 integration on
+> All of it was built during the hackathon: 3,068 tests (2,859 unit, 209 integration on
 > Postgres); an eval harness that plays 94 hand-written cases through the real pipeline, where
 > 76% of the 82 scored pass on the newest full run and every crisis and adversarial case
 > passes; and a field test in my village. Every bug found
@@ -70,7 +70,7 @@ Two rules shape every answer:
 > starts each day is the morning prompt, and every other message answers the family. The whole
 > build, with every test and evaluation, used about $32 of Model API credits.
 
-*(Recheck before submitting: the test count from `pytest --collect-only` (3,044 on
+*(Recheck before submitting: the test count from `pytest --collect-only` (3,068 on
 2026-11-01), the pass rate and denominators from the newest scorecard, that the field test happened, and the credits used: $150 minus the Model API
 balance on the day, $32 on 2026-10-31.)*
 

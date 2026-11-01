@@ -275,7 +275,7 @@ class OnboardingLayer:
         if requested is not None:
             return FirstContact(requested, None)
         detected = RegisterDetector.detect(user_text)
-        if _P.is_greeting(user_text):
+        if _P.is_greeting(user_text) or _P.is_acknowledgement(user_text):
             if detected is Language.HINDI:
                 return FirstContact(Language.HINDI, None)
             web_default = self._web_default_language if channel is Channel.WEB else None

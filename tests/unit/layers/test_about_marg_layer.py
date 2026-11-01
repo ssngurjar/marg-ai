@@ -38,7 +38,8 @@ async def test_the_answer_comes_from_the_reviewed_facts_and_is_counted() -> None
     result, llm = await ask(ANSWER)
     [prompt] = llm.prompts
     for fact in MARG_FACTS:
-        assert fact.text in prompt.system
+        for_parents = fact.roles is None or Role.PARENT in fact.roles
+        assert (fact.text in prompt.system) is for_parents
     assert result.reply.body == ANSWER["answer"]
     assert result.step_note == "about_marg=true"
     assert result.outcome is StepOutcome.OK
@@ -127,5 +128,31 @@ def test_every_number_in_the_facts_is_accounted_for() -> None:
 
 def test_every_fact_names_the_code_that_makes_it_true() -> None:
     assert all(fact.where.strip() for fact in MARG_FACTS)
-    topics = [fact.topic for fact in MARG_FACTS]
+    topics = [(fact.topic, fact.roles) for fact in MARG_FACTS]
     assert len(topics) == len(set(topics))
+
+
+@pytest.mark.parametrize(
+    ("role", "says", "never"),
+    [
+        (Role.PARENT, "that you are a parent", "your class, your district"),
+        (Role.STUDENT, "your class, your district", "that you are a parent"),
+        (Role.TEACHER, "your subject, the class you teach", "that you are a student"),
+    ],
+)
+def test_each_role_hears_only_what_marg_keeps_about_them(role: Role, says: str, never: str) -> None:
+    # owner's field test, 2026-11-01: a parent was told Marg keeps their class and district
+    facts = AboutMargLayer.facts_for(role)
+    assert says in facts
+    assert never not in facts
+
+
+def test_someone_without_a_role_gets_only_the_facts_true_for_everyone() -> None:
+    facts = AboutMargLayer.facts_for(None)
+    assert "what Marg keeps" not in facts
+    assert "safety checks" in facts
+
+
+def test_every_role_has_its_own_what_marg_keeps() -> None:
+    for role in Role:
+        assert AboutMargLayer.facts_for(role).count("- what Marg keeps:") == 1

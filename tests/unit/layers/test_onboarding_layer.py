@@ -161,6 +161,20 @@ async def test_a_first_question_is_remembered_and_the_intro_says_so() -> None:
     assert change.language is Language.HINGLISH
 
 
+@pytest.mark.parametrize("text", ["Ok", "ok ji", "theek hai", "thank you", "हाँ जी", "Hmm"])
+async def test_a_first_ok_or_thanks_is_no_question_to_keep(text: str) -> None:
+    # owner's field test, 2026-11-01: "Ok" after a deletion got "I've noted your question"
+    result, llm = await handle(at(S.NEW), text_message(text))
+    assert profile_change(result).pending_question is None
+    assert not result.reply.body.startswith(body(CopyKey.QUESTION_NOTED))
+    assert llm.prompts == []
+
+
+async def test_ok_with_a_question_still_keeps_the_question() -> None:
+    result, _ = await handle(at(S.NEW), text_message("Ok, what is this?"))
+    assert profile_change(result).pending_question == "Ok, what is this?"
+
+
 @pytest.mark.parametrize("greeting", ["Hi", "Hello", "Namaste", "hii"])
 async def test_a_greeting_on_the_web_demo_gets_english_and_on_whatsapp_hinglish(
     greeting: str,
