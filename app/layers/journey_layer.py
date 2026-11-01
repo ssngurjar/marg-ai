@@ -63,7 +63,7 @@ from app.constants.journey_copy import (
     WHICH_CHILD,
 )
 from app.constants.journey_words import CAREER_WORDS, LABEL_WORDS, SMALL_TALK
-from app.constants.onboarding_copy import COPY
+from app.constants.onboarding_copy import CHILD_FALLBACK, COPY
 from app.core.errors import ProviderError
 from app.domain.enums import (
     ActivityStatus,
@@ -208,8 +208,17 @@ class JourneyLayer:
             result = await self._by_rules(ctx, message, open_activity, now, register)
         else:
             heard = ctx.model_copy(update={"heard_braj": True}) if read.braj else ctx
-            spoken_in = JourneyLayer.reply_language(register, read.language, message.text)
-            turn = _FreeText(heard, message.text, open_activity, now, spoken_in)
+            spoken_in = read.asked_language or JourneyLayer.reply_language(
+                register, read.language, message.text
+            )
+            turn = _FreeText(
+                heard,
+                message.text,
+                open_activity,
+                now,
+                spoken_in,
+                language_asked=read.asked_language is not None,
+            )
             result = await self._by_intent(read.intent, turn)
         return _with_reading(result, read)
 
@@ -264,7 +273,6 @@ class JourneyLayer:
         """What code does for each reading; the model never picks a route itself."""
         ctx, user_text, open_activity = turn.ctx, turn.text, turn.open_activity
         now, register = turn.now, turn.register
-        khoj_open = open_activity is not None
         match intent:
             case ParentIntent.REPORT if open_activity is not None:
                 return await self._reflect(ctx, open_activity, user_text, register, None)
@@ -272,25 +280,40 @@ class JourneyLayer:
                 return await self._question(ctx, user_text, now, register, child_question=True)
             case ParentIntent.SMALL_TALK:
                 return self._small_talk_reply(ctx, register)
-            case ParentIntent.NEW_KHOJ:
-                return await self._today(ctx, ctx.active_learner, now, register, skipped=None)
-            case ParentIntent.ANOTHER_KHOJ:
-                return await self._another(ctx, open_activity, now, register)
-            case ParentIntent.SAME_KHOJ_AGAIN if open_activity is not None:
-                return self._again(ctx, open_activity, register)
-            case ParentIntent.SAME_KHOJ_AGAIN:
-                return await self._today(ctx, ctx.active_learner, now, register, skipped=None)
+            case ParentIntent.NEW_KHOJ | ParentIntent.ANOTHER_KHOJ | ParentIntent.SAME_KHOJ_AGAIN:
+                return await self._khoj_asked(intent, turn)
             case ParentIntent.ADD_CHILD:
                 return self._add_child(ctx, register)
             case ParentIntent.DAILY_TIME:
                 return _fixed(NUDGE_ASK[register], register, NUDGE_BUTTONS[register])
             case ParentIntent.DAILY_OFF:
-                return self._daily_off(register, khoj_open=khoj_open)
+                return self._daily_off(register, khoj_open=open_activity is not None)
             case ParentIntent.SOMEONE_ELSE:
                 return JourneyLayer._who_is_writing(ctx, now, register)
+            case ParentIntent.CHILD_TALK if self._settings.child_talk_enabled:
+                offer = JourneyLayer._child_talk_offer(ctx, now, register)
+                if offer is not None:
+                    return offer
+                return await self._question(ctx, user_text, now, register, child_question=False)
             case _:
                 # QUESTION, or a REPORT with nothing open: the parent's answer
                 return await self._question(ctx, user_text, now, register, child_question=False)
+
+    async def _khoj_asked(self, intent: ParentIntent, turn: "_FreeText") -> LayerResult:
+        """A khoj asked for: today's, another one, or the open one again."""
+        ctx, open_activity, now, register = turn.ctx, turn.open_activity, turn.now, turn.register
+        if (
+            open_activity is not None
+            and turn.language_asked
+            and intent is not ParentIntent.ANOTHER_KHOJ
+        ):
+            # "send khoj in hinglish": the open khoj in the language asked for, not a new one
+            return await self._again_in(ctx, open_activity, now, register)
+        if intent is ParentIntent.ANOTHER_KHOJ:
+            return await self._another(ctx, open_activity, now, register)
+        if intent is ParentIntent.SAME_KHOJ_AGAIN and open_activity is not None:
+            return self._again(ctx, open_activity, register)
+        return await self._today(ctx, ctx.active_learner, now, register, skipped=None)
 
     def _again(
         self, ctx: TurnContext, open_activity: OfferedActivity, register: Language
@@ -308,6 +331,66 @@ class JourneyLayer:
             degraded_reason=None,
             hazard_rule=frozenset(activity.hazards),
         )
+
+    async def _again_in(
+        self, ctx: TurnContext, open_activity: OfferedActivity, now: datetime, register: Language
+    ) -> LayerResult:
+        """The open khoj once more, reworded in the language the parent asked for (owner,
+        2026-11-01): nothing new is offered. Falls back to the reviewed words."""
+        activity = open_activity.activity
+        learner = _learner_named(ctx.learners, open_activity)
+        said = " ".join(message.text or "" for message in ctx.messages)
+        personalised, usages, versions, problem = await self._personalise(
+            activity,
+            learner,
+            now,
+            register,
+            LocalVoice.rule(register, ctx.profile.district, said, heard_braj=ctx.heard_braj),
+        )
+        kid = _kid_buttons(learner, register) if self._settings.child_talk_enabled else ()
+        reviewed_reply = _KhojText.from_activity(activity).reply(
+            register, spoken=None, extra_buttons=kid
+        )
+        reply = (
+            personalised.reply(register, spoken=personalised.spoken, extra_buttons=kid)
+            if personalised
+            else None
+        )
+        return LayerResult(
+            reply=reply or reviewed_reply,
+            usages=usages,
+            prompt_versions=versions,
+            outcome=StepOutcome.OK if reply else StepOutcome.DEGRADED,
+            degraded_reason=None if reply else f"catalogue_fallback={problem}",
+            fallback_reply=reviewed_reply if reply else None,
+            hazard_rule=frozenset(activity.hazards),
+        )
+
+    @staticmethod
+    def _child_talk_offer(
+        ctx: TurnContext, now: datetime, register: Language
+    ) -> LayerResult | None:
+        """ "Can my child talk to you?": how to start, if the parent already said yes; else the
+        same consent question onboarding asks, with its buttons (owner, 2026-11-01). None when
+        no child on the list is 3-8 (child talk is for them): the question path answers."""
+        young = [
+            learner
+            for learner in ctx.learners
+            if StageRules.age_band(learner.birth_year, now.date()) is AgeBand.FOUNDATIONAL_3_8
+        ]
+        if not young:
+            return None
+        active = ctx.active_learner
+        child = active if active is not None and active in young else young[0]
+        values = {"child": child.nickname or CHILD_FALLBACK[register]}
+        if child.child_talk_consented_at is not None:
+            how_to_start = COPY[(CopyKey.CHILD_TALK_ENABLED, register)].body.format_map(values)
+            return _fixed(how_to_start, register, _kid_buttons(child, register))
+        ask = COPY[(CopyKey.ASK_CHILD_TALK, register)]
+        buttons = tuple(
+            ReplyButton(id=f"{button.id}:{child.id}", title=button.title) for button in ask.buttons
+        )
+        return _fixed(ask.body.format_map(values), register, buttons)
 
     def _small_talk_reply(self, ctx: TurnContext, register: Language) -> LayerResult:
         """A greeting or thanks: the open khoj is still waiting, or today's khoj is offered.
@@ -681,6 +764,7 @@ class _FreeText:
     open_activity: OfferedActivity | None
     now: datetime
     register: Language
+    language_asked: bool  # the parent asked for this reply's language ("in hindi")
 
 
 @dataclass(frozen=True, slots=True)

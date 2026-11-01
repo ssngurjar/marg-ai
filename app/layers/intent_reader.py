@@ -31,6 +31,7 @@ class IntentReading(BaseModel):
     intent: ParentIntent
     language: Language  # what the words are written in (hinglish: Hindi in Roman letters)
     braj: bool  # Braj forms (मेरो, वाको, वाय, नाय…), in either script
+    asked_language: Language | None  # a language the parent asks this reply to be in, if any
 
 
 PARENT_INTENT: Final = PromptSpec(prompt_id="parent_intent", output_type=IntentReading)
@@ -42,6 +43,7 @@ class IntentRead:
     usage: StepUsage | None
     language: Language | None
     braj: bool
+    asked_language: Language | None  # "send khoj in hindi": this reply's language (2026-11-01)
     prompt_versions: dict[str, str]
     failed: str | None  # "intent_read_failed=<error>" when the call failed
 
@@ -76,13 +78,22 @@ class IntentReader:
             result = await self._llm.generate(rendered.request)
         except ProviderError as exc:
             failed = f"intent_read_failed={type(exc).__name__}"
-            return IntentRead(None, None, None, braj=False, prompt_versions=versions, failed=failed)
+            return IntentRead(
+                None,
+                None,
+                None,
+                braj=False,
+                asked_language=None,
+                prompt_versions=versions,
+                failed=failed,
+            )
         reading = result.output
         return IntentRead(
             reading.intent,
             result.usage,
             reading.language,
             braj=reading.braj,
+            asked_language=reading.asked_language,
             prompt_versions=versions,
             failed=None,
         )

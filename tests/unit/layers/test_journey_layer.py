@@ -21,8 +21,9 @@ from app.constants.journey_copy import (
     SUPERVISION_LINE,
     WHICH_CHILD,
 )
+from app.constants.onboarding_copy import CHILD_TALK_NO, CHILD_TALK_YES, COPY
 from app.core.errors import ProviderError, ProviderResponseInvalid, ProviderUnavailable
-from app.domain.enums import ActivityStatus, Language, StepOutcome
+from app.domain.enums import ActivityStatus, CopyKey, Language, StepOutcome
 from app.domain.models.activity import OfferRecord
 from app.domain.models.learner import Learner
 from app.domain.models.photo import ObjectCount, PhotoFindings
@@ -570,8 +571,10 @@ async def test_a_real_report_after_ok_is_still_a_report(text: str) -> None:
 # --- intent reading (owner, 2026-10-29) ----------------------------------------------------------
 
 
-def reading(intent: str, language: str = "hinglish", *, braj: bool = False) -> dict[str, object]:
-    return {"intent": intent, "language": language, "braj": braj}
+def reading(
+    intent: str, language: str = "hinglish", *, braj: bool = False, asked: str | None = None
+) -> dict[str, object]:
+    return {"intent": intent, "language": language, "braj": braj, "asked_language": asked}
 
 
 async def test_a_report_read_as_a_report_gets_the_reflection() -> None:
@@ -580,7 +583,7 @@ async def test_a_report_read_as_a_report_gets_the_reflection() -> None:
         text="usne patte gine", button=None, open_activity=offer(FIRST, MUNNI), layer=layer
     )
     assert result.reply.body.startswith(REFLECTION_PRAISE)
-    assert result.prompt_versions["parent_intent"] == "1.2.0"
+    assert result.prompt_versions["parent_intent"] == "1.3.0"
     [prompt] = llm.by_prompt["parent_intent"].prompts
     assert "usne patte gine" in prompt.user
 
@@ -728,6 +731,171 @@ async def test_braj_heard_by_the_model_gets_light_braj_without_a_marker_word() -
     await layer.handle(ctx, ParentMessage(text, []), NOW, Language.HINDI)
     [prompt] = llm.by_prompt["parent_answer"].prompts
     assert BRAJ_RULE[Language.HINDI] in prompt.system
+
+
+# --- a language asked for, for this reply only (owner, 2026-11-01) --------------------------------
+
+HINDI_PERSONALISATION: dict[str, object] = {
+    "intro": "आज मुन्नी के साथ एक छोटी खोज कीजिए।",
+    "steps": [
+        f"कदम {number}: बच्चे के साथ ध्यान से कीजिए।" for number in range(1, len(FIRST.steps) + 1)
+    ],
+    "questions_to_ask": ["तुम्हें क्या दिखा?", "तुम्हें ऐसा क्यों लगता है?"],
+    "listen_for": "बच्चे की अपनी सोच, चाहे जवाब सही न हो।",
+    "parent_tip": "सवाल पूछकर जवाब का इंतज़ार कीजिए।",
+    "spoken_text": "आज मुन्नी के साथ एक छोटी खोज। बच्चे के साथ ध्यान से कीजिए।",
+}
+
+
+@pytest.mark.parametrize("intent", ["same_khoj_again", "new_khoj"])
+async def test_the_open_khoj_asked_for_in_hindi_comes_again_in_hindi_and_nothing_new(
+    intent: str,
+) -> None:
+    # Owner's demo: "please send khoj again in hindi" came back in English
+    layer, llm = layer_with(
+        personalise=HINDI_PERSONALISATION, intent=reading(intent, "english", asked="hindi")
+    )
+    result = await khoj(
+        text="please send khoj again in hindi",
+        button=None,
+        open_activity=offer(FIRST, MUNNI),
+        layer=layer,
+    )
+    assert result.outcome is StepOutcome.OK
+    assert result.reply.body_language is Language.HINDI
+    assert result.reply.body.startswith(str(HINDI_PERSONALISATION["intro"]))
+    assert result.reply.body.endswith(SUPERVISION_LINE[Language.HINDI])
+    assert result.writes == []  # the same khoj: nothing offered, nothing skipped
+    [prompt] = llm.by_prompt["activity_personalise"].prompts
+    assert FIRST.title in prompt.system
+    assert "Devanagari" in prompt.system
+
+
+async def test_if_rewording_in_the_asked_language_fails_the_reviewed_words_come_degraded() -> None:
+    layer, _ = layer_with(
+        personalise=ProviderUnavailable("503", provider="meta_model_api"),
+        intent=reading("same_khoj_again", "english", asked="hinglish"),
+    )
+    result = await khoj(
+        text="send khoj in hinglish", button=None, open_activity=offer(FIRST, MUNNI), layer=layer
+    )
+    assert result.outcome is StepOutcome.DEGRADED
+    assert result.degraded_reason == "catalogue_fallback=ProviderUnavailable"
+    assert FIRST.steps[0] in result.reply.body
+    assert result.reply.body_language is Language.HINGLISH
+    assert result.writes == []
+
+
+async def test_a_new_khoj_asked_for_in_a_language_with_nothing_open_is_todays_in_it() -> None:
+    layer, _ = layer_with(
+        personalise=HINDI_PERSONALISATION, intent=reading("new_khoj", "english", asked="hindi")
+    )
+    result = await khoj(text="send today's khoj in hindi", button=None, layer=layer)
+    assert result.reply.body_language is Language.HINDI
+    assert offered(result).learner_id == MUNNI.id
+
+
+async def test_another_khoj_asked_for_in_a_language_is_still_a_different_one() -> None:
+    # the reviewed words are enough here: the test is about which khoj, not its wording
+    layer, _ = layer_with(
+        personalise=ProviderUnavailable("503", provider="meta_model_api"),
+        intent=reading("another_khoj", "english", asked="hinglish"),
+    )
+    result = await khoj(
+        text="send another one in hinglish",
+        button=None,
+        open_activity=offer(FIRST, MUNNI),
+        layer=layer,
+    )
+    [skipped] = [write for write in result.writes if isinstance(write, ActivityReported)]
+    assert skipped.status is ActivityStatus.SKIPPED
+    assert offered(result).activity_id != FIRST.id
+
+
+async def test_a_question_asked_to_be_answered_in_hindi_is_answered_in_hindi() -> None:
+    layer, llm = layer_with(
+        answer=HINDI_ANSWER, intent=reading("question", "english", asked="hindi")
+    )
+    result = await khoj(text="my son won't eat, answer in hindi", button=None, layer=layer)
+    assert result.reply.body_language is Language.HINDI
+    [prompt] = llm.by_prompt["parent_answer"].prompts
+    assert "Devanagari" in prompt.system
+
+
+async def test_writing_in_english_without_asking_keeps_the_usual_language() -> None:
+    layer, _ = layer_with(intent=reading("same_khoj_again", "english"))
+    result = await khoj(
+        text="send that activity again please",
+        button=None,
+        open_activity=offer(FIRST, MUNNI),
+        layer=layer,
+    )
+    assert result.reply.body_language is H
+    assert result.writes == []
+
+
+# --- "can my child talk to you?" (owner, 2026-11-01) ---------------------------------------------
+
+
+async def test_asking_if_the_child_can_talk_gets_the_consent_question_with_its_buttons() -> None:
+    # Owner's demo: the answer said "read my words to the child", though child talk exists
+    layer, llm = layer_with(intent=reading("child_talk", "english"))
+    result = await khoj(text="Can my child also talk to you", button=None, layer=layer)
+    ask = COPY[(CopyKey.ASK_CHILD_TALK, H)]
+    assert result.reply.body == ask.body.format(child="Munni")
+    assert [button.id for button in result.reply.buttons] == [
+        f"{CHILD_TALK_YES}:{MUNNI.id}",
+        f"{CHILD_TALK_NO}:{MUNNI.id}",
+    ]
+    assert llm.by_prompt["parent_answer"].prompts == []
+    assert result.writes == []
+
+
+async def test_a_parent_who_already_said_yes_is_told_how_the_child_starts() -> None:
+    munni = consented_child()
+    layer, _ = layer_with(intent=reading("child_talk", "english"))
+    result = await khoj(
+        text="how can she talk directly", button=None, learners=[munni], layer=layer
+    )
+    enabled = COPY[(CopyKey.CHILD_TALK_ENABLED, H)]
+    assert result.reply.body == enabled.body.format(child="Munni")
+    assert [button.id for button in result.reply.buttons] == [f"kid:start:{munni.id}"]
+
+
+async def test_with_two_young_children_and_none_chosen_the_first_is_asked_about() -> None:
+    golu = child(2, "Golu", age=7)
+    layer, _ = layer_with(intent=reading("child_talk"))
+    result = await khoj(
+        text="kya bachche khud baat kar sakte hain",
+        button=None,
+        learners=[MUNNI, golu],
+        layer=layer,
+    )
+    assert result.reply.body == COPY[(CopyKey.ASK_CHILD_TALK, H)].body.format(child="Munni")
+    assert result.reply.buttons[0].id == f"{CHILD_TALK_YES}:{MUNNI.id}"
+
+
+async def test_with_no_child_aged_3_to_8_the_question_is_answered_instead() -> None:
+    lala = child(3, "Lala", age=10)  # child talk is for 3-8-year-olds
+    layer, llm = layer_with(intent=reading("child_talk"))
+    await khoj(text="kya Lala khud baat kar sakta hai", button=None, learners=[lala], layer=layer)
+    assert len(llm.by_prompt["parent_answer"].prompts) == 1
+
+
+async def test_with_child_talk_switched_off_the_question_is_answered_instead() -> None:
+    _, llm = layer_with(intent=reading("child_talk"))
+    switched_off = JourneyLayer(
+        llm,
+        shipped_registry(),
+        CatalogueActivitySource(shipped_catalogue()),
+        ParentQuestionLayer(llm, shipped_registry()),
+        JourneySettings(
+            repeat_window=timedelta(days=30), child_talk_enabled=False, read_intent=True
+        ),
+    )
+    result = await khoj(text="can my child talk to you", button=None, layer=switched_off)
+    assert len(llm.by_prompt["parent_answer"].prompts) == 1
+    assert result.reply.buttons == []
 
 
 # --- someone else is writing on the parent's phone (owner, 2026-10-29) -------------------------
