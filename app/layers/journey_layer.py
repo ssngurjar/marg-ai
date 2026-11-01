@@ -39,6 +39,8 @@ from app.constants.journey_copy import (
     AGE_COMING_SOON,
     ASK_LABEL,
     CHILD_IN_HELLO,
+    DELETE_DATA_BUTTON,
+    DELETE_DATA_OFFER,
     HELLO_NOTHING_OPEN,
     KHOJ_BUTTONS,
     KHOJ_DONE,
@@ -248,11 +250,18 @@ class JourneyLayer:
         user_text, photo = message.text, message.photo
         interactive_ids = message.interactive_ids
         button = interactive_ids[-1] if interactive_ids else None
-        nudge_settings = self._nudge_settings(
+        settings = self._nudge_settings(
             button, user_text, register, khoj_open=open_activity is not None
         )
-        if nudge_settings is not None:
-            return nudge_settings
+        if (
+            settings is None
+            and button is None
+            and OnboardingAnswerParser.asks_to_add_child(user_text)
+        ):
+            # the router left "add a child" to the intent model (2026-11-01); this is its fallback
+            settings = self._add_child(ctx, register)
+        if settings is not None:
+            return settings
         if button is not None and button.startswith(KHOJ_OTHER):
             return await self._another(ctx, open_activity, now, register)
         asks_for_khoj = PhraseFinder.contains_any(user_text, self.KHOJ_PHRASES)
@@ -290,6 +299,10 @@ class JourneyLayer:
                 return self._daily_off(register, khoj_open=open_activity is not None)
             case ParentIntent.SOMEONE_ELSE:
                 return JourneyLayer._who_is_writing(ctx, now, register)
+            case ParentIntent.DELETE_DATA:
+                return _fixed(
+                    DELETE_DATA_OFFER[register], register, (DELETE_DATA_BUTTON[register],)
+                )
             case ParentIntent.CHILD_TALK if self._settings.child_talk_enabled:
                 offer = JourneyLayer._child_talk_offer(ctx, now, register)
                 if offer is not None:

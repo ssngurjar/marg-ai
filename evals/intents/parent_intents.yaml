@@ -146,6 +146,21 @@ cases:
   - {text: "how does the child mode work", open_khoj: false, intent: child_talk}
   - {text: "munni ko phone de du kya baat karne ke liye", open_khoj: true, intent: child_talk}
 
+  # --- delete_data: delete everything Marg keeps ------------------------------------------------
+  - {text: "mera sab data mita do, ab nahi chahiye", open_khoj: false, intent: delete_data}
+  - {text: "please remove all our information from your system", open_khoj: false, intent: delete_data}
+  - {text: "bachche ka data delete karo please", open_khoj: true, intent: delete_data}
+  - {text: "मेरा और मेरी बेटी का सारा डेटा हटा दीजिए", open_khoj: false, intent: delete_data}
+  - {text: "humari jaankari aapke paas mat rakho, sab hata do", open_khoj: false, intent: delete_data}
+  - {text: "phone ka data delete ho gaya, khoj phir se bhejo", open_khoj: true, intent: same_khoj_again}
+  - {text: "mobile data hatao kaise karte hain", open_khoj: false, intent: question}
+  - {text: "is my data safe with you", open_khoj: false, intent: question}
+
+  # --- worries that mention another child (not add_child) --------------------------------------
+  - {text: "my son keeps hitting another child at school", open_khoj: false, intent: question}
+  - {text: "beti doosre bachche ke liye khilona chhin leti hai", open_khoj: false, intent: question}
+  - {text: "mera beta ek aur bachche se ladta rehta hai", open_khoj: true, intent: question}
+
   # --- harder: typos, voice-note style, two things at once, things Marg doesn't do -------------
   - {text: "aaj ki khoj nahi mili kya bhejoge", open_khoj: false, intent: new_khoj}
   - {text: "haan ji usne patte gine 5 the aur ek peela tha", open_khoj: true, intent: report}

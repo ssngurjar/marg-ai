@@ -25,6 +25,7 @@ from app.constants.onboarding_copy import (
     CONSENT_YES,
     COPY,
     COPY_VERSION,
+    DELETE_ASK,
     DELETE_NO,
     DELETE_YES,
     GUARDIAN_NO,
@@ -165,6 +166,7 @@ class OnboardingLayer:
         GUARDIAN_NO: GuardianDeclined(),
         DELETE_YES: DeletionConfirmed(),
         DELETE_NO: DeletionCancelled(),
+        DELETE_ASK: DeletionRequested(),
         ADD_CHILD: AddChild(),
     }
 

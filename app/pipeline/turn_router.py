@@ -57,7 +57,7 @@ class TurnRouter:
         if facts.child_session_open:
             # Rule 1a (C13): a child is talking. Nothing they send reaches deletion or settings.
             return _to(Route.CHILD_TALK, "open child session")
-        if not interactive_ids and OnboardingAnswerParser.asks_for_deletion(user_text):
+        if not interactive_ids and TurnRouter._asks_for_deletion(profile, user_text):
             return _to(Route.DATA_DELETION, "deletion phrase")
         if profile.state is not ConversationState.ACTIVE:
             return _to(Route.ONBOARDING, f"state {profile.state.value}")
@@ -78,6 +78,17 @@ class TurnRouter:
                 return TurnRouter._parent(user_text, interactive_ids, facts)
 
     @staticmethod
+    def _asks_for_deletion(profile: UserProfile, user_text: str) -> bool:
+        """A parent in the journey: only a short request on its own goes straight to deletion;
+        a longer message is read by the intent model, which offers deletion if that's what it
+        asks ("phone ka data delete ho gaya, khoj bhejo" isn't). Everyone else: any deletion
+        phrase (owner, 2026-11-01)."""
+        in_journey = profile.role is Role.PARENT and profile.state is ConversationState.ACTIVE
+        if in_journey:
+            return OnboardingAnswerParser.asks_only_for_deletion(user_text)
+        return OnboardingAnswerParser.asks_for_deletion(user_text)
+
+    @staticmethod
     def _parent(user_text: str, interactive_ids: Sequence[str], facts: TurnFacts) -> RouteDecision:
         if any(
             button.startswith((JOURNEY_BUTTON_PREFIX, NUDGE_BUTTON_PREFIX))
@@ -87,8 +98,6 @@ class TurnRouter:
         if interactive_ids:
             # No other button prefix is routed; ids are never passed to a model (s05 rule 13).
             return _to(Route.REPEAT_PLEASE, "unknown interactive id")
-        if OnboardingAnswerParser.asks_to_add_child(user_text):
-            return _to(Route.ONBOARDING, "add a child")
         if facts.has_photo and not user_text.strip():
             return _to(Route.JOURNEY, "parent photo")
         if not user_text.strip():

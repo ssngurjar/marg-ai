@@ -484,6 +484,14 @@ async def test_deletion_is_confirmed_then_purged_after_the_reply() -> None:
     assert profile_change(done).consent_events == [ConsentEventKind.DELETION_REQUESTED]
 
 
+async def test_the_journeys_delete_button_asks_once_more_and_deletes_nothing_yet() -> None:
+    parent = at(S.ACTIVE, role=Role.PARENT)
+    asked, _ = await handle(parent, button_reply("onb:delete:ask"), learners=[MUNNI])
+    assert asked.reply.body == body(CopyKey.CONFIRM_DELETE)
+    assert profile_change(asked).new_state is S.AWAITING_DELETION_CONFIRM
+    assert MarkPurgeAfterDelivery() not in asked.writes
+
+
 async def test_cancelling_deletion_keeps_everything() -> None:
     confirming = at(S.AWAITING_DELETION_CONFIRM, role=Role.PARENT)
     result, _ = await handle(confirming, text_message("nahi"), learners=[MUNNI])

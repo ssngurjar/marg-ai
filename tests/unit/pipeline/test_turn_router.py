@@ -109,8 +109,37 @@ def test_a_language_name_alone_switches_language(text: str) -> None:
     assert TurnRouter.decide(PARENT, text, []).route is Route.ONBOARDING
 
 
-def test_adding_a_child_is_onboarding_for_parents() -> None:
-    assert TurnRouter.decide(PARENT, "ek aur bachcha", []).route is Route.ONBOARDING
+@pytest.mark.parametrize(
+    "text",
+    [
+        "ek aur bachcha",
+        "my son keeps hitting another child at school",  # a worry, not a request (2026-11-01)
+        "beti doosre bachche ke liye khilona chhin leti hai",
+    ],
+)
+def test_a_parents_words_about_another_child_go_to_the_journey_to_be_read(text: str) -> None:
+    # the intent model tells "add my son too" from a worry; the add-child button still works
+    assert TurnRouter.decide(PARENT, text, []).route is Route.JOURNEY
+    assert TurnRouter.decide(PARENT, "", ["onb:add-child"]).route is Route.ONBOARDING
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "phone ka data delete ho gaya, khoj phir se bhejo",
+        "mobile data hatao kaise karte hain",
+        "bachche ka data delete karo please",
+    ],
+)
+def test_a_parents_longer_message_with_a_deletion_phrase_is_read_not_routed(text: str) -> None:
+    assert TurnRouter.decide(PARENT, text, []).route is Route.JOURNEY
+
+
+@pytest.mark.parametrize("role", [Role.STUDENT, Role.TEACHER])
+def test_for_students_and_teachers_any_deletion_phrase_still_deletes(role: Role) -> None:
+    profile = user_profile(role=role)
+    text = "please delete my data, I don't want to use this anymore"
+    assert TurnRouter.decide(profile, text, []).route is Route.DATA_DELETION
 
 
 KNOWN_PREFIXES = ("onb:", "jrn:", "nudge:", "kid:")

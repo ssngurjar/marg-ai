@@ -10,6 +10,7 @@ from app.constants.child_talk_copy import WHO_IS_WRITING, WHO_IS_WRITING_NO_CHIL
 from app.constants.journey_copy import (
     ADD_CHILD_PROMPT,
     AGE_COMING_SOON,
+    DELETE_DATA_OFFER,
     HELLO_NOTHING_OPEN,
     KHOJ_DONE,
     KHOJ_OTHER,
@@ -583,7 +584,7 @@ async def test_a_report_read_as_a_report_gets_the_reflection() -> None:
         text="usne patte gine", button=None, open_activity=offer(FIRST, MUNNI), layer=layer
     )
     assert result.reply.body.startswith(REFLECTION_PRAISE)
-    assert result.prompt_versions["parent_intent"] == "1.4.0"
+    assert result.prompt_versions["parent_intent"] == "1.5.0"
     [prompt] = llm.by_prompt["parent_intent"].prompts
     assert "usne patte gine" in prompt.user
 
@@ -832,6 +833,25 @@ async def test_writing_in_english_without_asking_keeps_the_usual_language() -> N
     )
     assert result.reply.body_language is H
     assert result.writes == []
+
+
+# --- a longer message asking to delete everything (owner, 2026-11-01) ----------------------------
+
+
+async def test_a_longer_deletion_request_gets_the_offer_that_starts_the_usual_deletion() -> None:
+    layer, llm = layer_with(intent=reading("delete_data", "hinglish"))
+    result = await khoj(text="mera sab data mita do, ab nahi chahiye", button=None, layer=layer)
+    assert result.reply.body == DELETE_DATA_OFFER[H]
+    assert [button.id for button in result.reply.buttons] == ["onb:delete:ask"]
+    assert result.writes == []  # nothing is deleted here: the button asks once more
+    assert llm.by_prompt["parent_answer"].prompts == []
+
+
+async def test_if_the_reading_fails_a_request_to_add_a_child_still_gets_the_button() -> None:
+    layer, _ = layer_with(intent=ProviderUnavailable("503", provider="meta_model_api"))
+    result = await khoj(text="ek aur bachcha add karna hai", button=None, layer=layer)
+    assert result.reply.body == ADD_CHILD_PROMPT[H]
+    assert [button.id for button in result.reply.buttons] == ["onb:add-child"]
 
 
 # --- "can my child talk to you?" (owner, 2026-11-01) ---------------------------------------------

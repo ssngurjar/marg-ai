@@ -334,6 +334,7 @@ class ParentIntent(StrEnum):
     DAILY_OFF = "daily_off"  # wants no more daily messages
     SOMEONE_ELSE = "someone_else"  # a child or student is writing about themselves
     CHILD_TALK = "child_talk"  # asks whether or how their child can talk to Marg directly
+    DELETE_DATA = "delete_data"  # wants Marg to delete everything it keeps about them
 
 
 class CorpusTopic(StrEnum):

@@ -46,6 +46,7 @@ GUARDIAN_YES = "onb:guardian:yes"
 GUARDIAN_NO = "onb:guardian:no"
 DELETE_YES = "onb:delete:yes"
 DELETE_NO = "onb:delete:no"
+DELETE_ASK = "onb:delete:ask"  # the journey's offer for a longer "delete my data" message
 CHILD_TALK_YES = "onb:childtalk:yes"  # + ":<learner id>"
 CHILD_TALK_NO = "onb:childtalk:no"  # + ":<learner id>"
 ADD_CHILD = "onb:add-child"

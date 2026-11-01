@@ -489,3 +489,12 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
   `CHILD_REFUSE_DANGER`, `CHILD_REFUSE_HURTING`, `CHILD_REFUSE_OTHER` in
   `app/constants/child_talk_copy.py` (ideally with a teacher or counsellor from the village).
 
+## Rules audit and reliability (2026-11-01)
+
+- [ ] **Read the new deletion offer** (`DELETE_DATA_OFFER` in `app/constants/journey_copy.py`,
+  Hinglish, Hindi and English, with the button "Data mitao" / "डेटा मिटाओ" / "Delete my data"): it
+  answers a longer message asking Marg to delete everything, and its button leads to the usual
+  "Delete all your data?" question.
+- [ ] **Try on the phone:** "my son keeps hitting another child at school" gets advice, not the
+  add-child flow; "phone ka data delete ho gaya, khoj phir se bhejo" gets the khoj again;
+  "mera data hatao" still asks to confirm deletion at once.

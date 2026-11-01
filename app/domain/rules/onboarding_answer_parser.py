@@ -49,6 +49,9 @@ class OnboardingAnswerParser:
     CHILD_AGES: ClassVar[range] = range(2, 20)
     NICKNAME_MAX_CHARS: ClassVar[int] = 20
     SHORT_ANSWER_WORDS: ClassVar[int] = 5  # yes/no and role words count only in short answers
+    # A deletion request on its own may carry this many other words ("please", "ji", "abhi");
+    # longer messages are read by the intent model (owner, 2026-11-01).
+    DELETION_EXTRA_WORDS: ClassVar[int] = 2
     FULL_NAME_LATIN_WORDS: ClassVar[int] = 2  # "Priya Sharma": two capitalised words
     FULL_NAME_DEVANAGARI_WORDS: ClassVar[int] = 3
     FIRST_BIRTH_YEAR_NUMBER: ClassVar[int] = 1000  # a number this big is a year, not an age
@@ -206,6 +209,21 @@ class OnboardingAnswerParser:
     @staticmethod
     def asks_for_deletion(text: str) -> bool:
         return PhraseFinder.contains_any(text, OnboardingAnswerParser.DELETION_PHRASES)
+
+    @staticmethod
+    def asks_only_for_deletion(text: str) -> bool:
+        """A deletion phrase with at most DELETION_EXTRA_WORDS other words: "mera data hatao",
+        "please delete my data". Not "phone ka data delete ho gaya, khoj phir se bhejo"."""
+        matched = [
+            phrase
+            for phrase in OnboardingAnswerParser.DELETION_PHRASES
+            if PhraseFinder.contains_any(text, [phrase])
+        ]
+        if not matched:
+            return False
+        longest = max(len(PhraseFinder.words(phrase)) for phrase in matched)
+        extra_words = len(PhraseFinder.words(text)) - longest
+        return extra_words <= OnboardingAnswerParser.DELETION_EXTRA_WORDS
 
     @staticmethod
     def asks_to_add_child(text: str) -> bool:

@@ -82,6 +82,27 @@ ADD_CHILD_BUTTON: Final[dict[Language, ReplyButton]] = {
     _HINDI: ReplyButton(id="onb:add-child", title="दूसरा बच्चा"),
     _ENGLISH: ReplyButton(id="onb:add-child", title="Another child"),
 }
+# A longer message read as "delete my data" (owner, 2026-11-01): the button starts the usual
+# deletion, which asks once more before anything is deleted.
+DELETE_DATA_OFFER: Final[dict[Language, str]] = {
+    _HINGLISH: (
+        "Kya aap chahte hain ki Marg aapka aur bachchon ka sab data mita de? Neeche dabaiye; kuch "
+        "bhi mitane se pehle main ek baar aur poochunga."
+    ),
+    _HINDI: (
+        "क्या आप चाहते हैं कि मार्ग आपका और बच्चों का सारा डेटा मिटा दे? नीचे दबाइए; कुछ भी मिटाने से "
+        "पहले मैं एक बार और पूछूँगा।"
+    ),
+    _ENGLISH: (
+        "Do you want Marg to delete everything it keeps about you and your children? Tap below; "
+        "I'll ask once more before anything is deleted."
+    ),
+}
+DELETE_DATA_BUTTON: Final[dict[Language, ReplyButton]] = {
+    _HINGLISH: ReplyButton(id="onb:delete:ask", title="Data mitao"),
+    _HINDI: ReplyButton(id="onb:delete:ask", title="डेटा मिटाओ"),
+    _ENGLISH: ReplyButton(id="onb:delete:ask", title="Delete my data"),
+}
 WHICH_CHILD: Final[dict[Language, str]] = {
     _HINGLISH: "Aaj ki khoj kis bachche ke liye bhejun?",
     _HINDI: "आज की खोज किस बच्चे के लिए भेजूँ?",
