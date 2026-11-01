@@ -9,8 +9,8 @@
 # `lang` is how the case is written, for the per-language table. Optional checks (critic review,
 # 2026-11-01): `braj`, `language` (what the words are written in), `child_name`, and `report_about`
 # with `other_khojs` (khojs offered lately besides the open one).
-# Two things in one message: deletion wins over everything; then a setting (daily time or off);
-# then a report over small talk; otherwise what it mainly asks Marg to do now.
+# Two things in one message: what it mainly asks Marg to do now (the prompt's rule); a request to
+# delete their data always counts.
 
 cases:
   # --- report: how the open khoj went ---------------------------------------------------------

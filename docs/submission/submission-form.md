@@ -117,7 +117,8 @@ balance on the day, $32 on 2026-10-31.)*
 > Because the families I build for speak, they don't type. Muse Voice Transcribe hears a
 > parent's Hindi, Hinglish or Braj voice note on a basic phone, and Muse Spark reads what the
 > words mean: a report on the child, a question, a child writing on the parent's phone, "send
-> that again". In a live check it read 33 of 33 real-style messages right, Braj included.
+> that again". In the latest saved live check, 196 real-style messages read twice, it read 389
+> of 392 right, Braj 27 of 28.
 >
 > Because children are involved, safety can't be one model's guess. Llama Guard 4 and a Muse
 > Spark policy check read every message in parallel, and each covers the other's blind spots:
@@ -178,7 +179,7 @@ this build; for each, what it did to a family, what we did, and the change that 
 >    phone-number object, so there is no lightweight health check for the channel.
 >
 > What worked best: **Muse Spark structured output.** Strict JSON schemas plus one repair retry
-> with the validation error made every generative step typed, and its intent reading (33 of 33)
+> with the validation error made every generative step typed, and its intent reading (389 of 392 in the saved bank run)
 > is what lets Marg follow a family that takes the conversation anywhere.
 
 *(Each point is from this build: the s07, s09, s10b, s11 and S15 decision logs and the live checks

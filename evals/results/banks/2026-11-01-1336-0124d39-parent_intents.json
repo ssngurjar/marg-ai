@@ -1,0 +1,47 @@
+{
+  "bank": "parent_intents",
+  "run_at_utc": "2026-11-01-1336",
+  "commit": "0124d39",
+  "repeat": 2,
+  "readings": 392,
+  "right": 389,
+  "by_language": {
+    "braj": {
+      "right": 27,
+      "of": 28
+    },
+    "english": {
+      "right": 98,
+      "of": 98
+    },
+    "hindi": {
+      "right": 44,
+      "of": 44
+    },
+    "hinglish": {
+      "right": 218,
+      "of": 220
+    },
+    "mixed": {
+      "right": 2,
+      "of": 2
+    }
+  },
+  "misses": [
+    {
+      "text": "kal se roz 7 baje bhejna aur aaj wali abhi bhejo",
+      "lang": "hinglish",
+      "wrong": "intent daily_time, not new_khoj"
+    },
+    {
+      "text": "mero lala aaj khet mein gayo, vaane kenchua dekho",
+      "lang": "braj",
+      "wrong": "intent question, not report"
+    },
+    {
+      "text": "kal se roz 7 baje bhejna aur aaj wali abhi bhejo",
+      "lang": "hinglish",
+      "wrong": "intent daily_time, not new_khoj"
+    }
+  ]
+}
