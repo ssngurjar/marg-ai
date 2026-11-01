@@ -213,7 +213,9 @@ After choosing "student", Marg asks whether a parent or teacher knows they're ta
 2. Every fact (an exam, a scheme, an amount, a date) cites its source, and the reply ends with the
    official links. A fact with no source is never said; if nothing relevant is found, Marg says
    honestly it doesn't have verified details yet, and still helps with paths and next steps.
-3. A student who may be under 18 and mentions marriage pressure gets the child-protection line
+3. A school question ("what is Newton's first law", "what is 3+4 and why") gets a short,
+   direct answer with a village example; careers come up when the student asks about the future.
+4. A student who may be under 18 and mentions marriage pressure gets the child-protection line
    with Childline 1098.
 
 *(The documents are pending verification of every figure from India; NEET, JEE and a few others
