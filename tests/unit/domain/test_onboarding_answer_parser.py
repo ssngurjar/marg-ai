@@ -78,6 +78,18 @@ def test_an_age_outside_2_to_19_is_reported(text: str) -> None:
     assert P.parse_child_age(text, YEAR).problem is Found.OUT_OF_RANGE
 
 
+@pytest.mark.parametrize(
+    "text", ["abhi 6 mahine ka hai", "18 months old", "८ महीने", "baby hai, 9 mahina"]
+)
+def test_an_age_in_months_is_under_two_and_out_of_range(text: str) -> None:
+    # onboarding bank, 2026-11-01: "6 mahine" was read as six years, named "mahine"
+    assert P.parse_child_age(text, YEAR).problem is Found.OUT_OF_RANGE
+
+
+def test_years_and_months_together_count_the_years() -> None:
+    assert P.parse_child_age("2 saal 6 mahine", YEAR).birth_year == YEAR - 2
+
+
 @pytest.mark.parametrize("text", ["beti hai", "Munni", "do baar bola"])
 def test_no_age_is_absent_not_guessed(text: str) -> None:
     assert P.parse_child_age(text, YEAR).problem is Found.ABSENT

@@ -270,7 +270,7 @@ async def test_a_role_the_parser_cant_read_goes_to_the_model() -> None:
     )
     assert profile_change(result).role is Role.PARENT
     assert llm.prompts[0].prompt_id == "profile_extraction"
-    assert result.prompt_versions == {"profile_extraction": "1.1.1"}
+    assert result.prompt_versions == {"profile_extraction": "1.2.0"}
 
 
 async def test_a_prompt_injection_can_only_ever_produce_a_real_role_or_nothing() -> None:
@@ -398,6 +398,44 @@ async def test_an_age_the_model_reads_out_of_range_is_absent_not_clamped() -> No
         extracted=extraction(child_age=40),
     )
     assert result.reply.body == body(CopyKey.CHILD_INVALID_AGE)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "beta hai, paanch saal ka, ghar mein Lala bolte hain",
+        "chhoti wali 4 ki hai, Lala",
+    ],
+)
+async def test_when_the_rules_cant_tell_which_word_is_the_name_the_model_reads_it(
+    text: str,
+) -> None:
+    # onboarding bank, 2026-11-01: the rules made the nickname "mein Lala bolte hain"
+    parent = at(S.AWAITING_CHILD, role=Role.PARENT)
+    result, llm = await handle(
+        parent, text_message(text), extracted=extraction(child_age=5, child_nickname="Lala")
+    )
+    assert len(llm.prompts) == 1
+    [upsert] = [write for write in result.writes if isinstance(write, LearnerUpsert)]
+    assert upsert.nickname == "Lala"
+
+
+async def test_a_one_word_nickname_is_read_by_the_rules_without_the_model() -> None:
+    parent = at(S.AWAITING_CHILD, role=Role.PARENT)
+    result, llm = await handle(parent, text_message("Munni, 5 saal"))
+    assert llm.prompts == []
+    [upsert] = [write for write in result.writes if isinstance(write, LearnerUpsert)]
+    assert upsert.nickname == "Munni"
+
+
+async def test_a_question_about_marg_during_onboarding_is_kept_not_misunderstood() -> None:
+    parent = at(S.AWAITING_CHILD, role=Role.PARENT)
+    result, _ = await handle(
+        parent,
+        text_message("naam kyun chahiye aapko?"),
+        extracted=extraction(question="naam kyun chahiye aapko?"),
+    )
+    assert result.reply.body.startswith(body(CopyKey.QUESTION_NOTED))
 
 
 async def test_child_talk_consent_from_the_button_is_recorded_for_that_child() -> None:

@@ -326,6 +326,10 @@ class OnboardingLayer:
         nickname = _P.parse_nickname(user_text)
         if nickname.problem in {Found.TOO_LONG, Found.LOOKS_LIKE_FULL_NAME}:
             return ChildInvalid(CopyKey.CHILD_NICKNAME_TOO_LONG)
+        if nickname.nickname is not None and len(nickname.nickname.split()) > 1:
+            # "ghar mein Lala bolte hain" left "mein Lala bolte hain": not sure which word is
+            # the name, so the extraction model reads it (onboarding bank, 2026-11-01)
+            return None
         return ChildAnswered(age.birth_year, nickname.nickname)
 
     def _profile_event(self, ctx: TurnContext, user_text: str) -> ConversationEvent | None:

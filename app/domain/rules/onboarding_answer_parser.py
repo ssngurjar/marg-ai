@@ -136,6 +136,10 @@ class OnboardingAnswerParser:
     _AGE_UNITS: ClassVar[frozenset[str]] = frozenset(
         {"saal", "sal", "saal ka", "years", "year", "yrs", "yr", "baras", "साल", "वर्ष", "बरस"}
     )
+    # "6 mahine ka hai": a baby's age in months, not years (onboarding bank, 2026-11-01)
+    MONTH_UNITS: ClassVar[frozenset[str]] = frozenset(
+        {"mahine", "mahina", "mahino", "mahinon", "month", "months", "महीने", "महीना", "महीनों"}
+    )
     _NUMBER_WORDS: ClassVar[dict[str, int]] = {
         "do": 2, "teen": 3, "chaar": 4, "char": 4, "paanch": 5, "panch": 5, "chhah": 6,
         "chhe": 6, "che": 6, "saat": 7, "aath": 8, "nau": 9, "das": 10, "gyarah": 11,
@@ -247,7 +251,12 @@ class OnboardingAnswerParser:
 
     @staticmethod
     def parse_child_age(text: str, current_year: int) -> ChildAgeParse:
-        """An age ("5 saal", "paanch saal", "पाँच साल", a bare number) or a birth year."""
+        """An age ("5 saal", "paanch saal", "पाँच साल", a bare number) or a birth year. An age
+        given only in months ("6 mahine") is under two: out of range."""
+        said = set(PhraseFinder.words(text))
+        in_months = bool(said & _MONTH_UNITS) and not said & _AGE_UNITS
+        if in_months:
+            return ChildAgeParse(None, Found.OUT_OF_RANGE)
         numbers = OnboardingAnswerParser._numbers(text)
         for number in numbers:
             if number >= OnboardingAnswerParser.FIRST_BIRTH_YEAR_NUMBER:
@@ -325,6 +334,7 @@ _NUMBERS: Final = _normalised_keys(OnboardingAnswerParser._NUMBER_WORDS)
 _ORDINALS: Final = _normalised_keys(OnboardingAnswerParser._HINDI_ORDINALS)
 _NOT_A_NAME: Final = _normalised_set(OnboardingAnswerParser._NOT_A_NAME)
 _AGE_UNITS: Final = _normalised_set(OnboardingAnswerParser._AGE_UNITS)
+_MONTH_UNITS: Final = _normalised_set(OnboardingAnswerParser.MONTH_UNITS)
 _GREETING_WORDS: Final = frozenset(
     word
     for greeting in (*OnboardingAnswerParser.GREETINGS, "ji", "sir", "madam", "marg", "जी")

@@ -1,0 +1,41 @@
+# The student-routing bank: how students ask, and where the message should go. Synthetic.
+# `route`: roadmap (they want a step-by-step plan made, or to see theirs) or mentor (any other
+# question). Run it with `.venv/bin/python -m scripts.student_route_bank` (no model calls: the
+# student route is decided by word rules, s12 §4.6).
+
+cases:
+  # --- roadmap: a plan asked for ---------------------------------------------------------------
+  - {text: "plan banao", route: roadmap}
+  - {text: "mera plan bana do IAS ke liye", route: roadmap}
+  - {text: "make a plan for becoming a nurse", route: roadmap}
+  - {text: "roadmap chahiye engineering ka", route: roadmap}
+  - {text: "show my plan", route: roadmap}
+  - {text: "naya plan banao, ab mujhe teacher banna hai", route: roadmap}
+  - {text: "प्लान बनाओ डॉक्टर बनने का", route: roadmap}
+  - {text: "Mujhe IAS ka step by step rasta batao", route: roadmap}
+  - {text: "give me a step by step plan to become a police officer", route: roadmap}
+  - {text: "10th ke baad kya kya karna hai, poora plan do", route: roadmap}
+  - {text: "agle 2 saal ka plan bata do army ke liye", route: roadmap}
+  - {text: "nursing ke liye kya karun, step by step samjhao", route: roadmap}
+  - {text: "मुझे शिक्षक बनने की पूरी योजना चाहिए", route: roadmap}
+  - {text: "can you make me a roadmap for CA", route: roadmap}
+  - {text: "kaise shuru karun aur kya kya karna padega pharmacist banne ke liye, plan chahiye", route: roadmap}
+  - {text: "mera roadmap dikhao", route: roadmap}
+
+  # --- mentor: any other question --------------------------------------------------------------
+  - {text: "NEET kab hota hai?", route: mentor}
+  - {text: "what is the fee for polytechnic?", route: mentor}
+  - {text: "science lun ya arts?", route: mentor}
+  - {text: "mujhe maths se dar lagta hai", route: mentor}
+  - {text: "IAS banne ke liye kaunsi degree chahiye", route: mentor}
+  - {text: "kya ladkiyan army mein ja sakti hain", route: mentor}
+  - {text: "papa kehte hain science lo, mujhe drawing pasand hai", route: mentor}
+  - {text: "नर्स बनने के लिए क्या पढ़ना होता है", route: mentor}
+  - {text: "scholarship kaise milegi", route: mentor}
+  - {text: "is there any plan for scholarships by the government", route: mentor}
+  - {text: "padhai ka time table kaise banaun", route: mentor}
+  - {text: "kal exam hai, plan nahi ban raha padhne ka", route: mentor}
+  - {text: "what does a forest officer do", route: mentor}
+  - {text: "ITI ke baad job milti hai kya", route: mentor}
+  - {text: "mere gaon mein koi coaching nahi hai", route: mentor}
+  - {text: "how much does a nurse earn", route: mentor}

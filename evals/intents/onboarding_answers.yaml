@@ -1,0 +1,95 @@
+# The onboarding bank: how people really answer Marg's first questions, and what each answer
+# means. Synthetic (written for this bank); no real user's words.
+#
+# Each case: `state`, the question Marg is waiting on (the conversation state); `role` when it
+# matters; `known`, profile fields already answered; `text`; `expect`, the event Marg should read:
+#   event: ConsentGiven, ConsentDeclined, RoleChosen, GuardianConfirmed, GuardianDeclined,
+#          ChildAnswered, ChildInvalid, ProfileAnswered, LanguageSwitched, QuestionNoted,
+#          Unrecognised
+#   and, when given, its values: role; age (the child's, in years); nickname (null: none);
+#   grade; subject and district (the reading contains it, any case); language; question (true:
+#   a question was kept); reason (ChildInvalid / Unrecognised copy key).
+# Run it live with `.venv/bin/python -m scripts.onboarding_bank`; a unit test keeps it valid.
+
+cases:
+  # --- consent ---------------------------------------------------------------------------------
+  - {state: awaiting_consent, text: "haan", expect: {event: ConsentGiven}}
+  - {state: awaiting_consent, text: "haan theek hai", expect: {event: ConsentGiven}}
+  - {state: awaiting_consent, text: "yes I agree", expect: {event: ConsentGiven}}
+  - {state: awaiting_consent, text: "ji haan manzoor hai", expect: {event: ConsentGiven}}
+  - {state: awaiting_consent, text: "हाँ ठीक है", expect: {event: ConsentGiven}}
+  - {state: awaiting_consent, text: "ok", expect: {event: ConsentGiven}}
+  - {state: awaiting_consent, text: "nahi", expect: {event: ConsentDeclined}}
+  - {state: awaiting_consent, text: "no thanks", expect: {event: ConsentDeclined}}
+  - {state: awaiting_consent, text: "नहीं", expect: {event: ConsentDeclined}}
+  - {state: awaiting_consent, text: "aap kya kya data rakhte ho mera?", expect: {event: QuestionNoted, question: true}}
+  - {state: awaiting_consent, text: "pehle batao ye kya hai aur kitne paise lagenge", expect: {event: QuestionNoted, question: true}}
+  - {state: awaiting_consent, text: "English please", expect: {event: LanguageSwitched, language: english}}
+  - {state: awaiting_consent, text: "हिंदी में बात करो", expect: {event: LanguageSwitched, language: hindi}}
+
+  # --- role --------------------------------------------------------------------------------------
+  - {state: awaiting_role, text: "parent", expect: {event: RoleChosen, role: parent}}
+  - {state: awaiting_role, text: "main ek maa hoon", expect: {event: RoleChosen, role: parent}}
+  - {state: awaiting_role, text: "I am a mother of 2", expect: {event: RoleChosen, role: parent}}
+  - {state: awaiting_role, text: "papa hoon, beti ke liye", expect: {event: RoleChosen, role: parent}}
+  - {state: awaiting_role, text: "मैं एक पिता हूँ", expect: {event: RoleChosen, role: parent}}
+  - {state: awaiting_role, text: "dadi hoon, pota mere paas rehta hai", expect: {event: RoleChosen, role: parent}}
+  - {state: awaiting_role, text: "teacher", expect: {event: RoleChosen, role: teacher}}
+  - {state: awaiting_role, text: "sarkari school mein padhata hoon", expect: {event: RoleChosen, role: teacher}}
+  - {state: awaiting_role, text: "I teach class 6 science in a village school", expect: {event: RoleChosen, role: teacher}}
+  - {state: awaiting_role, text: "मैं शिक्षिका हूँ", expect: {event: RoleChosen, role: teacher}}
+  - {state: awaiting_role, text: "student", expect: {event: RoleChosen, role: student}}
+  - {state: awaiting_role, text: "main class 10 mein padhta hoon", expect: {event: RoleChosen, role: student}}
+  - {state: awaiting_role, text: "I'm in 12th, need career help", expect: {event: RoleChosen, role: student}}
+  - {state: awaiting_role, text: "मैं नौवीं कक्षा में पढ़ती हूँ", expect: {event: RoleChosen, role: student}}
+  - {state: awaiting_role, text: "college mein hoon BA first year", expect: {event: RoleChosen, role: student}}
+  - {state: awaiting_role, text: "ye app kya karta hai?", expect: {event: QuestionNoted, question: true}}
+
+  # --- guardian (a student) --------------------------------------------------------------------
+  - {state: awaiting_guardian, role: student, text: "haan papa ko pata hai", expect: {event: GuardianConfirmed}}
+  - {state: awaiting_guardian, role: student, text: "yes my mother knows", expect: {event: GuardianConfirmed}}
+  - {state: awaiting_guardian, role: student, text: "haan", expect: {event: GuardianConfirmed}}
+  - {state: awaiting_guardian, role: student, text: "nahi", expect: {event: GuardianDeclined}}
+  - {state: awaiting_guardian, role: student, text: "no", expect: {event: GuardianDeclined}}
+
+  # --- the child (a parent) ----------------------------------------------------------------------
+  - {state: awaiting_child, role: parent, text: "Munni, 5 saal", expect: {event: ChildAnswered, age: 5, nickname: Munni}}
+  - {state: awaiting_child, role: parent, text: "Prisa, 5 saal", expect: {event: ChildAnswered, age: 5, nickname: Prisa}}
+  - {state: awaiting_child, role: parent, text: "5", expect: {event: ChildAnswered, age: 5}}
+  - {state: awaiting_child, role: parent, text: "beti 4 saal ki hai", expect: {event: ChildAnswered, age: 4}}
+  - {state: awaiting_child, role: parent, text: "Golu 7 years", expect: {event: ChildAnswered, age: 7, nickname: Golu}}
+  - {state: awaiting_child, role: parent, text: "मेरी बेटी 6 साल की है, घर में गुड़िया बुलाते हैं", expect: {event: ChildAnswered, age: 6, nickname: गुड़िया}}
+  - {state: awaiting_child, role: parent, text: "beta hai, paanch saal ka, ghar mein Lala bolte hain", expect: {event: ChildAnswered, age: 5, nickname: Lala}}
+  - {state: awaiting_child, role: parent, text: "my son is three", expect: {event: ChildAnswered, age: 3}}
+  - {state: awaiting_child, role: parent, text: "chhoti wali 4 ki hai, Pinki", expect: {event: ChildAnswered, age: 4, nickname: Pinki}}
+  - {state: awaiting_child, role: parent, text: "8 saal ka Chintu", expect: {event: ChildAnswered, age: 8, nickname: Chintu}}
+  - {state: awaiting_child, role: parent, text: "6 saal", expect: {event: ChildAnswered, age: 6}}
+  - {state: awaiting_child, role: parent, text: "Rahul Kumar Sharma, 7 saal", expect: {event: ChildInvalid, reason: child_nickname_too_long}}
+  - {state: awaiting_child, role: parent, text: "25 saal", expect: {event: ChildInvalid, reason: child_invalid_age}}
+  - {state: awaiting_child, role: parent, text: "abhi 6 mahine ka hai", expect: {event: ChildInvalid, reason: child_invalid_age}}
+  - {state: awaiting_child, role: parent, text: "bachcha khana nahi khata, kya karun?", expect: {event: QuestionNoted, question: true}}
+  - {state: awaiting_child, role: parent, text: "naam kyun chahiye aapko?", expect: {event: QuestionNoted, question: true}}
+
+  # --- a student's profile -----------------------------------------------------------------------
+  - {state: awaiting_profile, role: student, text: "10", expect: {event: ProfileAnswered, grade: 10}}
+  - {state: awaiting_profile, role: student, text: "class 10", expect: {event: ProfileAnswered, grade: 10}}
+  - {state: awaiting_profile, role: student, text: "dasvi mein", expect: {event: ProfileAnswered, grade: 10}}
+  - {state: awaiting_profile, role: student, text: "12th science", expect: {event: ProfileAnswered, grade: 12}}
+  - {state: awaiting_profile, role: student, text: "मैं आठवीं में हूँ", expect: {event: ProfileAnswered, grade: 8}}
+  - {state: awaiting_profile, role: student, text: "class 10, Karauli se", expect: {event: ProfileAnswered, grade: 10, district: Karauli}}
+  - {state: awaiting_profile, role: student, text: "class 15", expect: {event: Unrecognised, reason: invalid_grade}}
+  - {state: awaiting_profile, role: student, known: {grade: 10}, text: "Karauli", expect: {event: ProfileAnswered, district: Karauli}}
+  - {state: awaiting_profile, role: student, known: {grade: 10}, text: "Karauli, Rajasthan", expect: {event: ProfileAnswered, district: Karauli}}
+  - {state: awaiting_profile, role: student, known: {grade: 10}, text: "jila Sitapur, UP", expect: {event: ProfileAnswered, district: Sitapur}}
+  - {state: awaiting_profile, role: student, known: {grade: 10}, text: "मैं धार ज़िले से हूँ", expect: {event: ProfileAnswered, district: धार}}
+  - {state: awaiting_profile, role: student, known: {grade: 12}, text: "district kyun chahiye?", expect: {event: QuestionNoted, question: true}}
+
+  # --- a teacher's profile -----------------------------------------------------------------------
+  - {state: awaiting_profile, role: teacher, text: "science", expect: {event: ProfileAnswered, subject: science}}
+  - {state: awaiting_profile, role: teacher, text: "ganit padhata hoon", expect: {event: ProfileAnswered, subject: ganit}}
+  - {state: awaiting_profile, role: teacher, text: "हिंदी और संस्कृत", expect: {event: ProfileAnswered, subject: हिंदी}}
+  - {state: awaiting_profile, role: teacher, text: "Maths", expect: {event: ProfileAnswered, subject: maths}}
+  - {state: awaiting_profile, role: teacher, known: {subject: science}, text: "class 8", expect: {event: ProfileAnswered, grade: 8}}
+  - {state: awaiting_profile, role: teacher, known: {subject: science}, text: "aathvi kaksha ko", expect: {event: ProfileAnswered, grade: 8}}
+  - {state: awaiting_profile, role: teacher, known: {subject: science, grade: 8}, text: "Karauli", expect: {event: ProfileAnswered, district: Karauli}}
+  - {state: awaiting_profile, role: teacher, known: {subject: science}, text: "class 8, kal bal aur dabav padhana hai", expect: {event: ProfileAnswered, grade: 8, question: true}}
