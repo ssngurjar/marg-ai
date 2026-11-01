@@ -145,6 +145,8 @@ cases:
   - {text: "bachcha khud bolke sawaal pooch sakta hai?", open_khoj: false, intent: child_talk}
   - {text: "how does the child mode work", open_khoj: false, intent: child_talk}
   - {text: "munni ko phone de du kya baat karne ke liye", open_khoj: true, intent: child_talk}
+  - {text: "yes she can talk", open_khoj: true, intent: child_talk}
+  - {text: "haan munni baat kar sakti hai", open_khoj: false, intent: child_talk}
 
   # --- delete_data: delete everything Marg keeps ------------------------------------------------
   - {text: "mera sab data mita do, ab nahi chahiye", open_khoj: false, intent: delete_data}

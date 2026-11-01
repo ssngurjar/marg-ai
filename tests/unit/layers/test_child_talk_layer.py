@@ -131,6 +131,19 @@ async def test_saying_hello_opens_a_session_with_a_greeting_and_no_model_call() 
     assert llm.prompts == []
 
 
+async def test_an_introduction_that_says_more_is_answered_not_just_greeted() -> None:
+    # Owner's second demo, 2026-11-01: "I am munni mujhe gaali seekhni hai" got only the hello
+    result, llm = await talk("I am munni mujhe gaali seekhni hai")
+    assert len(llm.prompts) == 1
+    assert result.reply.body.startswith(CHILD_ANSWER)
+
+
+async def test_a_bare_introduction_gets_the_hello_without_the_model() -> None:
+    result, llm = await talk("Main Munni hoon")
+    assert llm.prompts == []
+    assert result.reply.body == copy.CHILD_HELLO[H].format(name="Munni")
+
+
 async def test_a_question_in_the_first_message_is_answered_and_counted() -> None:
     result, _ = await talk("Main Munni hoon, chaand kyun chamakta hai?")
     start, counted = result.writes
@@ -150,7 +163,7 @@ async def test_the_first_answer_says_tell_your_parents() -> None:
     assert result.reply.spoken_text.endswith(TELL_YOUR_PARENTS[Language.HINDI])
     assert result.writes == [ChildTalkTurn(session_id=SESSION_ID, topic=CuriosityDomain.EARTH_SKY)]
     assert result.hazard_rule == TALKABLE_HAZARDS
-    assert result.prompt_versions == {"child_talk": "1.1.0"}
+    assert result.prompt_versions == {"child_talk": "1.2.0"}
     assert "The child is 5 years old" in llm.prompts[0].system
     assert "at most 8 words" in llm.prompts[0].system
     assert ChildTalkLayer.LAST_ANSWER_RULE not in llm.prompts[0].system  # more may follow

@@ -150,6 +150,7 @@ class ChildTalkLayer:
         " spoken_text either."
     )
     """On the session's last answer (owner's eval, 2026-10-29: a question back, then "bye")."""
+    INTRODUCTION_WORDS: ClassVar[int] = 4  # "Hi, main Munni hoon": longer says something more
     CARRY_WINDOW: ClassVar[timedelta] = timedelta(minutes=10)
     """How long after "Who's writing?" a tapped name still brings the child's message along."""
 
@@ -288,7 +289,10 @@ class ChildTalkLayer:
             id=uuid4(), learner_id=learner.id, started_at=now, turns_count=0, topics=[]
         )
         start = ChildSessionStart(session_id=session.id, learner_id=learner.id)
-        if not blocked and not ChildQuestionDetector.asks(user_text):
+        says_more = len(PhraseFinder.words(user_text)) > self.INTRODUCTION_WORDS
+        if not blocked and not ChildQuestionDetector.asks(user_text) and not says_more:
+            # only "Main Munni hoon": a hello; anything more ("…mujhe gaali seekhni hai") is
+            # answered (owner's second demo, 2026-11-01)
             hello = _fixed(CHILD_HELLO, register, name=name)
             return hello.model_copy(update={"writes": [start]})
         voice = LocalVoice.for_turn(register, ctx, user_text)
