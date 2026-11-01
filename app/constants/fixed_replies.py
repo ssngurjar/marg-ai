@@ -83,19 +83,19 @@ _PLAIN_TEXTS: Final[dict[tuple[FixedReplyKind, FixedReplyVariant], dict[Language
         _HINDI: "इस तरह का संदेश अभी समझ नहीं पाते। कृपया अपनी बात लिखकर भेजिए।",
         _ENGLISH: "I can't read this kind of message yet. Please type what you'd like to say.",
     },
-    # Activity photos (s10b §4.14, C7; owner 2026-10-28: any person, a hand too, is refused).
+    # Activity photos (s10b §4.14, C7; owner 2026-11-01: only a face is refused, hands are fine).
     (_K.PHOTO_HAS_PERSON, _V.DEFAULT): {
         _HINGLISH: (
-            "Is photo mein koi insaan dikh raha hai, isliye humne ise turant hata diya. Kripya sirf"
-            " bachche ki banayi ya ikatthi cheezon ki photo bhejiye, kisi ka chehra ya haath nahi."
+            "Is photo mein kisi ka chehra dikh raha hai, isliye humne ise turant hata diya. Kripya"
+            " bachche ki banayi ya ikatthi cheezon ki photo bhejiye, bina kisi ke chehre ke."
         ),
         _HINDI: (
-            "इस फ़ोटो में कोई इंसान दिख रहा है, इसलिए हमने इसे तुरंत हटा दिया। कृपया सिर्फ़ बच्चे की"
-            " बनाई या इकट्ठी चीज़ों की फ़ोटो भेजिए, किसी का चेहरा या हाथ नहीं।"
+            "इस फ़ोटो में किसी का चेहरा दिख रहा है, इसलिए हमने इसे तुरंत हटा दिया। कृपया बच्चे की"
+            " बनाई या इकट्ठी चीज़ों की फ़ोटो भेजिए, बिना किसी के चेहरे के।"
         ),
         _ENGLISH: (
-            "This photo shows a person, so we deleted it right away. Please send a photo of only"
-            " the things your child made or collected, without anyone's face or hands."
+            "This photo shows someone's face, so we deleted it right away. Please send a photo of"
+            " the things your child made or collected, without anyone's face."
         ),
     },
     (_K.PHOTO_NOT_NEEDED, _V.DEFAULT): {

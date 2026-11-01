@@ -412,10 +412,10 @@ be specific ("Munni ne 7 alag patte dhoondhe! Sabse bada kaunsa hai?").
 ```
 inbound IMAGE (WhatsApp "image" message, or a web upload)
   1. fetch_image (WhatsApp media download, size cap MAX_INBOUND_IMAGE_BYTES); kept in memory only
-  2. PERSON CHECK FIRST: ImageSegmenter.count(image, ["person", "face"])
-       any person or face → drop the image at once, fixed reply PHOTO_HAS_PERSON, no further
-       processing. A hand counts: SAM's "person" finds a hand on its own (spike F), and a child's
-       hand is still a child (owner, 2026-10-28; this replaces "a hand alone is allowed")
+  2. FACE CHECK FIRST: ImageSegmenter.count(image, ["face"])
+       any face → drop the image at once, fixed reply PHOTO_HAS_PERSON, no further processing.
+       Hands are allowed: a child holding what they collected is fine (owner, 2026-11-01; this
+       replaces 2026-10-28's "a hand counts", when "person" was asked too and found hands)
   3. safety_in on the image (Llama Guard 4 multimodal) → BLOCK → REFUSE, image dropped
   4. analyze_image: count the activity's reviewed `photo_count_phrases` (e.g. ["leaf"]; owner,
        2026-10-28: a reviewed list per activity, not the materials) → PhotoFindings(counts) →
@@ -720,3 +720,4 @@ specificity, no careers for a 5-year-old, medical refusal, register).
 | 2026-11-01 | **An intent bank** (`evals/intents/parent_intents.yaml`, 133 synthetic messages: every intent in Hinglish, Hindi, Braj and English, with typos, voice-note style, two asks in one and things Marg doesn't do), run live by `scripts/intent_bank.py` (target ≥ 97%); a unit test keeps it valid. `parent_intent` 1.4.0: while a khoj is open, one more / a new / the next one is `another_khoj` (it was read as new_khoj, and once as same_khoj_again, which would have resent the old one); the child's question about what the open khoj was doing is a report | The owner asked that intent reading not dry up on real phrasing before judges try it. Live, twice each: 97.7% before, 99.6% after (the one miss, "kitne baje aati hai roz ki khoj", gets the daily-time buttons, which answer it) | owner |
 | 2026-11-01 | **The parent answer knows what Marg itself does** (`parent_answer` 1.1.0): a fixed list (daily khoj and its requests, report and question back, child talk with the parent's yes, add a child, delete my data; no homework, medical advice, money or loans), and "say only this, invent nothing" | On the owner's demo the free answer denied child talk existed. Live: "can my child talk to you", "what can you do", homework, loan, cost and "can you call me" are all answered truthfully | owner |
 | 2026-11-01 | **`delete_data` intent** (`parent_intent` 1.5.0): a longer message asking Marg to delete everything gets `DELETE_DATA_OFFER` with a "Delete my data" button that starts the usual deletion (s08 log); nothing is deleted without the confirmation. Something deleted on their own phone, or asking whether data is safe, is not it | The router's deletion phrases now catch only short requests for a parent in the journey (s08 log). Intent bank, with 8 deletion and 3 "another child" worry cases added: 288/288 | owner |
+| 2026-11-01 | **Only a face refuses a photo; hands are fine** (`PERSON_PHRASES` = `("face",)`; `PHOTO_HAS_PERSON` copy now names a face). SAM is no longer asked for `person`, which found a hand on its own. The photo is still never stored, and Llama Guard and the image safety check still run on it | Owner, 2026-11-01: "let's not be strict… it's okay to have hands also for now": a child's hands holding what they collected were refusing real activity photos. Replaces 2026-10-28's "a hand counts" | owner |

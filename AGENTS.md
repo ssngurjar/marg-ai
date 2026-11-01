@@ -378,8 +378,8 @@ app/constants/  reviewed copy (fixed and onboarding replies, crisis words) and e
   numbers copied from their official source. An LLM never writes them.
 - Users are mostly minors or speak for them: collect only role, grade, district and language;
   for a parent's child, only an optional nickname (≤ 20 chars) and a birth year. Never full
-  names, school names or exact birth dates. Photos of what a child made are checked for people
-  first (a person → reject and drop) and are never stored; only object counts are kept. Activities for young children come from the
+  names, school names or exact birth dates. Photos of what a child made are checked for faces
+  first (a face → reject and drop; hands are fine, owner 2026-11-01) and are never stored; only object counts are kept. Activities for young children come from the
   reviewed catalogue; personalisation may not add steps or materials, the `d7` hazard rule runs
   on every journey reply, and the supervision line is appended by code (s10b). **Direct child talk**
   (s10b §4.16) requires the parent's recorded consent; it never asks a child for personal details,

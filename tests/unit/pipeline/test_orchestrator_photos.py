@@ -184,7 +184,7 @@ async def test_a_photo_during_a_khoj_is_counted_and_the_counts_reach_the_reflect
     assert REFLECTION_PRAISE in result.delivered
     assert "5 stone" in result.reflection_prompt
     assert report_of(outcome).photo_counts == [ObjectCount(phrase="stone", count=5)]
-    assert result.segmenter.calls == [["person", "face"], ["stone"]]
+    assert result.segmenter.calls == [["face"], ["stone"]]
 
 
 async def test_every_photo_step_is_recorded_in_order() -> None:
@@ -231,7 +231,7 @@ async def test_every_phrase_of_the_activity_is_counted() -> None:
 
 async def test_an_activity_with_nothing_to_count_still_checks_the_photo_and_thanks() -> None:
     result = await run_photo(reporting(photo(), about=ANIMAL_WALKS))
-    assert result.segmenter.calls == [["person", "face"]]  # the person check, no counting
+    assert result.segmenter.calls == [["face"]]  # the face check, no counting
     assert any(request.image is not None for request in result.classifier.requests)
     assert report_of(result.outcome).photo_counts == []
     assert "You can't see it: thank them" in result.reflection_prompt
@@ -242,15 +242,15 @@ async def test_only_the_latest_photo_of_a_burst_is_looked_at() -> None:
     assert [ref.provider_media_id for ref in result.fetcher.image_refs] == ["second"]
 
 
-# --- the person check (any person, a hand too) --------------------------------------------------
+# --- the face check (owner, 2026-11-01: only a face refuses a photo; hands are fine) -----------
 
 
 @pytest.mark.parametrize(
     "found",
-    [{"person": 1}, {"face": 1}, {"person": 1, "face": 1}, {"person": 3}],
-    ids=["a_hand_or_body", "a_face_at_the_edge", "a_face", "a_crowd"],
+    [{"face": 1}, {"face": 3}],
+    ids=["a_face", "several_faces"],
 )
-async def test_a_photo_with_anyone_in_it_is_refused_before_anything_else_sees_it(
+async def test_a_photo_with_a_face_in_it_is_refused_before_anything_else_sees_it(
     found: dict[str, int],
 ) -> None:
     result = await run_photo(
@@ -259,7 +259,7 @@ async def test_a_photo_with_anyone_in_it_is_refused_before_anything_else_sees_it
     outcome = result.outcome
     assert outcome.fixed_reply_kind is FixedReplyKind.PHOTO_HAS_PERSON
     assert result.delivered == fixed_text(FixedReplyKind.PHOTO_HAS_PERSON)
-    assert result.segmenter.calls == [["person", "face"]]  # nothing counted
+    assert result.segmenter.calls == [["face"]]  # nothing counted
     assert all(request.image is None for request in result.classifier.requests)
     assert result.llm.prompts == []  # no model saw the report either
     assert outcome.writes == []  # the khoj stays open; nothing about the photo is kept
@@ -270,9 +270,20 @@ async def test_a_refused_web_photo_is_still_deleted_with_the_turn() -> None:
     blob_id = UUID(int=7)
     result = await run_photo(
         reporting(photo(channel=Channel.WEB, blob_id=blob_id)),
-        segmenter=FakeImageSegmenter({"person": 1}),
+        segmenter=FakeImageSegmenter({"face": 1}),
     )
     assert result.outcome.writes == [DeleteInboundMedia(blob_id=blob_id)]
+
+
+async def test_a_childs_hands_holding_what_they_collected_are_fine() -> None:
+    # SAM's "person" finds a hand on its own (spike F); it's no longer asked
+    result = await run_photo(
+        reporting(photo("Munni ke haath mein patte")),
+        segmenter=FakeImageSegmenter({"person": 1, "stone": 5}),
+    )
+    assert result.outcome.fixed_reply_kind is None
+    assert result.segmenter.calls == [["face"], ["stone"]]
+    assert report_of(result.outcome).photo_counts == [ObjectCount(phrase="stone", count=5)]
 
 
 async def test_a_web_photo_is_deleted_with_the_turn_that_used_it() -> None:
@@ -366,7 +377,7 @@ async def test_a_photo_that_cant_be_fetched_is_dropped_and_the_report_is_answere
     ids=["timeout", "rate_limited", "malformed"],
 )
 async def test_when_the_person_check_fails_the_photo_is_dropped_unseen(error: MargError) -> None:
-    segmenter = FakeImageSegmenter({"stone": 5}, error, fail_on=frozenset({"person"}))
+    segmenter = FakeImageSegmenter({"stone": 5}, error, fail_on=frozenset({"face"}))
     result = await run_photo(reporting(photo()), segmenter=segmenter)
     assert REFLECTION_PRAISE in result.delivered
     assert all(request.image is None for request in result.classifier.requests)

@@ -80,7 +80,7 @@ line of the module's docstring.
 | `khoj_card_style.py` | — | What a khoj card looks like (s10b §4.13, C6): the fixed style and a scene per activity. |
 | `model_prices.py` | `ModelPrice` | Model prices per million tokens, for cost accounting (s05 §4.1, s07 §4.3). |
 | `onboarding_copy.py` | `CopyEntry` | Onboarding copy: fixed, reviewed text in Hinglish, Hindi and English (s08 §4.8). |
-| `photo_check.py` | — | What SAM 3.1 looks for before a photo is used (s10b §4.14; owner, 2026-10-28). |
+| `photo_check.py` | — | What SAM 3.1 looks for before a photo is used (s10b §4.14). |
 | `stt_keywords.py` | — | Speech-to-text hints: words Muse Voice Transcribe might mishear (s06 §4.5). Reviewed copy. |
 | `student_copy.py` | — | Fixed copy for students (s12): labels the mentor's reply uses, its plan button and the |
 | `teacher_copy.py` | — | Fixed copy for teachers (s10): the exposure bridge's labels and buttons, and the ask-for-chapter |
