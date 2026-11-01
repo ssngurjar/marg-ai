@@ -305,7 +305,7 @@ async def test_the_parents_own_question_falls_through_to_the_parent_answer_with_
         text="Munni ki neend poori nahi hoti, kya karein?", button=None, layer=layer
     )
     assert result.reply.body.startswith(str(HINGLISH_ANSWER["answer"]))
-    assert result.prompt_versions == {"curiosity_moment": "1.0.5", "parent_answer": "1.0.2"}
+    assert result.prompt_versions == {"curiosity_moment": "1.0.5", "parent_answer": "1.1.0"}
     assert len(result.usages) == 2
     assert result.hazard_rule == frozenset()
 
@@ -583,7 +583,7 @@ async def test_a_report_read_as_a_report_gets_the_reflection() -> None:
         text="usne patte gine", button=None, open_activity=offer(FIRST, MUNNI), layer=layer
     )
     assert result.reply.body.startswith(REFLECTION_PRAISE)
-    assert result.prompt_versions["parent_intent"] == "1.3.0"
+    assert result.prompt_versions["parent_intent"] == "1.4.0"
     [prompt] = llm.by_prompt["parent_intent"].prompts
     assert "usne patte gine" in prompt.user
 

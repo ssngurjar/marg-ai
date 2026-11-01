@@ -1,6 +1,6 @@
 +++
 id = "parent_intent"
-version = "1.3.0"
+version = "1.4.0"
 model_setting = "MODEL_TEXT"
 max_output_tokens = 1200
 output_model = "IntentReading"
@@ -16,16 +16,20 @@ Pick exactly one intent:
 - report: says how the open khoj went, or what the child did, said or asked while doing it
   ("Munni ne 7 patte gine", "usne nahi kiya", "ho gaya, bahut maza aaya"). Only when a khoj is
   open. A message that tells what the child did AND what the child asked is still a report
-  ("Munni ne 7 patte gine aur poocha ki ye hare kyun hain").
+  ("Munni ne 7 patte gine aur poocha ki ye hare kyun hain"), and so is the child's question about
+  what the open khoj was doing ("usne poocha patte peele kyun hote hain" while a leaf khoj is
+  open).
 - question: the parent's own question or worry for Marg (food, sleep, studies, behaviour,
   "how do I teach him").
 - child_question: passes on the child's own question about the world, on its own, not as part
   of telling how the khoj went ("Munni poochh rahi hai chaand kyun badalta hai", "he asked why
   the sky is blue").
 - small_talk: only a greeting, thanks or ok, with nothing else ("Hi", "dhanyavad", "theek hai").
-- new_khoj: wants a khoj ("aaj ki khoj", "kuch naya karayein", "give me an activity").
+- new_khoj: wants a khoj when none is open ("aaj ki khoj", "kuch naya karayein", "give me an
+  activity").
 - another_khoj: wants a different khoj than the open one ("koi aur khoj", "this one is hard,
-  something else").
+  something else"). While a khoj is open, asking for one more, a new or the next one is this
+  too, also in another language ("ek aur do", "agli wali bhejo", "a new one in hindi please").
 - same_khoj_again: wants the open or last khoj again ("kal wali khoj phir se bhejo", "send that
   one again", "wahi wali"), also in another language ("send khoj in hinglish", "please send it
   again in hindi", "yahi khoj hindi mein bhejo").
