@@ -64,6 +64,8 @@ cases:
   - {state: awaiting_child, role: parent, text: "chhoti wali 4 ki hai, Pinki", expect: {event: ChildAnswered, age: 4, nickname: Pinki}}
   - {state: awaiting_child, role: parent, text: "8 saal ka Chintu", expect: {event: ChildAnswered, age: 8, nickname: Chintu}}
   - {state: awaiting_child, role: parent, text: "6 saal", expect: {event: ChildAnswered, age: 6}}
+  - {state: awaiting_child, role: parent, text: "Mera baccha 6 saal ka hai", expect: {event: ChildAnswered, age: 6, nickname: null}}
+  - {state: awaiting_child, role: parent, text: "meri bacchi 4 saal ki hai", expect: {event: ChildAnswered, age: 4, nickname: null}}
   - {state: awaiting_child, role: parent, text: "Rahul Kumar Sharma, 7 saal", expect: {event: ChildInvalid, reason: child_nickname_too_long}}
   - {state: awaiting_child, role: parent, text: "25 saal", expect: {event: ChildInvalid, reason: child_invalid_age}}
   - {state: awaiting_child, role: parent, text: "abhi 6 mahine ka hai", expect: {event: ChildInvalid, reason: child_invalid_age}}

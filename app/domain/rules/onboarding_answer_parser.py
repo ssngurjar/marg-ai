@@ -161,6 +161,10 @@ class OnboardingAnswerParser:
             "use", "usko", "bulate", "kehte", "the", "a", "of", "hoon", "hu", "aged", "abhi",
             "बेटी", "बेटा", "बच्चा", "बच्ची", "नाम", "है", "का", "की", "के", "मेरा", "मेरी",
             "उसका", "उसकी", "उम्र", "और", "घर", "पर", "हम", "उसे", "बुलाते", "कहते", "हूँ",
+            # how parents spell "child" (owner's demo, 2026-11-01: "Mera baccha 6 saal ka hai"
+            # saved the nickname "baccha")
+            "baccha", "bacchi", "bacche", "bachha", "bachhi", "bachhe", "bachche", "bachcho",
+            "bachon", "bacchon", "bachey", "bachchey", "बच्चे", "बच्चों", "लड़का", "लड़की",
         }
     )  # fmt: skip
     _NUMBER: ClassVar[re.Pattern[str]] = re.compile(r"\d+")

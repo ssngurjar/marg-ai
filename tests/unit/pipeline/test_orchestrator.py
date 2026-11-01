@@ -772,6 +772,32 @@ async def test_a_reply_blocked_with_no_fallback_writes_nothing() -> None:
     assert result.outcome.writes == []
 
 
+async def test_after_an_english_onboarding_the_daily_time_question_is_in_english_too() -> None:
+    # Owner's demo, 2026-11-01: the khoj came in English, then "Roz ki khoj ka message kab
+    # bhejein?" in Hinglish, because the parent's own words were Hinglish
+    parent = user_profile(
+        state=ConversationState.AWAITING_CHILD, consented=True, language=Language.ENGLISH
+    )
+    ctx = turn_context(text_message("Mera baccha 6 saal ka hai"), profile=parent)
+    english_khoj = {
+        **personalisation_for(first_choice()),
+        "intro": "Today, a small discovery with your child.",
+        "steps": [
+            f"Step {number}: do it together." for number in range(1, len(first_choice().steps) + 1)
+        ],
+        "questions_to_ask": ["What did you see?", "Why do you think so?"],
+        "listen_for": "Your child's own idea, even if it isn't right.",
+        "parent_tip": "Ask, then wait for the answer.",
+        "spoken_text": "Today, a small discovery with your child.",
+    }
+    result = await run(ctx, llm=FakeLanguageModel([english_khoj]))
+    parts = result.outcome.delivery.parts
+    assert parts[-1].text == NUDGE_ASK[Language.ENGLISH]
+    _, upsert, _ = result.outcome.writes
+    assert isinstance(upsert, LearnerUpsert)
+    assert upsert.nickname is None  # "baccha" is how parents spell child, never a name
+
+
 async def test_onboarding_the_first_child_brings_the_first_khoj_in_the_same_turn() -> None:
     parent = user_profile(state=ConversationState.AWAITING_CHILD, consented=True)
     ctx = turn_context(text_message("beti, Munni, 5 saal"), profile=parent)

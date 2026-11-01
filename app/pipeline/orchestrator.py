@@ -447,7 +447,7 @@ class _Turn:
             delivery = self._delivery(safe, trailers=asks)
             khoj = await self._first_khoj(result.handoff, safe.reply_register)
             if khoj is not None:
-                trailers = (*asks, self._nudge_ask())
+                trailers = (*asks, self._nudge_ask(safe.reply_register))
                 delivery = self._delivery(khoj.safe, preamble=safe, trailers=trailers)
                 writes.extend(khoj.writes)
         elif isinstance(result.handoff, PendingQuestionHandoff):
@@ -1237,14 +1237,16 @@ class _Turn:
             safe, audio_blob_id=None, preamble=preamble, trailers=trailers
         )
 
-    def _nudge_ask(self) -> SafeReply:
-        """After the first khoj: when should the daily one come? (s10b §4.11; fixed copy)."""
+    def _nudge_ask(self, language: Language) -> SafeReply:
+        """After the first khoj: when should the daily one come? (s10b §4.11; fixed copy). In
+        the onboarding reply's language, like the khoj before it (owner's demo, 2026-11-01: it
+        came in Hinglish under an English khoj)."""
         ask = LocalisedReply(
-            text=NUDGE_ASK[self.register],
-            spoken_text=NUDGE_ASK[self.register],
-            reply_register=self.register,
+            text=NUDGE_ASK[language],
+            spoken_text=NUDGE_ASK[language],
+            reply_register=language,
             citations=[],
-            buttons=list(NUDGE_BUTTONS[self.register]),
+            buttons=list(NUDGE_BUTTONS[language]),
         )
         return self.steps.gate.clear_fixed(ask, FixedReplyKind.ONBOARDING)
 

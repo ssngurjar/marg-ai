@@ -109,6 +109,15 @@ def test_nicknames(text: str, nickname: str | None) -> None:
 
 
 @pytest.mark.parametrize(
+    "text",
+    ["Mera baccha 6 saal ka hai", "meri bacchi 5 saal ki hai", "mera bachha 4 saal", "bacche 7"],
+)
+def test_the_ways_parents_spell_child_are_never_a_nickname(text: str) -> None:
+    # owner's demo, 2026-11-01: "Mera baccha 6 saal ka hai" saved the nickname "baccha"
+    assert P.parse_nickname(text).nickname is None
+
+
+@pytest.mark.parametrize(
     ("text", "problem"),
     [
         ("Priya Kumari Sharma, 6 saal", Found.LOOKS_LIKE_FULL_NAME),
