@@ -29,7 +29,6 @@ from app.domain.models.writes import (
     ProfileChange,
 )
 from app.layers.onboarding_layer import (
-    FirstKhojHandoff,
     OnboardingLayer,
     OnboardingResult,
     PendingQuestionHandoff,
@@ -58,7 +57,7 @@ MUNNI = Learner(
 )
 NOTHING_READ: dict[str, object] = {
     "role": None, "grade": None, "subject": None, "district": None, "child_age": None,
-    "child_nickname": None, "language": None, "question": None,
+    "child_nickname": None, "language": None, "question": None, "about_marg": False,
 }  # fmt: skip
 
 
@@ -270,7 +269,7 @@ async def test_a_role_the_parser_cant_read_goes_to_the_model() -> None:
     )
     assert profile_change(result).role is Role.PARENT
     assert llm.prompts[0].prompt_id == "profile_extraction"
-    assert result.prompt_versions == {"profile_extraction": "1.2.0"}
+    assert result.prompt_versions == {"profile_extraction": "1.3.0"}
 
 
 async def test_a_prompt_injection_can_only_ever_produce_a_real_role_or_nothing() -> None:
@@ -339,7 +338,8 @@ async def test_a_plain_long_class_answer_keeps_no_question() -> None:
 # --- the parent path -----------------------------------------------------------------------------
 
 
-async def test_a_parent_answer_creates_the_child_and_hands_off_the_first_khoj() -> None:
+async def test_a_parent_answer_creates_the_child_and_asks_about_child_talk() -> None:
+    # Owner's second demo, 2026-11-01: no khoj or time question until the parent asks
     parent = at(S.AWAITING_CHILD, role=Role.PARENT)
     result, llm = await handle(parent, text_message("beti, Munni, 5 saal"))
     change, upsert = result.writes
@@ -352,15 +352,9 @@ async def test_a_parent_answer_creates_the_child_and_hands_off_the_first_khoj() 
         "Munni",
         2021,
     )
-    assert isinstance(result.handoff, FirstKhojHandoff)
-    assert result.handoff.learner.id == upsert.learner_id
-    assert result.reply.body == body(CopyKey.PROFILE_DONE_PARENT)
-    assert result.reply.buttons == []
-    # the child-talk question comes after the khoj (owner's judge walkthrough, 2026-10-29)
-    question = result.handoff.then_ask
-    assert question is not None
-    assert "Munni" in question.body
-    assert [button.id for button in question.buttons] == [
+    assert result.handoff is None
+    assert result.reply.body.startswith(body(CopyKey.CHILD_ADDED).format(child="Munni"))
+    assert [button.id for button in result.reply.buttons] == [
         f"onb:childtalk:yes:{upsert.learner_id}",
         f"onb:childtalk:no:{upsert.learner_id}",
     ]
@@ -369,9 +363,19 @@ async def test_a_parent_answer_creates_the_child_and_hands_off_the_first_khoj() 
 
 async def test_without_a_nickname_the_child_talk_question_says_your_child() -> None:
     result, _ = await handle(at(S.AWAITING_CHILD, role=Role.PARENT), text_message("4 saal"))
-    assert isinstance(result.handoff, FirstKhojHandoff)
-    assert result.handoff.then_ask is not None
-    assert "aapka bachcha" in result.handoff.then_ask.body
+    assert "aapka bachcha" in result.reply.body
+
+
+async def test_a_question_about_marg_during_onboarding_is_answered_at_once() -> None:
+    # Owner's second demo: "First tell what can you do" got "I've noted your question" twice
+    result, _ = await handle(
+        at(S.AWAITING_CHILD, role=Role.PARENT),
+        text_message("First tell what can you do"),
+        extracted=extraction(question="what can you do", about_marg=True),
+    )
+    assert result.reply.body.startswith(body(CopyKey.ABOUT_MARG))
+    assert body(CopyKey.ASK_CHILD) in result.reply.body
+    assert profile_change(result).new_state is S.AWAITING_CHILD
 
 
 @pytest.mark.parametrize(
@@ -428,12 +432,12 @@ async def test_a_one_word_nickname_is_read_by_the_rules_without_the_model() -> N
     assert upsert.nickname == "Munni"
 
 
-async def test_a_question_about_marg_during_onboarding_is_kept_not_misunderstood() -> None:
+async def test_a_question_about_the_child_during_onboarding_is_kept_for_after() -> None:
     parent = at(S.AWAITING_CHILD, role=Role.PARENT)
     result, _ = await handle(
         parent,
-        text_message("naam kyun chahiye aapko?"),
-        extracted=extraction(question="naam kyun chahiye aapko?"),
+        text_message("bachcha khana nahi khata, kya karun?"),
+        extracted=extraction(question="bachcha khana nahi khata, kya karun?"),
     )
     assert result.reply.body.startswith(body(CopyKey.QUESTION_NOTED))
 

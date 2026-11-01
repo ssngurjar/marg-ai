@@ -380,21 +380,24 @@ async def test_a_new_parent_is_onboarded_with_consent_recorded_and_one_child(
         ("granted", COPY_VERSION),
         ("child_profile_consent", COPY_VERSION),
     ]
-    first_khoj = pipeline.sender.sent[-3].part
-    assert [button.id for button in first_khoj.buttons] == ["jrn:done", "jrn:other"]
-    # Then may Munni talk to Marg herself (asked after the khoj, s10b §4.16)?
+    # Munni is added and the parent is asked whether she may talk to Marg; no khoj yet
+    # (owner's second demo, 2026-11-01)
     [munni_id] = await rows(engine, "SELECT id FROM learners")
-    child_talk_question = pipeline.sender.sent[-2].part
+    child_talk_question = pipeline.sender.sent[-1].part
     assert [button.id for button in child_talk_question.buttons] == [
         f"onb:childtalk:yes:{munni_id[0]}",
         f"onb:childtalk:no:{munni_id[0]}",
     ]
-    nudge_question = pipeline.sender.sent[-1].part
-    assert [button.id for button in nudge_question.buttons] == [
-        "nudge:08",
-        "nudge:18",
-        "nudge:off",
-    ]
+    assert await rows(engine, "SELECT count(*) FROM learner_activities") == [(0,)]
+    await send(
+        pipeline,
+        wa.button_reply(f"onb:childtalk:yes:{munni_id[0]}", "Haan", message_id="wamid.O4b"),
+    )
+    khoj_or_question = pipeline.sender.sent[-1].part
+    assert [button.id for button in khoj_or_question.buttons] == ["jrn:today"]
+    await send(pipeline, wa.button_reply("jrn:today", "Aaj ki khoj", message_id="wamid.O4c"))
+    first_khoj = pipeline.sender.sent[-1].part
+    assert [button.id for button in first_khoj.buttons][:2] == ["jrn:done", "jrn:other"]
     await send(pipeline, wa.button_reply("nudge:08", "Subah 8 baje", message_id="wamid.O6"))
     assert await rows(engine, "SELECT enabled, local_time FROM nudge_subscriptions") == [
         (True, time(8, 0))

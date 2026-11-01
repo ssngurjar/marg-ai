@@ -28,6 +28,7 @@ from app.domain.enums import (
     Role,
 )
 from app.domain.models.conversation import (
+    AboutMargAsked,
     AddChild,
     ChildAnswered,
     ChildInvalid,
@@ -42,7 +43,6 @@ from app.domain.models.conversation import (
     FirstContact,
     GuardianConfirmed,
     GuardianDeclined,
-    HandoffFirstKhoj,
     HandoffPendingQuestion,
     LanguageSwitched,
     ProfileAnswered,
@@ -296,20 +296,15 @@ def _child_answered(step: _Step, event: ChildAnswered) -> Transition:
             effects.append(RecordConsent(ConsentEventKind.CHILD_PROFILE_CONSENT))
         effects.append(SendCopy(CopyKey.PROFILE_DONE_PARENT_OTHER_AGE))
         return step.moved(_S.ACTIVE, *effects, pending_question=None)
+    # Any child, the first included: added and confirmed, and asked whether they may talk to
+    # Marg; no khoj and no daily-time question until the parent asks (owner's second demo,
+    # 2026-11-01: "just ask if Munni can talk, and what do you want: a khoj or a question").
     if step.learner_count == 0:
-        # The first child completes onboarding: consent for the child's profile, then the first
-        # khoj in the same turn, with the child-talk question (C13) in the preamble.
-        effects += [
-            RecordConsent(ConsentEventKind.CHILD_PROFILE_CONSENT),
-            SendCopy(CopyKey.PROFILE_DONE_PARENT),
-            SendCopy(CopyKey.ASK_CHILD_TALK),
-            HandoffFirstKhoj(),
-        ]
-    else:
-        # Another child: added and confirmed, with the child-talk question for them; no khoj
-        # and no daily-time question unasked for (owner's demo, 2026-11-01)
-        effects += [SendCopy(CopyKey.CHILD_ADDED), SendCopy(CopyKey.ASK_CHILD_TALK)]
-    # A parent's pending question is dropped: the first khoj is the answer (s08 Q5).
+        effects.append(RecordConsent(ConsentEventKind.CHILD_PROFILE_CONSENT))
+    effects += [SendCopy(CopyKey.CHILD_ADDED), SendCopy(CopyKey.ASK_CHILD_TALK)]
+    pending = step.profile.pending_question
+    if pending:
+        effects.append(HandoffPendingQuestion(pending))  # answered now, no khoj stands in for it
     return step.moved(_S.ACTIVE, *effects, pending_question=None)
 
 
@@ -330,9 +325,13 @@ def _child_talk_answered(step: _Step, event: ChildTalkAnswered) -> Transition:
             SetChildTalk(event.learner_id, granted=True),
             RecordConsent(ConsentEventKind.CHILD_TALK_CONSENT),
             SendCopy(CopyKey.CHILD_TALK_ENABLED),
+            SendCopy(CopyKey.KHOJ_OR_QUESTION),
         )
     return step.moved(
-        _S.ACTIVE, SetChildTalk(event.learner_id, granted=False), SendCopy(CopyKey.CHILD_TALK_OFF)
+        _S.ACTIVE,
+        SetChildTalk(event.learner_id, granted=False),
+        SendCopy(CopyKey.CHILD_TALK_OFF),
+        SendCopy(CopyKey.KHOJ_OR_QUESTION),
     )
 
 
@@ -349,6 +348,15 @@ def _language_switched(step: _Step, event: LanguageSwitched) -> Transition:
         question = ConversationMachine.question_for(switched, step.learner_count)
         effects = (SendCopy(question),) if question else ()
     return step.moved(state, *effects, language=event.language)
+
+
+def _about_marg(step: _Step, event: AboutMargAsked) -> Transition:
+    """What Marg does and keeps, at once; then the question still waiting (owner, 2026-11-01)."""
+    question = ConversationMachine.question_for(step.profile, step.learner_count)
+    effects: list[Effect] = [SendCopy(CopyKey.ABOUT_MARG)]
+    if question:
+        effects.append(SendCopy(question))
+    return step.moved(step.profile.state, *effects)
 
 
 def _question_noted(step: _Step, event: QuestionNoted) -> Transition:
@@ -417,6 +425,7 @@ def _table() -> Mapping[tuple[ConversationState, type[ConversationEvent]], _Hand
         (_S.ACTIVE, Unrecognised): _for(Unrecognised, _unrecognised),
         (_S.AWAITING_CONSENT, LanguageSwitched): _for(LanguageSwitched, _language_switched),
         (_S.AWAITING_CONSENT, QuestionNoted): _for(QuestionNoted, _question_noted),
+        (_S.AWAITING_CONSENT, AboutMargAsked): _for(AboutMargAsked, _about_marg),
         (_S.AWAITING_CONSENT, Unrecognised): _for(Unrecognised, _unrecognised),
         (_S.AWAITING_DELETION_CONFIRM, DeletionConfirmed): _for(
             DeletionConfirmed, _deletion_confirmed
@@ -429,6 +438,7 @@ def _table() -> Mapping[tuple[ConversationState, type[ConversationEvent]], _Hand
     for state in _ONBOARDING_QUESTION_STATES:
         table[(state, LanguageSwitched)] = _for(LanguageSwitched, _language_switched)
         table[(state, QuestionNoted)] = _for(QuestionNoted, _question_noted)
+        table[(state, AboutMargAsked)] = _for(AboutMargAsked, _about_marg)
         table[(state, Unrecognised)] = _for(Unrecognised, _unrecognised)
     for state in ConversationState:
         if state is not _S.AWAITING_DELETION_CONFIRM:

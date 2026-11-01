@@ -5,7 +5,7 @@
 # matters; `known`, profile fields already answered; `text`; `expect`, the event Marg should read:
 #   event: ConsentGiven, ConsentDeclined, RoleChosen, GuardianConfirmed, GuardianDeclined,
 #          ChildAnswered, ChildInvalid, ProfileAnswered, LanguageSwitched, QuestionNoted,
-#          Unrecognised
+#          AboutMargAsked, Unrecognised
 #   and, when given, its values: role; age (the child's, in years); nickname (null: none);
 #   grade; subject and district (the reading contains it, any case); language; question (true:
 #   a question was kept); reason (ChildInvalid / Unrecognised copy key).
@@ -22,8 +22,8 @@ cases:
   - {state: awaiting_consent, text: "nahi", expect: {event: ConsentDeclined}}
   - {state: awaiting_consent, text: "no thanks", expect: {event: ConsentDeclined}}
   - {state: awaiting_consent, text: "नहीं", expect: {event: ConsentDeclined}}
-  - {state: awaiting_consent, text: "aap kya kya data rakhte ho mera?", expect: {event: QuestionNoted, question: true}}
-  - {state: awaiting_consent, text: "pehle batao ye kya hai aur kitne paise lagenge", expect: {event: QuestionNoted, question: true}}
+  - {state: awaiting_consent, text: "aap kya kya data rakhte ho mera?", expect: {event: AboutMargAsked}}
+  - {state: awaiting_consent, text: "pehle batao ye kya hai aur kitne paise lagenge", expect: {event: AboutMargAsked}}
   - {state: awaiting_consent, text: "English please", expect: {event: LanguageSwitched, language: english}}
   - {state: awaiting_consent, text: "हिंदी में बात करो", expect: {event: LanguageSwitched, language: hindi}}
 
@@ -43,7 +43,13 @@ cases:
   - {state: awaiting_role, text: "I'm in 12th, need career help", expect: {event: RoleChosen, role: student}}
   - {state: awaiting_role, text: "मैं नौवीं कक्षा में पढ़ती हूँ", expect: {event: RoleChosen, role: student}}
   - {state: awaiting_role, text: "college mein hoon BA first year", expect: {event: RoleChosen, role: student}}
-  - {state: awaiting_role, text: "ye app kya karta hai?", expect: {event: QuestionNoted, question: true}}
+  - {state: awaiting_role, text: "ye app kya karta hai?", expect: {event: AboutMargAsked}}
+
+  # --- questions about Marg itself, answered at once (owner's second demo, 2026-11-01) -------
+  - {state: awaiting_child, role: parent, text: "First tell what can you do", expect: {event: AboutMargAsked}}
+  - {state: awaiting_child, role: parent, text: "But just for what can you do why you need profile", expect: {event: AboutMargAsked}}
+  - {state: awaiting_role, text: "what is this app, who made it?", expect: {event: AboutMargAsked}}
+  - {state: awaiting_consent, text: "kya ye free hai, kitna paisa lagega", expect: {event: AboutMargAsked}}
 
   # --- guardian (a student) --------------------------------------------------------------------
   - {state: awaiting_guardian, role: student, text: "haan papa ko pata hai", expect: {event: GuardianConfirmed}}
@@ -70,7 +76,7 @@ cases:
   - {state: awaiting_child, role: parent, text: "25 saal", expect: {event: ChildInvalid, reason: child_invalid_age}}
   - {state: awaiting_child, role: parent, text: "abhi 6 mahine ka hai", expect: {event: ChildInvalid, reason: child_invalid_age}}
   - {state: awaiting_child, role: parent, text: "bachcha khana nahi khata, kya karun?", expect: {event: QuestionNoted, question: true}}
-  - {state: awaiting_child, role: parent, text: "naam kyun chahiye aapko?", expect: {event: QuestionNoted, question: true}}
+  - {state: awaiting_child, role: parent, text: "naam kyun chahiye aapko?", expect: {event: AboutMargAsked}}
 
   # --- a student's profile -----------------------------------------------------------------------
   - {state: awaiting_profile, role: student, text: "10", expect: {event: ProfileAnswered, grade: 10}}
@@ -84,7 +90,7 @@ cases:
   - {state: awaiting_profile, role: student, known: {grade: 10}, text: "Karauli, Rajasthan", expect: {event: ProfileAnswered, district: Karauli}}
   - {state: awaiting_profile, role: student, known: {grade: 10}, text: "jila Sitapur, UP", expect: {event: ProfileAnswered, district: Sitapur}}
   - {state: awaiting_profile, role: student, known: {grade: 10}, text: "मैं धार ज़िले से हूँ", expect: {event: ProfileAnswered, district: धार}}
-  - {state: awaiting_profile, role: student, known: {grade: 12}, text: "district kyun chahiye?", expect: {event: QuestionNoted, question: true}}
+  - {state: awaiting_profile, role: student, known: {grade: 12}, text: "district kyun chahiye?", expect: {event: AboutMargAsked}}
 
   # --- a teacher's profile -----------------------------------------------------------------------
   - {state: awaiting_profile, role: teacher, text: "science", expect: {event: ProfileAnswered, subject: science}}

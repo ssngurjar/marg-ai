@@ -25,6 +25,7 @@ from app.domain.enums import (
 )
 from app.domain.models.base import UserHash
 from app.domain.models.conversation import (
+    AboutMargAsked,
     AddChild,
     ChildAnswered,
     ChildInvalid,
@@ -130,7 +131,8 @@ def test_declining_consent_purges_after_the_reply() -> None:
     assert copies(moved) == [CopyKey.CONSENT_DECLINED]
 
 
-def test_a_parent_answers_one_question_about_the_child_and_gets_the_first_khoj() -> None:
+def test_a_parent_answers_one_question_about_the_child_and_is_asked_about_child_talk() -> None:
+    # Owner's second demo, 2026-11-01: "just ask if Munni can talk, and what do you want"
     parent = step(at(S.AWAITING_ROLE, **CONSENTED), RoleChosen(Role.PARENT))
     assert parent.profile.state is S.AWAITING_CHILD
     done = step(parent.profile, ChildAnswered(2021, "Munni"))
@@ -138,17 +140,42 @@ def test_a_parent_answers_one_question_about_the_child_and_gets_the_first_khoj()
     assert done.effects == (
         UpsertLearner(LearnerRelation.PARENT, 2021, "Munni"),
         RecordConsent(ConsentEventKind.CHILD_PROFILE_CONSENT),
-        SendCopy(CopyKey.PROFILE_DONE_PARENT),
+        SendCopy(CopyKey.CHILD_ADDED),
         SendCopy(CopyKey.ASK_CHILD_TALK),
-        HandoffFirstKhoj(),
     )
 
 
-def test_a_parents_pending_question_is_dropped_for_the_first_khoj() -> None:
+def test_a_parents_pending_question_is_answered_once_the_child_is_added() -> None:
     profile = at(S.AWAITING_CHILD, role=Role.PARENT, pending_question=QUESTION, **CONSENTED)
     done = step(profile, ChildAnswered(2020, None))
     assert done.profile.pending_question is None
-    assert not any(isinstance(effect, HandoffPendingQuestion) for effect in done.effects)
+    assert HandoffPendingQuestion(QUESTION) in done.effects
+    assert HandoffFirstKhoj() not in done.effects
+
+
+@pytest.mark.parametrize(
+    "answered",
+    [ChildTalkAnswered(LEARNER, allowed=True), ChildTalkAnswered(LEARNER, allowed=False)],
+    ids=["yes", "not_now"],
+)
+def test_after_the_child_talk_answer_the_parent_is_asked_khoj_or_question(
+    answered: ChildTalkAnswered,
+) -> None:
+    profile = at(S.ACTIVE, role=Role.PARENT, **CONSENTED)
+    done = step(profile, answered, learners=1)
+    assert copies(done)[-1] is CopyKey.KHOJ_OR_QUESTION
+
+
+@pytest.mark.parametrize("state", [S.AWAITING_CONSENT, S.AWAITING_ROLE, S.AWAITING_CHILD])
+def test_a_question_about_marg_is_answered_then_the_waiting_question_asked_again(
+    state: S,
+) -> None:
+    role = Role.PARENT if state is S.AWAITING_CHILD else None
+    profile = at(state, role=role, **(CONSENTED if state is not S.AWAITING_CONSENT else {}))
+    done = step(profile, AboutMargAsked())
+    assert done.profile.state is state
+    assert copies(done)[0] is CopyKey.ABOUT_MARG
+    assert len(copies(done)) == 2  # then the question still waiting
 
 
 def test_a_second_child_is_added_and_asked_about_child_talk_with_no_khoj() -> None:
@@ -182,7 +209,7 @@ def test_a_child_outside_3_to_8_gets_no_khoj_child_talk_or_daily_time(
 def test_the_khoj_age_boundaries_are_exact(birth_year: int) -> None:
     profile = at(S.AWAITING_CHILD, role=Role.PARENT, **CONSENTED)
     done = step(profile, ChildAnswered(birth_year, None))
-    assert HandoffFirstKhoj() in done.effects
+    assert CopyKey.ASK_CHILD_TALK in copies(done)
     assert CopyKey.PROFILE_DONE_PARENT_OTHER_AGE not in copies(done)
 
 

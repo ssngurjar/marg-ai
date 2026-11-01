@@ -14,7 +14,7 @@ from enum import StrEnum
 
 import pytest
 
-from app.constants.journey_copy import NUDGE_ASK, SUPERVISION_LINE
+from app.constants.journey_copy import SUPERVISION_LINE
 from app.core.errors import (
     InvalidTransition,
     ProviderError,
@@ -772,69 +772,35 @@ async def test_a_reply_blocked_with_no_fallback_writes_nothing() -> None:
     assert result.outcome.writes == []
 
 
-async def test_after_an_english_onboarding_the_daily_time_question_is_in_english_too() -> None:
-    # Owner's demo, 2026-11-01: the khoj came in English, then "Roz ki khoj ka message kab
-    # bhejein?" in Hinglish, because the parent's own words were Hinglish
+async def test_onboarding_the_first_child_asks_about_child_talk_and_sends_no_khoj() -> None:
+    # Owner's second demo, 2026-11-01: no khoj or daily-time question until the parent asks
+    parent = user_profile(state=ConversationState.AWAITING_CHILD, consented=True)
+    ctx = turn_context(text_message("beti, Munni, 5 saal"), profile=parent)
+    result = await run(ctx, llm=FakeLanguageModel([]))
+    [part] = result.outcome.delivery.parts
+    assert part.text is not None
+    assert "Munni" in part.text
+    assert [button.id.rsplit(":", 1)[0] for button in part.buttons] == [
+        "onb:childtalk:yes",
+        "onb:childtalk:no",
+    ]
+    kinds = [write.kind for write in result.outcome.writes]
+    assert kinds == ["profile_change", "learner_upsert"]
+
+
+async def test_an_english_onboarding_stays_english_and_baccha_is_never_a_name() -> None:
+    # Owner's demo, 2026-11-01: "Mera baccha 6 saal ka hai" had saved the nickname "baccha"
     parent = user_profile(
         state=ConversationState.AWAITING_CHILD, consented=True, language=Language.ENGLISH
     )
     ctx = turn_context(text_message("Mera baccha 6 saal ka hai"), profile=parent)
-    english_khoj = {
-        **personalisation_for(first_choice()),
-        "intro": "Today, a small discovery with your child.",
-        "steps": [
-            f"Step {number}: do it together." for number in range(1, len(first_choice().steps) + 1)
-        ],
-        "questions_to_ask": ["What did you see?", "Why do you think so?"],
-        "listen_for": "Your child's own idea, even if it isn't right.",
-        "parent_tip": "Ask, then wait for the answer.",
-        "spoken_text": "Today, a small discovery with your child.",
-    }
-    result = await run(ctx, llm=FakeLanguageModel([english_khoj]))
-    parts = result.outcome.delivery.parts
-    assert parts[-1].text == NUDGE_ASK[Language.ENGLISH]
-    _, upsert, _ = result.outcome.writes
+    result = await run(ctx, llm=FakeLanguageModel([]))
+    [part] = result.outcome.delivery.parts
+    assert part.text is not None
+    assert "talk to Marg directly" in part.text
+    _, upsert = result.outcome.writes
     assert isinstance(upsert, LearnerUpsert)
-    assert upsert.nickname is None  # "baccha" is how parents spell child, never a name
-
-
-async def test_onboarding_the_first_child_brings_the_first_khoj_in_the_same_turn() -> None:
-    parent = user_profile(state=ConversationState.AWAITING_CHILD, consented=True)
-    ctx = turn_context(text_message("beti, Munni, 5 saal"), profile=parent)
-    result = await run(ctx, llm=FakeLanguageModel([personalisation_for(first_choice())]))
-    parts = result.outcome.delivery.parts
-    # thanks, then the khoj, then the two questions (owner's judge walkthrough, 2026-10-29)
-    assert parts[0].buttons == []
-    assert PERSONALISED_INTRO in result.delivered
-    assert [button.id for button in parts[-3].buttons] == ["jrn:done", "jrn:other"]
-    assert [button.id.rsplit(":", 1)[0] for button in parts[-2].buttons] == [
-        "onb:childtalk:yes",
-        "onb:childtalk:no",
-    ]
-    # then, on its own (a message holds at most 3 buttons): when to send the daily khoj
-    assert parts[-1].text == NUDGE_ASK[Language.HINGLISH]
-    assert [button.id for button in parts[-1].buttons] == ["nudge:08", "nudge:18", "nudge:off"]
-    kinds = [write.kind for write in result.outcome.writes]
-    assert kinds == ["profile_change", "learner_upsert", "activity_offered"]
-    _, upsert, offered = result.outcome.writes
-    assert isinstance(upsert, LearnerUpsert)
-    assert isinstance(offered, ActivityOffered)
-    assert offered.learner_id == upsert.learner_id
-
-
-async def test_if_the_first_khoj_cant_be_checked_onboarding_still_completes() -> None:
-    parent = user_profile(state=ConversationState.AWAITING_CHILD, consented=True)
-    down = FakeSafetyClassifier(error=GUARD_DOWN, fail_on=frozenset({"assistant"}))
-    no_backup = scripted_policy(reply_outputs=[MODEL_DOWN])[0]
-    result = await run(
-        turn_context(text_message("beti, Munni, 5 saal"), profile=parent),
-        classifier=down,
-        llm=FakeLanguageModel([personalisation_for(first_choice())]),
-        policy=no_backup,
-    )
-    assert result.outcome.fixed_reply_kind is FixedReplyKind.ONBOARDING
-    assert [write.kind for write in result.outcome.writes] == ["profile_change", "learner_upsert"]
-    assert PERSONALISED_INTRO not in result.delivered
+    assert upsert.nickname is None
 
 
 # --- curiosity signals after the reply (s13 §4.2) ------------------------------------------------
@@ -877,19 +843,3 @@ async def test_a_blocked_report_is_not_extracted() -> None:
         classifier=flagging(user=[SafetyCategory.SEXUAL_CONTENT]),
     )
     assert result.outcome.post_turn == []
-
-
-async def test_if_the_first_khoj_fails_the_child_talk_question_still_follows_the_thanks() -> None:
-    parent = user_profile(state=ConversationState.AWAITING_CHILD, consented=True)
-    down = FakeSafetyClassifier(error=GUARD_DOWN, fail_on=frozenset({"assistant"}))
-    no_backup = scripted_policy(reply_outputs=[MODEL_DOWN])[0]
-    result = await run(
-        turn_context(text_message("beti, Munni, 5 saal"), profile=parent),
-        classifier=down,
-        llm=FakeLanguageModel([personalisation_for(first_choice())]),
-        policy=no_backup,
-    )
-    parts = result.outcome.delivery.parts
-    assert len(parts) == 2
-    assert parts[0].buttons == []
-    assert parts[1].buttons[0].id.startswith("onb:childtalk:yes:")

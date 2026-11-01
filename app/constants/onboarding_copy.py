@@ -20,7 +20,7 @@ from typing import Final
 from app.domain.enums import Channel, CopyKey, Language
 from app.domain.models.reply import ReplyButton
 
-COPY_VERSION: Final = "onb-2026-11-01.1"
+COPY_VERSION: Final = "onb-2026-11-01.2"
 
 _HINGLISH = Language.HINGLISH
 _HINDI = Language.HINDI
@@ -82,6 +82,11 @@ _DELETE_BUTTONS: Final = {
     _HINGLISH: _buttons((DELETE_YES, "Haan, delete karo"), (DELETE_NO, "Nahi, rehne do")),
     _HINDI: _buttons((DELETE_YES, "हाँ, डिलीट करो"), (DELETE_NO, "नहीं, रहने दो")),
     _ENGLISH: _buttons((DELETE_YES, "Yes, delete"), (DELETE_NO, "No, keep it")),
+}
+_TODAY_KHOJ_BUTTONS: Final = {
+    _HINGLISH: _buttons(("jrn:today", "Aaj ki khoj")),
+    _HINDI: _buttons(("jrn:today", "आज की खोज")),
+    _ENGLISH: _buttons(("jrn:today", "Today's khoj")),
 }
 _CHILD_TALK_BUTTONS: Final = {
     _HINGLISH: _buttons((CHILD_TALK_YES, "Haan, baat kare"), (CHILD_TALK_NO, "Abhi nahi")),
@@ -323,6 +328,35 @@ _TEXTS: Final[dict[CopyKey, dict[Language, str]]] = {
         _HINDI: "{child} जुड़ गए! जब चाहें, {child} के लिए आज की खोज माँग लीजिए।",
         _ENGLISH: "{child} is added! Ask for a khoj for {child} whenever you like.",
     },
+    # A question about Marg itself during onboarding (owner's second demo, 2026-11-01)
+    CopyKey.ABOUT_MARG: {
+        _HINGLISH: (
+            "Marg chhote bachchon ke mata-pita ko roz 2 minute ki ek khoj deta hai aur bachche ke"
+            " baare mein har sawaal ka jawab deta hai; students ko sarkari sources se career ki"
+            " jaankari; aur teachers ke chapter ko asli kaam se jodta hai. Hum sirf zaroori baat"
+            " rakhte hain: aapka role, class, zila, bhasha, aur bachche ka ghar ka naam aur umar."
+            " 'Mera data hatao' likhte hi sab mit jaata hai."
+        ),
+        _HINDI: (
+            "मार्ग छोटे बच्चों के माता-पिता को रोज़ 2 मिनट की एक खोज देता है और बच्चे के बारे में हर"
+            " सवाल का जवाब देता है; छात्रों को सरकारी स्रोतों से करियर की जानकारी; और शिक्षकों के अध्याय"
+            " को असली काम से जोड़ता है। हम सिर्फ़ ज़रूरी बातें रखते हैं: आपकी भूमिका, कक्षा, ज़िला, भाषा,"
+            " और बच्चे का घर का नाम और उम्र। 'मेरा डेटा हटाओ' लिखते ही सब मिट जाता है।"
+        ),
+        _ENGLISH: (
+            "Marg gives parents of young children a two-minute discovery to do together every day"
+            " and answers any question about their child; helps students with careers from"
+            " official sources; and connects a teacher's chapter to real work. It keeps only what"
+            " it needs: your role, a class, a district, the language, and a child's home name and"
+            " age. 'Delete my data' erases everything."
+        ),
+    },
+    # After the child-talk answer, the choice that comes next (owner's second demo, 2026-11-01)
+    CopyKey.KHOJ_OR_QUESTION: {
+        _HINGLISH: "Ab kya karein: aaj ki khoj, ya aapka koi sawaal?",
+        _HINDI: "अब क्या करें: आज की खोज, या आपका कोई सवाल?",
+        _ENGLISH: "What would you like now: today's khoj, or a question?",
+    },
     # A child outside 3-8 (owner, 2026-10-29: a mother of a 10-year-old was promised a khoj and
     # then told it was for 3-8 only, and offered child talk and daily times).
     CopyKey.PROFILE_DONE_PARENT_OTHER_AGE: {
@@ -420,6 +454,7 @@ _BUTTONS_FOR: Final[dict[CopyKey, dict[Language, tuple[ReplyButton, ...]]]] = {
     CopyKey.GUARDIAN_NEEDED: _GUARDIAN_BUTTONS,
     CopyKey.CONFIRM_DELETE: _DELETE_BUTTONS,
     CopyKey.ASK_CHILD_TALK: _CHILD_TALK_BUTTONS,
+    CopyKey.KHOJ_OR_QUESTION: _TODAY_KHOJ_BUTTONS,
 }
 
 COPY: Final[dict[tuple[CopyKey, Language], CopyEntry]] = {

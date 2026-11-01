@@ -138,6 +138,12 @@ class QuestionNoted:
 
 
 @dataclass(frozen=True, slots=True)
+class AboutMargAsked:
+    """A question about Marg itself during onboarding ("what can you do?", "why do you need
+    this?"): answered at once, then the waiting question again (owner, 2026-11-01)."""
+
+
+@dataclass(frozen=True, slots=True)
 class Unrecognised:
     not_understood: CopyKey = CopyKey.NOT_UNDERSTOOD  # INVALID_GRADE for a grade outside 1-12
     # Only a greeting ("Hi" again, after a reload): ask the waiting question again, without
@@ -176,6 +182,7 @@ type ConversationEvent = (
     | TeacherAsked
     | LanguageSwitched
     | QuestionNoted
+    | AboutMargAsked
     | Unrecognised
     | DeletionRequested
     | DeletionConfirmed

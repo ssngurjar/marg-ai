@@ -11,7 +11,7 @@ The four journeys at a glance:
 
 | Who | How it starts | What they get | How a conversation ends |
 |---|---|---|---|
-| **Parent** of a 3–8-year-old | consent → "parent" → the child's age (and a home name) | today's khoj, a reply to how it went, answers to the child's questions and their own, a khoj card | each khoj ends with one question back to the child; the next one comes tomorrow |
+| **Parent** of a 3–8-year-old | consent → "parent" → the child's age (and a home name) → may the child talk to Marg? → today's khoj, or a question | today's khoj, a reply to how it went, answers to the child's questions and their own, a khoj card, a progress summary | each khoj ends with one question back to the child; the next one comes when asked |
 | **Child** (3–8), with the parent's yes | "Main bachcha hoon" button, or "Main Munni hoon" | short true answers by voice, and something to go and find | after 6 exchanges or 10 minutes, with something to look for; the parent gets a summary |
 | **Student** (classes 6–12) | consent → "student" → a parent or teacher knows → class → district | answers that cite official sources, and a step-by-step plan | each answer ends with its sources and, where it fits, a "Make a plan" button |
 | **Teacher** | consent → "teacher" → subject → class → district | tomorrow's chapter connected to three real kinds of work, each with a classroom activity | "Another activity" or "New chapter" buttons |
@@ -94,9 +94,9 @@ months ("6 mahine") is under two, and Marg asks for an age from 2 to 19. The way
 
 ### How it starts
 After choosing "parent", the parent gives the child's age and, if they like, a home name ("Munni,
-5 saal"). The first khoj arrives in the same reply, followed by two questions: may the child talk
-to Marg directly (**Yes / Not now**), and when should the daily khoj come (**8 in the morning / 6
-in the evening / I'll ask myself**).
+5 saal"). Marg confirms the child and asks whether they may talk to Marg directly (**Yes / Not
+now**), then: **today's khoj, or a question?** Nothing is sent unasked. A question about Marg
+itself during onboarding ("what can you do?", "why do you need this?") is answered at once.
 
 ### Marg understands what the parent means
 Muse Spark reads every free message into one of a fixed set of intents, and code acts on it: a

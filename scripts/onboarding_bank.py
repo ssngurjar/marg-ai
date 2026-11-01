@@ -56,6 +56,7 @@ EventName = Literal[
     "ProfileAnswered",
     "LanguageSwitched",
     "QuestionNoted",
+    "AboutMargAsked",
     "Unrecognised",
 ]
 

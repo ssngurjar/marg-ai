@@ -45,6 +45,7 @@ from app.domain.enums import (
     StepOutcome,
 )
 from app.domain.models.conversation import (
+    AboutMargAsked,
     AddChild,
     ChildAnswered,
     ChildInvalid,
@@ -109,6 +110,7 @@ class ProfileExtraction(BaseModel):
     child_nickname: str | None
     language: Literal["english", "hindi", "hinglish"] | None
     question: str | None
+    about_marg: bool  # the question is about Marg itself: answered at once (2026-11-01)
 
 
 PROFILE_EXTRACTION: Final = PromptSpec(
@@ -518,7 +520,9 @@ class _ExtractionMapper:
         if state is _S.AWAITING_CHILD and extraction.child_age is not None:
             return _ExtractionMapper._child(extraction, current_year)
         if extraction.question:
-            return QuestionNoted(extraction.question[:QUESTION_MAX_CHARS])
+            # about Marg itself: answered at once; anything else: kept for after (2026-11-01)
+            noted = QuestionNoted(extraction.question[:QUESTION_MAX_CHARS])
+            return AboutMargAsked() if extraction.about_marg else noted
         return None
 
     @staticmethod

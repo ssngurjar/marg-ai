@@ -514,3 +514,6 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
 - [ ] **Read the progress summary lines** (`PROGRESS_*` in `app/constants/journey_copy.py`), and try
   "how is my child doing?" after a few khojs.
 - [ ] **Read the "Done" thanks** (`DONE_THANKS` in `app/constants/journey_copy.py`).
+- [ ] **Read the onboarding lines** (`ABOUT_MARG`, `KHOJ_OR_QUESTION` in
+  `app/constants/onboarding_copy.py`): what Marg does and keeps, said during onboarding, and the
+  "today's khoj, or a question?" choice after the child-talk answer.
