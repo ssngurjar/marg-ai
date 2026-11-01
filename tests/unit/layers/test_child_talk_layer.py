@@ -4,7 +4,7 @@ from datetime import timedelta
 from pathlib import Path
 
 import pytest
-from hypothesis import given
+from hypothesis import assume, given
 from hypothesis import strategies as st
 
 from app.constants import child_talk_copy as copy
@@ -47,6 +47,7 @@ from app.domain.rules.child_hazard_matcher import ChildHazardMatcher
 from app.domain.rules.child_reply_matcher import ChildReplyMatcher
 from app.domain.rules.child_session_rules import ChildSessionRules
 from app.domain.rules.onboarding_answer_parser import OnboardingAnswerParser
+from app.domain.rules.phrase_finder import PhraseFinder
 from app.layers.child_talk_layer import ChildReply, ChildTalkLayer, _ChildChecks
 from app.layers.layer_result import LayerResult
 from tests.fakes.language_model import FakeLanguageModel, ScriptedOutput
@@ -618,7 +619,19 @@ async def test_a_blocked_first_message_is_redirected_not_greeted() -> None:
 
 
 @pytest.mark.parametrize(
-    "text", ["i am parent", "I am the parent now", "main mummy hoon", "मैं पापा हूँ", "parent here"]
+    "text",
+    [
+        "i am parent",
+        "I am the parent now",
+        "main mummy hoon",
+        "मैं पापा हूँ",
+        "parent here",
+        # owner's second demo, 2026-11-01: all answered as the child
+        "Mein parent hoon",
+        "nhi mujhe batao munni ne aaj kya kiya",
+        "munni ki summary do",
+        "I am parent switch to parent",
+    ],
 )
 async def test_a_parents_words_ask_with_a_button_and_end_nothing_yet(text: str) -> None:
     # Owner's demo: "i am parent" was answered as the child, again and again
@@ -647,6 +660,30 @@ async def test_the_parents_button_before_any_question_gives_no_summary() -> None
     assert result.reply.body == copy.PARENT_TAKEOVER_DONE[H].format(name="Munni")
 
 
-@pytest.mark.parametrize("text", ["papa ko batana hai", "mummy kahan hai", "my mummy is nice"])
-def test_a_child_talking_about_their_parents_is_not_a_claim(text: str) -> None:
-    assert not ChildSessionRules.claims_to_be_parent(text)
+@pytest.mark.parametrize(
+    "text",
+    [
+        "papa ko batana hai",
+        "mummy kahan hai",
+        "my mummy is nice",
+        "main mummy ko bataungi",
+        "I want my mummy",
+        "i miss my papa",
+        "main munni hoon",
+        "mein Munni hoon aaj kya karein",
+    ],
+)
+def test_a_child_talking_about_their_parents_or_themselves_is_not_a_claim(text: str) -> None:
+    assert not ChildSessionRules.claims_to_be_parent(text, "Munni")
+
+
+@given(st.text(alphabet=st.characters(categories=["Ll", "Zs"]), max_size=80))
+def test_without_a_parent_word_a_switch_or_the_childs_name_nothing_is_a_claim(text: str) -> None:
+    words = set(PhraseFinder.words(text))
+    signals = (
+        ChildSessionRules.PARENT_WORDS
+        | ChildSessionRules.PARENT_ASKS
+        | {"munni", "switch", "parent", "mode", "here", "bol", "back"}
+    )
+    assume(not words & signals)
+    assert not ChildSessionRules.claims_to_be_parent(text, "Munni")

@@ -118,22 +118,73 @@ class ChildSessionRules:
         """Stretched letters back to at most two ("hooooon" → "hoon")."""
         return re.sub(r"(.)\1{2,}", r"\1\1", word)
 
-    # A parent taking the phone back (owner's demo, 2026-11-01: "i am parent" was answered as
-    # the child). Only asks: the "Yes, I'm the parent" button ends the session.
-    PARENT_CLAIMS: ClassVar[tuple[str, ...]] = (
-        "i am parent", "i am the parent", "i'm the parent", "im the parent", "i am a parent",
-        "parent here", "this is the parent", "i am her mother", "i am his mother",
-        "i am the mother", "i am the father", "i am her father", "i am his father",
-        "this is mummy", "this is papa", "main mummy hoon", "main mummy hun", "main papa hoon",
-        "main papa hun", "main maa hoon", "main uski mummy", "main uske papa", "main uski maa",
-        "mummy bol rahi", "papa bol raha", "parent bol raha", "parent bol rahi",
-        "मैं मम्मी हूँ", "मैं पापा हूँ", "मैं माँ हूँ", "मम्मी बोल रही", "पापा बोल रहे",
+    # A parent taking the phone back (owner's demos, 2026-11-01: "i am parent", "Mein parent
+    # hoon", "munni ki summary do" were answered as the child). Only asks: the "Yes, I'm the
+    # parent" button ends the session. Words are compared after PhraseFinder.normalise.
+    SELF_HINDI: ClassVar[frozenset[str]] = frozenset({"main", "mein", "mai", "me", "मै", "मैं"})
+    SELF_ENGLISH: ClassVar[frozenset[str]] = frozenset({"i", "im"})
+    PARENT_WORDS: ClassVar[frozenset[str]] = frozenset(
+        {
+            "parent", "parents", "mummy", "mumma", "mummi", "mom", "mother", "maa", "mata",
+            "ammi", "papa", "pappa", "dad", "father", "pita", "abba", "guardian",
+            "मम्मी", "माँ", "मा", "माता", "पापा", "पिता", "अभिभावक",
+        }
     )  # fmt: skip
+    I_AM_WORDS: ClassVar[frozenset[str]] = frozenset({"hoon", "hun", "hu", "hoo", "हू", "हु"})
+    SWITCH_PHRASES: ClassVar[tuple[str, ...]] = (
+        "switch to parent", "parent mode", "parent here", "parent bol", "mummy bol rahi",
+        "papa bol raha", "back to parent", "parent ki chat", "मम्मी बोल रही", "पापा बोल रहे",
+    )  # fmt: skip
+    ABOUT_CHILD_PARTICLES: ClassVar[frozenset[str]] = frozenset(
+        {"ne", "ki", "ka", "ko", "ke", "ने", "की", "का", "को", "के"}
+    )
+    PARENT_ASKS: ClassVar[frozenset[str]] = frozenset(
+        {"summary", "progress", "report", "सारांश", "प्रगति"}
+    )
+    WITHIN: ClassVar[int] = 3  # how far after "main"/"I" the parent word may come
 
     @staticmethod
-    def claims_to_be_parent(user_text: str) -> bool:
-        """ "I am the parent", "main mummy hoon": someone says they're the child's parent."""
-        return PhraseFinder.contains_any(user_text, ChildSessionRules.PARENT_CLAIMS)
+    def claims_to_be_parent(user_text: str, child_nickname: str | None) -> bool:
+        """Someone on the phone seems to be the child's parent: "I'm her mother", "mein parent
+        hoon", "switch to parent", the child named in the third person ("Munni ne aaj kya
+        kiya"), or a summary asked for. "main mummy ko bataungi" (I'll tell mummy) is not."""
+        if PhraseFinder.contains_any(user_text, ChildSessionRules.SWITCH_PHRASES):
+            return True
+        words = PhraseFinder.words(user_text)
+        if set(words) & ChildSessionRules.PARENT_ASKS:
+            return True
+        if ChildSessionRules._names_the_child(words, child_nickname):
+            return True
+        return ChildSessionRules._says_i_am_a_parent(words)
+
+    @staticmethod
+    def _says_i_am_a_parent(words: Sequence[str]) -> bool:
+        rules = ChildSessionRules
+        for position, word in enumerate(words):
+            ahead = words[position + 1 : position + 1 + rules.WITHIN]
+            for offset, later in enumerate(ahead):
+                if later not in rules.PARENT_WORDS:
+                    continue
+                says_am = position + 1 < len(words) and words[position + 1] in {"am", "m"}
+                if word in rules.SELF_ENGLISH and says_am:
+                    return True  # "i am her mother", "i'm the parent"; not "i want my mummy"
+                after = words[position + 1 + offset + 1 : position + 1 + offset + 2]
+                if word in rules.SELF_HINDI and set(after) & rules.I_AM_WORDS:
+                    return True  # "mein parent hoon", "main uski mummy hoon"
+        return False
+
+    @staticmethod
+    def _names_the_child(words: Sequence[str], child_nickname: str | None) -> bool:
+        """The talking child named in the third person ("munni ne", "munni ki"): a grown-up."""
+        if not child_nickname:
+            return False
+        name = PhraseFinder.words(child_nickname)
+        if len(name) != 1:
+            return False
+        for position, word in enumerate(words[:-1]):
+            if word == name[0] and words[position + 1] in ChildSessionRules.ABOUT_CHILD_PARTICLES:
+                return True
+        return False
 
     @staticmethod
     def says_goodbye(user_text: str) -> bool:

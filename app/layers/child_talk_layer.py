@@ -210,7 +210,7 @@ class ChildTalkLayer:
             return self._goodbye(session, learner, register, ChildSessionEndReason.TIME_LIMIT, ())
         if ChildSessionRules.says_goodbye(user_text):
             return self._goodbye(session, learner, register, ChildSessionEndReason.CHILD_ENDED, ())
-        if ChildSessionRules.claims_to_be_parent(user_text):
+        if ChildSessionRules.claims_to_be_parent(user_text, learner.nickname):
             # only asks: a child typing it can't reach the parent's side without the button
             button = ReplyButton(id=KID_PARENT, title=PARENT_TAKEOVER_BUTTON[register])
             name = learner.nickname or UNNAMED_CHILD_NAME[register]

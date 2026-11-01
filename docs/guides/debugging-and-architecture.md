@@ -427,7 +427,7 @@ replies on, so the spoken path stays tested even while real users get text.
 | A report went to the wrong khoj, or "Which khoj is this about?" appeared | the turn's reply buttons (`jrn:about:<id>`); `learner_activities` for the child in the last 48 h | another khoj was still offered or skipped: a photo alone or words that don't say which khoj ask; the reading's `report_about` places clear reports |
 | No khoj card after a report | `make_card` row `detail` | engagement under 2, a card already today, safety blocked, `KHOJ_CARD_ENABLED=false`, the window closed |
 | "Main bachcha hoon" does nothing | `route` row; `learners.child_talk_consented_at` | no consent (the parent gets the switch-on message), the 30-minute cooldown, `CHILD_TALK_ENABLED=false` |
-| Child stuck in child talk | `child_sessions` with `ended_at IS NULL` | the child left without "bye"; maintenance closes it after 10 minutes. A parent can end it at once: "I am the parent", then the `kid:parent` button |
+| Child stuck in child talk | `child_sessions` with `ended_at IS NULL` | the child left without "bye"; maintenance closes it after 10 minutes. A parent can end it at once: "I am the parent", "mein parent hoon", "switch to parent", "Munni ki summary do"…, then the `kid:parent` button (`ChildSessionRules.claims_to_be_parent`) |
 | No daily nudge | `nudge_subscriptions.next_due_at`, `NUDGES_ENABLED` | off until templates are approved; quiet hours; a khoj already today; the daily cap |
 | `delivery_failed window_closed` | `users.last_inbound_at` | the parent's last message was over 24 h ago; only templates can be sent |
 | `delivery_failed media_expired` | `media_blobs` | the audio or card expired (24 h / 7 days) before sending |
