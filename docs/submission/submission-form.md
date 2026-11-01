@@ -99,8 +99,8 @@ shortened (next section).
 > the guide can grow with the child. Safety runs on every message in and out (Llama Guard 4 plus a second Muse
 > Spark check plus our own child rules), and fails closed.
 >
-> All of it was built during the hackathon: 3,102 tests (2,892 unit, 210 integration on
-> Postgres); an eval harness that plays 94 hand-written cases through the real pipeline, where
+> All of it was built during the hackathon: 3,169 tests (2,958 unit, 211 integration on
+> Postgres); an eval harness that plays 95 hand-written cases through the real pipeline, where
 > 76% of the 82 scored pass on the newest full run and every crisis and adversarial case
 > passes; and a field test in my village. Every bug found
 > by using Marg like a family would (a shared phone, mixed languages, a refresh) became a fix
@@ -114,7 +114,7 @@ shortened (next section).
 > starts each day is the morning prompt, and every other message answers the family. The whole
 > build, with every test and evaluation, used about $32 of Model API credits.
 
-*(Recheck before submitting: the test count from `pytest --collect-only` (3,102 on
+*(Recheck before submitting: the test count from `pytest --collect-only` (3,169 on
 2026-11-01), the pass rate and denominators from the newest scorecard, that the field test happened, and the credits used: $150 minus the Model API
 balance on the day, $32 on 2026-10-31.)*
 
@@ -149,7 +149,7 @@ balance on the day, $32 on 2026-10-31.)*
 > terms. Replies are text: Meta's MMS-TTS is built in as
 > the voice, switched off until the organisers rule on its non-commercial licence.
 >
-> An LLM judge (Muse Spark) scores 94 golden cases through the real pipeline on every change;
+> An LLM judge (Muse Spark) scores 95 golden cases through the real pipeline on every change;
 > crisis and adversarial cases are hard gates.
 
 *(Before submitting: Muse Code: keep only if it really wrote committed code.)*
