@@ -45,6 +45,12 @@ or real name. Built during the Meta hackathon, Oct 26 – Nov 4, 2026." (This re
 - **Ending (cut v16):** "Thank you" over the village path, then a silent "Not in this video"
   card (students' mentor, children's own questions, crisis replies, decision logs → the README),
   then the end card with a reason for each link. 2:43 in all.
+- **Part 2, next cut (with the field-test footage):** the khoj beat gets one small grey line
+  under its right-side caption, the only "why it matters" line in part 2 (locked 2026-11-01):
+  *Learning through play: body, numbers, a "why"*. It names what the animal-walk khoj builds
+  (balance and movement, counting frog jumps across the courtyard, asking why a frog jumps;
+  NCF Foundational Stage 2022, PDF pp. 43, 35, 254, 94). If the khoj filmed on the day is a
+  different activity, the line is rewritten from that activity's catalogue entry.
 - **Subtitles, later:** burned-in subtitles for every spoken line, in case an accent is hard to
   follow for some judges. They go at the bottom; the existing caption bars move up or merge with
   them where both would show at once.
