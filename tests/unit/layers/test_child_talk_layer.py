@@ -45,6 +45,7 @@ from app.domain.models.writes import (
 )
 from app.domain.rules.child_hazard_matcher import ChildHazardMatcher
 from app.domain.rules.child_reply_matcher import ChildReplyMatcher
+from app.domain.rules.child_session_rules import ChildSessionRules
 from app.domain.rules.onboarding_answer_parser import OnboardingAnswerParser
 from app.layers.child_talk_layer import ChildReply, ChildTalkLayer, _ChildChecks
 from app.layers.layer_result import LayerResult
@@ -611,3 +612,41 @@ async def test_a_blocked_first_message_is_redirected_not_greeted() -> None:
     )
     assert [sent.prompt_id for sent in llm.prompts] == ["child_redirect"]
     assert any(isinstance(write, ChildSessionStart) for write in result.writes)
+
+
+# --- a parent taking the phone back (owner, 2026-11-01) ------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "text", ["i am parent", "I am the parent now", "main mummy hoon", "मैं पापा हूँ", "parent here"]
+)
+async def test_a_parents_words_ask_with_a_button_and_end_nothing_yet(text: str) -> None:
+    # Owner's demo: "i am parent" was answered as the child, again and again
+    result, llm = await talk(text, session=open_session(MUNNI, turns=2))
+    assert result.reply.body == copy.PARENT_TAKEOVER_ASK[H].format(name="Munni")
+    assert [button.id for button in result.reply.buttons] == ["kid:parent"]
+    assert result.writes == []  # a child typing it can't end the session without the button
+    assert llm.prompts == []
+
+
+async def test_the_parents_button_ends_the_session_with_the_topics_summary() -> None:
+    session = open_session(MUNNI, turns=2, topics=[CuriosityDomain.EARTH_SKY])
+    result, llm = await talk(buttons=["kid:parent"], session=session)
+    assert result.reply.body.startswith(copy.PARENT_TAKEOVER_DONE[H].format(name="Munni"))
+    assert (
+        ChildTalkLayer.parent_summary("Munni", [CuriosityDomain.EARTH_SKY], H) in result.reply.body
+    )
+    assert result.writes == [
+        ChildSessionEnd(session_id=SESSION_ID, reason=ChildSessionEndReason.CHILD_ENDED)
+    ]
+    assert llm.prompts == []
+
+
+async def test_the_parents_button_before_any_question_gives_no_summary() -> None:
+    result, _ = await talk(buttons=["kid:parent"], session=open_session(MUNNI, turns=0))
+    assert result.reply.body == copy.PARENT_TAKEOVER_DONE[H].format(name="Munni")
+
+
+@pytest.mark.parametrize("text", ["papa ko batana hai", "mummy kahan hai", "my mummy is nice"])
+def test_a_child_talking_about_their_parents_is_not_a_claim(text: str) -> None:
+    assert not ChildSessionRules.claims_to_be_parent(text)

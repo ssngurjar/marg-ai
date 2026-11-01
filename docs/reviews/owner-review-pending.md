@@ -507,3 +507,5 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
   three languages): what Marg says when a second or third child is added (no khoj is sent).
 - [ ] **Read the "ok" reply** (`ACKNOWLEDGED` in `app/constants/journey_copy.py`, three languages):
   what Marg says to "ok", "thanks" or "theek hai" in the middle of a conversation.
+- [ ] **Read the parent-takeover lines** (`PARENT_TAKEOVER_ASK`, `PARENT_TAKEOVER_BUTTON`,
+  `PARENT_TAKEOVER_DONE` in `app/constants/child_talk_copy.py`, three languages).

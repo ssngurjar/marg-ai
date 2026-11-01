@@ -48,6 +48,9 @@ from app.constants.child_talk_copy import (
     CHILD_TALK_ON_BUTTON,
     PARENT_SUMMARY,
     PARENT_SUMMARY_NO_TOPICS,
+    PARENT_TAKEOVER_ASK,
+    PARENT_TAKEOVER_BUTTON,
+    PARENT_TAKEOVER_DONE,
     TELL_YOUR_PARENTS,
     TOPIC_LABELS,
     UNNAMED_CHILD_NAME,
@@ -80,7 +83,12 @@ from app.domain.rules.activity_validator import ActivityValidator
 from app.domain.rules.child_hazard_matcher import ChildHazardMatcher
 from app.domain.rules.child_question_detector import ChildQuestionDetector
 from app.domain.rules.child_reply_matcher import ChildReplyMatcher
-from app.domain.rules.child_session_rules import KID_START, ChildSessionLimits, ChildSessionRules
+from app.domain.rules.child_session_rules import (
+    KID_PARENT,
+    KID_START,
+    ChildSessionLimits,
+    ChildSessionRules,
+)
 from app.domain.rules.onboarding_answer_parser import OnboardingAnswerParser
 from app.domain.rules.parent_mention import ParentMention
 from app.domain.rules.phrase_finder import PhraseFinder
@@ -171,21 +179,48 @@ class ChildTalkLayer:
                 ctx, user_text, interactive_ids, now, register, blocked=blocked
             )
         learner = _learner(ctx.learners, session.learner_id)
+        control = self._session_control(
+            session, learner, user_text, interactive_ids, now=now, register=register
+        )
+        if control is not None:
+            return control
+        voice = LocalVoice.for_turn(register, ctx, user_text)
+        return await self._turn(
+            session, learner, user_text, now, register, voice=voice, blocked=blocked
+        )
+
+    def _session_control(  # noqa: PLR0913, PLR0911  # one return per rule, in order
+        self,
+        session: ChildSession,
+        learner: Learner,
+        user_text: str,
+        interactive_ids: Sequence[str],
+        *,
+        now: datetime,
+        register: Language,
+    ) -> LayerResult | None:
+        """What ends or steers the session before anything is answered: the parent taking the
+        phone back, an account action, the limits, a goodbye, a parent's words, a language.
+        None: the child's message is answered."""
+        if KID_PARENT in interactive_ids:
+            return self._parent_took_over(session, learner, register)
         if ChildTalkLayer._is_account_action(user_text, interactive_ids):
             return _fixed(ASK_A_GROWNUP, register)
         if ChildSessionRules.is_over(session, now, self._limits):
             return self._goodbye(session, learner, register, ChildSessionEndReason.TIME_LIMIT, ())
         if ChildSessionRules.says_goodbye(user_text):
             return self._goodbye(session, learner, register, ChildSessionEndReason.CHILD_ENDED, ())
+        if ChildSessionRules.claims_to_be_parent(user_text):
+            # only asks: a child typing it can't reach the parent's side without the button
+            button = ReplyButton(id=KID_PARENT, title=PARENT_TAKEOVER_BUTTON[register])
+            name = learner.nickname or UNNAMED_CHILD_NAME[register]
+            return _fixed(PARENT_TAKEOVER_ASK, register, (button,), name=name)
         asked = OnboardingAnswerParser.language_named(user_text)
         if asked is not None:
             switched = _fixed(CHILD_LANGUAGE_SWITCHED, asked)
             language = ChildSessionLanguage(session_id=session.id, language=asked)
             return switched.model_copy(update={"writes": [language]})
-        voice = LocalVoice.for_turn(register, ctx, user_text)
-        return await self._turn(
-            session, learner, user_text, now, register, voice=voice, blocked=blocked
-        )
+        return None
 
     @staticmethod
     def language_for(ctx: TurnContext, child_words: str, family_language: Language) -> Language:
@@ -359,6 +394,36 @@ class ChildTalkLayer:
             outcome=StepOutcome.OK,
             degraded_reason=None,
             writes=[ChildSessionEnd(session_id=session.id, reason=reason)],
+            hazard_rule=frozenset(),
+        )
+
+    @staticmethod
+    def _parent_took_over(
+        session: ChildSession, learner: Learner, register: Language
+    ) -> LayerResult:
+        """ "Yes, I'm the parent": the child's session ends (recorded like a goodbye from the
+        phone, CHILD_ENDED), and the parent gets the topics summary; their next message is
+        answered as theirs (owner, 2026-11-01)."""
+        name = learner.nickname or UNNAMED_CHILD_NAME[register]
+        body = PARENT_TAKEOVER_DONE[register].format(name=name)
+        if session.turns_count > 0:
+            summary = ChildTalkLayer.parent_summary(learner.nickname, session.topics, register)
+            body = f"{body}\n\n{summary}"
+        ended = ChildSessionEnd(session_id=session.id, reason=ChildSessionEndReason.CHILD_ENDED)
+        return LayerResult(
+            reply=CanonicalReply(
+                body=body,
+                body_language=register,
+                spoken_text=PARENT_TAKEOVER_DONE[_voice_language(register)].format(name=""),
+                citations=[],
+                buttons=[],
+                fixed_kind=None,
+            ),
+            usages=[],
+            prompt_versions={},
+            outcome=StepOutcome.OK,
+            degraded_reason=None,
+            writes=[ended],
             hazard_rule=frozenset(),
         )
 

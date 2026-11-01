@@ -184,7 +184,8 @@ band karo" stops the daily reminder; deleting their data ends everything (§1).
 - A child in distress gets a child-worded crisis reply with Childline 1098.
 
 ### How it ends
-After **6 exchanges or 10 minutes**, or when the child says bye or walks away: a kind goodbye with
+After **6 exchanges or 10 minutes**, when the child says bye or walks away, or when a parent
+takes the phone back ("I am the parent", then the **Yes, I'm the parent** button): a kind goodbye with
 something to go and find, then a 30-minute break before the next talk. The parent gets a summary
 of the **topics**, never the child's words, and never what a child disclosed.
 

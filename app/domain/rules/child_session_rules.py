@@ -13,6 +13,7 @@ from app.domain.models.learner import Learner
 from app.domain.rules.phrase_finder import PhraseFinder
 
 KID_START = "kid:start"  # + ":<learner id>" when it names a child
+KID_PARENT = "kid:parent"  # "Yes, I'm the parent": ends the child's session (owner, 2026-11-01)
 
 
 @dataclass(frozen=True, slots=True)
@@ -116,6 +117,23 @@ class ChildSessionRules:
     def _squeezed(word: str) -> str:
         """Stretched letters back to at most two ("hooooon" → "hoon")."""
         return re.sub(r"(.)\1{2,}", r"\1\1", word)
+
+    # A parent taking the phone back (owner's demo, 2026-11-01: "i am parent" was answered as
+    # the child). Only asks: the "Yes, I'm the parent" button ends the session.
+    PARENT_CLAIMS: ClassVar[tuple[str, ...]] = (
+        "i am parent", "i am the parent", "i'm the parent", "im the parent", "i am a parent",
+        "parent here", "this is the parent", "i am her mother", "i am his mother",
+        "i am the mother", "i am the father", "i am her father", "i am his father",
+        "this is mummy", "this is papa", "main mummy hoon", "main mummy hun", "main papa hoon",
+        "main papa hun", "main maa hoon", "main uski mummy", "main uske papa", "main uski maa",
+        "mummy bol rahi", "papa bol raha", "parent bol raha", "parent bol rahi",
+        "मैं मम्मी हूँ", "मैं पापा हूँ", "मैं माँ हूँ", "मम्मी बोल रही", "पापा बोल रहे",
+    )  # fmt: skip
+
+    @staticmethod
+    def claims_to_be_parent(user_text: str) -> bool:
+        """ "I am the parent", "main mummy hoon": someone says they're the child's parent."""
+        return PhraseFinder.contains_any(user_text, ChildSessionRules.PARENT_CLAIMS)
 
     @staticmethod
     def says_goodbye(user_text: str) -> bool:

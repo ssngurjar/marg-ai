@@ -426,7 +426,7 @@ replies on, so the spoken path stays tested even while real users get text.
 | The web demo's trace doesn't move | browser console; `GET /demo/events` | the SSE stream dropped; the page falls back to polling |
 | No khoj card after a report | `make_card` row `detail` | engagement under 2, a card already today, safety blocked, `KHOJ_CARD_ENABLED=false`, the window closed |
 | "Main bachcha hoon" does nothing | `route` row; `learners.child_talk_consented_at` | no consent (the parent gets the switch-on message), the 30-minute cooldown, `CHILD_TALK_ENABLED=false` |
-| Child stuck in child talk | `child_sessions` with `ended_at IS NULL` | the child left without "bye"; maintenance closes it after 10 minutes |
+| Child stuck in child talk | `child_sessions` with `ended_at IS NULL` | the child left without "bye"; maintenance closes it after 10 minutes. A parent can end it at once: "I am the parent", then the `kid:parent` button |
 | No daily nudge | `nudge_subscriptions.next_due_at`, `NUDGES_ENABLED` | off until templates are approved; quiet hours; a khoj already today; the daily cap |
 | `delivery_failed window_closed` | `users.last_inbound_at` | the parent's last message was over 24 h ago; only templates can be sent |
 | `delivery_failed media_expired` | `media_blobs` | the audio or card expired (24 h / 7 days) before sending |

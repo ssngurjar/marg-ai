@@ -71,6 +71,25 @@ ASK_A_GROWNUP: Final[dict[Language, str]] = {
     _ENGLISH: "Mummy and Papa will do that. Ask me something else!",
 }
 # A child asked for a language ("Hindi"): this session only, never the account (owner, 2026-10-29)
+# A parent taking the phone back during child talk (owner, 2026-11-01)
+PARENT_TAKEOVER_ASK: Final[dict[Language, str]] = {
+    _HINGLISH: (
+        "Kya aap Mummy ya Papa hain? Neeche dabaiye: {name} ki baat khatam hogi aur aap apni chat"
+        " par laut aayenge."
+    ),
+    _HINDI: ("क्या आप मम्मी या पापा हैं? नीचे दबाइए: {name} की बात ख़त्म होगी और आप अपनी चैट पर लौट आएँगे।"),
+    _ENGLISH: "Is this Mummy or Papa? Tap below to end {name}'s talk and go back to your own chat.",
+}
+PARENT_TAKEOVER_BUTTON: Final[dict[Language, str]] = {
+    _HINGLISH: "Haan, main hoon",
+    _HINDI: "हाँ, मैं हूँ",
+    _ENGLISH: "Yes, I'm the parent",
+}
+PARENT_TAKEOVER_DONE: Final[dict[Language, str]] = {
+    _HINGLISH: "{name} ki baat khatam hui. Ab aap apni chat mein hain.",
+    _HINDI: "{name} की बात ख़त्म हुई। अब आप अपनी चैट में हैं।",
+    _ENGLISH: "{name}'s talk has ended. You're back in your own chat.",
+}
 CHILD_LANGUAGE_SWITCHED: Final[dict[Language, str]] = {
     _HINGLISH: (
         "Theek hai, ab Hindi mein baat karte hain! Mujhse kuch bhi poochho, jo tum jaanna"
