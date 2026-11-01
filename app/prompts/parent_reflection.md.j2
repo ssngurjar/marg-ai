@@ -1,6 +1,6 @@
 +++
 id = "parent_reflection"
-version = "1.2.2"
+version = "1.3.0"
 model_setting = "OPEN_MODEL"
 max_output_tokens = 1500
 output_model = "ParentReflection"
@@ -33,6 +33,14 @@ Language: {{ system.language_rule }}
 Today's khoj: {{ system.title }} (child's age: {{ system.child_age }} years)
 Questions it suggested: {% for question in system.questions %}"{{ question }}" {% endfor %}
 What to listen for: {{ system.listen_for }}
+{% if not system.reported %}
+The parent only said it's done{% if system.photo_sent %} and sent a photo{% endif %}, without
+saying what happened. You don't know what the child said, did or noticed: never describe,
+guess or praise anything specific about it. praise_specific: thank them warmly for doing today's
+khoj together{% if system.photo_counts %} (you may mention the counts below){% endif %}.
+next_question: ask the parent what the child said or noticed while doing it. summary_for_record:
+"Done; the parent didn't say how it went."
+{% endif %}
 {% if system.photo_counts %}
 The parent also sent a photo of what the child made or collected. You can't see it; a counting
 model found: {% for count in system.photo_counts %}{{ count }}{% if not loop.last %}, {% endif %}{% endfor %}.

@@ -242,12 +242,29 @@ async def test_a_report_gets_a_specific_reflection_and_is_recorded_done() -> Non
         )
     ]
     assert [button.id for button in result.reply.buttons] == ["jrn:today", "onb:add-child"]
-    assert result.prompt_versions == {"parent_reflection": "1.2.2"}
+    assert result.prompt_versions == {"parent_reflection": "1.3.0"}
 
 
 async def test_done_button_with_an_open_activity_reflects() -> None:
     result = await khoj(button=KHOJ_DONE, open_activity=offer(FIRST, MUNNI))
     assert result.reply.body.startswith(REFLECTION_PRAISE)
+
+
+async def test_done_without_words_tells_the_model_it_doesnt_know_what_happened() -> None:
+    # Owner's demo, 2026-11-01: a photo alone got "your little helper sorted the piles…"
+    layer, llm = layer_with()
+    await khoj(button=KHOJ_DONE, open_activity=offer(FIRST, MUNNI), layer=layer)
+    [prompt] = llm.by_prompt["parent_reflection"].prompts
+    assert "You don't know what the child said, did or noticed" in prompt.system
+
+
+async def test_a_report_with_words_is_reflected_on_as_told() -> None:
+    layer, llm = layer_with()
+    await khoj(
+        text="Munni ne 7 patte gine", button=None, open_activity=offer(FIRST, MUNNI), layer=layer
+    )
+    [prompt] = llm.by_prompt["parent_reflection"].prompts
+    assert "You don't know what the child said" not in prompt.system
 
 
 async def test_if_the_reflection_fails_a_warm_fixed_reply_and_the_first_question_go() -> None:

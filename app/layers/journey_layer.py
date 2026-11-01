@@ -742,6 +742,9 @@ class JourneyLayer:
                 "child_age": child_age,
                 "questions": activity.questions_to_ask,
                 "listen_for": activity.listen_for,
+                # no words (a "Done" tap, a photo alone): nothing to praise but the doing
+                # (owner's demo, 2026-11-01: the reply invented what the child did)
+                "reported": bool(report.strip()),
                 "photo_sent": photo is not None,
                 "photo_counts": [
                     f"{found.count} {found.phrase}" for found in (photo.counts if photo else [])

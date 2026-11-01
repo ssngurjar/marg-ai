@@ -119,7 +119,8 @@ Tested on 151 real-style messages in Hinglish, Hindi, Braj and English (99.7%).
 1. The parent says what the child said or did, by voice or text, or taps **Done**, optionally with
    a photo.
 2. **Muse Spark Open** (open weights) replies: praise for what the child noticed, one question to
-   extend the idea, one short tip. If the child's idea isn't true (the sun doesn't move; the Earth
+   extend the idea, one short tip. A "Done" tap or a photo without words gets thanks and a
+   question about what the child said, never a guess at what happened. If the child's idea isn't true (the sun doesn't move; the Earth
    turns), it's never confirmed; the question opens the door to finding out.
 
 ### A photo of what the child collected
