@@ -195,3 +195,39 @@ ABOUT_THE_CHILD = [
 @given(words=st.lists(st.sampled_from(ABOUT_THE_CHILD), max_size=10))
 def test_without_a_first_person_word_no_session_starts(words: list[str]) -> None:
     assert not ChildSessionRules.asks_to_start(" ".join(words), [], [MUNNI, GOLU])
+
+
+# --- "main bachcha hoon", as the reply after the parent's yes says (field test, 2026-11-01) -----
+
+UNNAMED = consented_child(3, None, age=4)
+
+
+@pytest.mark.parametrize(
+    "text", ["mai bacha hun", "Main bachcha hoon", "main bachchi hu", "मैं बच्ची हूँ", "I am the child"]
+)
+def test_saying_i_am_the_child_starts_a_session_even_with_no_name(text: str) -> None:
+    assert ChildSessionRules.says_i_am_the_child(text)
+    assert ChildSessionRules.asks_to_start(text, [], [UNNAMED])
+    assert ChildSessionRules.chosen_learner([], text, [UNNAMED]) == UNNAMED
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["main bachche ki mummy hoon", "bachcha hai", "mera bachcha baat karega", "main hoon", ""],
+)
+def test_a_parent_talking_about_the_child_is_not_the_child(text: str) -> None:
+    assert not ChildSessionRules.says_i_am_the_child(text)
+
+
+def test_with_no_child_on_the_list_i_am_the_child_starts_nothing() -> None:
+    assert not ChildSessionRules.asks_to_start("main bachcha hoon", [], [])
+
+
+def test_with_two_children_it_picks_the_one_the_parent_said_yes_for() -> None:
+    not_allowed = GOLU.model_copy(update={"child_talk_consented_at": None})
+    chosen = ChildSessionRules.chosen_learner([], "main bachcha hoon", [MUNNI, not_allowed])
+    assert chosen == MUNNI
+
+
+def test_with_two_allowed_children_it_cant_tell_who_is_writing() -> None:
+    assert ChildSessionRules.chosen_learner([], "main bachcha hoon", [MUNNI, GOLU]) is None

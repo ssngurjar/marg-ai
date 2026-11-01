@@ -476,6 +476,51 @@ async def test_a_question_about_the_child_during_onboarding_is_kept_for_after() 
     assert result.reply.body.startswith(body(CopyKey.QUESTION_NOTED))
 
 
+@pytest.mark.parametrize("answer", ["chhotu", "pinku hai naam", "Guddu", "गुड्डू"])
+async def test_a_name_without_the_age_is_kept_and_the_age_asked(answer: str) -> None:
+    # owner's field test, 2026-11-01: these got "samajh nahi aaya" three times
+    result, _ = await handle(at(S.AWAITING_CHILD, role=Role.PARENT), text_message(answer))
+    named = answer.split(maxsplit=1)[0]
+    assert result.reply.body == body(CopyKey.ASK_CHILD_AGE).format(child=named)
+    assert profile_change(result).new_state is S.AWAITING_CHILD
+    assert not any(isinstance(write, LearnerUpsert) for write in result.writes)
+
+
+async def test_the_age_after_the_age_question_keeps_the_name_given_before() -> None:
+    # field test: "4 saal" then added "aapka bachcha", the name Pinku lost
+    asked = body(CopyKey.ASK_CHILD_AGE).format(child="pinku")
+    earlier = Exchange(user_text="pinku hai naam", reply_text=asked, route=Route.ONBOARDING, at=NOW)
+    ctx = turn_context(text_message("4 saal"), profile=at(S.AWAITING_CHILD, role=Role.PARENT))
+    result, _ = await handle_in(ctx.model_copy(update={"recent_exchanges": [earlier]}))
+    [upsert] = [write for write in result.writes if isinstance(write, LearnerUpsert)]
+    assert (upsert.nickname, upsert.birth_year) == ("pinku", NOW.year - 4)
+
+
+async def test_an_age_after_any_other_question_keeps_no_earlier_word_as_a_name() -> None:
+    other = Exchange(
+        user_text="pinku", reply_text=body(CopyKey.ASK_CHILD), route=Route.ONBOARDING, at=NOW
+    )
+    ctx = turn_context(text_message("4 saal"), profile=at(S.AWAITING_CHILD, role=Role.PARENT))
+    result, _ = await handle_in(ctx.model_copy(update={"recent_exchanges": [other]}))
+    [upsert] = [write for write in result.writes if isinstance(write, LearnerUpsert)]
+    assert upsert.nickname is None
+
+
+@pytest.mark.parametrize("answer", ["haan", "nahi", "ok", "kyu", "Hello", "kya karna hai?"])
+async def test_a_yes_no_greeting_or_question_is_never_taken_for_a_name(answer: str) -> None:
+    result, _ = await handle(at(S.AWAITING_CHILD, role=Role.PARENT), text_message(answer))
+    assert not result.reply.body.startswith(f"{answer} ki umar")
+
+
+async def test_a_name_the_model_reads_without_an_age_asks_the_age() -> None:
+    result, _ = await handle(
+        at(S.AWAITING_CHILD, role=Role.PARENT),
+        text_message("hamare ghar mein usko pyaar se Golu bulate hain sab log"),
+        extracted=extraction(child_nickname="Golu"),
+    )
+    assert result.reply.body == body(CopyKey.ASK_CHILD_AGE).format(child="Golu")
+
+
 async def test_a_second_child_is_confirmed_by_name_with_their_child_talk_buttons() -> None:
     parent = at(S.AWAITING_CHILD, role=Role.PARENT)
     result, _ = await handle(parent, text_message("Isha, 6 saal"), learners=[MUNNI])

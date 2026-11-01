@@ -6,7 +6,7 @@ import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import ClassVar
+from typing import ClassVar, Final
 
 from app.domain.models.child_session import ChildSession
 from app.domain.models.learner import Learner
@@ -24,6 +24,20 @@ class ChildSessionLimits:
 
 
 class ChildSessionRules:
+    # "Main bachcha hoon", as the reply after the parent's yes tells them to say it (owner's field
+    # test, 2026-11-01: a typed "mai bacha hun" was answered "who is writing?")
+    I_WORDS: ClassVar[frozenset[str]] = frozenset(
+        {"main", "mai", "mein", "me", "i", "im", "मैं", "मै"}
+    )
+    CHILD_WORDS: ClassVar[frozenset[str]] = frozenset(
+        {
+            "bachcha", "baccha", "bacha", "bachha", "bachchi", "bacchi", "bachi", "bachhi",
+            "child", "kid", "बच्चा", "बच्ची",
+        }
+    )  # fmt: skip
+    FILLER_WORDS: ClassVar[frozenset[str]] = frozenset(
+        {"hoon", "hu", "hun", "hu.", "am", "the", "a", "हूँ", "हूं", "हू"}
+    )
     GOODBYE_PHRASES: ClassVar[tuple[str, ...]] = (
         "bye", "bye bye", "bas", "bas karo", "tata", "ta ta", "alvida", "goodbye", "that's all",
         "बाय", "बस", "टाटा", "अलविदा",
@@ -49,10 +63,20 @@ class ChildSessionRules:
     def asks_to_start(
         user_text: str, interactive_ids: Sequence[str], learners: Sequence[Learner]
     ) -> bool:
-        """A `kid:start` button, or a child introducing themselves by nickname."""
+        """A `kid:start` button, a child introducing themselves by nickname, or "main bachcha
+        hoon" when there is a child on the list."""
         if any(button.startswith(KID_START) for button in interactive_ids):
             return True
+        if learners and ChildSessionRules.says_i_am_the_child(user_text):
+            return True
         return ChildSessionRules.introduced(user_text, learners) is not None
+
+    @staticmethod
+    def says_i_am_the_child(text: str) -> bool:
+        """Only "main bachcha hoon", "mai bacha hun", "मैं बच्ची हूँ", "I am the child"."""
+        said = {ChildSessionRules._squeezed(word) for word in PhraseFinder.words(text)}
+        only_these = said <= _I_WORDS | _CHILD_WORDS | _FILLER_WORDS
+        return only_these and bool(said & _CHILD_WORDS) and bool(said & _I_WORDS)
 
     @staticmethod
     def chosen_learner(
@@ -70,6 +94,9 @@ class ChildSessionRules:
         introduced = ChildSessionRules.introduced(user_text, learners)
         if introduced is not None:
             return introduced
+        allowed = [learner for learner in learners if learner.child_talk_consented_at is not None]
+        if ChildSessionRules.says_i_am_the_child(user_text) and len(allowed) == 1:
+            return allowed[0]  # "main bachcha hoon": the one child the parent said yes for
         return learners[0] if len(learners) == 1 else None
 
     @staticmethod
@@ -208,3 +235,12 @@ class ChildSessionRules:
         last_ended_at: datetime | None, now: datetime, limits: ChildSessionLimits
     ) -> bool:
         return last_ended_at is not None and now - last_ended_at < limits.cooldown
+
+
+def _normalised(words: frozenset[str]) -> frozenset[str]:
+    return frozenset(PhraseFinder.words(" ".join(words)))
+
+
+_I_WORDS: Final = _normalised(ChildSessionRules.I_WORDS)
+_CHILD_WORDS: Final = _normalised(ChildSessionRules.CHILD_WORDS)
+_FILLER_WORDS: Final = _normalised(ChildSessionRules.FILLER_WORDS)

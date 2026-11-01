@@ -32,6 +32,7 @@ from app.domain.models.conversation import (
     AddChild,
     ChildAnswered,
     ChildInvalid,
+    ChildNamed,
     ChildrenAnswered,
     ChildTalkAnswered,
     ConsentDeclined,
@@ -351,6 +352,11 @@ def _district_unclear(step: _Step, event: DistrictUnclear) -> Transition:
     return step.moved(_S.AWAITING_PROFILE, SendCopy(key))
 
 
+def _child_named(step: _Step, event: ChildNamed) -> Transition:
+    """The name is kept in the reply; nothing is stored until the age comes (field test)."""
+    return step.moved(_S.AWAITING_CHILD, SendCopy(CopyKey.ASK_CHILD_AGE))
+
+
 def _child_invalid(step: _Step, event: ChildInvalid) -> Transition:
     return step.moved(_S.AWAITING_CHILD, SendCopy(event.reason))
 
@@ -463,6 +469,7 @@ def _table() -> Mapping[tuple[ConversationState, type[ConversationEvent]], _Hand
         (_S.AWAITING_CHILD, ChildAnswered): _for(ChildAnswered, _child_answered),
         (_S.AWAITING_CHILD, ChildrenAnswered): _for(ChildrenAnswered, _children_answered),
         (_S.AWAITING_CHILD, ChildInvalid): _for(ChildInvalid, _child_invalid),
+        (_S.AWAITING_CHILD, ChildNamed): _for(ChildNamed, _child_named),
         (_S.ACTIVE, AddChild): _for(AddChild, _add_child),
         (_S.ACTIVE, ChildTalkAnswered): _for(ChildTalkAnswered, _child_talk_answered),
         (_S.ACTIVE, TeacherAsked): _for(TeacherAsked, _teacher_asked),

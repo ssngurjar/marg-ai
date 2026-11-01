@@ -20,7 +20,7 @@ from typing import Final
 from app.domain.enums import Channel, CopyKey, Language
 from app.domain.models.reply import ReplyButton
 
-COPY_VERSION: Final = "onb-2026-11-01.3"
+COPY_VERSION: Final = "onb-2026-11-01.4"
 
 _HINGLISH = Language.HINGLISH
 _HINDI = Language.HINDI
@@ -264,6 +264,12 @@ _TEXTS: Final[dict[CopyKey, dict[Language, str]]] = {
             "I couldn't find that district on the official list. Please write it as it appears"
             " on official papers (for example 'Barmer')."
         ),
+    },
+    # A child's name given alone (owner's field test, 2026-11-01)
+    CopyKey.ASK_CHILD_AGE: {
+        _HINGLISH: "{child} ki umar kitni hai? Jaise '4 saal'.",
+        _HINDI: "{child} की उम्र कितनी है? जैसे '4 साल'।",
+        _ENGLISH: "How old is {child}? For example, '4 years'.",
     },
     CopyKey.INVALID_GRADE: {
         _HINGLISH: "Class 1 se 12 ke beech batayiye.",

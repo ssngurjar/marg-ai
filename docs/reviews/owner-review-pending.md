@@ -536,4 +536,7 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
   every line is what Marg will tell a parent, student or teacher about safety, privacy, voice,
   consent and cost. Each names the code that makes it true; the data and price lines are your
   decisions. Try "who sees my data?" and "is this free?" in each role.
+- [ ] **Read the age question for a name given alone** (`ASK_CHILD_AGE` in
+  `app/constants/onboarding_copy.py`) and the new fact about the chat on the phone after a deletion
+  (`MARG_FACTS`, "messages still on my phone").
 

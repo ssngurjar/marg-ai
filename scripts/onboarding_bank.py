@@ -26,6 +26,7 @@ from app.domain.enums import ConversationState, Language, Role
 from app.domain.models.conversation import (
     ChildAnswered,
     ChildInvalid,
+    ChildNamed,
     ChildrenAnswered,
     ConversationEvent,
     DistrictUnclear,
@@ -56,6 +57,7 @@ EventName = Literal[
     "ChildAnswered",
     "ChildrenAnswered",
     "ChildInvalid",
+    "ChildNamed",
     "DistrictUnclear",
     "ProfileAnswered",
     "LanguageSwitched",
@@ -152,7 +154,11 @@ class EventComparer:
 
     @staticmethod
     def _several(expected: Expected, event: ConversationEvent) -> list[str]:
-        """Children named together, or the districts offered to confirm."""
+        """Children named together, a name given alone, or the districts offered to confirm."""
+        if isinstance(event, ChildNamed) and expected.nickname is not None:
+            if event.nickname.casefold() != expected.nickname.casefold():
+                return [f"nickname {event.nickname!r}"]
+            return []
         if isinstance(event, ChildrenAnswered) and expected.children is not None:
             names = [(child.nickname or "").casefold() for child in event.children]
             if names != [name.casefold() for name in expected.children]:

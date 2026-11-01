@@ -348,6 +348,28 @@ async def test_a_disclosure_only_the_policy_check_sees_gets_the_child_helpline(
 # --- onboarding and delete-my-data, end to end (s08 §10) -------------------------------------
 
 
+async def test_the_field_tests_name_then_age_then_i_am_the_child(engine: AsyncEngine) -> None:
+    # owner's field test, 2026-11-01: "pinku hai naam" got "samajh nahi aaya", "4 saal" lost the
+    # name, and "mai bacha hun" (as Marg's own reply says to) was answered "who is writing?"
+    pipeline = wire(engine, FakeSafetyClassifier(), ModelSays(intent=REPORT_READING))
+    await ask(pipeline, "Hello", message_id="wamid.F1")
+    await send(pipeline, wa.button_reply("onb:consent:yes", "Haan, theek hai"))
+    await send(
+        pipeline, wa.button_reply("onb:role:parent", "Main parent hoon", message_id="wamid.F3")
+    )
+    await ask(pipeline, "pinku hai naam", message_id="wamid.F4")
+    assert (pipeline.sender.sent[-1].part.text or "").startswith("pinku ki umar kitni hai?")
+    await ask(pipeline, "4 saal", message_id="wamid.F5")
+    [(pinku_id, nickname)] = await rows(engine, "SELECT id, nickname FROM learners")
+    assert nickname == "pinku"
+    await send(
+        pipeline, wa.button_reply(f"onb:childtalk:yes:{pinku_id}", "Haan", message_id="wamid.F6")
+    )
+    await ask(pipeline, "mai bacha hun", message_id="wamid.F7")
+    [(route,)] = await rows(engine, "SELECT route FROM turns WHERE user_text = 'mai bacha hun'")
+    assert route == "child_talk"
+
+
 async def teacher_at_the_district_question(pipeline: Pipeline, prefix: str) -> None:
     await ask(pipeline, "Hello", message_id=f"wamid.{prefix}1")
     await send(pipeline, wa.button_reply("onb:consent:yes", "Haan, theek hai"))

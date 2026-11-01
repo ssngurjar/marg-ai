@@ -132,6 +132,12 @@ MARG_FACTS: Final[tuple[MargFact, ...]] = (
         "ConversationMachine deletion, user_repository purge",
     ),
     MargFact(
+        "messages still on my phone",
+        "Deleting removes what Marg keeps. The chat on your own phone stays in WhatsApp; you can"
+        " clear it there (open the chat, then More, then Clear chat).",
+        "user_repository purge (Marg's tables only); WhatsApp keeps the device's own copy",
+    ),
+    MargFact(
         "consent",
         "Marg asks for your consent before keeping anything, as India's data protection law"
         " (the DPDP Act 2023) requires. If you say no, nothing is saved.",

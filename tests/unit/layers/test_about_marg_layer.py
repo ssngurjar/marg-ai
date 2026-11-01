@@ -149,7 +149,7 @@ def test_each_role_hears_only_what_marg_keeps_about_them(role: Role, says: str, 
 
 def test_someone_without_a_role_gets_only_the_facts_true_for_everyone() -> None:
     facts = AboutMargLayer.facts_for(None)
-    assert "what Marg keeps" not in facts
+    assert "- what Marg keeps:" not in facts
     assert "safety checks" in facts
 
 

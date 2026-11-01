@@ -188,7 +188,13 @@ def test_inside_a_child_session_everything_goes_to_child_talk(
 
 @pytest.mark.parametrize(
     ("text", "buttons"),
-    [("", ["kid:start"]), ("", [f"kid:start:{MUNNI.id}"]), ("Main Munni hoon", [])],
+    [
+        ("", ["kid:start"]),
+        ("", [f"kid:start:{MUNNI.id}"]),
+        ("Main Munni hoon", []),
+        ("mai bacha hun", []),  # owner's field test, 2026-11-01: the copy tells them to say it
+        ("मैं बच्ची हूँ", []),
+    ],
 )
 def test_a_parent_account_starts_child_talk_with_the_button_or_a_name(
     text: str, buttons: list[str]

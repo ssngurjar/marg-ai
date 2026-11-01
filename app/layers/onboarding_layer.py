@@ -56,6 +56,7 @@ from app.domain.models.conversation import (
     AddChild,
     ChildAnswered,
     ChildInvalid,
+    ChildNamed,
     ChildrenAnswered,
     ChildTalkAnswered,
     ConsentDeclined,
@@ -328,13 +329,15 @@ class OnboardingLayer:
             role = _P.role_named(user_text)
             return RoleChosen(role) if role else None
         if state is _S.AWAITING_CHILD:
-            return self._child_event(user_text, now.year)
+            return self._child_event(ctx, user_text, now.year)
         if state is _S.AWAITING_PROFILE:
             return self._profile_event(ctx, user_text)
         return None
 
     @staticmethod
-    def _child_event(user_text: str, current_year: int) -> ConversationEvent | None:
+    def _child_event(
+        ctx: TurnContext, user_text: str, current_year: int
+    ) -> ConversationEvent | None:
         several = _P.parse_children(user_text, current_year)
         if several is not None:
             return OnboardingLayer._children_event(several)
@@ -342,7 +345,7 @@ class OnboardingLayer:
         if age.problem is Found.OUT_OF_RANGE:
             return ChildInvalid(CopyKey.CHILD_INVALID_AGE)
         if age.birth_year is None:
-            return None
+            return _ChildName.alone(user_text)
         nickname = _P.parse_nickname(user_text)
         if nickname.problem in {Found.TOO_LONG, Found.LOOKS_LIKE_FULL_NAME}:
             return ChildInvalid(CopyKey.CHILD_NICKNAME_TOO_LONG)
@@ -350,7 +353,7 @@ class OnboardingLayer:
             # "ghar mein Lala bolte hain" left "mein Lala bolte hain": not sure which word is
             # the name, so the extraction model reads it (onboarding bank, 2026-11-01)
             return None
-        return ChildAnswered(age.birth_year, nickname.nickname)
+        return ChildAnswered(age.birth_year, nickname.nickname or _ChildName.given_before(ctx))
 
     @staticmethod
     def _children_event(several: ChildrenParse) -> ConversationEvent:
@@ -436,7 +439,8 @@ class OnboardingLayer:
         new_learner: Learner | None = None
         handoff: FirstKhojHandoff | PendingQuestionHandoff | None = None
         copies: list[_Copy] = []
-        child_named: str | None = None
+        # a name given alone is said back in the age question (field test, 2026-11-01)
+        child_named = reading.event.nickname if isinstance(reading.event, ChildNamed) else None
         for effect in transition.effects:
             match effect:
                 case SendCopy(key=key):
@@ -677,8 +681,10 @@ class _ExtractionMapper:
             answered = _ExtractionMapper._profile_answer(ctx, extraction)
             if answered is not None:
                 return answered
-        if state is _S.AWAITING_CHILD and extraction.child_age is not None:
-            return _ExtractionMapper._child(extraction, current_year)
+        if state is _S.AWAITING_CHILD:
+            answered = _ExtractionMapper._child_answer(ctx, extraction, current_year)
+            if answered is not None:
+                return answered
         if extraction.question:
             # about Marg itself: answered at once; anything else: kept for after (2026-11-01)
             noted = QuestionNoted(extraction.question[:QUESTION_MAX_CHARS])
@@ -713,7 +719,20 @@ class _ExtractionMapper:
             return None
 
     @staticmethod
-    def _child(extraction: ProfileExtraction, current_year: int) -> ConversationEvent:
+    def _child_answer(
+        ctx: TurnContext, extraction: ProfileExtraction, current_year: int
+    ) -> ConversationEvent | None:
+        """An age (with or without a name), or a name alone to ask the age for."""
+        if extraction.child_age is not None:
+            return _ExtractionMapper._child(ctx, extraction, current_year)
+        if extraction.child_nickname and not extraction.question:
+            return _ChildName.alone(extraction.child_nickname)
+        return None
+
+    @staticmethod
+    def _child(
+        ctx: TurnContext, extraction: ProfileExtraction, current_year: int
+    ) -> ConversationEvent:
         age = extraction.child_age
         if age is None or age not in OnboardingAnswerParser.CHILD_AGES:
             return ChildInvalid(CopyKey.CHILD_INVALID_AGE)
@@ -723,7 +742,52 @@ class _ExtractionMapper:
             if parsed.nickname is None:
                 return ChildInvalid(CopyKey.CHILD_NICKNAME_TOO_LONG)
             nickname = parsed.nickname
-        return ChildAnswered(current_year - age, nickname)
+        return ChildAnswered(current_year - age, nickname or _ChildName.given_before(ctx))
+
+
+class _ChildName:
+    """A child's home name given without the age, and found again when the age comes next
+    (owner's field test, 2026-11-01: "pinku hai naam" got "samajh nahi aaya" three times, and
+    then "4 saal" added a child with no name)."""
+
+    MAX_WORDS: ClassVar[int] = 3
+    NOT_NAMES: ClassVar[frozenset[str]] = frozenset(
+        {"kya", "kyu", "kyun", "kaise", "kaun", "kab", "kahan", "what", "why", "how", "who", "when"}
+    )
+
+    @staticmethod
+    def alone(text: str) -> ChildNamed | None:
+        """ "pinku", "pinku hai naam", "Guddu": one home name and nothing else."""
+        words = text.split()
+        if not words or len(words) > _ChildName.MAX_WORDS or "?" in text:
+            return None
+        said = {word.casefold() for word in words}
+        if (
+            said & _ChildName.NOT_NAMES
+            or _P.yes_or_no(text) is not None
+            or _P.is_acknowledgement(text)
+            or _P.is_greeting(text)
+        ):
+            return None
+        parsed = _P.parse_nickname(text)
+        if parsed.nickname is None or len(parsed.nickname.split()) > 1:
+            return None
+        return ChildNamed(parsed.nickname)
+
+    @staticmethod
+    def given_before(ctx: TurnContext) -> str | None:
+        """The name from the message before, when Marg's reply to it asked that child's age."""
+        if not ctx.recent_exchanges:
+            return None
+        last = ctx.recent_exchanges[-1]
+        for language in Language:
+            asked = COPY[(CopyKey.ASK_CHILD_AGE, language)].body
+            fixed_parts = (part.strip() for part in _PLACEHOLDER.split(asked))
+            longest = max(fixed_parts, key=len)
+            if longest and longest in last.reply_text:
+                named = _ChildName.alone(last.user_text)
+                return named.nickname if named is not None else None
+        return None
 
 
 _YES_NO_EVENTS: Final[dict[ConversationState, dict[bool, ConversationEvent]]] = {

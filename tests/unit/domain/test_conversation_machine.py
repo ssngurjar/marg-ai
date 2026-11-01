@@ -30,6 +30,7 @@ from app.domain.models.conversation import (
     AddChild,
     ChildAnswered,
     ChildInvalid,
+    ChildNamed,
     ChildrenAnswered,
     ChildTalkAnswered,
     ConsentDeclined,
@@ -504,6 +505,19 @@ def test_an_out_of_range_child_among_several_adds_none() -> None:
         step(profile, ChildrenAnswered(children))
 
 
+def test_a_name_alone_stores_nothing_and_asks_the_age() -> None:
+    # owner's field test, 2026-11-01
+    done = step(at(S.AWAITING_CHILD, role=Role.PARENT, **CONSENTED), ChildNamed("Pinku"))
+    assert done.profile.state is S.AWAITING_CHILD
+    assert done.effects == (SendCopy(CopyKey.ASK_CHILD_AGE),)
+
+
+@pytest.mark.parametrize("nickname", ["", "   ", "x" * 21, "123"])
+def test_a_bad_name_alone_is_refused(nickname: str) -> None:
+    with pytest.raises(InvalidProfileValue, match="nickname"):
+        ChildNamed(nickname)
+
+
 @pytest.mark.parametrize("children", [(), (ChildAnswered(2021, "Munni"),)], ids=["none", "one"])
 def test_children_answered_needs_at_least_two(children: tuple[ChildAnswered, ...]) -> None:
     with pytest.raises(InvalidProfileValue, match="at least two"):
@@ -575,6 +589,7 @@ EVENTS: st.SearchStrategy[ConversationEvent] = st.one_of(
             max_size=4,
         ).map(tuple),
     ),
+    st.builds(ChildNamed, nickname=st.sampled_from(["Pinku", "गुड्डू", "Golu"])),
     st.builds(
         DistrictUnclear,
         candidates=st.lists(st.sampled_from(DISTRICTS[:5]), max_size=3).map(tuple),

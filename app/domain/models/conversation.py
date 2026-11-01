@@ -109,6 +109,19 @@ class ChildAnswered:
 
 
 @dataclass(frozen=True, slots=True)
+class ChildNamed:
+    """A child's home name given without the age ("pinku hai naam"): kept in the reply and asked
+    for the age (owner's field test, 2026-11-01: three names got "samajh nahi aaya")."""
+
+    nickname: str
+
+    def __post_init__(self) -> None:
+        nickname = self.nickname.strip()
+        if not 1 <= len(nickname) <= NICKNAME_MAX_CHARS or not any(c.isalpha() for c in nickname):
+            raise InvalidProfileValue(f"nickname must be 1-{NICKNAME_MAX_CHARS} characters")
+
+
+@dataclass(frozen=True, slots=True)
 class DistrictUnclear:
     """A district answer LGD's list doesn't settle (critic review D4, 2026-11-01): names to
     confirm, a state named alone, or nothing found. Nothing is stored."""
@@ -201,6 +214,7 @@ type ConversationEvent = (
     | ChildAnswered
     | ChildrenAnswered
     | ChildInvalid
+    | ChildNamed
     | DistrictUnclear
     | AddChild
     | ChildTalkAnswered
