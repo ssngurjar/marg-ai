@@ -156,6 +156,15 @@ cases:
   - {text: "mobile data hatao kaise karte hain", open_khoj: false, intent: question}
   - {text: "is my data safe with you", open_khoj: false, intent: question}
 
+  # --- child_name: a home name given or changed ------------------------------------------------
+  - {text: "bacche ka naam prisa hai", open_khoj: true, intent: child_name}
+  - {text: "call her Gudiya", open_khoj: false, intent: child_name}
+  - {text: "uska naam Chotu rakho", open_khoj: false, intent: child_name}
+  - {text: "बेटी का नाम पिंकी है", open_khoj: false, intent: child_name}
+  - {text: "ghar mein usko Lali bolte hain, wahi naam rakhiye", open_khoj: false, intent: child_name}
+  - {text: "Prisa ne aaj 9 patte gine", open_khoj: true, intent: report}
+  - {text: "Gudiya ko neend nahi aati raat ko", open_khoj: false, intent: question}
+
   # --- worries that mention another child (not add_child) --------------------------------------
   - {text: "my son keeps hitting another child at school", open_khoj: false, intent: question}
   - {text: "beti doosre bachche ke liye khilona chhin leti hai", open_khoj: false, intent: question}

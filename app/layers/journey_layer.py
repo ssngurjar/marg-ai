@@ -48,6 +48,8 @@ from app.constants.journey_copy import (
     KHOJ_STILL_OPEN,
     KHOJ_TODAY,
     LISTEN_LABEL,
+    NICKNAME_ONLY,
+    NICKNAME_SAVED,
     NO_ACTIVITY_LEFT,
     NUDGE_ASK,
     NUDGE_AT_8,
@@ -85,6 +87,7 @@ from app.domain.models.usage import StepUsage
 from app.domain.models.writes import (
     ActivityOffered,
     ActivityReported,
+    LearnerUpsert,
     NudgePreference,
     TurnWrite,
 )
@@ -220,6 +223,7 @@ class JourneyLayer:
                 now,
                 spoken_in,
                 language_asked=read.asked_language is not None,
+                child_name=read.child_name,
             )
             result = await self._by_intent(read.intent, turn)
         return _with_reading(result, read)
@@ -291,8 +295,6 @@ class JourneyLayer:
                 return self._small_talk_reply(ctx, register)
             case ParentIntent.NEW_KHOJ | ParentIntent.ANOTHER_KHOJ | ParentIntent.SAME_KHOJ_AGAIN:
                 return await self._khoj_asked(intent, turn)
-            case ParentIntent.ADD_CHILD:
-                return self._add_child(ctx, register)
             case ParentIntent.DAILY_TIME:
                 return _fixed(NUDGE_ASK[register], register, NUDGE_BUTTONS[register])
             case ParentIntent.DAILY_OFF:
@@ -303,14 +305,47 @@ class JourneyLayer:
                 return _fixed(
                     DELETE_DATA_OFFER[register], register, (DELETE_DATA_BUTTON[register],)
                 )
-            case ParentIntent.CHILD_TALK if self._settings.child_talk_enabled:
-                offer = JourneyLayer._child_talk_offer(ctx, now, register)
-                if offer is not None:
-                    return offer
+            case ParentIntent.ADD_CHILD | ParentIntent.CHILD_TALK | ParentIntent.CHILD_NAME:
+                about_a_child = self._about_a_child(intent, turn)
+                if about_a_child is not None:
+                    return about_a_child
                 return await self._question(ctx, user_text, now, register, child_question=False)
             case _:
                 # QUESTION, or a REPORT with nothing open: the parent's answer
                 return await self._question(ctx, user_text, now, register, child_question=False)
+
+    def _about_a_child(self, intent: ParentIntent, turn: "_FreeText") -> LayerResult | None:
+        """Adding a child, child talk, or a child's home name; None: answer it as a question."""
+        ctx, now, register = turn.ctx, turn.now, turn.register
+        if intent is ParentIntent.ADD_CHILD:
+            return self._add_child(ctx, register)
+        if intent is ParentIntent.CHILD_TALK:
+            if not self._settings.child_talk_enabled:
+                return None
+            return JourneyLayer._child_talk_offer(ctx, now, register)
+        return JourneyLayer._child_named(ctx, turn.child_name, register)
+
+    @staticmethod
+    def _child_named(
+        ctx: TurnContext, child_name: str | None, register: Language
+    ) -> LayerResult | None:
+        """ "Bacche ka naam Prisa hai": the home name saved for the child (owner, 2026-11-01),
+        with onboarding's rules (short, never a full name). Several children and none chosen,
+        or no name read: None, so the message is answered instead of guessed at."""
+        child = ctx.active_learner or (ctx.learners[0] if len(ctx.learners) == 1 else None)
+        if child is None or not child_name:
+            return None
+        parsed = OnboardingAnswerParser.parse_nickname(child_name)
+        if parsed.nickname is None or len(parsed.nickname.split()) > 1:
+            return _fixed(NICKNAME_ONLY[register], register, ())
+        renamed = LearnerUpsert(
+            learner_id=child.id,
+            relation=child.relation,
+            nickname=parsed.nickname,
+            birth_year=child.birth_year,
+        )
+        saved = NICKNAME_SAVED[register].format(child=parsed.nickname)
+        return _fixed(saved, register, ()).model_copy(update={"writes": [renamed]})
 
     async def _khoj_asked(self, intent: ParentIntent, turn: "_FreeText") -> LayerResult:
         """A khoj asked for: today's, another one, or the open one again."""
@@ -778,6 +813,7 @@ class _FreeText:
     now: datetime
     register: Language
     language_asked: bool  # the parent asked for this reply's language ("in hindi")
+    child_name: str | None  # child_name: the home name the parent gave
 
 
 @dataclass(frozen=True, slots=True)

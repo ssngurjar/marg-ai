@@ -103,6 +103,17 @@ DELETE_DATA_BUTTON: Final[dict[Language, ReplyButton]] = {
     _HINDI: ReplyButton(id="onb:delete:ask", title="डेटा मिटाओ"),
     _ENGLISH: ReplyButton(id="onb:delete:ask", title="Delete my data"),
 }
+# A child's home name given or changed after onboarding (owner, 2026-11-01)
+NICKNAME_SAVED: Final[dict[Language, str]] = {
+    _HINGLISH: "Theek hai, ab se main {child} ka naam lekar baat karunga.",
+    _HINDI: "ठीक है, अब से मैं {child} का नाम लेकर बात करूँगा।",
+    _ENGLISH: "Got it, I'll call your child {child} from now on.",
+}
+NICKNAME_ONLY: Final[dict[Language, str]] = {
+    _HINGLISH: "Bas ghar ka chhota naam bataiye, jaise 'Munni'. Poora naam nahi chahiye.",
+    _HINDI: "बस घर का छोटा नाम बताइए, जैसे 'मुन्नी'। पूरा नाम नहीं चाहिए।",
+    _ENGLISH: "Just a short home name is enough, like 'Munni'. Please don't send a full name.",
+}
 WHICH_CHILD: Final[dict[Language, str]] = {
     _HINGLISH: "Aaj ki khoj kis bachche ke liye bhejun?",
     _HINDI: "आज की खोज किस बच्चे के लिए भेजूँ?",

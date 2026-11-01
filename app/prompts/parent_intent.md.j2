@@ -1,6 +1,6 @@
 +++
 id = "parent_intent"
-version = "1.5.0"
+version = "1.6.0"
 model_setting = "MODEL_TEXT"
 max_output_tokens = 1200
 output_model = "IntentReading"
@@ -45,6 +45,9 @@ Pick exactly one intent:
 - child_talk: asks whether or how their child can talk to Marg themselves ("can my child also
   talk to you", "can she talk directly, how do I do that", "kya Munni khud baat kar sakti hai").
   Asking Marg how to talk with their own child is a question.
+- child_name: gives or changes their child's home name ("bacche ka naam Prisa hai", "call her
+  Gudiya", "uska naam Chotu rakho"). Naming a child while asking or telling something else is
+  not this.
 - delete_data: wants Marg to delete everything it keeps about them or their child ("mera sab
   data mita do, ab nahi chahiye", "remove all our information please"). Something deleted on
   their own phone, or asking whether data is kept safe, is not this.
@@ -63,7 +66,10 @@ Also say what the words are written in:
   send something in that language ("in hindi", "Hinglish mein bhejo", "English please"); else
   null. Writing in a language is not asking for it.
 
-Fill: intent, one of the names above; language; braj; asked_language.
+- child_name: only for the child_name intent, the home name they give, exactly as written
+  ("Prisa"); else null.
+
+Fill: intent, one of the names above; language; braj; asked_language; child_name.
 === USER ===
 {{ user.children }}
 {{ user.marg_said }}

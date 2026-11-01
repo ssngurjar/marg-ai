@@ -335,6 +335,7 @@ class ParentIntent(StrEnum):
     SOMEONE_ELSE = "someone_else"  # a child or student is writing about themselves
     CHILD_TALK = "child_talk"  # asks whether or how their child can talk to Marg directly
     DELETE_DATA = "delete_data"  # wants Marg to delete everything it keeps about them
+    CHILD_NAME = "child_name"  # gives or changes their child's home name
 
 
 class StudentIntent(StrEnum):

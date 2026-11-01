@@ -32,6 +32,7 @@ class IntentReading(BaseModel):
     language: Language  # what the words are written in (hinglish: Hindi in Roman letters)
     braj: bool  # Braj forms (मेरो, वाको, वाय, नाय…), in either script
     asked_language: Language | None  # a language the parent asks this reply to be in, if any
+    child_name: str | None  # child_name only: the home name the parent gives, as written
 
 
 PARENT_INTENT: Final = PromptSpec(prompt_id="parent_intent", output_type=IntentReading)
@@ -44,6 +45,7 @@ class IntentRead:
     language: Language | None
     braj: bool
     asked_language: Language | None  # "send khoj in hindi": this reply's language (2026-11-01)
+    child_name: str | None  # "bacche ka naam Prisa hai": the name given (2026-11-01)
     prompt_versions: dict[str, str]
     failed: str | None  # "intent_read_failed=<error>" when the call failed
 
@@ -84,6 +86,7 @@ class IntentReader:
                 None,
                 braj=False,
                 asked_language=None,
+                child_name=None,
                 prompt_versions=versions,
                 failed=failed,
             )
@@ -94,6 +97,7 @@ class IntentReader:
             reading.language,
             braj=reading.braj,
             asked_language=reading.asked_language,
+            child_name=reading.child_name,
             prompt_versions=versions,
             failed=None,
         )

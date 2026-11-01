@@ -16,6 +16,8 @@ from app.constants.journey_copy import (
     KHOJ_OTHER,
     KHOJ_STILL_OPEN,
     KHOJ_TODAY,
+    NICKNAME_ONLY,
+    NICKNAME_SAVED,
     NUDGE_ASK,
     NUDGE_OFF_REPLY,
     REFLECTION_FALLBACK,
@@ -28,7 +30,12 @@ from app.domain.enums import ActivityStatus, CopyKey, Language, StepOutcome
 from app.domain.models.activity import OfferRecord
 from app.domain.models.learner import Learner
 from app.domain.models.photo import ObjectCount, PhotoFindings
-from app.domain.models.writes import ActivityOffered, ActivityReported, NudgePreference
+from app.domain.models.writes import (
+    ActivityOffered,
+    ActivityReported,
+    LearnerUpsert,
+    NudgePreference,
+)
 from app.layers.activity_catalogue import CatalogueActivitySource
 from app.layers.journey_layer import (
     ActivityPersonalisation,
@@ -573,9 +580,20 @@ async def test_a_real_report_after_ok_is_still_a_report(text: str) -> None:
 
 
 def reading(
-    intent: str, language: str = "hinglish", *, braj: bool = False, asked: str | None = None
+    intent: str,
+    language: str = "hinglish",
+    *,
+    braj: bool = False,
+    asked: str | None = None,
+    name: str | None = None,
 ) -> dict[str, object]:
-    return {"intent": intent, "language": language, "braj": braj, "asked_language": asked}
+    return {
+        "intent": intent,
+        "language": language,
+        "braj": braj,
+        "asked_language": asked,
+        "child_name": name,
+    }
 
 
 async def test_a_report_read_as_a_report_gets_the_reflection() -> None:
@@ -584,7 +602,7 @@ async def test_a_report_read_as_a_report_gets_the_reflection() -> None:
         text="usne patte gine", button=None, open_activity=offer(FIRST, MUNNI), layer=layer
     )
     assert result.reply.body.startswith(REFLECTION_PRAISE)
-    assert result.prompt_versions["parent_intent"] == "1.5.0"
+    assert result.prompt_versions["parent_intent"] == "1.6.0"
     [prompt] = llm.by_prompt["parent_intent"].prompts
     assert "usne patte gine" in prompt.user
 
@@ -852,6 +870,53 @@ async def test_if_the_reading_fails_a_request_to_add_a_child_still_gets_the_butt
     result = await khoj(text="ek aur bachcha add karna hai", button=None, layer=layer)
     assert result.reply.body == ADD_CHILD_PROMPT[H]
     assert [button.id for button in result.reply.buttons] == ["onb:add-child"]
+
+
+# --- a child's home name given after onboarding (owner, 2026-11-01) -----------------------------
+
+
+async def test_a_home_name_given_later_is_saved_for_the_child_and_confirmed() -> None:
+    # Owner's demo: "bacche ka naam prisa hai" got a kind answer, and the name was lost
+    layer, llm = layer_with(intent=reading("child_name", name="Prisa"))
+    unnamed = child(1, nickname=None, age=6)
+    result = await khoj(
+        text="bacche ka naam prisa hai", button=None, learners=[unnamed], layer=layer
+    )
+    assert result.reply.body == NICKNAME_SAVED[H].format(child="Prisa")
+    assert result.writes == [
+        LearnerUpsert(
+            learner_id=unnamed.id,
+            relation=unnamed.relation,
+            nickname="Prisa",
+            birth_year=unnamed.birth_year,
+        )
+    ]
+    assert llm.by_prompt["parent_answer"].prompts == []
+
+
+@pytest.mark.parametrize("name", ["Priya Kumari Sharma", "x" * 21, "Munni Rani"])
+async def test_a_full_or_long_name_is_not_saved_and_a_short_one_is_asked_for(name: str) -> None:
+    layer, _ = layer_with(intent=reading("child_name", name=name))
+    result = await khoj(text=f"uska naam {name} hai", button=None, layer=layer)
+    assert result.reply.body == NICKNAME_ONLY[H]
+    assert result.writes == []
+
+
+async def test_with_two_children_and_none_chosen_the_name_is_not_guessed() -> None:
+    golu = child(2, "Golu", age=7)
+    layer, llm = layer_with(intent=reading("child_name", name="Chotu"))
+    result = await khoj(
+        text="uska naam Chotu rakho", button=None, learners=[MUNNI, golu], layer=layer
+    )
+    assert result.writes == []
+    assert len(llm.by_prompt["parent_answer"].prompts) == 1
+
+
+async def test_a_name_intent_without_a_name_is_answered_not_saved() -> None:
+    layer, llm = layer_with(intent=reading("child_name", name=None))
+    result = await khoj(text="naam badalna hai", button=None, layer=layer)
+    assert result.writes == []
+    assert len(llm.by_prompt["parent_answer"].prompts) == 1
 
 
 # --- "can my child talk to you?" (owner, 2026-11-01) ---------------------------------------------

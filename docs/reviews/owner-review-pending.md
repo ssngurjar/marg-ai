@@ -498,3 +498,8 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
 - [ ] **Try on the phone:** "my son keeps hitting another child at school" gets advice, not the
   add-child flow; "phone ka data delete ho gaya, khoj phir se bhejo" gets the khoj again;
   "mera data hatao" still asks to confirm deletion at once.
+- [ ] **Read the two new name lines** (`NICKNAME_SAVED`, `NICKNAME_ONLY` in
+  `app/constants/journey_copy.py`, Hinglish, Hindi and English): what Marg says when a parent gives
+  the child's home name after onboarding, and when the name given is a full or long one.
+- [ ] **Read the new photo reply** (`PHOTO_HAS_PERSON` in `app/constants/fixed_replies.py`): it now
+  names only a face, since hands are allowed.
