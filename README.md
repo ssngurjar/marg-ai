@@ -73,7 +73,13 @@ Marg needs no app, only WhatsApp, and anyone can ask by voice note.
   ([Lancet series, 2016](https://pmc.ncbi.nlm.nih.gov/articles/PMC5884058); 2010 data).
 
 What Marg has **not** shown yet is that it changes outcomes: that needs families using it for
-months. The first field test is in my own village.
+months.
+
+**The first field test** (1 November, in my village, on WhatsApp, unscripted): one person, two
+sessions, 0 failed turns. It found eleven things no test had: a child's name given without the
+age, a graduate who couldn't get past "class 1 to 12", a question about Braj, frustration shown
+with an emoji after the same reply three times. All eleven were fixed and tested the same night
+([report](docs/field-tests/2026-11-01-village-whatsapp.md)).
 
 ## What it does
 

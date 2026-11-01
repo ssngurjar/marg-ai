@@ -102,9 +102,10 @@ shortened (next section).
 > All of it was built during the hackathon: 3,169 tests (2,958 unit, 211 integration on
 > Postgres); an eval harness that plays 95 hand-written cases through the real pipeline, where
 > 76% of the 82 scored pass on the newest full run and every crisis and adversarial case
-> passes; and a field test in my village. Every bug found
-> by using Marg like a family would (a shared phone, mixed languages, a refresh) became a fix
-> and a permanent test.
+> passes; and a field test in my village, unscripted, on WhatsApp: it found eleven things no test
+> had (a graduate stuck at "class 1 to 12", a child's name given without the age), and all
+> eleven were fixed and tested the same night. Every bug found by using Marg like a family would
+> (a shared phone, mixed languages, a refresh) became a fix and a permanent test.
 >
 > What this proves: reaching a village doesn't need the most expensive model; it needs the right
 > model for each job, and careful engineering between them. A safe product for families who will
