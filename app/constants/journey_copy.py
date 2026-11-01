@@ -110,6 +110,26 @@ DELETE_DATA_BUTTON: Final[dict[Language, ReplyButton]] = {
     _HINDI: ReplyButton(id="onb:delete:ask", title="डेटा मिटाओ"),
     _ENGLISH: ReplyButton(id="onb:delete:ask", title="Delete my data"),
 }
+# "Sab band karo, mujhe ye nahi chahiye": stop the daily message, or delete everything? Marg
+# asks; deleting still asks once more (critic review D1, owner 2026-11-01).
+STOP_WHICH: Final[dict[Language, str]] = {
+    _HINGLISH: (
+        "Kya band karein? Sirf roz ka message band kar sakte hain, ya Marg aapka aur bachchon ka"
+        " sab data mita de. Neeche chuniye."
+    ),
+    _HINDI: (
+        "क्या बंद करें? सिर्फ़ रोज़ का संदेश बंद कर सकते हैं, या मार्ग आपका और बच्चों का सारा डेटा मिटा दे। नीचे चुनिए।"
+    ),
+    _ENGLISH: (
+        "What should I stop? I can stop just the daily message, or delete everything Marg keeps"
+        " about you and your children. Choose below."
+    ),
+}
+STOP_DAILY_BUTTON: Final[dict[Language, ReplyButton]] = {
+    _HINGLISH: ReplyButton(id="nudge:off", title="Roz ka message band"),
+    _HINDI: ReplyButton(id="nudge:off", title="रोज़ का संदेश बंद"),
+    _ENGLISH: ReplyButton(id="nudge:off", title="Stop daily message"),
+}
 # A child's home name given or changed after onboarding (owner, 2026-11-01)
 NICKNAME_SAVED: Final[dict[Language, str]] = {
     _HINGLISH: "Theek hai, ab se main {child} ka naam lekar baat karunga.",

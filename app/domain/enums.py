@@ -340,6 +340,8 @@ class ParentIntent(StrEnum):
     DELETE_DATA = "delete_data"  # wants Marg to delete everything it keeps about them
     CHILD_NAME = "child_name"  # gives or changes their child's home name
     PROGRESS = "progress"  # asks how their child is doing, or what they've done so far
+    # wants Marg to stop altogether, without saying messages or data (critic review D1)
+    STOP_ALL = "stop_all"
 
 
 class StudentIntent(StrEnum):

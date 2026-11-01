@@ -65,6 +65,8 @@ from app.constants.journey_copy import (
     NUDGE_TIME_NAMES,
     ONE_MORE_KHOJ_BUTTON,
     REFLECTION_FALLBACK,
+    STOP_DAILY_BUTTON,
+    STOP_WHICH,
     SUPERVISION_LINE,
     TODAY_KHOJ_BUTTON,
     UNNAMED_CHILD,
@@ -315,10 +317,8 @@ class JourneyLayer:
                 return JourneyLayer._who_is_writing(ctx, now, register)
             case ParentIntent.PROGRESS:
                 return self._progress(ctx, now, register)
-            case ParentIntent.DELETE_DATA:
-                return _fixed(
-                    DELETE_DATA_OFFER[register], register, (DELETE_DATA_BUTTON[register],)
-                )
+            case ParentIntent.DELETE_DATA | ParentIntent.STOP_ALL:
+                return JourneyLayer._stop_or_delete(intent, register)
             case ParentIntent.ADD_CHILD | ParentIntent.CHILD_TALK | ParentIntent.CHILD_NAME:
                 about_a_child = self._about_a_child(intent, turn)
                 if about_a_child is not None:
@@ -716,6 +716,15 @@ class JourneyLayer:
         if button is None and PhraseFinder.contains_any(user_text, self.NUDGE_CHANGE_PHRASES):
             return _fixed(NUDGE_ASK[register], register, NUDGE_BUTTONS[register])
         return None
+
+    @staticmethod
+    def _stop_or_delete(intent: ParentIntent, register: Language) -> LayerResult:
+        """Deletion is only ever offered, never done from words; "sab band karo" asks which of
+        the two they mean (critic review D1, 2026-11-01)."""
+        delete = DELETE_DATA_BUTTON[register]
+        if intent is ParentIntent.STOP_ALL:
+            return _fixed(STOP_WHICH[register], register, (STOP_DAILY_BUTTON[register], delete))
+        return _fixed(DELETE_DATA_OFFER[register], register, (delete,))
 
     @staticmethod
     def _daily_off(register: Language, *, khoj_open: bool) -> LayerResult:

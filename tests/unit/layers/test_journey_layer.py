@@ -12,6 +12,7 @@ from app.constants.journey_copy import (
     ACKNOWLEDGED,
     ADD_CHILD_PROMPT,
     AGE_COMING_SOON,
+    DELETE_DATA_BUTTON,
     DELETE_DATA_OFFER,
     DONE_THANKS,
     HELLO_NOTHING_OPEN,
@@ -26,6 +27,8 @@ from app.constants.journey_copy import (
     NUDGE_OFF_REPLY,
     PROGRESS_HEADER,
     REFLECTION_FALLBACK,
+    STOP_DAILY_BUTTON,
+    STOP_WHICH,
     SUPERVISION_LINE,
     WHICH_CHILD,
     WHICH_KHOJ,
@@ -638,7 +641,7 @@ async def test_a_report_read_as_a_report_gets_the_reflection() -> None:
         text="usne patte gine", button=None, open_activity=offer(FIRST, MUNNI), layer=layer
     )
     assert result.reply.body.startswith(REFLECTION_PRAISE)
-    assert result.prompt_versions["parent_intent"] == "1.11.0"
+    assert result.prompt_versions["parent_intent"] == "1.12.0"
     [prompt] = llm.by_prompt["parent_intent"].prompts
     assert "usne patte gine" in prompt.user
 
@@ -936,6 +939,24 @@ async def test_a_longer_deletion_request_gets_the_offer_that_starts_the_usual_de
     assert [button.id for button in result.reply.buttons] == ["onb:delete:ask"]
     assert result.writes == []  # nothing is deleted here: the button asks once more
     assert llm.by_prompt["parent_answer"].prompts == []
+
+
+async def test_stop_everything_asks_whether_to_stop_messages_or_delete_and_changes_nothing() -> (
+    None
+):
+    # critic review D1, 2026-11-01: "sab band karo, mujhe ye nahi chahiye" is either
+    layer, llm = layer_with(intent=reading("stop_all", "hinglish"))
+    result = await khoj(text="sab band karo, mujhe ye nahi chahiye", button=None, layer=layer)
+    assert result.reply.body == STOP_WHICH[H]
+    assert [button.id for button in result.reply.buttons] == ["nudge:off", "onb:delete:ask"]
+    assert result.writes == []  # nothing is turned off or deleted until a button is tapped
+    assert llm.by_prompt["parent_answer"].prompts == []
+
+
+@pytest.mark.parametrize("register", list(Language))
+def test_the_stop_buttons_fit_whatsapp_in_every_language(register: Language) -> None:
+    for button in (STOP_DAILY_BUTTON[register], DELETE_DATA_BUTTON[register]):
+        assert len(button.title) <= 20  # WhatsApp's button title limit
 
 
 async def test_if_the_reading_fails_a_request_to_add_a_child_still_gets_the_button() -> None:

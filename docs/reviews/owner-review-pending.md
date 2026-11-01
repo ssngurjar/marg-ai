@@ -519,3 +519,6 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
   "today's khoj, or a question?" choice after the child-talk answer.
 - [ ] **Read the teaching-answer section names** (`TEACHING_LABELS` in
   `app/constants/teacher_copy.py`), and try "how do I start this chapter?" after a bridge.
+- [ ] **Read the "stop what?" question** (`STOP_WHICH`, `STOP_DAILY_BUTTON` in
+  `app/constants/journey_copy.py`, three languages), and try "sab band karo, mujhe ye nahi
+  chahiye" (critic review D1).

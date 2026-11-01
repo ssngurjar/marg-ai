@@ -254,3 +254,13 @@ cases:
   - {text: "he jumped like a frog and said frogs have big legs", open_khoj: true, intent: report, lang: english, report_about: "Jaanwar ki chaal", other_khojs: ["Ghar ka chhota madadgaar"]}
   - {text: "usne sabke kapde alag kiye aur gine", open_khoj: true, intent: report, lang: hinglish, report_about: "Ghar ka chhota madadgaar", other_khojs: ["Ghar ka chhota madadgaar"]}
   - {text: "Munni ne bataya gaay dheere chalti hai", open_khoj: true, intent: report, lang: hinglish, report_about: "Jaanwar ki chaal", other_khojs: ["Ghar ka chhota madadgaar"]}
+
+  # --- stop everything, without saying messages or data: Marg asks which (critic review D1) ---
+  - {text: "sab band karo, mujhe ye nahi chahiye", open_khoj: false, intent: stop_all, lang: hinglish}
+  - {text: "stop everything", open_khoj: false, intent: stop_all, lang: english}
+  - {text: "ye sab band kar do bhai", open_khoj: true, intent: stop_all, lang: hinglish}
+  - {text: "मुझे अब ये सब नहीं चाहिए, बंद करो", open_khoj: false, intent: stop_all, lang: hindi}
+  - {text: "I don't want this anymore", open_khoj: false, intent: stop_all, lang: english}
+  - {text: "bas karo, ab mat chalao ye", open_khoj: false, intent: stop_all, lang: hinglish}
+  - {text: "sab band karo aur mera data bhi mita do", open_khoj: false, intent: delete_data, lang: hinglish}
+  - {text: "sirf roz wala message band karo, baaki theek hai", open_khoj: false, intent: daily_off, lang: hinglish}

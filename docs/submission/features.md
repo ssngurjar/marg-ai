@@ -171,7 +171,9 @@ Off until Meta approves the template; the parent's chosen time is kept for then.
 ### How it ends
 Each khoj ends with the reply's question back to the child, and a card if the child was engaged.
 The open khoj stays open for 48 hours; the next comes the next day, or when asked. "Roz ka message
-band karo" stops the daily reminder; deleting their data ends everything (§1).
+band karo" stops the daily reminder; deleting their data ends everything (§1). "Sab band karo,
+mujhe ye nahi chahiye", which could mean either, gets both as buttons (**Stop daily message** /
+**Delete my data**); nothing changes until one is tapped, and deleting still asks once more.
 
 ---
 
