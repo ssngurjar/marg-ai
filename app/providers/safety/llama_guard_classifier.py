@@ -19,6 +19,7 @@ from app.core.clock import Clock
 from app.core.errors import ProviderResponseInvalid
 from app.domain.enums import SafetyDecision
 from app.domain.models.safety import SafetyVerdict
+from app.domain.models.turn import Exchange
 from app.domain.models.usage import StepUsage
 from app.providers.http import RetryPolicy
 from app.providers.llm.model_pricing import ModelPricing
@@ -92,12 +93,27 @@ class LlamaGuardClassifier:
                 }
             ]
         if request.speaker == "user":
-            return [{"role": "user", "content": request.text}]
+            return [
+                *self._earlier(request.earlier_exchange),
+                {"role": "user", "content": request.text},
+            ]
         if request.prior_user_text is None:
             raise ValueError("a reply check needs the user's message it answers")
         return [
             {"role": "user", "content": request.prior_user_text},
             {"role": "assistant", "content": request.text},
+        ]
+
+    @staticmethod
+    def _earlier(exchange: Exchange | None) -> list[ChatCompletionMessageParam]:
+        """The last exchange before a user's message, so a follow-up ("can she talk directly?")
+        is read as part of the conversation, not alone. Llama Guard still classifies only the
+        last turn. A button press (no words) or an empty reply gives no context."""
+        if exchange is None or not exchange.user_text.strip() or not exchange.reply_text.strip():
+            return []
+        return [
+            {"role": "user", "content": exchange.user_text},
+            {"role": "assistant", "content": exchange.reply_text},
         ]
 
     async def _complete(self, messages: list[ChatCompletionMessageParam]) -> ChatCompletion:

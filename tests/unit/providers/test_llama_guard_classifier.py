@@ -19,8 +19,9 @@ from app.core.errors import (
     ProviderTimeout,
     ProviderUnavailable,
 )
-from app.domain.enums import SafetyCategory, SafetyDecision
+from app.domain.enums import Route, SafetyCategory, SafetyDecision
 from app.domain.models.message import ImageClip
+from app.domain.models.turn import Exchange
 from app.providers.http import RetryPolicy, RetryTiming
 from app.providers.ports import SafetyRequest
 from app.providers.safety.llama_guard_classifier import LlamaGuardClassifier, SafetyHostConfig
@@ -111,6 +112,49 @@ async def test_a_user_check_sends_only_the_users_turn(harness_for: HarnessFactor
     assert body["model"] == GUARD
     assert body["temperature"] == 0
     assert body["max_tokens"] == 20
+
+
+EARLIER = Exchange(
+    user_text="Can my child also talk to you",
+    reply_text="Yes, with your permission.",
+    route=Route.JOURNEY,
+    at=NOW,
+)
+
+
+async def test_a_user_check_sends_the_turn_before_it_as_context(
+    harness_for: HarnessFactory,
+) -> None:
+    harness = harness_for(guard_answer("safe"))
+    follow_up = SafetyRequest(
+        speaker="user",
+        text="can she talk directly how can I do that",
+        prior_user_text=None,
+        earlier_exchange=EARLIER,
+    )
+    await harness.classifier.classify(follow_up)
+    assert harness.endpoint.bodies[0]["messages"] == [
+        {"role": "user", "content": "Can my child also talk to you"},
+        {"role": "assistant", "content": "Yes, with your permission."},
+        {"role": "user", "content": "can she talk directly how can I do that"},
+    ]
+
+
+@pytest.mark.parametrize(
+    ("user_text", "reply_text"),
+    [("", "Are you a parent or a student?"), ("   ", "Namaste!"), ("Hi", ""), ("Hi", "  ")],
+    ids=["button-press", "blank-words", "empty-reply", "blank-reply"],
+)
+async def test_an_earlier_turn_without_words_on_both_sides_adds_no_context(
+    harness_for: HarnessFactory, user_text: str, reply_text: str
+) -> None:
+    harness = harness_for(guard_answer("safe"))
+    earlier = EARLIER.model_copy(update={"user_text": user_text, "reply_text": reply_text})
+    request = USER_CHECK.model_copy(update={"earlier_exchange": earlier})
+    await harness.classifier.classify(request)
+    assert harness.endpoint.bodies[0]["messages"] == [
+        {"role": "user", "content": "Beta ko rang sikhana hai"}
+    ]
 
 
 async def test_a_reply_check_sends_the_question_then_our_reply(

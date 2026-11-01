@@ -435,6 +435,7 @@ class SafetyRequest(BaseModel):
     text: str
     prior_user_text: str | None              # required for assistant checks
     image: ImageClip | None = None           # Llama Guard 4 is multimodal: photos in, khoj cards out (C6, C7)
+    earlier_exchange: Exchange | None = None # a user check's context: the turn before (s07, 2026-11-01)
 
 class SafetyClassifier(Protocol):
     async def classify(self, request: SafetyRequest) -> tuple[SafetyVerdict, StepUsage]: ...

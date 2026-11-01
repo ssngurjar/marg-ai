@@ -82,7 +82,7 @@ from app.domain.models.photo import ObjectCount, PhotoFindings
 from app.domain.models.reply import CanonicalReply, LocalisedReply
 from app.domain.models.routing import RouteDecision
 from app.domain.models.safety import SafetyVerdict
-from app.domain.models.turn import TurnContext
+from app.domain.models.turn import Exchange, TurnContext
 from app.domain.models.usage import StepUsage
 from app.domain.models.voice import VoiceLimits
 from app.domain.models.writes import (
@@ -365,7 +365,8 @@ class _Turn:
         if self.user_text:
             try:
                 input_check = await self._bounded(
-                    self.steps.gate.check_input(self.user_text), self.settings.safety_in_timeout
+                    self.steps.gate.check_input(self.user_text, self._earlier_exchange()),
+                    self.settings.safety_in_timeout,
                 )
             except (SafetyUnavailable, TimeoutError) as error:
                 return await self._failed(StepName.SAFETY_IN, started, error, route)
@@ -522,7 +523,8 @@ class _Turn:
         if self.user_text:  # a button press carries our own id, nothing typed to check
             try:
                 input_check = await self._bounded(
-                    self.steps.gate.check_input(self.user_text), self.settings.safety_in_timeout
+                    self.steps.gate.check_input(self.user_text, self._earlier_exchange()),
+                    self.settings.safety_in_timeout,
                 )
             except (SafetyUnavailable, TimeoutError) as error:
                 await self._discard(generation)
@@ -590,7 +592,8 @@ class _Turn:
         if self.user_text:
             try:
                 input_check = await self._bounded(
-                    self.steps.gate.check_input(self.user_text), self.settings.safety_in_timeout
+                    self.steps.gate.check_input(self.user_text, self._earlier_exchange()),
+                    self.settings.safety_in_timeout,
                 )
             except (SafetyUnavailable, TimeoutError) as error:
                 await self._discard(generation)
@@ -694,7 +697,8 @@ class _Turn:
         if self.user_text:
             try:
                 input_check = await self._bounded(
-                    self.steps.gate.check_input(self.user_text), self.settings.safety_in_timeout
+                    self.steps.gate.check_input(self.user_text, self._earlier_exchange()),
+                    self.settings.safety_in_timeout,
                 )
             except (SafetyUnavailable, TimeoutError) as error:
                 await self._discard(generation)
@@ -1289,6 +1293,10 @@ class _Turn:
             first_failure=self.first_failure,
             writes=list(writes),
         )
+
+    def _earlier_exchange(self) -> Exchange | None:
+        """The turn before this one: safety_in reads the user's words in its context."""
+        return self.ctx.recent_exchanges[-1] if self.ctx.recent_exchanges else None
 
     async def _bounded[ResultT](self, work: Awaitable[ResultT], step_timeout: timedelta) -> ResultT:
         """Run `work` within min(step timeout, what's left of the turn minus the reserve)."""

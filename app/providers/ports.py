@@ -18,6 +18,7 @@ from app.domain.models.message import AudioClip, ImageClip, MediaRef, Transcript
 from app.domain.models.photo import ObjectCount
 from app.domain.models.reply import OutboundPart
 from app.domain.models.safety import SafetyVerdict
+from app.domain.models.turn import Exchange
 from app.domain.models.usage import StepUsage
 
 
@@ -103,6 +104,8 @@ class SafetyRequest(BaseModel):
     text: str
     prior_user_text: str | None  # required for assistant checks
     image: ImageClip | None = None  # photos in, khoj cards out (C6, C7)
+    # A user check's context: the last exchange before this message (s07 §4.3, 2026-11-01).
+    earlier_exchange: Exchange | None = None
 
 
 class SafetyClassifier(Protocol):

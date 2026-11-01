@@ -35,7 +35,7 @@ from app.domain.enums import (
 )
 from app.domain.models.curiosity import ExtractSignals, MakeKhojCard
 from app.domain.models.message import InboundMessage
-from app.domain.models.turn import TurnContext
+from app.domain.models.turn import Exchange, TurnContext
 from app.domain.models.writes import ActivityOffered, LearnerUpsert
 from app.domain.rules.child_session_rules import ChildSessionLimits
 from app.layers.activity_catalogue import ActivityCatalogue, CatalogueActivitySource
@@ -225,6 +225,31 @@ async def test_the_reply_and_what_will_be_spoken_are_checked_in_context() -> Non
     assert reply_check.prior_user_text == QUESTION
     assert reply_check.text.startswith(result.outcome.reply_text)
     assert reply_check.text.endswith(str(HINGLISH_ANSWER["spoken_text"]))
+
+
+async def test_the_users_message_is_checked_with_the_turn_before_it() -> None:
+    # Owner's demo, 2026-11-01: "can she talk directly how can I do that", checked alone,
+    # was blocked as S12 six times in six; after "Can my child also talk to you", never.
+    earlier = [
+        Exchange(
+            user_text="Hi", reply_text="Namaste!", route=Route.JOURNEY, at=NOW - timedelta(hours=1)
+        ),
+        Exchange(
+            user_text="Can my child also talk to you",
+            reply_text="Yes, with your permission.",
+            route=Route.JOURNEY,
+            at=NOW - timedelta(minutes=1),
+        ),
+    ]
+    result = await run(asking().model_copy(update={"recent_exchanges": earlier}))
+    [input_check, reply_check] = result.classifier.requests
+    assert input_check.earlier_exchange == earlier[-1]
+    assert reply_check.earlier_exchange is None
+
+
+async def test_a_first_message_is_checked_without_context() -> None:
+    result = await run(asking())
+    assert result.classifier.requests[0].earlier_exchange is None
 
 
 async def test_several_text_messages_are_answered_as_one_question() -> None:

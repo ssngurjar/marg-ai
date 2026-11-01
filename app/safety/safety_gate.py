@@ -48,6 +48,7 @@ from app.domain.enums import (
 from app.domain.models.message import ImageClip
 from app.domain.models.reply import Citation, LocalisedReply, ReplyButton
 from app.domain.models.safety import SafetyVerdict
+from app.domain.models.turn import Exchange
 from app.domain.models.usage import StepUsage
 from app.domain.rules.child_hazard_matcher import ChildHazardMatcher
 from app.domain.rules.child_reply_matcher import ChildReplyMatcher
@@ -162,13 +163,21 @@ class SafetyGate:
         self._policy = policy
         self._guard_timeout = guard_timeout
 
-    async def check_input(self, user_text: str) -> InputCheck:
+    async def check_input(
+        self, user_text: str, earlier_exchange: Exchange | None = None
+    ) -> InputCheck:
         """Classify the user's message. Raises SafetyUnavailable when the policy check fails,
-        or when Llama Guard and the policy check both do, unless the phrase rules found a crisis."""
+        or when Llama Guard and the policy check both do, unless the phrase rules found a crisis.
+        `earlier_exchange`: the turn before, which Llama Guard reads as context (s07 §4.3)."""
         rule_categories = self._policy.scan_input_rules(user_text)
         if rule_categories:
             return self._input_check(rule_categories, "domain_policy", [], guard_down=False)
-        request = SafetyRequest(speaker="user", text=user_text, prior_user_text=None)
+        request = SafetyRequest(
+            speaker="user",
+            text=user_text,
+            prior_user_text=None,
+            earlier_exchange=earlier_exchange,
+        )
         guard_task = asyncio.create_task(self._guard(request))
         policy_task = asyncio.create_task(self._policy_findings(user_text))
         try:
