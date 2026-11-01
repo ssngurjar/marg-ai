@@ -14,6 +14,7 @@ WHATSAPP_OBJECT: Final = "whatsapp_business_account"
 MAX_TEXT_CHARS: Final = MessageSplitter.TEXT_LIMIT  # 4096
 MAX_INTERACTIVE_BODY_CHARS: Final = 1024  # a message that carries buttons
 MAX_BUTTONS: Final = 3
+MAX_BUTTON_TITLE: Final = 20  # a reply button's title, in characters
 MAX_CAPTION_CHARS: Final = 1024
 MAX_AUDIO_BYTES: Final = 16 * 1024 * 1024
 MAX_IMAGE_BYTES: Final = 5 * 1024 * 1024

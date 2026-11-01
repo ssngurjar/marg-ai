@@ -43,6 +43,7 @@ from app.constants.journey_copy import (
     DELETE_DATA_BUTTON,
     DELETE_DATA_OFFER,
     HELLO_NOTHING_OPEN,
+    KHOJ_ABOUT,
     KHOJ_BUTTONS,
     KHOJ_DONE,
     KHOJ_OTHER,
@@ -66,9 +67,11 @@ from app.constants.journey_copy import (
     TODAY_KHOJ_BUTTON,
     UNNAMED_CHILD,
     WHICH_CHILD,
+    WHICH_KHOJ,
 )
 from app.constants.journey_words import CAREER_WORDS, LABEL_WORDS, SMALL_TALK
 from app.constants.onboarding_copy import CHILD_FALLBACK, COPY
+from app.constants.whatsapp import MAX_BUTTON_TITLE, MAX_BUTTONS
 from app.core.errors import ProviderError
 from app.domain.enums import (
     ActivityStatus,
@@ -162,6 +165,8 @@ class JourneySettings:
 
 
 class JourneyLayer:
+    RECENT_KHOJ: ClassVar[timedelta] = timedelta(hours=48)  # as long as a khoj stays open
+    MAX_OTHER_KHOJS: ClassVar[int] = MAX_BUTTONS - 1  # the open khoj takes one button
     KHOJ_PHRASES: ClassVar[tuple[str, ...]] = (
         "aaj ki khoj", "khoj", "nayi khoj", "activity", "today's khoj", "आज की खोज", "खोज",
     )  # fmt: skip
@@ -204,11 +209,13 @@ class JourneyLayer:
         free_text = not message.interactive_ids and message.photo is None and message.text.strip()
         if not (free_text and self._settings.read_intent) or JourneyLayer.small_talk(message.text):
             return await self._by_rules(ctx, message, open_activity, now, register)
+        others = self._other_recent_khojs(ctx, open_activity, now)
         read = await self._intents.read(
             message.text,
             open_activity.activity.title if open_activity else None,
             ctx.learners,
             ctx.recent_exchanges,
+            [other.activity.title for other in others],
         )
         if read.intent is None:
             result = await self._by_rules(ctx, message, open_activity, now, register)
@@ -225,6 +232,7 @@ class JourneyLayer:
                 spoken_in,
                 language_asked=read.asked_language is not None,
                 child_name=read.child_name,
+                report_about=read.report_about,
             )
             result = await self._by_intent(read.intent, turn)
         return _with_reading(result, read)
@@ -267,15 +275,15 @@ class JourneyLayer:
             settings = self._add_child(ctx, register)
         if settings is not None:
             return settings
-        if button is not None and button.startswith(KHOJ_OTHER):
-            return await self._another(ctx, open_activity, now, register)
-        asks_for_khoj = PhraseFinder.contains_any(user_text, self.KHOJ_PHRASES)
-        if (button is not None and button.startswith(KHOJ_TODAY)) or asks_for_khoj:
+        by_button = await self._khoj_button(ctx, button, open_activity, now, register)
+        if by_button is not None:
+            return by_button
+        if PhraseFinder.contains_any(user_text, self.KHOJ_PHRASES):
             return await self._today(ctx, ctx.active_learner, now, register, skipped=None)
         said_something = bool(user_text.strip()) and not JourneyLayer.small_talk(user_text)
         reported = button == KHOJ_DONE or said_something or photo is not None
         if open_activity is not None and reported:
-            return await self._reflect(ctx, open_activity, user_text, register, photo)
+            return await self._report_by_rules(ctx, message, open_activity, now, register)
         if button == KHOJ_DONE:
             # Nothing is open (it expired or was reported): offer today's khoj instead.
             return await self._today(ctx, ctx.active_learner, now, register, skipped=None)
@@ -289,7 +297,7 @@ class JourneyLayer:
         now, register = turn.now, turn.register
         match intent:
             case ParentIntent.REPORT if open_activity is not None:
-                return await self._reflect(ctx, open_activity, user_text, register, None)
+                return await self._report_in_words(turn, open_activity)
             case ParentIntent.CHILD_QUESTION:
                 return await self._question(ctx, user_text, now, register, child_question=True)
             case ParentIntent.SMALL_TALK:
@@ -347,6 +355,123 @@ class JourneyLayer:
         )
         saved = NICKNAME_SAVED[register].format(child=parsed.nickname)
         return _fixed(saved, register, ()).model_copy(update={"writes": [renamed]})
+
+    async def _report_by_rules(
+        self,
+        ctx: TurnContext,
+        message: ParentMessage,
+        open_activity: OfferedActivity,
+        now: datetime,
+        register: Language,
+    ) -> LayerResult:
+        """A report by button, words or photo: on the open khoj, except a photo alone while
+        another khoj is still waiting, which asks which one (owner, 2026-11-01)."""
+        others = self._other_recent_khojs(ctx, open_activity, now)
+        if message.photo is not None and not message.text.strip() and others:
+            return JourneyLayer._which_khoj(open_activity, others, register)
+        return await self._reflect(ctx, open_activity, message.text, register, message.photo)
+
+    async def _khoj_button(
+        self,
+        ctx: TurnContext,
+        button: str | None,
+        open_activity: OfferedActivity | None,
+        now: datetime,
+        register: Language,
+    ) -> LayerResult | None:
+        """Another khoj, which khoj a report was about, or today's; None for anything else."""
+        if button is None:
+            return None
+        if button.startswith(KHOJ_OTHER):
+            return await self._another(ctx, open_activity, now, register)
+        if button.startswith(KHOJ_ABOUT):
+            return await self._report_for_chosen_khoj(ctx, button, now, register)
+        if button.startswith(KHOJ_TODAY):
+            return await self._today(ctx, ctx.active_learner, now, register, skipped=None)
+        return None
+
+    # --- which khoj a report is about (owner, 2026-11-01) ----------------------------------------
+
+    def _other_recent_khojs(
+        self, ctx: TurnContext, open_activity: OfferedActivity | None, now: datetime
+    ) -> list[OfferedActivity]:
+        """Khojs offered to this child in the last 48 hours, not reported yet (still offered,
+        or skipped for another), besides the open one: a report may be about one of them."""
+        others: list[OfferedActivity] = []
+        for record in ctx.activity_history:
+            if record.status is ActivityStatus.DONE or now - record.offered_at > self.RECENT_KHOJ:
+                continue
+            if open_activity is not None and (
+                record.learner_activity_id == open_activity.learner_activity_id
+            ):
+                continue
+            activity = self._source.find(record.activity_id)
+            if activity is not None:
+                others.append(
+                    OfferedActivity(
+                        learner_activity_id=record.learner_activity_id,
+                        learner_id=record.learner_id,
+                        activity=activity,
+                        offered_at=record.offered_at,
+                    )
+                )
+        return others[: self.MAX_OTHER_KHOJS]
+
+    @staticmethod
+    def _which_khoj(
+        open_activity: OfferedActivity, others: Sequence[OfferedActivity], register: Language
+    ) -> LayerResult:
+        buttons = tuple(
+            ReplyButton(
+                id=f"{KHOJ_ABOUT}:{offered.learner_activity_id}",
+                title=JourneyLayer._button_title(offered.activity.title),
+            )
+            for offered in (open_activity, *others)
+        )
+        return _fixed(WHICH_KHOJ[register], register, buttons)
+
+    @staticmethod
+    def _button_title(title: str) -> str:
+        """A khoj's title as a button (WhatsApp allows 20 characters)."""
+        if len(title) <= MAX_BUTTON_TITLE:
+            return title
+        return title[: MAX_BUTTON_TITLE - 1].rstrip() + "…"
+
+    async def _report_in_words(
+        self, turn: "_FreeText", open_activity: OfferedActivity
+    ) -> LayerResult:
+        """A report in words: on the khoj it describes. When another khoj is still waiting and
+        the reading can't tell which, Marg asks; the words come along with the answer."""
+        ctx, user_text, register = turn.ctx, turn.text, turn.register
+        others = self._other_recent_khojs(ctx, open_activity, turn.now)
+        if not others:
+            return await self._reflect(ctx, open_activity, user_text, register, None)
+        for offered in (open_activity, *others):
+            if turn.report_about == offered.activity.title:
+                return await self._reflect(ctx, offered, user_text, register, None)
+        return JourneyLayer._which_khoj(open_activity, others, register)
+
+    async def _report_for_chosen_khoj(
+        self, ctx: TurnContext, button: str, now: datetime, register: Language
+    ) -> LayerResult:
+        """The parent tapped which khoj their report was about: the reply is on that one, with
+        the words they sent just before (a photo's counts aren't kept). An old or foreign id
+        offers today's khoj."""
+        chosen_id = button.removeprefix(f"{KHOJ_ABOUT}:")
+        for record in ctx.activity_history:
+            if str(record.learner_activity_id) != chosen_id:
+                continue
+            activity = self._source.find(record.activity_id)
+            if activity is None:
+                break
+            chosen = OfferedActivity(
+                learner_activity_id=record.learner_activity_id,
+                learner_id=record.learner_id,
+                activity=activity,
+                offered_at=record.offered_at,
+            )
+            return await self._reflect(ctx, chosen, _words_before_which_khoj(ctx), register, None)
+        return await self._today(ctx, ctx.active_learner, now, register, skipped=None)
 
     async def _khoj_asked(self, intent: ParentIntent, turn: "_FreeText") -> LayerResult:
         """A khoj asked for: today's, another one, or the open one again."""
@@ -828,6 +953,7 @@ class _FreeText:
     register: Language
     language_asked: bool  # the parent asked for this reply's language ("in hindi")
     child_name: str | None  # child_name: the home name the parent gave
+    report_about: str | None = None  # a report: the title of the khoj it describes
 
 
 @dataclass(frozen=True, slots=True)
@@ -961,6 +1087,15 @@ def _with_curiosity(
         return result
     source = CuriositySource(learner_id=learner.id, kind=kind, hint_domains=[], activity_title=None)
     return result.model_copy(update={"curiosity": source})
+
+
+def _words_before_which_khoj(ctx: TurnContext) -> str:
+    """The report a parent sent just before Marg asked which khoj it was about, if any."""
+    if not ctx.recent_exchanges:
+        return ""
+    last = ctx.recent_exchanges[-1]
+    asked = any(last.reply_text.startswith(question) for question in WHICH_KHOJ.values())
+    return last.user_text if asked else ""
 
 
 def _kid_buttons(learner: Learner, register: Language) -> tuple[ReplyButton, ...]:

@@ -16,6 +16,7 @@ _ENGLISH = Language.ENGLISH
 KHOJ_TODAY = "jrn:today"  # + ":<learner id>" when it names a child
 KHOJ_DONE = "jrn:done"
 KHOJ_OTHER = "jrn:other"
+KHOJ_ABOUT = "jrn:about"  # + ":<learner activity id>": which khoj a report is about (2026-11-01)
 
 SUPERVISION_LINE: Final[dict[Language, str]] = {
     _HINGLISH: "Yeh khoj bachche ke saath, aapki nazar mein hi karein.",
@@ -119,6 +120,12 @@ NICKNAME_ONLY: Final[dict[Language, str]] = {
     _HINGLISH: "Bas ghar ka chhota naam bataiye, jaise 'Munni'. Poora naam nahi chahiye.",
     _HINDI: "बस घर का छोटा नाम बताइए, जैसे 'मुन्नी'। पूरा नाम नहीं चाहिए।",
     _ENGLISH: "Just a short home name is enough, like 'Munni'. Please don't send a full name.",
+}
+# A report that may be about another recent khoj (owner's demo, 2026-11-01)
+WHICH_KHOJ: Final[dict[Language, str]] = {
+    _HINGLISH: "Yeh kis khoj ke baare mein hai?",
+    _HINDI: "यह किस खोज के बारे में है?",
+    _ENGLISH: "Which khoj is this about?",
 }
 WHICH_CHILD: Final[dict[Language, str]] = {
     _HINGLISH: "Aaj ki khoj kis bachche ke liye bhejun?",

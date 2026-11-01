@@ -33,6 +33,7 @@ class IntentReading(BaseModel):
     braj: bool  # Braj forms (मेरो, वाको, वाय, नाय…), in either script
     asked_language: Language | None  # a language the parent asks this reply to be in, if any
     child_name: str | None  # child_name only: the home name the parent gives, as written
+    report_about: str | None  # report only: the title of the khoj it describes; null: can't tell
 
 
 PARENT_INTENT: Final = PromptSpec(prompt_id="parent_intent", output_type=IntentReading)
@@ -46,6 +47,7 @@ class IntentRead:
     braj: bool
     asked_language: Language | None  # "send khoj in hindi": this reply's language (2026-11-01)
     child_name: str | None  # "bacche ka naam Prisa hai": the name given (2026-11-01)
+    report_about: str | None  # which recent khoj a report describes, by title (2026-11-01)
     prompt_versions: dict[str, str]
     failed: str | None  # "intent_read_failed=<error>" when the call failed
 
@@ -61,6 +63,7 @@ class IntentReader:
         open_khoj_title: str | None,
         learners: Sequence[Learner],
         recent: Sequence[Exchange],
+        other_khoj_titles: Sequence[str] = (),
     ) -> IntentRead:
         children = (
             ", ".join(learner.nickname or "a child" for learner in learners) or "none recorded"
@@ -68,7 +71,10 @@ class IntentReader:
         marg_said = recent[-1].reply_text[:MARG_SAID_MAX_CHARS] if recent else ""
         rendered = self._registry.render(
             PARENT_INTENT,
-            system_vars={"open_khoj": open_khoj_title or "none"},
+            system_vars={
+                "open_khoj": open_khoj_title or "none",
+                "other_khojs": "; ".join(other_khoj_titles) or "none",
+            },
             user_vars={
                 "children": children,
                 "marg_said": marg_said,
@@ -87,6 +93,7 @@ class IntentReader:
                 braj=False,
                 asked_language=None,
                 child_name=None,
+                report_about=None,
                 prompt_versions=versions,
                 failed=failed,
             )
@@ -98,6 +105,7 @@ class IntentReader:
             braj=reading.braj,
             asked_language=reading.asked_language,
             child_name=reading.child_name,
+            report_about=reading.report_about,
             prompt_versions=versions,
             failed=None,
         )

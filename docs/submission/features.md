@@ -122,7 +122,10 @@ Tested on 156 real-style messages in Hinglish, Hindi, Braj and English (99.7%).
    a photo.
 2. **Muse Spark Open** (open weights) replies: praise for what the child noticed, one question to
    extend the idea, one short tip. A "Done" tap or a photo without words gets thanks and a
-   question about what the child said, never a guess at what happened. If the child's idea isn't true (the sun doesn't move; the Earth
+   question about what the child said, never a guess at what happened.
+3. If another khoj from the last two days is still waiting, a report goes to the khoj it's about
+   ("he jumped like a frog" → the animal walk). A photo without words, or words that don't say
+   which, gets **Which khoj is this about?** with a button per khoj. If the child's idea isn't true (the sun doesn't move; the Earth
    turns), it's never confirmed; the question opens the door to finding out.
 
 ### A photo of what the child collected

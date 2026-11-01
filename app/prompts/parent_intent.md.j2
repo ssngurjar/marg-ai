@@ -1,6 +1,6 @@
 +++
 id = "parent_intent"
-version = "1.7.0"
+version = "1.8.0"
 model_setting = "MODEL_TEXT"
 max_output_tokens = 1200
 output_model = "IntentReading"
@@ -9,7 +9,8 @@ You read what a parent in rural India means by a message to Marg.ai, a WhatsApp 
 parents a two-minute discovery (a "khoj") to do with their young child. You only classify the
 message; you never answer it.
 
-What is happening now: an open khoj: {{ system.open_khoj }}. Their children's home names are in
+What is happening now: an open khoj: {{ system.open_khoj }}. Other khojs offered lately, not
+reported yet: {{ system.other_khojs }}. Their children's home names are in
 the <children> tag.
 
 Pick exactly one intent:
@@ -72,8 +73,14 @@ Also say what the words are written in:
 
 - child_name: only for the child_name intent, the home name they give, exactly as written
   ("Prisa"); else null.
+- report_about: only for a report, the title (exactly as given above) of the khoj the report
+  describes: the open one, or one of the others when the report is clearly about it ("frog ki
+  tarah kooda" is about an animal-walk khoj). When other khojs are listed and the words don't
+  name anything from one khoj in particular ("it went well", "bahut maza aaya", "ho gaya"),
+  null: Marg will ask. With no other khojs listed, the open one. Else null.
 
-Fill: intent, one of the names above; language; braj; asked_language; child_name.
+Fill: intent, one of the names above; language; braj; asked_language; child_name;
+report_about.
 === USER ===
 {{ user.children }}
 {{ user.marg_said }}

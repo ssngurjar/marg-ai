@@ -2,6 +2,7 @@
 (s10b §4.4 to §4.9, §4.10 supervision line)."""
 
 from datetime import time, timedelta
+from uuid import UUID
 
 import pytest
 
@@ -24,6 +25,7 @@ from app.constants.journey_copy import (
     REFLECTION_FALLBACK,
     SUPERVISION_LINE,
     WHICH_CHILD,
+    WHICH_KHOJ,
 )
 from app.constants.onboarding_copy import CHILD_TALK_NO, CHILD_TALK_YES, COPY
 from app.core.errors import ProviderError, ProviderResponseInvalid, ProviderUnavailable
@@ -598,13 +600,14 @@ async def test_a_real_report_after_ok_is_still_a_report(text: str) -> None:
 # --- intent reading (owner, 2026-10-29) ----------------------------------------------------------
 
 
-def reading(
+def reading(  # noqa: PLR0913  # one keyword per field of the reading a test sets
     intent: str,
     language: str = "hinglish",
     *,
     braj: bool = False,
     asked: str | None = None,
     name: str | None = None,
+    about: str | None = None,
 ) -> dict[str, object]:
     return {
         "intent": intent,
@@ -612,6 +615,7 @@ def reading(
         "braj": braj,
         "asked_language": asked,
         "child_name": name,
+        "report_about": about,
     }
 
 
@@ -621,7 +625,7 @@ async def test_a_report_read_as_a_report_gets_the_reflection() -> None:
         text="usne patte gine", button=None, open_activity=offer(FIRST, MUNNI), layer=layer
     )
     assert result.reply.body.startswith(REFLECTION_PRAISE)
-    assert result.prompt_versions["parent_intent"] == "1.7.0"
+    assert result.prompt_versions["parent_intent"] == "1.8.0"
     [prompt] = llm.by_prompt["parent_intent"].prompts
     assert "usne patte gine" in prompt.user
 
@@ -1071,3 +1075,112 @@ async def test_with_no_young_child_on_the_list_the_writer_is_sent_to_their_paren
     assert result.reply.body == WHO_IS_WRITING_NO_CHILD[H]
     assert result.reply.buttons == []
     assert llm.by_prompt["parent_answer"].prompts == []
+
+
+# --- which khoj a report is about (owner, 2026-11-01) --------------------------------------------
+
+SKIPPED_EARLIER = next(
+    activity for activity in shipped_catalogue().enabled if activity.id != FIRST.id
+)
+
+
+def histories(
+    *, skipped_hours_ago: float = 1, skipped_status: ActivityStatus = ActivityStatus.SKIPPED
+) -> tuple[OfferRecord, OfferRecord]:
+    open_one = offer(FIRST, MUNNI, hours_ago=0.5, number=60)
+    earlier = offer(
+        SKIPPED_EARLIER, MUNNI, hours_ago=skipped_hours_ago, status=skipped_status, number=61
+    )
+    return open_one, earlier
+
+
+async def report(
+    message: ParentMessage, layer: JourneyLayer, *, earlier_exchange: Exchange | None = None
+) -> LayerResult:
+    open_one, earlier = histories()
+    ctx = turn_context(
+        text_message(message.text),
+        learners=[MUNNI],
+        open_activity=open_one,
+        activity_history=[open_one, earlier],
+    )
+    if earlier_exchange is not None:
+        ctx = ctx.model_copy(update={"recent_exchanges": [earlier_exchange]})
+    return await layer.handle(ctx, message, NOW, H)
+
+
+async def test_a_photo_alone_with_another_khoj_waiting_asks_which_one() -> None:
+    # Owner's demo: an animal-walk photo was taken as the clothes-sorting report
+    layer, llm = layer_with()
+    result = await report(ParentMessage("", [], STONES), layer)
+    assert result.reply.body == WHICH_KHOJ[H]
+    assert [button.id for button in result.reply.buttons] == [
+        f"jrn:about:{UUID(int=60)}",
+        f"jrn:about:{UUID(int=61)}",
+    ]
+    assert result.writes == []
+    assert llm.by_prompt["parent_reflection"].prompts == []
+
+
+async def test_a_photo_alone_with_only_the_open_khoj_is_its_report() -> None:
+    layer, _ = layer_with()
+    open_one = offer(FIRST, MUNNI, hours_ago=0.5, number=60)
+    ctx = turn_context(
+        text_message(""), learners=[MUNNI], open_activity=open_one, activity_history=[open_one]
+    )
+    result = await layer.handle(ctx, ParentMessage("", [], STONES), NOW, H)
+    assert result.reply.body.startswith(REFLECTION_PRAISE)
+
+
+@pytest.mark.parametrize("hours_ago", [49.0])
+async def test_a_khoj_older_than_48_hours_isnt_asked_about(hours_ago: float) -> None:
+    layer, _ = layer_with()
+    open_one, earlier = histories(skipped_hours_ago=hours_ago)
+    ctx = turn_context(
+        text_message(""),
+        learners=[MUNNI],
+        open_activity=open_one,
+        activity_history=[open_one, earlier],
+    )
+    result = await layer.handle(ctx, ParentMessage("", [], STONES), NOW, H)
+    assert result.reply.body.startswith(REFLECTION_PRAISE)
+
+
+async def test_tapping_the_earlier_khoj_reports_on_it_and_leaves_the_open_one() -> None:
+    layer, llm = layer_with(reflect={**REFLECTION})
+    result = await report(ParentMessage("", [f"jrn:about:{UUID(int=61)}"]), layer)
+    [written] = [write for write in result.writes if isinstance(write, ActivityReported)]
+    assert written.learner_activity_id == UUID(int=61)
+    assert written.status is ActivityStatus.DONE
+    [prompt] = llm.by_prompt["parent_reflection"].prompts
+    assert SKIPPED_EARLIER.title in prompt.system
+
+
+async def test_words_sent_before_the_question_come_with_the_tapped_khoj() -> None:
+    layer, llm = layer_with()
+    asked = Exchange(
+        user_text="he jumped like a frog", reply_text=WHICH_KHOJ[H], route=Route.JOURNEY, at=NOW
+    )
+    await report(ParentMessage("", [f"jrn:about:{UUID(int=61)}"]), layer, earlier_exchange=asked)
+    [prompt] = llm.by_prompt["parent_reflection"].prompts
+    assert "he jumped like a frog" in prompt.user
+
+
+async def test_a_report_in_words_about_the_earlier_khoj_goes_to_it() -> None:
+    layer, _ = layer_with(intent=reading("report", "english", about=SKIPPED_EARLIER.title))
+    result = await report(ParentMessage("he jumped like a frog", []), layer)
+    [written] = [write for write in result.writes if isinstance(write, ActivityReported)]
+    assert written.learner_activity_id == UUID(int=61)
+
+
+async def test_a_report_in_words_that_cant_be_placed_asks_which_khoj() -> None:
+    layer, llm = layer_with(intent=reading("report", "english", about=None))
+    result = await report(ParentMessage("it went well", []), layer)
+    assert result.reply.body == WHICH_KHOJ[H]
+    assert llm.by_prompt["parent_reflection"].prompts == []
+
+
+async def test_an_unknown_khoj_button_offers_todays_khoj() -> None:
+    layer, _ = layer_with()
+    result = await report(ParentMessage("", [f"jrn:about:{UUID(int=999)}"]), layer)
+    assert offered(result).learner_id == MUNNI.id
