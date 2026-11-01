@@ -41,6 +41,7 @@ from app.domain.enums import Channel, Language
 from app.domain.models.eval_judgement import JudgeScore
 from app.domain.models.voice import VoiceLimits
 from app.domain.rules.child_session_rules import ChildSessionLimits
+from app.layers.about_marg_layer import ABOUT_MARG, AboutMargLayer
 from app.layers.activity_catalogue import ActivityCatalogue, CatalogueActivitySource
 from app.layers.child_talk_layer import CHILD_REDIRECT, CHILD_TALK, ChildTalkLayer
 from app.layers.curiosity_moment_layer import CURIOSITY_MOMENT
@@ -163,6 +164,7 @@ EVAL_JUDGE: Final = PromptSpec(prompt_id="eval_judge", output_type=JudgeScore)
 """Rendered only by `marg eval` (app/evals), over synthetic golden cases (s15 §4.4)."""
 PROMPT_SPECS: Final = (
     PARENT_ANSWER,
+    ABOUT_MARG,
     MINOR_POLICY,
     REPLY_POLICY,
     IMAGE_POLICY,
@@ -605,6 +607,7 @@ def student_steps(
             if settings.intent_reading_enabled
             else None
         ),
+        about_marg=AboutMargLayer(language_model, registry),
     )
 
 

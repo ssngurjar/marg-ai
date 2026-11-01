@@ -168,6 +168,16 @@ given or changed later ("bacche ka naam Prisa hai"): it's saved and confirmed; a
 At the time the parent chose, an approved WhatsApp template with a button that opens today's khoj.
 Off until Meta approves the template; the parent's chosen time is kept for then.
 
+### Questions about Marg itself
+"How do you keep my child safe?", "who sees my data?", "do you sell it?", "I can't read, how do
+I use this?", "is this free?", "are you a real person?": parents, students and teachers alike get
+an answer drawn only from a reviewed list of facts about Marg (`app/constants/marg_facts.py`),
+each one checked against the code. Anything the list doesn't cover gets an honest "I don't know",
+never a guess. The list says, among other things, that every message is checked both ways, what
+is kept and for how long, that Marg never sells or shares information for ads (the small team may
+read a chat only to fix a problem), that voice notes work for anyone who can't type while replies
+are written for now, and that Marg is free to use.
+
 ### Questions Marg doesn't answer
 Anything that isn't about their child or Marg (the weather, a poem, a ration card, a pension)
 gets a kind, short "Marg can't help with that", with no activity tacked on. For a government
@@ -301,7 +311,7 @@ chapter** (start over).
   API, safety and ffmpeg are checked too.
 - **Admin dashboard** (15-minute signed link from the CLI): young learners' curiosity over time
   and students' aims, anonymous.
-- **`marg eval`**: 90 hand-written cases through the real pipeline, scored by code and by a judge
+- **`marg eval`**: 94 hand-written cases through the real pipeline, scored by code and by a judge
   model; crisis and adversarial cases are hard gates.
 - **Understanding banks**, run live in one command each: 156 parent messages
   (`scripts.intent_bank`), 72 onboarding answers (`scripts.onboarding_bank`) and 37 student

@@ -347,6 +347,8 @@ class ParentIntent(StrEnum):
     PROGRESS = "progress"  # asks how their child is doing, or what they've done so far
     # wants Marg to stop altogether, without saying messages or data (critic review D1)
     STOP_ALL = "stop_all"
+    # asks about Marg itself: safety, privacy, trust, using it without reading (2026-11-01)
+    ABOUT_MARG = "about_marg"
 
 
 class StudentIntent(StrEnum):
@@ -355,6 +357,7 @@ class StudentIntent(StrEnum):
 
     PLAN = "plan"  # wants a step-by-step plan toward a goal made, shown or redone
     QUESTION = "question"  # anything else: a fact, a choice, a worry, what a job is
+    ABOUT_MARG = "about_marg"  # about Marg itself: safety, privacy, trust (2026-11-01)
 
 
 class TeacherIntent(StrEnum):
@@ -365,6 +368,7 @@ class TeacherIntent(StrEnum):
     # critic review D2, 2026-11-01: fixed replies, never a lesson plan or a bridge
     CONCERN = "concern"  # worried about a child's safety or welfare: hurt, beaten, unfed, missing
     OUT_OF_SCOPE = "out_of_scope"  # not about teaching: a transfer, salary, leave, a complaint
+    ABOUT_MARG = "about_marg"  # about Marg itself: safety, privacy, trust (2026-11-01)
 
 
 class CorpusTopic(StrEnum):

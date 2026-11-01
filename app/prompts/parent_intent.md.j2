@@ -1,6 +1,6 @@
 +++
 id = "parent_intent"
-version = "1.12.0"
+version = "1.13.0"
 model_setting = "MODEL_TEXT"
 max_output_tokens = 1200
 output_model = "IntentReading"
@@ -41,7 +41,8 @@ Pick exactly one intent:
 - add_child: says they have one more child to add ("meri ek aur beti hai", "add my son too").
   Only for another child: talking about a child ("मेरो छोरा स्कूल नाय गयो", "my son won't eat")
   is a question.
-- daily_time: wants to change when the daily khoj comes ("roz 6 baje bhejo", "change the time").
+- daily_time: wants to change, or asks, when the daily khoj comes ("roz 6 baje bhejo", "change
+  the time", "kitne baje aati hai roz ki khoj").
 - daily_off: wants no more daily messages ("roz ka message band karo", "stop daily messages").
 - someone_else: the words come from a child or a student writing about themselves, not from the
   parent ("I'm in class 10, what should I study", "main 8 saal ka hoon", "mujhe homework mein
@@ -60,9 +61,15 @@ Pick exactly one intent:
 - delete_data: wants Marg to delete everything it keeps about them or their child ("mera sab
   data mita do, ab nahi chahiye", "remove all our information please"). Something deleted on
   their own phone, or asking whether data is kept safe, is not this.
+- about_marg: they ask about Marg itself: how it keeps them safe, what it keeps or who sees it,
+  whether to trust it, how to use it without reading or typing, which AI it is, or whether it
+  will ask for an OTP or money ("how do you keep my child safe?", "mera data kaun dekhta hai",
+  "kya ye fraud hai", "main padh nahi sakti, kaise use karun", "what model are you?"). Asking whether
+  or how their child can talk to Marg is child_talk; deleting their data is delete_data.
 - stop_all: wants Marg to stop altogether but doesn't say whether that means the daily
   messages or deleting their data ("sab band karo, mujhe ye nahi chahiye", "stop everything",
-  "ye sab band kar do", "I don't want this anymore"). Marg will ask which. Asking Marg not to
+  "ye sab band kar do", "I don't want this anymore"). Marg will ask which. If they also ask to delete or wipe their data ("sab band karo aur
+  mera data bhi mita do"), it is delete_data. Asking Marg not to
   send messages ("ab kuch mat bhejo", "roz ka message band") is daily_off; asking to delete or
   remove their data is delete_data.
 

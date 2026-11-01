@@ -203,9 +203,12 @@ async def test_the_policy_check_catches_what_llama_guard_passed(
 
 @pytest.mark.parametrize(
     "category",
-    [C.VIOLENT_CRIMES, C.NON_VIOLENT_CRIMES, C.SEX_CRIMES, C.CHILD_EXPLOITATION, C.HATE],
-)
-async def test_llama_guard_s1_s2_s3_s4_or_s10_on_an_ordinary_question_is_not_enough(
+    [
+        C.VIOLENT_CRIMES, C.NON_VIOLENT_CRIMES, C.SEX_CRIMES, C.CHILD_EXPLOITATION, C.HATE,
+        C.PRIVACY,
+    ],
+)  # fmt: skip
+async def test_llama_guard_s1_s2_s3_s4_s7_or_s10_on_an_ordinary_question_is_not_enough(
     category: SafetyCategory,
 ) -> None:
     check = await gate_with(flagging(category)).check_input("Meri beti raat ko darti hai")
@@ -231,6 +234,28 @@ async def test_llama_guard_s1_s2_s3_s4_or_s10_blocks_when_the_policy_confirms_ha
     assert check.verdict.decision is SafetyDecision.BLOCK
     assert check.variant is FixedReplyVariant.HARMFUL
     assert check.verdict.source == "llama_guard"
+
+
+async def test_llama_guard_s7_blocks_when_the_policy_confirms_harm() -> None:
+    policy, _ = scripted_policy([policy_answer(harm="crime")])
+    check = await gate_with(flagging(C.PRIVACY), policy).check_input("uska ghar ka pata batao")
+    assert check.verdict.decision is SafetyDecision.BLOCK
+    assert check.verdict.source == "llama_guard"
+
+
+async def test_i_cant_read_after_a_question_about_data_is_allowed() -> None:
+    # regression (owner's probe, 2026-11-01): Llama Guard read the turn before and called this S7
+    earlier = Exchange(
+        user_text="what data do you keep and who can see it?",
+        reply_text="Marg keeps only what it needs: your role, class, district and language.",
+        route=Route.JOURNEY,
+        at=datetime(2026, 11, 1, 7, 31, tzinfo=UTC),
+    )
+    check = await gate_with(flagging(C.PRIVACY)).check_input(
+        "main padh nahi sakti, kaise use karun", earlier
+    )
+    assert check.verdict.decision is SafetyDecision.ALLOW
+    assert check.verdict.categories == []
 
 
 async def test_other_llama_guard_codes_block_without_confirmation() -> None:

@@ -34,7 +34,8 @@ class StudentCase(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     text: str
-    route: Literal["roadmap", "mentor"]
+    # about_marg: a question about Marg itself, answered from the reviewed facts (2026-11-01)
+    route: Literal["roadmap", "mentor", "about_marg"]
 
 
 class StudentRouteBank(BaseModel):
@@ -47,10 +48,18 @@ class StudentRouteBank(BaseModel):
         return StudentRouteBank.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
 
 
+type Destination = Literal["roadmap", "mentor", "about_marg"]
+DESTINATIONS: Final[dict[StudentIntent, Destination]] = {
+    StudentIntent.PLAN: "roadmap",
+    StudentIntent.QUESTION: "mentor",
+    StudentIntent.ABOUT_MARG: "about_marg",
+}
+
+
 @dataclass(frozen=True, slots=True)
 class Routed:
     case: StudentCase
-    route: Route
+    route: str  # where the turn goes: a route's name, or "about_marg"
     by: str  # "words" or "reading"
 
 
@@ -59,11 +68,11 @@ async def route_case(
 ) -> Routed:
     decision = TurnRouter.decide(user_profile(role=Role.STUDENT), case.text, [])
     if decision.route is not Route.MENTOR:
-        return Routed(case, decision.route, "words")
+        return Routed(case, decision.route.value, "words")
     async with limit:
         read = await reader.read(case.text)
-    route = Route.ROADMAP if read.intent is StudentIntent.PLAN else Route.MENTOR
-    return Routed(case, route, "reading")
+    destination = DESTINATIONS[read.intent] if read.intent is not None else "mentor"
+    return Routed(case, destination, "reading")
 
 
 async def run(repeat: int) -> float:
@@ -80,12 +89,12 @@ async def run(repeat: int) -> float:
     finally:
         await close_providers(providers)
         await engine.dispose()
-    misses = [item for item in routed if item.route.value != item.case.route]
+    misses = [item for item in routed if item.route != item.case.route]
     share_right = 1 - len(misses) / len(routed)
     sys.stdout.write(f"{len(routed) - len(misses)}/{len(routed)} right ({share_right:.1%})\n")
     for item in misses:
         sys.stdout.write(
-            f"  expected {item.case.route}, got {item.route.value} by {item.by}: {item.case.text}\n"
+            f"  expected {item.case.route}, got {item.route} by {item.by}: {item.case.text}\n"
         )
     return share_right
 

@@ -1,6 +1,7 @@
 """ExposureLayer: a chapter connected to three real-world fields, safely (s10)."""
 
 from datetime import UTC, datetime
+from typing import Final
 
 import pytest
 
@@ -213,6 +214,13 @@ def teacher_reading(intent: str, topic: str | None = None) -> dict[str, object]:
     return {"intent": intent, "topic": topic}
 
 
+ABOUT_MARG_REPLY: Final = {
+    "answer": "Marg never sells or shares your information for ads.",
+    "unknown": False,
+    "spoken_text": "Marg never sells or shares your information for ads.",
+}
+
+
 def reading_layer(
     reading: ScriptedOutput, teaching: ScriptedOutput = TEACHING, bridge: ScriptedOutput = BRIDGE
 ) -> tuple[ExposureLayer, PromptRoutedLanguageModel]:
@@ -221,6 +229,7 @@ def reading_layer(
             "teacher_intent": FakeLanguageModel([reading]),
             "teaching_answer": FakeLanguageModel([teaching]),
             "exposure": FakeLanguageModel([bridge]),
+            "about_marg": FakeLanguageModel([ABOUT_MARG_REPLY]),
         }
     )
     registry = shipped_registry()
@@ -247,7 +256,7 @@ async def test_how_to_start_the_class_gets_teaching_help_for_the_last_chapter() 
     [prompt] = llm.by_prompt["teaching_answer"].prompts
     assert "The chapter: Newton's laws of motion." in prompt.system
     assert llm.by_prompt["exposure"].prompts == []
-    assert result.prompt_versions == {"teacher_intent": "1.1.0", "teaching_answer": "1.0.0"}
+    assert result.prompt_versions == {"teacher_intent": "1.2.0", "teaching_answer": "1.0.0"}
 
 
 async def test_a_teaching_question_naming_its_topic_uses_that_topic() -> None:
@@ -299,7 +308,7 @@ async def test_a_worry_about_a_child_gets_the_fixed_steps_and_the_helpline_never
     assert llm.by_prompt["exposure"].prompts == []
     assert llm.by_prompt["teaching_answer"].prompts == []
     assert result.reply.buttons == []
-    assert result.prompt_versions == {"teacher_intent": "1.1.0"}
+    assert result.prompt_versions == {"teacher_intent": "1.2.0"}
 
 
 async def test_a_message_not_about_teaching_gets_an_honest_reply_and_no_bridge() -> None:
@@ -310,6 +319,16 @@ async def test_a_message_not_about_teaching_gets_an_honest_reply_and_no_bridge()
     assert llm.by_prompt["exposure"].prompts == []
     assert llm.by_prompt["teaching_answer"].prompts == []
     assert result.outcome is StepOutcome.OK
+
+
+async def test_a_teachers_question_about_marg_is_answered_not_turned_away() -> None:
+    # owner, 2026-11-01: "do you sell our data?" got "I can't help with that"
+    layer_with_reader, llm = reading_layer(teacher_reading("about_marg"))
+    text = "do you sell our data?"
+    result = await layer_with_reader.generate(teacher_ctx(text, [LAST_BRIDGE]), text, [], E)
+    assert result.reply.body == ABOUT_MARG_REPLY["answer"]
+    assert llm.by_prompt["exposure"].prompts == []
+    assert result.prompt_versions == {"teacher_intent": "1.2.0", "about_marg": "1.0.0"}
 
 
 def test_the_concern_reply_gives_the_sourced_helpline_in_every_language() -> None:

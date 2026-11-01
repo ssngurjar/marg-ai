@@ -79,6 +79,7 @@ line of the module's docstring.
 | `journey_words.py` | — | Words a personalised khoj or reflection may not use (s10b §4.7, §4.8): careers and exams for a |
 | `khoj_card_style.py` | — | What a khoj card looks like (s10b §4.13, C6): the fixed style and a scene per activity. |
 | `lgd_districts.py` | — | Every district of India, as the Local Government Directory (LGD) lists them. |
+| `marg_facts.py` | `MargFact` | What Marg may say about itself: safety, privacy, reading and voice, and control (owner, |
 | `model_prices.py` | `ModelPrice` | Model prices per million tokens, for cost accounting (s05 §4.1, s07 §4.3). |
 | `onboarding_copy.py` | `CopyEntry` | Onboarding copy: fixed, reviewed text in Hinglish, Hindi and English (s08 §4.8). |
 | `photo_check.py` | — | What SAM 3.1 looks for before a photo is used (s10b §4.14). |
@@ -193,6 +194,7 @@ line of the module's docstring.
 
 | Module | Classes | What it does |
 |---|---|---|
+| `about_marg_layer.py` | `AboutMargAnswer`, `AboutMargLayer` | AboutMargLayer: a question about Marg itself (how it keeps people safe, what it keeps, who |
 | `activity_catalogue.py` | `ActivityCatalogue`, `CatalogueActivitySource` | ActivityCatalogue: the reviewed khoj catalogue, loaded and checked at startup (s10b §4.3). |
 | `child_talk_layer.py` | `ChildReply`, `ChildTalkLayer` | ChildTalkLayer: a child talks to Marg.ai directly, with the parent's consent (s10b §4.16, C13). |
 | `curiosity_moment_layer.py` | `CuriosityMoment`, `NotAChildQuestion`, `CuriosityMomentLayer` | CuriosityMomentLayer: the child's own question, answered through the parent (s10b §4.15, C11). |

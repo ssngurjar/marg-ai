@@ -532,3 +532,8 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
   `DISTRICT_WHICH_IN_STATE`, `DISTRICT_NOT_FOUND` in `app/constants/onboarding_copy.py`, and
   `DASHBOARD_DISTRICT_UNVERIFIED` in `app/constants/teacher_copy.py`), and try "Karoli",
   "बाड़मेर", "Delhi" and "Gurgaon" twice as a student (critic review D4).
+- [ ] **Read the facts Marg may say about itself** (`MARG_FACTS` in `app/constants/marg_facts.py`):
+  every line is what Marg will tell a parent, student or teacher about safety, privacy, voice,
+  consent and cost. Each names the code that makes it true; the data and price lines are your
+  decisions. Try "who sees my data?" and "is this free?" in each role.
+

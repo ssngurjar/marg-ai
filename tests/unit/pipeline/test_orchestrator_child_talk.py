@@ -159,7 +159,7 @@ async def test_a_curious_question_about_weapons_gets_a_redirect_not_a_flat_refus
     ("category", "fixed"),
     [
         (SafetyCategory.SEXUAL_CONTENT, CHILD_REFUSE_OTHER),
-        (SafetyCategory.PRIVACY, CHILD_REFUSE_OTHER),
+        (SafetyCategory.CODE_INTERPRETER_ABUSE, CHILD_REFUSE_OTHER),
     ],
 )
 async def test_other_blocked_messages_keep_the_fixed_child_refusal(

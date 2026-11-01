@@ -108,6 +108,7 @@ from app.domain.rules.onboarding_answer_parser import OnboardingAnswerParser
 from app.domain.rules.phrase_finder import PhraseFinder
 from app.domain.rules.register_detector import RegisterDetector
 from app.domain.rules.stage_rules import StageRules
+from app.layers.about_marg_layer import AboutMargLayer
 from app.layers.activity_catalogue import CatalogueActivitySource
 from app.layers.curiosity_moment_layer import CuriosityMomentLayer, NotAChildQuestion
 from app.layers.hazard_word_checks import HazardWordChecks
@@ -201,6 +202,7 @@ class JourneyLayer:
         self._parent_questions = parent_questions
         self._curiosity = CuriosityMomentLayer(llm, registry, source.materials)
         self._intents = IntentReader(llm, registry)
+        self._about_marg = AboutMargLayer(llm, registry)
         self._settings = settings
 
     async def handle(
@@ -309,16 +311,19 @@ class JourneyLayer:
                 return self._small_talk_reply(ctx, register, user_text)
             case ParentIntent.NEW_KHOJ | ParentIntent.ANOTHER_KHOJ | ParentIntent.SAME_KHOJ_AGAIN:
                 return await self._khoj_asked(intent, turn)
-            case ParentIntent.DAILY_TIME:
-                return _fixed(NUDGE_ASK[register], register, NUDGE_BUTTONS[register])
-            case ParentIntent.DAILY_OFF:
-                return self._daily_off(register, khoj_open=open_activity is not None)
+            case ParentIntent.DAILY_TIME | ParentIntent.DAILY_OFF:
+                return JourneyLayer._daily_message(
+                    intent, register, khoj_open=open_activity is not None
+                )
             case ParentIntent.SOMEONE_ELSE:
                 return JourneyLayer._who_is_writing(ctx, now, register)
             case ParentIntent.PROGRESS:
                 return self._progress(ctx, now, register)
             case ParentIntent.DELETE_DATA | ParentIntent.STOP_ALL:
                 return JourneyLayer._stop_or_delete(intent, register)
+            case ParentIntent.ABOUT_MARG:
+                # safety, privacy, trust: only from the reviewed facts (2026-11-01)
+                return await self._about_marg.answer(ctx, user_text, register)
             case ParentIntent.ADD_CHILD | ParentIntent.CHILD_TALK | ParentIntent.CHILD_NAME:
                 about_a_child = self._about_a_child(intent, turn)
                 if about_a_child is not None:
@@ -716,6 +721,13 @@ class JourneyLayer:
         if button is None and PhraseFinder.contains_any(user_text, self.NUDGE_CHANGE_PHRASES):
             return _fixed(NUDGE_ASK[register], register, NUDGE_BUTTONS[register])
         return None
+
+    @staticmethod
+    def _daily_message(intent: ParentIntent, register: Language, *, khoj_open: bool) -> LayerResult:
+        """When the daily message comes: the time choice offered again, or turned off."""
+        if intent is ParentIntent.DAILY_OFF:
+            return JourneyLayer._daily_off(register, khoj_open=khoj_open)
+        return _fixed(NUDGE_ASK[register], register, NUDGE_BUTTONS[register])
 
     @staticmethod
     def _stop_or_delete(intent: ParentIntent, register: Language) -> LayerResult:

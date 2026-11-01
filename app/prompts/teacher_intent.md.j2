@@ -1,6 +1,6 @@
 +++
 id = "teacher_intent"
-version = "1.1.0"
+version = "1.2.0"
 model_setting = "MODEL_TEXT"
 max_output_tokens = 400
 output_model = "TeacherIntentReading"
@@ -26,6 +26,10 @@ Pick exactly one intent:
 - out_of_scope: it isn't about teaching or a subject: their transfer, salary, leave, an
   inspection, a complaint about the school, or something for themselves ("mera transfer kaise
   hoga", "DA kab badhega", "leave application likh do").
+- about_marg: they ask about Marg itself: how it keeps them safe, what it keeps or who sees it,
+  whether to trust it, how to use it without reading or typing, which AI it is, or whether it
+  will ask for an OTP or money ("how do you keep my students safe?", "mera data kaun dekhta hai",
+  "kya ye fraud hai", "main padh nahi sakti, kaise use karun", "what model are you?").
 
 Also fill topic: the chapter or topic the message names, as written ("Newton's laws of motion");
 null when it names none (then Marg uses the last one).

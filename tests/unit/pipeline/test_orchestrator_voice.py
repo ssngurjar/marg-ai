@@ -134,7 +134,7 @@ async def test_what_was_said_goes_through_safety_in_like_typed_text() -> None:
     result = await run(
         speaking(),
         voice=hearing(injection),
-        classifier=flagging(user=[SafetyCategory.PRIVACY]),
+        classifier=flagging(user=[SafetyCategory.CODE_INTERPRETER_ABUSE]),
     )
     assert result.classifier.requests[0].text == injection
     assert result.outcome.route is Route.REFUSE

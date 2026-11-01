@@ -11,7 +11,9 @@ The user's message gets three checks (s07 §4.5, pulled into S5 after spike B):
 2. Llama Guard and the Muse Spark policy check, concurrently. Llama Guard's S1, S2 and S4 on a
    user's message count only when the policy check confirms the message asks for harm (spike B:
    it flagged ordinary parent questions with them); S10 too since 2026-10-29 (it called a
-   parent's "Munni ko yaad nahi" hate speech). Its S11 always counts: recall first. When
+   parent's "Munni ko yaad nahi" hate speech), and S7 since 2026-11-01 (it called "I can't read,
+   how do I use it?" a privacy breach after a question about Marg's data). Its S11 always
+   counts: recall first. When
    the policy check is switched off, Llama Guard's codes stand as they are;
 3. the most severe decision over everything flagged.
 Our reply is checked by Llama Guard; a flag gets a second opinion from the Muse Spark reply
@@ -144,6 +146,9 @@ class SafetyGate:
             SafetyCategory.CHILD_EXPLOITATION,
             # owner, 2026-10-29: "kal wali khoj phir se bhejo, Munni ko yaad nahi" was S10 3/3
             SafetyCategory.HATE,
+            # owner, 2026-11-01: "main padh nahi sakti, kaise use karun" after a question about
+            # Marg's data was S7 every time, from the turn before
+            SafetyCategory.PRIVACY,
         }
     )
     """Llama Guard codes that count on a user's message only if the policy check confirms harm."""

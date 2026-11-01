@@ -103,6 +103,7 @@ from app.domain.rules.filler_detector import FillerDetector
 from app.domain.rules.indic_script_normaliser import IndicScriptNormaliser
 from app.domain.rules.register_chooser import RegisterChooser
 from app.domain.rules.stage_rules import StageRules
+from app.layers.about_marg_layer import AboutMargLayer
 from app.layers.child_talk_layer import ChildTalkLayer
 from app.layers.exposure_layer import ExposureLayer
 from app.layers.journey_layer import JourneyLayer, ParentMessage
@@ -195,6 +196,8 @@ class StudentSteps:
     # Reads a student's free text the plan words didn't catch (owner, 2026-11-01); None: the
     # router's choice stands (INTENT_READING_ENABLED off).
     intents: StudentIntentReader | None = None
+    # A question about Marg itself, answered from the reviewed facts (2026-11-01)
+    about_marg: AboutMargLayer | None = None
 
     def serves(self, route: Route) -> bool:
         if route is Route.EXPOSURE:
@@ -296,6 +299,7 @@ class _Turn:
         self.speaker = Speaker.GUIDE
         self.heard_blobs: list[UUID] = []  # web voice notes and photos read: deleted with it
         self.photos: list[InboundMessage] = []  # photos sent this turn (when photos are on)
+        self.asks_about_marg = False  # a student's question read as about Marg itself
         self.sealed: _Sealed | None = None
 
     async def run(self) -> TurnOutcome:
@@ -365,6 +369,9 @@ class _Turn:
                 update={"route": Route.ROADMAP, "reason": "plan asked for (read)"}
             )
             return plan, read.usage
+        if read.intent is StudentIntent.ABOUT_MARG:
+            self.asks_about_marg = True
+            return decision.model_copy(update={"reason": "about Marg (read)"}), read.usage
         if read.failed is not None:
             logger.warning("student_intent_failed", error=read.failed)
             return decision.model_copy(update={"reason": f"student default; {read.failed}"}), None
@@ -724,6 +731,8 @@ class _Turn:
                 self.ctx, self.user_text, interactive_ids, self.register
             )
             return await self._bounded(bridge, self.settings.exposure_timeout)
+        elif self.asks_about_marg and student.about_marg is not None:
+            work = student.about_marg.answer(self.ctx, self.user_text, self.register)
         else:
             work = student.mentor.answer(self.ctx, self.user_text, self.register)
         # retrieval, then a cited answer or a plan: more time than a parent's reply (owner)

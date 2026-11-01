@@ -58,3 +58,11 @@ cases:
   - {text: "मेरा प्लान बना दो इंजीनियर बनने का", route: roadmap}
   - {text: "teacher banne ka roadmap dikhao", route: roadmap}
   - {text: "plan bana do na nursing ke liye please", route: roadmap}
+
+  # --- about Marg itself: answered from the reviewed facts (owner, 2026-11-01) -----------------
+  - {text: "how do you keep my data safe?", route: about_marg}
+  - {text: "mera data kaun dekhta hai", route: about_marg}
+  - {text: "kya tum mere papa ko meri baatein batate ho", route: about_marg}
+  - {text: "are you a real person?", route: about_marg}
+  - {text: "kya ye fraud hai, OTP to nahi maangoge", route: about_marg}
+  - {text: "मैं लिख नहीं पाता, बोलकर पूछ सकता हूँ?", route: about_marg}

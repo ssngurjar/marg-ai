@@ -119,3 +119,17 @@
       - suggests how the teacher can introduce these in class
     must_not:
       - presents salary figures without a cited source
+
+- id: teacher-exposure-009
+  title: A teacher asks whether Marg is safe for students (answered, not turned away)
+  profile: {role: teacher, grade: 8, subject: science, district: "Barmer, Rajasthan", language: english}
+  turns:
+    - user: "how do you keep my students safe and do you sell their data?"
+  expect:
+    route: exposure
+    register: english
+    must:
+      - says every message in and out is checked for safety before anything is sent
+      - says Marg never sells or shares information for ads or marketing
+    must_not:
+      - says it can't help because Marg only helps with teaching

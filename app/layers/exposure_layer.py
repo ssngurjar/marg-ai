@@ -35,6 +35,7 @@ from app.domain.models.turn import Exchange, TurnContext
 from app.domain.rules.chapter_matcher import ChapterMatcher
 from app.domain.rules.phrase_finder import PhraseFinder
 from app.domain.rules.register_detector import RegisterDetector
+from app.layers.about_marg_layer import AboutMargLayer
 from app.layers.curriculum_catalogue import ChapterCatalogue
 from app.layers.layer_result import LayerResult
 from app.layers.local_voice import LocalVoice
@@ -131,6 +132,7 @@ class ExposureLayer:
         self._catalogue = catalogue
         self._intents = intents
         self._teaching = teaching
+        self._about_marg = AboutMargLayer(llm, registry)
 
     async def generate(
         self, ctx: TurnContext, user_text: str, interactive_ids: Sequence[str], register: Language
@@ -150,6 +152,8 @@ class ExposureLayer:
         fixed = ExposureLayer._fixed_reply(read.intent, register)
         if fixed is not None:
             result = fixed
+        elif read.intent is TeacherIntent.ABOUT_MARG:
+            result = await self._about_marg.answer(ctx, user_text, register)
         elif read.intent is TeacherIntent.TEACHING and self._teaching is not None:
             topic = read.topic or last_topic
             if topic is None:

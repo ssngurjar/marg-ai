@@ -47,3 +47,10 @@ cases:
   - {text: "please write my leave application for 3 days", intent: out_of_scope}
   - {text: "BEO sahab ka inspection hai kal, kya karun", intent: out_of_scope}
   - {text: "मेरी सैलरी तीन महीने से नहीं आई", intent: out_of_scope}
+
+  # --- about Marg itself: answered from the reviewed facts (owner, 2026-11-01) -----------------
+  - {text: "how do you keep my students' data safe?", intent: about_marg}
+  - {text: "kya ye app bachchon ke liye surakshit hai", intent: about_marg}
+  - {text: "do you sell our data?", intent: about_marg}
+  - {text: "what AI model is this?", intent: about_marg}
+  - {text: "kya aap mujhse OTP maangoge", intent: about_marg}

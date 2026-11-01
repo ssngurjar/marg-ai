@@ -2,6 +2,7 @@
 (s10b §4.4 to §4.9, §4.10 supervision line)."""
 
 from datetime import time, timedelta
+from typing import Final
 from uuid import UUID
 
 import pytest
@@ -84,6 +85,13 @@ MUNNI = child()
 FIRST = first_choice()
 
 
+ABOUT_MARG_REPLY: Final = {
+    "answer": "Marg har sandesh ko bhejne se pehle suraksha ke liye jaanchta hai.",
+    "unknown": False,
+    "spoken_text": "मार्ग हर संदेश को भेजने से पहले सुरक्षा के लिए जाँचता है।",
+}
+
+
 def layer_with(
     personalise: ScriptedOutput | None = None,
     reflect: ScriptedOutput = REFLECTION,
@@ -100,6 +108,7 @@ def layer_with(
             "parent_answer": FakeLanguageModel([answer]),
             "curiosity_moment": FakeLanguageModel([curiosity]),
             "parent_intent": FakeLanguageModel([intent or reading("question")]),
+            "about_marg": FakeLanguageModel([ABOUT_MARG_REPLY]),
         }
     )
     registry = shipped_registry()
@@ -641,7 +650,7 @@ async def test_a_report_read_as_a_report_gets_the_reflection() -> None:
         text="usne patte gine", button=None, open_activity=offer(FIRST, MUNNI), layer=layer
     )
     assert result.reply.body.startswith(REFLECTION_PRAISE)
-    assert result.prompt_versions["parent_intent"] == "1.12.0"
+    assert result.prompt_versions["parent_intent"] == "1.13.0"
     [prompt] = llm.by_prompt["parent_intent"].prompts
     assert "usne patte gine" in prompt.user
 
@@ -957,6 +966,16 @@ async def test_stop_everything_asks_whether_to_stop_messages_or_delete_and_chang
 def test_the_stop_buttons_fit_whatsapp_in_every_language(register: Language) -> None:
     for button in (STOP_DAILY_BUTTON[register], DELETE_DATA_BUTTON[register]):
         assert len(button.title) <= 20  # WhatsApp's button title limit
+
+
+async def test_a_question_about_marg_is_answered_from_the_facts_not_the_parent_answer() -> None:
+    # owner, 2026-11-01: "what data do you keep?" once got invented claims
+    layer, llm = layer_with(intent=reading("about_marg", "hinglish"))
+    result = await khoj(text="mera data kaun dekhta hai", button=None, layer=layer)
+    assert result.reply.body == ABOUT_MARG_REPLY["answer"]
+    assert llm.by_prompt["parent_answer"].prompts == []
+    assert len(llm.by_prompt["about_marg"].prompts) == 1
+    assert result.step_note == "about_marg=true"
 
 
 async def test_if_the_reading_fails_a_request_to_add_a_child_still_gets_the_button() -> None:
