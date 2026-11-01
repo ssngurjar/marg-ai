@@ -75,4 +75,21 @@ class RegisterDetector:
             problems.append("spoken_text: expected Devanagari script")
         if not wants_devanagari_speech and spoken_share > RegisterDetector.DEVANAGARI_AT_MOST:
             problems.append("spoken_text: expected English in Roman script")
+        for field, text in (("text", written), ("spoken_text", spoken)):
+            mixed = RegisterDetector.mixed_script_words(text)
+            if mixed:
+                # owner's field test, 2026-11-01: a Hinglish khoj said "Kaटोरा" for "Farsh"
+                quoted = ", ".join(f'"{word}"' for word in mixed)
+                problems.append(f"{field}: a word mixes Roman and Devanagari letters: {quoted}")
         return problems
+
+    @staticmethod
+    def mixed_script_words(text: str) -> list[str]:
+        """Words written half in Roman and half in Devanagari letters ("Kaटोरा"): never right."""
+        mixed: list[str] = []
+        for word in text.split():
+            roman = any("a" <= letter.casefold() <= "z" for letter in word)
+            devanagari = any("\u0900" <= letter <= "\u097f" for letter in word)
+            if roman and devanagari:
+                mixed.append(word.strip(".,!?;:()\"'"))
+        return mixed

@@ -67,3 +67,38 @@ def test_detection_is_total_and_deterministic(text: str) -> None:
     assert RegisterDetector.detect(text) == RegisterDetector.detect(text)
     share = RegisterDetector.devanagari_share(text)
     assert share is None or 0.0 <= share <= 1.0
+
+
+# --- a word half Roman, half Devanagari (owner's field test, 2026-11-01: "Kaटोरा") ----------------
+
+
+def test_a_mixed_script_word_is_a_problem_for_the_repair_turn() -> None:
+    problems = RegisterDetector.script_problems(
+        "1. Kaटोरा par katora rakhiye, aur bachche ke saath dekhiye",
+        "फ़र्श पर कटोरा रखिए",
+        Language.HINGLISH,
+    )
+    assert 'text: a word mixes Roman and Devanagari letters: "Kaटोरा"' in problems
+
+
+@pytest.mark.parametrize("text", ["Munni ने 5 पत्ते गिने", "Farsh par katora", "फ़र्श पर", "🙂 ok"])
+def test_words_in_one_script_each_are_fine(text: str) -> None:
+    assert RegisterDetector.mixed_script_words(text) == []
+
+
+ROMAN_WORD = st.text(alphabet=st.characters(min_codepoint=0x61, max_codepoint=0x7A), min_size=1)
+DEVANAGARI_WORD = st.text(
+    alphabet=st.characters(min_codepoint=0x0915, max_codepoint=0x0939), min_size=1
+)
+
+
+@given(words=st.lists(st.one_of(ROMAN_WORD, DEVANAGARI_WORD), max_size=8))
+def test_a_sentence_of_single_script_words_never_has_a_mixed_word(words: list[str]) -> None:
+    assert RegisterDetector.mixed_script_words(" ".join(words)) == []
+
+
+@given(roman=ROMAN_WORD, devanagari=DEVANAGARI_WORD)
+def test_any_word_joining_both_scripts_is_found(roman: str, devanagari: str) -> None:
+    assert RegisterDetector.mixed_script_words(f"aaj {roman}{devanagari} hai") == [
+        roman + devanagari
+    ]
