@@ -503,3 +503,5 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
   the child's home name after onboarding, and when the name given is a full or long one.
 - [ ] **Read the new photo reply** (`PHOTO_HAS_PERSON` in `app/constants/fixed_replies.py`): it now
   names only a face, since hands are allowed.
+- [ ] **Read the "child added" line** (`CopyKey.CHILD_ADDED` in `app/constants/onboarding_copy.py`,
+  three languages): what Marg says when a second or third child is added (no khoj is sent).

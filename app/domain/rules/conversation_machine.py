@@ -306,7 +306,9 @@ def _child_answered(step: _Step, event: ChildAnswered) -> Transition:
             HandoffFirstKhoj(),
         ]
     else:
-        effects += [SendCopy(CopyKey.PROFILE_DONE_PARENT), HandoffFirstKhoj()]
+        # Another child: added and confirmed, with the child-talk question for them; no khoj
+        # and no daily-time question unasked for (owner's demo, 2026-11-01)
+        effects += [SendCopy(CopyKey.CHILD_ADDED), SendCopy(CopyKey.ASK_CHILD_TALK)]
     # A parent's pending question is dropped: the first khoj is the answer (s08 Q5).
     return step.moved(_S.ACTIVE, *effects, pending_question=None)
 

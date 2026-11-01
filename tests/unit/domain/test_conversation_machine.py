@@ -151,12 +151,14 @@ def test_a_parents_pending_question_is_dropped_for_the_first_khoj() -> None:
     assert not any(isinstance(effect, HandoffPendingQuestion) for effect in done.effects)
 
 
-def test_a_second_child_gets_its_own_khoj_without_asking_consent_again() -> None:
+def test_a_second_child_is_added_and_asked_about_child_talk_with_no_khoj() -> None:
+    # Owner's demo, 2026-11-01: "I just wanted to add my child", not a khoj and a time question
     profile = at(S.AWAITING_CHILD, role=Role.PARENT, **CONSENTED)
     done = step(profile, ChildAnswered(2022, None), learners=1)
+    assert done.profile.state is S.ACTIVE
     assert RecordConsent(ConsentEventKind.CHILD_PROFILE_CONSENT) not in done.effects
-    assert CopyKey.ASK_CHILD_TALK not in copies(done)
-    assert HandoffFirstKhoj() in done.effects
+    assert copies(done) == [CopyKey.CHILD_ADDED, CopyKey.ASK_CHILD_TALK]
+    assert HandoffFirstKhoj() not in done.effects
 
 
 @pytest.mark.parametrize(("birth_year", "age"), [(2016, 10), (2017, 9), (2024, 2), (2010, 16)])

@@ -438,6 +438,18 @@ async def test_a_question_about_marg_during_onboarding_is_kept_not_misunderstood
     assert result.reply.body.startswith(body(CopyKey.QUESTION_NOTED))
 
 
+async def test_a_second_child_is_confirmed_by_name_with_their_child_talk_buttons() -> None:
+    parent = at(S.AWAITING_CHILD, role=Role.PARENT)
+    result, _ = await handle(parent, text_message("Isha, 6 saal"), learners=[MUNNI])
+    [upsert] = [write for write in result.writes if isinstance(write, LearnerUpsert)]
+    assert result.handoff is None  # no khoj unasked for
+    assert result.reply.body.startswith(body(CopyKey.CHILD_ADDED).format(child="Isha"))
+    assert [button.id for button in result.reply.buttons] == [
+        f"onb:childtalk:yes:{upsert.learner_id}",
+        f"onb:childtalk:no:{upsert.learner_id}",
+    ]
+
+
 async def test_child_talk_consent_from_the_button_is_recorded_for_that_child() -> None:
     parent = at(S.ACTIVE, role=Role.PARENT)
     result, _ = await handle(

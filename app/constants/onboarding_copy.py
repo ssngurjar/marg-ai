@@ -20,7 +20,7 @@ from typing import Final
 from app.domain.enums import Channel, CopyKey, Language
 from app.domain.models.reply import ReplyButton
 
-COPY_VERSION: Final = "onb-2026-10-28.3"
+COPY_VERSION: Final = "onb-2026-11-01.1"
 
 _HINGLISH = Language.HINGLISH
 _HINDI = Language.HINDI
@@ -316,6 +316,12 @@ _TEXTS: Final[dict[CopyKey, dict[Language, str]]] = {
             "Thank you! Now a small discovery every day — 2 minutes with your child. Sending the "
             "first one now."
         ),
+    },
+    # Another child added (owner, 2026-11-01: "I just wanted to add my child", not a khoj)
+    CopyKey.CHILD_ADDED: {
+        _HINGLISH: "{child} jud gaye! Jab chahein, {child} ke liye aaj ki khoj maang lijiye.",
+        _HINDI: "{child} जुड़ गए! जब चाहें, {child} के लिए आज की खोज माँग लीजिए।",
+        _ENGLISH: "{child} is added! Ask for a khoj for {child} whenever you like.",
     },
     # A child outside 3-8 (owner, 2026-10-29: a mother of a 10-year-old was promised a khoj and
     # then told it was for 3-8 only, and offered child talk and daily times).

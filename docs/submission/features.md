@@ -146,7 +146,9 @@ no advice, a referral to the anganwadi worker, the ASHA didi or a doctor. Asked 
 ("what can you do?", "can my child talk to you?"), the answer sticks to what Marg really does.
 
 ### Children and their names
-Up to three children; with several, Marg asks which child today's khoj is for. A home name can be
+Up to three children. Another child is added with "Another child" (or in words): Marg confirms
+by name and asks whether they may talk to Marg too, without sending a khoj until asked. With
+several children, Marg asks which child today's khoj is for. A home name can be
 given or changed later ("bacche ka naam Prisa hai"): it's saved and confirmed; a full name isn't.
 
 ### Daily reminder *(off by default)*

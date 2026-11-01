@@ -276,6 +276,7 @@ class CopyKey(StrEnum):
     PROFILE_DONE = "profile_done"
     PROFILE_DONE_TEACHER = "profile_done_teacher"
     PROFILE_DONE_PARENT = "profile_done_parent"
+    CHILD_ADDED = "child_added"  # a second or third child: added, no khoj sent (2026-11-01)
     PROFILE_DONE_PARENT_OTHER_AGE = "profile_done_parent_other_age"
     ASK_CHILD_TALK = "ask_child_talk"
     CHILD_TALK_ENABLED = "child_talk_enabled"
