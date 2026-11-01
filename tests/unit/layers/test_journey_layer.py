@@ -8,6 +8,7 @@ import pytest
 from app.constants.braj_words import BRAJ_RULE
 from app.constants.child_talk_copy import WHO_IS_WRITING, WHO_IS_WRITING_NO_CHILD
 from app.constants.journey_copy import (
+    ACKNOWLEDGED,
     ADD_CHILD_PROMPT,
     AGE_COMING_SOON,
     DELETE_DATA_OFFER,
@@ -26,10 +27,11 @@ from app.constants.journey_copy import (
 )
 from app.constants.onboarding_copy import CHILD_TALK_NO, CHILD_TALK_YES, COPY
 from app.core.errors import ProviderError, ProviderResponseInvalid, ProviderUnavailable
-from app.domain.enums import ActivityStatus, CopyKey, Language, StepOutcome
+from app.domain.enums import ActivityStatus, CopyKey, Language, Route, StepOutcome
 from app.domain.models.activity import OfferRecord
 from app.domain.models.learner import Learner
 from app.domain.models.photo import ObjectCount, PhotoFindings
+from app.domain.models.turn import Exchange
 from app.domain.models.writes import (
     ActivityOffered,
     ActivityReported,
@@ -330,7 +332,7 @@ async def test_the_parents_own_question_falls_through_to_the_parent_answer_with_
         text="Munni ki neend poori nahi hoti, kya karein?", button=None, layer=layer
     )
     assert result.reply.body.startswith(str(HINGLISH_ANSWER["answer"]))
-    assert result.prompt_versions == {"curiosity_moment": "1.0.5", "parent_answer": "1.1.0"}
+    assert result.prompt_versions == {"curiosity_moment": "1.0.5", "parent_answer": "1.2.0"}
     assert len(result.usages) == 2
     assert result.hazard_rule == frozenset()
 
@@ -619,7 +621,7 @@ async def test_a_report_read_as_a_report_gets_the_reflection() -> None:
         text="usne patte gine", button=None, open_activity=offer(FIRST, MUNNI), layer=layer
     )
     assert result.reply.body.startswith(REFLECTION_PRAISE)
-    assert result.prompt_versions["parent_intent"] == "1.6.0"
+    assert result.prompt_versions["parent_intent"] == "1.7.0"
     [prompt] = llm.by_prompt["parent_intent"].prompts
     assert "usne patte gine" in prompt.user
 
@@ -721,6 +723,43 @@ async def test_a_greeting_with_nothing_open_offers_todays_khoj_by_name(text: str
     assert result.reply.body == HELLO_NOTHING_OPEN[H].format(child=MUNNI.nickname)
     assert [button.id for button in result.reply.buttons] == ["jrn:today"]
     assert llm.by_prompt["parent_answer"].prompts == []
+
+
+EARLIER_SUGGESTION = Exchange(
+    user_text="he jumped like a frog",
+    reply_text="Very nice! Today, hop like a frog together in the courtyard.",
+    route=Route.JOURNEY,
+    at=NOW - timedelta(minutes=1),
+)
+
+
+async def answer_after_a_suggestion(text: str, open_activity: OfferRecord | None) -> LayerResult:
+    layer, _ = layer_with()
+    message = text_message(text)
+    ctx = turn_context(message, learners=[MUNNI], open_activity=open_activity).model_copy(
+        update={"recent_exchanges": [EARLIER_SUGGESTION]}
+    )
+    return await layer.handle(ctx, ParentMessage(text, []), NOW, H)
+
+
+@pytest.mark.parametrize("text", ["ok", "thanks", "theek hai"])
+async def test_ok_after_a_suggestion_gets_encouragement_not_the_menu(text: str) -> None:
+    # Owner's demo, 2026-11-01: "ok" to "hop like a frog together" got "Hello! Would you like
+    # today's khoj…"
+    result = await answer_after_a_suggestion(text, open_activity=None)
+    assert result.reply.body == ACKNOWLEDGED[H]
+    assert result.reply.buttons == []
+
+
+async def test_ok_with_a_khoj_open_keeps_its_buttons() -> None:
+    result = await answer_after_a_suggestion("ok", open_activity=offer(FIRST, MUNNI))
+    assert result.reply.body == ACKNOWLEDGED[H]
+    assert [button.id for button in result.reply.buttons] == [KHOJ_DONE, KHOJ_OTHER]
+
+
+async def test_a_greeting_mid_conversation_still_gets_the_hello() -> None:
+    result = await answer_after_a_suggestion("Hi", open_activity=None)
+    assert result.reply.body == HELLO_NOTHING_OPEN[H].format(child=MUNNI.nickname)
 
 
 async def test_small_talk_read_by_the_model_gets_the_same_hello() -> None:

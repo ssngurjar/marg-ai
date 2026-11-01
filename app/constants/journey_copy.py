@@ -57,6 +57,12 @@ ONE_MORE_KHOJ_BUTTON: Final[dict[Language, ReplyButton]] = {
 # from its button (owner, 2026-10-29).
 # A greeting or a thank-you with no khoj open (owner's demo, 2026-10-29: "Hi" made the parent
 # answer ask the child's age, which Marg already knows). {child}: the nickname, or a fallback.
+# "ok", "theek hai", "thanks" after Marg suggested something (owner's demo, 2026-11-01)
+ACKNOWLEDGED: Final[dict[Language, str]] = {
+    _HINGLISH: "Bahut badhiya! Saath mein maza kijiye, aur bataiye bachche ne kya kaha.",
+    _HINDI: "बहुत बढ़िया! साथ में मज़ा कीजिए, और बताइए बच्चे ने क्या कहा।",
+    _ENGLISH: "Great! Enjoy it together, and tell me what your child says.",
+}
 HELLO_NOTHING_OPEN: Final[dict[Language, str]] = {
     _HINGLISH: "Namaste! {child} ke saath aaj ki khoj karni hai, ya kuch poochhna hai?",
     _HINDI: "नमस्ते! {child} के साथ आज की खोज करनी है, या कुछ पूछना है?",

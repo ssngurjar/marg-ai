@@ -34,6 +34,7 @@ from app.constants.child_talk_copy import (
     named_kid_button,
 )
 from app.constants.journey_copy import (
+    ACKNOWLEDGED,
     ADD_CHILD_BUTTON,
     ADD_CHILD_PROMPT,
     AGE_COMING_SOON,
@@ -292,7 +293,7 @@ class JourneyLayer:
             case ParentIntent.CHILD_QUESTION:
                 return await self._question(ctx, user_text, now, register, child_question=True)
             case ParentIntent.SMALL_TALK:
-                return self._small_talk_reply(ctx, register)
+                return self._small_talk_reply(ctx, register, user_text)
             case ParentIntent.NEW_KHOJ | ParentIntent.ANOTHER_KHOJ | ParentIntent.SAME_KHOJ_AGAIN:
                 return await self._khoj_asked(intent, turn)
             case ParentIntent.DAILY_TIME:
@@ -440,10 +441,20 @@ class JourneyLayer:
         )
         return _fixed(ask.body.format_map(values), register, buttons)
 
-    def _small_talk_reply(self, ctx: TurnContext, register: Language) -> LayerResult:
+    def _small_talk_reply(
+        self, ctx: TurnContext, register: Language, user_text: str
+    ) -> LayerResult:
         """A greeting or thanks: the open khoj is still waiting, or today's khoj is offered.
-        Fixed copy, no model: nothing to guess (owner's demo, 2026-10-29)."""
+        Fixed copy, no model: nothing to guess (owner's demo, 2026-10-29). An "ok" or "thanks"
+        in the middle of a conversation answers what Marg just said: a short encouraging
+        reply, never "Hello!" and the menu again (owner's demo, 2026-11-01)."""
         open_activity = self._offered(ctx)
+        acknowledges = bool(ctx.recent_exchanges) and not OnboardingAnswerParser.is_greeting(
+            user_text
+        )
+        if acknowledges:
+            buttons = KHOJ_BUTTONS[register] if open_activity is not None else ()
+            return _fixed(ACKNOWLEDGED[register], register, buttons)
         if open_activity is not None:
             waiting = KHOJ_STILL_OPEN[register].format(title=open_activity.activity.title)
             return _fixed(waiting, register, KHOJ_BUTTONS[register])
@@ -508,7 +519,7 @@ class JourneyLayer:
         `child_question`: what intent reading said; None, the word rule decides. Raises
         ProviderError."""
         if JourneyLayer.small_talk(user_text):
-            return self._small_talk_reply(ctx, register)
+            return self._small_talk_reply(ctx, register, user_text)
         nicknames = [learner.nickname for learner in ctx.learners]
         not_the_childs: NotAChildQuestion | None = None
         relayed = (

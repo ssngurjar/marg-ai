@@ -170,6 +170,13 @@ cases:
   - {text: "beti doosre bachche ke liye khilona chhin leti hai", open_khoj: false, intent: question}
   - {text: "mera beta ek aur bachche se ladta rehta hai", open_khoj: true, intent: question}
 
+  # --- feedback on Marg's last reply, and agreeing to a suggestion (owner's demo, 2026-11-01) --
+  - {text: "why are you giving me the khoj i just wanted to add my child", open_khoj: true, intent: question}
+  - {text: "you didn't answer what I asked", open_khoj: false, intent: question}
+  - {text: "ok sure", open_khoj: false, intent: small_talk}
+  - {text: "I told ok to your suggestion before", open_khoj: true, intent: small_talk}
+  - {text: "haan zaroor karenge", open_khoj: false, intent: small_talk}
+
   # --- harder: typos, voice-note style, two things at once, things Marg doesn't do -------------
   - {text: "aaj ki khoj nahi mili kya bhejoge", open_khoj: false, intent: new_khoj}
   - {text: "haan ji usne patte gine 5 the aur ek peela tha", open_khoj: true, intent: report}

@@ -505,3 +505,5 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
   names only a face, since hands are allowed.
 - [ ] **Read the "child added" line** (`CopyKey.CHILD_ADDED` in `app/constants/onboarding_copy.py`,
   three languages): what Marg says when a second or third child is added (no khoj is sent).
+- [ ] **Read the "ok" reply** (`ACKNOWLEDGED` in `app/constants/journey_copy.py`, three languages):
+  what Marg says to "ok", "thanks" or "theek hai" in the middle of a conversation.

@@ -377,7 +377,7 @@ through the live reader (as a turn does) and prints every miss; it exits with an
 
 | Command | What it reads |
 |---|---|
-| `.venv/bin/python -m scripts.intent_bank [--repeat 2]` | 151 parent messages → intent and asked language |
+| `.venv/bin/python -m scripts.intent_bank [--repeat 2]` | 156 parent messages → intent and asked language |
 | `.venv/bin/python -m scripts.onboarding_bank [--repeat 2]` | 72 onboarding answers → event and values (age, nickname, grade, district…) |
 | `.venv/bin/python -m scripts.student_route_bank [--repeat 2]` | 37 student messages → mentor or plan |
 
