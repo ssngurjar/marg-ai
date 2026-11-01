@@ -374,10 +374,14 @@ fake models: the best place to reproduce a whole conversation.
 
 After changing how Marg reads people, run the banks: each sends real-style synthetic messages
 through the live reader (as a turn does) and prints every miss; it exits with an error below 97%.
+The parent bank also prints accuracy per language (each case has a `lang`: hindi, hinglish, braj,
+english, mixed) and, with `--save`, writes the run as JSON and Markdown to
+`evals/results/banks/<date>-<time>-<commit>-parent_intents.*`: a number quoted in public copy
+points at a saved run.
 
 | Command | What it reads |
 |---|---|
-| `.venv/bin/python -m scripts.intent_bank [--repeat 2]` | 156 parent messages → intent and asked language |
+| `.venv/bin/python -m scripts.intent_bank [--repeat 2] [--save]` | 196 parent messages → intent and asked language; where a case gives them, Braj, written language, child name, which khoj a report is about |
 | `.venv/bin/python -m scripts.onboarding_bank [--repeat 2]` | 72 onboarding answers → event and values (age, nickname, grade, district…) |
 | `.venv/bin/python -m scripts.student_route_bank [--repeat 2]` | 37 student messages → mentor or plan |
 | `.venv/bin/python -m scripts.teacher_bank [--repeat 2]` | 20 teacher messages → bridge or teaching help |

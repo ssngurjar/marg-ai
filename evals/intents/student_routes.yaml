@@ -1,7 +1,8 @@
 # The student-routing bank: how students ask, and where the message should go. Synthetic.
 # `route`: roadmap (they want a step-by-step plan made, or to see theirs) or mentor (any other
-# question). Run it with `.venv/bin/python -m scripts.student_route_bank` (no model calls: the
-# student route is decided by word rules, s12 §4.6).
+# question). Run it with `.venv/bin/python -m scripts.student_route_bank`: the router's plan words
+# decide first (s12 §4.6), and a message they send to the mentor by default is read by the live
+# `StudentIntentReader` (owner, 2026-11-01), so a run makes model calls.
 
 cases:
   # --- roadmap: a plan asked for ---------------------------------------------------------------

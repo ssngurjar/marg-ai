@@ -5,7 +5,7 @@ from collections import Counter
 import pytest
 
 from app.domain.enums import ParentIntent
-from scripts.intent_bank import IntentBank
+from scripts.intent_bank import OPEN_KHOJ_TITLE, IntentBank
 
 pytestmark = pytest.mark.unit
 
@@ -42,3 +42,25 @@ def test_the_bank_covers_hindi_hinglish_english_and_braj() -> None:
     assert len(devanagari) >= 10
     assert len(braj) >= 2
     assert len(asked) >= 8
+
+
+def test_braj_is_checked_both_ways() -> None:
+    # Braj forms must turn the voice on, and plain Hindi must not (critic review, 2026-11-01)
+    checked = Counter(case.braj for case in BANK.cases if case.braj is not None)
+    assert checked[True] >= 10
+    assert checked[False] >= 5
+
+
+def test_report_about_is_given_only_for_reports_it_could_name() -> None:
+    offered = OPEN_KHOJ_TITLE
+    for case in BANK.cases:
+        if case.report_about is None:
+            continue
+        assert case.intent is ParentIntent.REPORT, case.text
+        assert case.report_about in {offered, *case.other_khojs}, case.text
+
+
+def test_child_name_is_given_only_for_naming_cases() -> None:
+    named = [case for case in BANK.cases if case.child_name is not None]
+    assert len(named) >= 5
+    assert [case.text for case in named if case.intent is not ParentIntent.CHILD_NAME] == []

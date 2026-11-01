@@ -1,6 +1,6 @@
 +++
 id = "parent_intent"
-version = "1.10.0"
+version = "1.11.0"
 model_setting = "MODEL_TEXT"
 max_output_tokens = 1200
 output_model = "IntentReading"
@@ -19,7 +19,9 @@ Pick exactly one intent:
   open. A message that tells what the child did AND what the child asked is still a report
   ("Munni ne 7 patte gine aur poocha ki ye hare kyun hain"), and so is the child's question about
   what the open khoj was doing ("usne poocha patte peele kyun hote hain" while a leaf khoj is
-  open).
+  open). A message that tells of the child being hurt, beaten, ill or in danger is never a
+  report, even with a khoj open: it is a question ("khoj nahi kar paaye, uske papa ne usko
+  maara", "bukhar hai isliye nahi kiya").
 - question: the parent's own question or worry for Marg (food, sleep, studies, behaviour,
   "how do I teach him").
 - child_question: passes on the child's own question about the world, on its own, not as part
@@ -69,8 +71,10 @@ Also say what the words are written in:
 - language: "hindi" if mostly in Devanagari letters; "hinglish" for Hindi (or Braj, Rajasthani)
   written in Roman letters, even without common words like "hai" ("beta school jata", "aaj
   khana banaya"); "english" for English.
-- braj: true if the words use Braj forms (मेरो/mero, तेरो, वाको/vaako, वाय/vaay, नाय/naay, हतो,
-  गयो, छोरा with another Braj form), in either script; else false.
+- braj: true if the words use Braj forms, in either script: मेरो/mero, तेरो, वाको/vaako,
+  वाय/vaay, नाय/naay, हतो, जे/je (this), कछु/kachhu, नेक, वारी/waari, रह्यो/rahyo/rao, जात/jaat,
+  करत/karat, कही/kahi (said), देओ/deo, भयो/bhayo, गयो/gayo; लाला/lala or लाली/lali for the
+  child with another of these. Plain Hindi (मेरा, रहा है, जाता है, देना) is false.
 - asked_language: "hindi", "hinglish" or "english" only when the message asks Marg to reply or
   send something in that language ("in hindi", "Hinglish mein bhejo", "English please"); else
   null. Writing in a language is not asking for it.

@@ -1,19 +1,20 @@
 """Run the intent bank (evals/intents/parent_intents.yaml) through the live intent reader.
 
-`.venv/bin/python -m scripts.intent_bank [--repeat N]` reads every case with Muse Spark, as
-`IntentReader` does in a real turn, and prints each miss: the intent or the language asked for.
-It costs a few cents per run and needs the Model API key in `.env`. Exit status 1 when fewer
-than TARGET of the readings are right (owner, 2026-11-01: at least 97%).
+`.venv/bin/python -m scripts.intent_bank [--repeat N] [--save]` reads every case with Muse Spark,
+as `IntentReader` does in a real turn, and checks the intent, the language asked for and, where a
+case says, Braj, the written language, the child's name and which khoj a report is about. It
+prints accuracy per language and each miss; `--save` writes the run to evals/results/banks/. It
+costs a few cents per run and needs the Model API key in `.env`. Exit status 1 below TARGET
+(owner, 2026-11-01: at least 97%).
 """
 
 import argparse
 import asyncio
 import sys
-import time
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Final
+from typing import Final, Literal
 from uuid import UUID
 
 import yaml
@@ -26,6 +27,7 @@ from app.domain.models.learner import Learner, LearnerId
 from app.layers.intent_reader import IntentRead, IntentReader
 from app.store.db import create_engine, create_session_factory
 from app.wiring import build_providers, build_retry, close_providers, prompt_registry
+from scripts.bank_results import BankMiss, BankResults, BankRun
 
 BANK_PATH: Final = Path(__file__).resolve().parents[1] / "evals" / "intents" / "parent_intents.yaml"
 OPEN_KHOJ_TITLE: Final = "Jaanwar ki chaal"
@@ -48,6 +50,8 @@ CHILDREN: Final = (
     ),
 )
 
+type CaseLanguage = Literal["hindi", "hinglish", "braj", "english", "mixed"]
+
 
 class BankCase(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -55,7 +59,14 @@ class BankCase(BaseModel):
     text: str
     open_khoj: bool
     intent: ParentIntent
+    lang: CaseLanguage  # how the case is written, for the per-language table
     asked: Language | None = None
+    # Checked only when a case gives them (critic review, 2026-11-01):
+    braj: bool | None = None
+    language: Language | None = None  # what the reader should hear the words as
+    child_name: str | None = None
+    report_about: str | None = None
+    other_khojs: list[str] = []  # khoj titles offered lately besides the open one
 
 
 class IntentBank(BaseModel):
@@ -72,34 +83,42 @@ class IntentBank(BaseModel):
 class Reading:
     case: BankCase
     read: IntentRead
-    seconds: float
 
     @property
-    def right(self) -> bool:
-        return self.read.intent is self.case.intent and self.read.asked_language is self.case.asked
+    def wrong(self) -> list[str]:
+        """What the reading got wrong; [] when it's right."""
+        case, read = self.case, self.read
+        wrong: list[str] = []
+        if read.intent is not case.intent:
+            got = read.intent.value if read.intent else f"failed ({read.failed})"
+            wrong.append(f"intent {got}, not {case.intent.value}")
+        if read.asked_language is not case.asked:
+            wrong.append(f"asked {read.asked_language}, not {case.asked}")
+        if case.braj is not None and read.braj is not case.braj:
+            wrong.append(f"braj {read.braj}, not {case.braj}")
+        if case.language is not None and read.language is not case.language:
+            wrong.append(f"language {read.language}, not {case.language}")
+        read_name = (read.child_name or "").casefold()
+        if case.child_name is not None and read_name != case.child_name.casefold():
+            wrong.append(f"child_name {read.child_name!r}, not {case.child_name!r}")
+        if case.report_about is not None and read.report_about != case.report_about:
+            wrong.append(f"report_about {read.report_about!r}, not {case.report_about!r}")
+        return wrong
 
 
 async def read_case(reader: IntentReader, case: BankCase, limit: asyncio.Semaphore) -> Reading:
     async with limit:
-        started = time.perf_counter()
         read = await reader.read(
-            case.text, OPEN_KHOJ_TITLE if case.open_khoj else None, CHILDREN, []
+            case.text,
+            OPEN_KHOJ_TITLE if case.open_khoj else None,
+            CHILDREN,
+            [],
+            case.other_khojs,
         )
-        return Reading(case, read, time.perf_counter() - started)
+        return Reading(case, read)
 
 
-def describe(reading: Reading) -> str:
-    case, read = reading.case, reading.read
-    got = read.intent.value if read.intent else f"failed ({read.failed})"
-    asked_got = read.asked_language.value if read.asked_language else "-"
-    asked_expected = case.asked.value if case.asked else "-"
-    return (
-        f"  expected {case.intent.value}/asked={asked_expected}, "
-        f"got {got}/asked={asked_got}: {case.text}"
-    )
-
-
-async def run(repeat: int) -> float:
+async def run(repeat: int, *, save: bool) -> float:
     settings, clock = Settings(), SystemClock()
     engine = create_engine(settings)
     providers = build_providers(settings, create_session_factory(engine), build_retry(clock), clock)
@@ -113,26 +132,33 @@ async def run(repeat: int) -> float:
     finally:
         await close_providers(providers)
         await engine.dispose()
-    misses = [reading for reading in readings if not reading.right]
-    missed_by_intent = Counter(reading.case.intent.value for reading in misses)
-    seconds = sorted(reading.seconds for reading in readings)
-    share_right = 1 - len(misses) / len(readings)
-    sys.stdout.write(
-        f"{len(readings) - len(misses)}/{len(readings)} right ({share_right:.1%}); "
-        f"median {seconds[len(seconds) // 2]:.1f} s, slowest {seconds[-1]:.1f} s\n"
+    total_by_lang: Counter[str] = Counter(reading.case.lang for reading in readings)
+    misses = [
+        BankMiss(text=reading.case.text, lang=reading.case.lang, wrong="; ".join(reading.wrong))
+        for reading in readings
+        if reading.wrong
+    ]
+    missed_by_lang: Counter[str] = Counter(miss.lang for miss in misses)
+    right_by_lang: Counter[str] = Counter(
+        {lang: total - missed_by_lang[lang] for lang, total in total_by_lang.items()}
     )
-    for intent, count in missed_by_intent.most_common():
-        sys.stdout.write(f"{intent}: {count} missed\n")
-    for reading in misses:
-        sys.stdout.write(f"{describe(reading)}\n")
-    return share_right
+    result = BankRun(
+        bank="parent_intents",
+        readings=len(readings),
+        right_by_lang=right_by_lang,
+        total_by_lang=total_by_lang,
+        misses=misses,
+    )
+    await BankResults.print_and_save(result, repeat=repeat, save=save)
+    return result.share_right
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--repeat", type=int, default=1, help="read every case N times")
+    parser.add_argument("--save", action="store_true", help="write the run to evals/results/banks")
     arguments = parser.parse_args()
-    share_right = asyncio.run(run(arguments.repeat))
+    share_right = asyncio.run(run(arguments.repeat, save=arguments.save))
     sys.exit(0 if share_right >= TARGET else 1)
 
 
