@@ -9,7 +9,7 @@ from uuid import UUID
 
 import pytest
 
-from app.constants.teacher_copy import DASHBOARD_NO_DISTRICT
+from app.constants.teacher_copy import DASHBOARD_DISTRICT_UNVERIFIED, DASHBOARD_NO_DISTRICT
 from app.core.errors import ProviderError, ProviderTimeout, StoreError
 from app.domain.enums import (
     ConversationState,
@@ -287,8 +287,20 @@ async def test_a_teacher_gets_a_signed_link_to_their_districts_students() -> Non
     claims = LINKS.codec.read(token)
     assert (claims.scope, claims.district, claims.sub) == (
         "teacher",
-        "Karauli",
+        "Karauli, Rajasthan",
         ctx.profile.user_hash,
+    )
+
+
+async def test_a_district_kept_as_typed_gets_no_district_dashboard() -> None:
+    # critic review D4, 2026-11-01: not on LGD's list, so no district numbers for it
+    ctx = teacher_ctx("dashboard")
+    unverified = ctx.profile.model_copy(update={"district": "Gurgaon"})
+    result = await run_student(ctx.model_copy(update={"profile": unverified}), {})
+    assert result.outcome.route is Route.DASHBOARD_LINK
+    assert "/dashboard?t=" not in result.delivered
+    assert result.delivered == DASHBOARD_DISTRICT_UNVERIFIED[Language.ENGLISH].format(
+        district="Gurgaon"
     )
 
 

@@ -6,6 +6,7 @@ from uuid import UUID
 
 import pytest
 
+from app.constants.lgd_districts import DISTRICTS
 from app.constants.onboarding_copy import COPY, COPY_VERSION
 from app.core.errors import ProviderUnavailable
 from app.domain.enums import (
@@ -17,11 +18,13 @@ from app.domain.enums import (
     Language,
     LearnerRelation,
     Role,
+    Route,
     StepOutcome,
 )
+from app.domain.models.district import LgdDistrict
 from app.domain.models.learner import Learner, LearnerId
 from app.domain.models.message import InboundMessage
-from app.domain.models.turn import UserProfile
+from app.domain.models.turn import Exchange, TurnContext, UserProfile
 from app.domain.models.writes import (
     ChildTalkConsent,
     LearnerUpsert,
@@ -73,14 +76,31 @@ async def handle(
     extracted: ScriptedOutput | None = None,
     web_default: Language | None = None,
 ) -> tuple[OnboardingResult, FakeLanguageModel]:
+    ctx = turn_context(message, profile=profile, learners=learners)
+    return await handle_in(ctx, extracted=extracted, web_default=web_default)
+
+
+async def handle_in(
+    ctx: TurnContext,
+    *,
+    extracted: ScriptedOutput | None = None,
+    web_default: Language | None = None,
+) -> tuple[OnboardingResult, FakeLanguageModel]:
     llm = FakeLanguageModel([extracted or NOTHING_READ])
     layer = OnboardingLayer(
         llm, shipped_registry(), invite_link=INVITE_LINK, web_default_language=web_default
     )
-    ctx = turn_context(message, profile=profile, learners=learners)
+    [message] = ctx.messages
     ids = [message.interactive_reply_id] if message.interactive_reply_id else []
     text = "" if ids else (message.text or "")
     return await layer.handle(ctx, text, ids, NOW), llm
+
+
+def after_reply(last_reply: str, profile: UserProfile, message: InboundMessage) -> TurnContext:
+    """A turn whose previous exchange ended with Marg saying `last_reply`."""
+    earlier = Exchange(user_text="…", reply_text=last_reply, route=Route.ONBOARDING, at=NOW)
+    ctx = turn_context(message, profile=profile)
+    return ctx.model_copy(update={"recent_exchanges": [earlier]})
 
 
 def at(state: ConversationState, **fields: object) -> UserProfile:
@@ -565,6 +585,145 @@ async def test_a_grade_outside_1_to_12_is_explained() -> None:
     assert result.reply.body.startswith(body(CopyKey.INVALID_GRADE))
 
 
+# --- the district, checked against LGD's list (critic review D4, 2026-11-01) --------------------
+
+
+def district_question(**fields: object) -> UserProfile:
+    teacher = at(S.AWAITING_PROFILE, role=Role.TEACHER, **fields)
+    return teacher.model_copy(update={"subject": "Maths", "grade": 4})
+
+
+def lgd(name: str, state: str) -> LgdDistrict:
+    [district] = [d for d in DISTRICTS if (d.name, d.state) == (name, state)]
+    return district
+
+
+@pytest.mark.parametrize("answer", ["Barmer", "barmer, rajasthan", "zila Barmer"])
+async def test_a_listed_district_is_stored_as_lgd_names_it(answer: str) -> None:
+    result, llm = await handle(district_question(), text_message(answer))
+    assert profile_change(result).district == "Barmer, Rajasthan"
+    assert profile_change(result).new_state is S.ACTIVE
+    assert llm.prompts == []
+
+
+async def test_a_close_spelling_is_confirmed_with_yes_and_no() -> None:
+    result, _ = await handle(district_question(), text_message("Karoli"))
+    karauli = lgd("Karauli", "Rajasthan")
+    assert profile_change(result).district is None  # nothing stored until confirmed
+    assert result.reply.body == body(CopyKey.DISTRICT_CONFIRM_ONE).format(
+        district="Karauli, Rajasthan"
+    )
+    assert [(button.id, button.title) for button in result.reply.buttons] == [
+        (f"onb:district:{karauli.code}", "Haan"),
+        ("onb:district:no", "Nahi"),
+    ]
+
+
+async def test_the_confirm_button_stores_that_district() -> None:
+    karauli = lgd("Karauli", "Rajasthan")
+    result, _ = await handle(district_question(), button_reply(f"onb:district:{karauli.code}"))
+    assert profile_change(result).district == "Karauli, Rajasthan"
+    assert profile_change(result).new_state is S.ACTIVE
+
+
+async def test_no_asks_again_for_the_name_as_on_official_papers() -> None:
+    result, _ = await handle(district_question(), button_reply("onb:district:no"))
+    assert result.reply.body == body(CopyKey.DISTRICT_NOT_FOUND)
+    assert profile_change(result).district is None
+
+
+async def test_a_name_in_several_districts_offers_each_as_a_button() -> None:
+    result, _ = await handle(district_question(), text_message("Bengaluru"))
+    titles = [button.title for button in result.reply.buttons]
+    assert titles == ["Bengaluru Rural", "Bengaluru South", "Bengaluru Urban"]
+    assert "1. Bengaluru Rural, Karnataka" in result.reply.body
+    assert all(len(title) <= 20 for title in titles)
+
+
+async def test_two_names_to_choose_from_also_offer_none_of_these() -> None:
+    result, _ = await handle(district_question(), text_message("Pratapgarh"))
+    assert [button.id for button in result.reply.buttons][-1] == "onb:district:no"
+    assert len(result.reply.buttons) == 3
+
+
+async def test_a_district_typed_in_hindi_is_confirmed_in_english() -> None:
+    result, _ = await handle(district_question(), text_message("बाड़मेर"))
+    assert "Barmer, Rajasthan" in result.reply.body
+    assert profile_change(result).district is None
+
+
+async def test_a_state_alone_asks_which_district_in_it() -> None:
+    result, _ = await handle(district_question(), text_message("Delhi"))
+    assert result.reply.body == body(CopyKey.DISTRICT_WHICH_IN_STATE).format(state="Delhi")
+    assert result.reply.buttons == []
+
+
+async def test_an_unknown_district_is_asked_again_once() -> None:
+    result, _ = await handle(district_question(), text_message("Gurgaon"))
+    assert result.reply.body == body(CopyKey.DISTRICT_NOT_FOUND)
+    assert profile_change(result).district is None
+
+
+@pytest.mark.parametrize(
+    ("asked", "answer"),
+    [
+        (CopyKey.DISTRICT_NOT_FOUND, "Gurgaon"),
+        (CopyKey.DISTRICT_WHICH_IN_STATE, "Delhi"),
+        (CopyKey.DISTRICT_CONFIRM_ONE, "Gurgaon"),
+    ],
+)
+async def test_a_second_unclear_answer_is_stored_as_typed_never_looping(
+    asked: CopyKey, answer: str
+) -> None:
+    # owner, 2026-11-01: asked again once, then the way out (stored unverified)
+    last = body(asked).format(state="Delhi", district="Karauli, Rajasthan", choices="")
+    result, _ = await handle_in(after_reply(last, district_question(), text_message(answer)))
+    assert profile_change(result).district == answer
+    assert profile_change(result).new_state is S.ACTIVE
+
+
+async def test_a_second_answer_with_names_to_confirm_is_still_confirmed() -> None:
+    last = body(CopyKey.DISTRICT_NOT_FOUND)
+    result, _ = await handle_in(after_reply(last, district_question(), text_message("Karoli")))
+    assert profile_change(result).district is None
+    assert [button.id for button in result.reply.buttons][-1] == "onb:district:no"
+
+
+async def test_an_old_district_button_outside_the_question_is_not_understood() -> None:
+    karauli = lgd("Karauli", "Rajasthan")
+    teacher = at(S.ACTIVE, role=Role.TEACHER)
+    result, _ = await handle(teacher, button_reply(f"onb:district:{karauli.code}"))
+    assert profile_change(result).district is None
+
+
+@pytest.mark.parametrize("button", ["onb:district:999999", "onb:district:abc"])
+async def test_a_district_button_with_an_unknown_code_stores_nothing(button: str) -> None:
+    result, _ = await handle(district_question(), button_reply(button))
+    assert profile_change(result).district is None
+
+
+async def test_a_district_the_model_reads_is_checked_like_a_typed_one() -> None:
+    result, llm = await handle(
+        district_question(),
+        text_message("main Karoli zile ke ek gaon mein padhata hoon"),
+        extracted=extraction(district="Karoli"),
+    )
+    assert len(llm.prompts) == 1
+    assert profile_change(result).district is None
+    assert "Karauli, Rajasthan" in result.reply.body
+
+
+async def test_an_extracted_district_with_other_fields_is_kept_only_when_exact() -> None:
+    teacher = at(S.AWAITING_PROFILE, role=Role.TEACHER).model_copy(update={"subject": "Maths"})
+    result, _ = await handle(
+        teacher,
+        text_message("class 4 padhata hoon, Karoli zile mein"),
+        extracted=extraction(grade=4, district="Karoli"),
+    )
+    assert profile_change(result).grade == 4
+    assert profile_change(result).district is None  # asked on its own next
+
+
 async def test_pata_nahi_is_not_stored_as_a_district() -> None:
     teacher = at(S.AWAITING_PROFILE, role=Role.TEACHER)
     teacher = teacher.model_copy(update={"subject": "Maths", "grade": 4})
@@ -654,7 +813,7 @@ def test_buttons_fit_whatsapp_and_ids_match_across_languages() -> None:
 def test_copy_holds_only_known_placeholders_and_no_hardcoded_links() -> None:
     for (key, language), entry in COPY.items():
         fields = {name for _, name, _, _ in string.Formatter().parse(entry.body) if name}
-        assert fields <= {"child", "invite_link"}, (key, language)
+        assert fields <= {"child", "invite_link", "district", "choices", "state"}, (key, language)
         assert not re.search(r"https?://", entry.body), (key, language)
 
 

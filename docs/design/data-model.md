@@ -51,7 +51,7 @@ through `information_schema` that no table is missed.
 | `role` | `text` NULL | `Role` |
 | `grade` | `smallint` NULL | `CHECK (grade BETWEEN 1 AND 12)`; students and teachers |
 | `subject` | `text` NULL | teachers |
-| `district` | `text` NULL | students and teachers, as said (2–60 chars); not asked of parents |
+| `district` | `text` NULL | students and teachers: LGD's label ("Karauli, Rajasthan") once confirmed, or as typed after one re-ask (unverified); 2–80 chars; not asked of parents |
 | `language` | `text` NULL | `Language` |
 | `guardian_confirmed` | `boolean` | default false |
 | `consented_at` | `timestamptz` NULL | |

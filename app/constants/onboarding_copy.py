@@ -20,7 +20,7 @@ from typing import Final
 from app.domain.enums import Channel, CopyKey, Language
 from app.domain.models.reply import ReplyButton
 
-COPY_VERSION: Final = "onb-2026-11-01.2"
+COPY_VERSION: Final = "onb-2026-11-01.3"
 
 _HINGLISH = Language.HINGLISH
 _HINDI = Language.HINDI
@@ -36,6 +36,17 @@ class CopyEntry:
 def _buttons(*pairs: tuple[str, str]) -> tuple[ReplyButton, ...]:
     return tuple(ReplyButton(id=button_id, title=title) for button_id, title in pairs)
 
+
+# A district button: "onb:district:<LGD code>" confirms that one; "onb:district:no" asks again
+DISTRICT_BUTTON = "onb:district"
+DISTRICT_NO = "onb:district:no"
+DISTRICT_YES_TITLE: Final = {_HINGLISH: "Haan", _HINDI: "हाँ", _ENGLISH: "Yes"}
+DISTRICT_NO_TITLE: Final = {_HINGLISH: "Nahi", _HINDI: "नहीं", _ENGLISH: "No"}
+DISTRICT_NONE_TITLE: Final = {
+    _HINGLISH: "Inme se koi nahi",
+    _HINDI: "इनमें से कोई नहीं",
+    _ENGLISH: "None of these",
+}
 
 CONSENT_YES = "onb:consent:yes"
 CONSENT_NO = "onb:consent:no"
@@ -222,6 +233,37 @@ _TEXTS: Final[dict[CopyKey, dict[Language, str]]] = {
         _HINGLISH: "Aap kaunse zile se hain?",
         _HINDI: "आप किस ज़िले से हैं?",
         _ENGLISH: "Which district are you from?",
+    },
+    # The district checked against LGD's list (critic review D4, 2026-11-01): {district} is
+    # "Karauli, Rajasthan", {choices} a numbered list of those, {state} a state named alone.
+    CopyKey.DISTRICT_CONFIRM_ONE: {
+        _HINGLISH: "Kya aapka zila {district} hai?",
+        _HINDI: "क्या आपका ज़िला {district} है?",
+        _ENGLISH: "Is your district {district}?",
+    },
+    CopyKey.DISTRICT_CONFIRM_MANY: {
+        _HINGLISH: "Inme se aapka zila kaunsa hai?\n{choices}",
+        _HINDI: "इनमें से आपका ज़िला कौन-सा है?\n{choices}",
+        _ENGLISH: "Which of these is your district?\n{choices}",
+    },
+    CopyKey.DISTRICT_WHICH_IN_STATE: {
+        _HINGLISH: "{state} mein kaunsa zila? Zile ka naam likhiye.",
+        _HINDI: "{state} में कौन-सा ज़िला? ज़िले का नाम लिखिए।",
+        _ENGLISH: "Which district in {state}? Please write the district's name.",
+    },
+    CopyKey.DISTRICT_NOT_FOUND: {
+        _HINGLISH: (
+            "Yeh zila mujhe sarkari soochi mein nahi mila. Zile ka naam waise likhiye jaise"
+            " sarkari kaagaz par hota hai (jaise 'Barmer')."
+        ),
+        _HINDI: (
+            "यह ज़िला मुझे सरकारी सूची में नहीं मिला। ज़िले का नाम वैसे लिखिए जैसे सरकारी काग़ज़ पर"
+            " होता है (जैसे 'बाड़मेर')।"
+        ),
+        _ENGLISH: (
+            "I couldn't find that district on the official list. Please write it as it appears"
+            " on official papers (for example 'Barmer')."
+        ),
     },
     CopyKey.INVALID_GRADE: {
         _HINGLISH: "Class 1 se 12 ke beech batayiye.",

@@ -9,12 +9,13 @@ from dataclasses import dataclass
 
 from app.core.errors import InvalidProfileValue
 from app.domain.enums import ConsentEventKind, CopyKey, Language, LearnerRelation, Role
+from app.domain.models.district import LgdDistrict
 from app.domain.models.learner import LearnerId
 from app.domain.models.turn import UserProfile
 
 GRADE_RANGE = range(1, 13)
 SUBJECT_MAX_CHARS = 40
-DISTRICT_LENGTHS = range(2, 61)
+DISTRICT_LENGTHS = range(2, 81)  # LGD's longest "district, state" label is 68
 NICKNAME_MAX_CHARS = 20
 MIN_CHILDREN_IN_ONE_ANSWER = 2  # ChildrenAnswered: one child is a ChildAnswered
 
@@ -108,6 +109,15 @@ class ChildAnswered:
 
 
 @dataclass(frozen=True, slots=True)
+class DistrictUnclear:
+    """A district answer LGD's list doesn't settle (critic review D4, 2026-11-01): names to
+    confirm, a state named alone, or nothing found. Nothing is stored."""
+
+    candidates: tuple[LgdDistrict, ...]
+    state_named: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class ChildrenAnswered:
     """Two or more children in one answer ("Munni 5 aur Golu 7"), in the order given: each is
     added, up to the limit, and asked about on its own (critic review D3, 2026-11-01)."""
@@ -191,6 +201,7 @@ type ConversationEvent = (
     | ChildAnswered
     | ChildrenAnswered
     | ChildInvalid
+    | DistrictUnclear
     | AddChild
     | ChildTalkAnswered
     | TeacherAsked

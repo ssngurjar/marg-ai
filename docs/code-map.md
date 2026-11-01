@@ -78,6 +78,7 @@ line of the module's docstring.
 | `journey_copy.py` | — | Fixed journey text (s10b §4.7, §4.10): the supervision line, body labels, buttons, and the |
 | `journey_words.py` | — | Words a personalised khoj or reflection may not use (s10b §4.7, §4.8): careers and exams for a |
 | `khoj_card_style.py` | — | What a khoj card looks like (s10b §4.13, C6): the fixed style and a scene per activity. |
+| `lgd_districts.py` | — | Every district of India, as the Local Government Directory (LGD) lists them. |
 | `model_prices.py` | `ModelPrice` | Model prices per million tokens, for cost accounting (s05 §4.1, s07 §4.3). |
 | `onboarding_copy.py` | `CopyEntry` | Onboarding copy: fixed, reviewed text in Hinglish, Hindi and English (s08 §4.8). |
 | `photo_check.py` | — | What SAM 3.1 looks for before a photo is used (s10b §4.14). |
@@ -115,10 +116,11 @@ line of the module's docstring.
 | `aspiration.py` | `AspirationSignals`, `ExtractAspiration` | What a student's own words say about where they're heading (s13 §4.3). Never a label. |
 | `base.py` | `DomainModel` | Identifiers and the base every domain model shares (contracts.md §2.1). |
 | `child_session.py` | `ChildSession` | A child talking to Marg.ai directly on the parent's phone (s10b §4.16, C13). |
-| `conversation.py` | `ProfileUpdate`, `FirstContact`, `ConsentGiven`, `ConsentDeclined`, `RoleChosen`, `RoleUnavailable`, `GuardianConfirmed`, `GuardianDeclined`, `ProfileAnswered`, `ChildAnswered`, `ChildrenAnswered`, `ChildInvalid`, `AddChild`, `ChildTalkAnswered`, `TeacherAsked`, `LanguageSwitched`, `QuestionNoted`, `AboutMargAsked`, `Unrecognised`, `DeletionRequested`, `DeletionConfirmed`, `DeletionCancelled`, `SendCopy`, `RecordConsent`, `UpsertLearner`, `SetChildTalk`, `PurgeAfterDelivery`, `HandoffPendingQuestion`, `HandoffFirstKhoj`, `Transition` | The onboarding conversation's events and effects (s08 §4.2). Pure data. |
+| `conversation.py` | `ProfileUpdate`, `FirstContact`, `ConsentGiven`, `ConsentDeclined`, `RoleChosen`, `RoleUnavailable`, `GuardianConfirmed`, `GuardianDeclined`, `ProfileAnswered`, `ChildAnswered`, `DistrictUnclear`, `ChildrenAnswered`, `ChildInvalid`, `AddChild`, `ChildTalkAnswered`, `TeacherAsked`, `LanguageSwitched`, `QuestionNoted`, `AboutMargAsked`, `Unrecognised`, `DeletionRequested`, `DeletionConfirmed`, `DeletionCancelled`, `SendCopy`, `RecordConsent`, `UpsertLearner`, `SetChildTalk`, `PurgeAfterDelivery`, `HandoffPendingQuestion`, `HandoffFirstKhoj`, `Transition` | The onboarding conversation's events and effects (s08 §4.2). Pure data. |
 | `curiosity.py` | `CuriositySignals`, `CuriositySource`, `ExtractSignals`, `MakeKhojCard`, `UpdateMemory` | What a child engaged with, for the young-learner trajectory (s13 §4.4). Never a label. |
 | `curriculum.py` | `Chapter`, `CatalogueBook`, `ChapterMatch` | The textbook chapter catalogue (s10 §4.5): official NCERT titles, used only as a hint. |
 | `delivery.py` | `PartState` | Where an outbound part stands in its delivery (s04 §4.10). |
+| `district.py` | `LgdDistrict` | Districts as the Local Government Directory lists them (critic review D4, 2026-11-01). The list |
 | `eval_judgement.py` | `JudgeItem`, `JudgeScore` | What the eval judge returns for one reply (s15 §4.4): a verdict per must / must_not item and |
 | `learner.py` | `Learner` | Learners: the child or student whose journey Marg.ai follows (contracts §2.2, data-model). |
 | `message.py` | `MediaRef`, `InboundMessage`, `AudioClip`, `ImageClip`, `Transcript` | What users send us: messages and the media they carry (contracts.md §2.1). |
@@ -152,6 +154,7 @@ line of the module's docstring.
 | `crisis_phrase_matcher.py` | `CrisisPhraseMatcher` | CrisisPhraseMatcher: the crisis rules that need no provider (s07 §4.5 rule 1, §4.6). Pure. |
 | `curiosity_trajectory.py` | `CuriosityPoint`, `YoungLearnerTrajectory`, `CuriosityTrajectory` | CuriosityTrajectory: how a young child's curiosity grows over sessions (s13 §4.5). Pure. |
 | `delivery_planner.py` | `DeliveryPlanner` | DeliveryPlanner: part order and status changes (s03 §4.8, s04 §4.10). Pure. |
+| `district_matcher.py` | `DistrictMatch`, `DistrictMatcher` | DistrictMatcher: which LGD district a typed answer names (critic review D4, 2026-11-01). Pure. |
 | `filler_detector.py` | `FillerDetector` | FillerDetector: a transcript of only "umm" or "hmm" is nothing said (s06 §8, CLAUDE.md §4). Pure. |
 | `indic_script_normaliser.py` | `IndicScriptNormaliser` | IndicScriptNormaliser: a Hindi voice note heard in another Indian script, put back into |
 | `learner_chooser.py` | `RecentOffer`, `LearnerChooser` | LearnerChooser: which of a parent's children this turn is about (s10b §4.2). Pure. |

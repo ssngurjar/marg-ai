@@ -9,7 +9,8 @@
 #   and, when given, its values: role; age (the child's, in years); nickname (null: none);
 #   grade; subject and district (the reading contains it, any case); language; question (true:
 #   a question was kept); reason (ChildInvalid / Unrecognised copy key); children (the home
-#   names, in order, for ChildrenAnswered).
+#   names, in order, for ChildrenAnswered); offered (the first district offered to confirm,
+#   for DistrictUnclear: districts are checked against LGD's list, critic review D4).
 # Run it live with `.venv/bin/python -m scripts.onboarding_bank`; a unit test keeps it valid.
 
 cases:
@@ -99,9 +100,16 @@ cases:
   - {state: awaiting_profile, role: student, text: "class 15", expect: {event: Unrecognised, reason: invalid_grade}}
   - {state: awaiting_profile, role: student, known: {grade: 10}, text: "Karauli", expect: {event: ProfileAnswered, district: Karauli}}
   - {state: awaiting_profile, role: student, known: {grade: 10}, text: "Karauli, Rajasthan", expect: {event: ProfileAnswered, district: Karauli}}
-  - {state: awaiting_profile, role: student, known: {grade: 10}, text: "jila Sitapur, UP", expect: {event: ProfileAnswered, district: Sitapur}}
-  - {state: awaiting_profile, role: student, known: {grade: 10}, text: "मैं धार ज़िले से हूँ", expect: {event: ProfileAnswered, district: धार}}
+  - {state: awaiting_profile, role: student, known: {grade: 10}, text: "jila Sitapur, UP", expect: {event: DistrictUnclear, offered: "Sitapur, Uttar Pradesh"}}
+  - {state: awaiting_profile, role: student, known: {grade: 10}, text: "मैं धार ज़िले से हूँ", expect: {event: ProfileAnswered, district: "Dhar, Madhya Pradesh"}}
   - {state: awaiting_profile, role: student, known: {grade: 12}, text: "district kyun chahiye?", expect: {event: AboutMargAsked}}
+  # districts checked against LGD's list (critic review D4, 2026-11-01)
+  - {state: awaiting_profile, role: student, known: {grade: 10}, text: "Karoli", expect: {event: DistrictUnclear, offered: "Karauli, Rajasthan"}}
+  - {state: awaiting_profile, role: student, known: {grade: 10}, text: "बाड़मेर", expect: {event: DistrictUnclear, offered: "Barmer, Rajasthan"}}
+  - {state: awaiting_profile, role: student, known: {grade: 10}, text: "Delhi", expect: {event: DistrictUnclear}}
+  - {state: awaiting_profile, role: student, known: {grade: 10}, text: "Bengaluru", expect: {event: DistrictUnclear, offered: "Bengaluru Rural, Karnataka"}}
+  - {state: awaiting_profile, role: student, known: {grade: 10}, text: "mera zila Bahraich hai", expect: {event: ProfileAnswered, district: "Bahraich, Uttar Pradesh"}}
+  - {state: awaiting_profile, role: teacher, known: {subject: maths, grade: 5}, text: "Barmer Rajasthan", expect: {event: ProfileAnswered, district: "Barmer, Rajasthan"}}
 
   # --- a teacher's profile -----------------------------------------------------------------------
   - {state: awaiting_profile, role: teacher, text: "science", expect: {event: ProfileAnswered, subject: science}}

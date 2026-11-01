@@ -28,6 +28,7 @@ from app.domain.models.conversation import (
     ChildInvalid,
     ChildrenAnswered,
     ConversationEvent,
+    DistrictUnclear,
     LanguageSwitched,
     ProfileAnswered,
     QuestionNoted,
@@ -55,6 +56,7 @@ EventName = Literal[
     "ChildAnswered",
     "ChildrenAnswered",
     "ChildInvalid",
+    "DistrictUnclear",
     "ProfileAnswered",
     "LanguageSwitched",
     "QuestionNoted",
@@ -85,6 +87,7 @@ class Expected(BaseModel):
     question: bool | None = None
     reason: str | None = None
     children: list[str] | None = None  # ChildrenAnswered: the home names, in order
+    offered: str | None = None  # DistrictUnclear: the first district offered ("Karauli, …")
 
 
 class OnboardingCase(BaseModel):
@@ -132,10 +135,7 @@ class EventComparer:
             differences.append(f"role {event.role.value}")
         if isinstance(event, ChildAnswered):
             differences.extend(EventComparer._child(expected, event, now))
-        if isinstance(event, ChildrenAnswered) and expected.children is not None:
-            names = [(child.nickname or "").casefold() for child in event.children]
-            if names != [name.casefold() for name in expected.children]:
-                differences.append(f"children {names}")
+        differences.extend(EventComparer._several(expected, event))
         if isinstance(event, ProfileAnswered):
             differences.extend(EventComparer._profile(expected, event))
         if isinstance(event, LanguageSwitched) and expected.language not in {None, event.language}:
@@ -149,6 +149,19 @@ class EventComparer:
             if reason != expected.reason:
                 differences.append(f"reason {reason}")
         return differences
+
+    @staticmethod
+    def _several(expected: Expected, event: ConversationEvent) -> list[str]:
+        """Children named together, or the districts offered to confirm."""
+        if isinstance(event, ChildrenAnswered) and expected.children is not None:
+            names = [(child.nickname or "").casefold() for child in event.children]
+            if names != [name.casefold() for name in expected.children]:
+                return [f"children {names}"]
+        if isinstance(event, DistrictUnclear) and expected.offered is not None:
+            first = event.candidates[0].label if event.candidates else None
+            if first != expected.offered:
+                return [f"offered {first!r}"]
+        return []
 
     @staticmethod
     def _child(expected: Expected, event: ChildAnswered, now: datetime) -> list[str]:

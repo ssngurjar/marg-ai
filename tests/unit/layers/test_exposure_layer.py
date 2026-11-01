@@ -74,7 +74,7 @@ def teacher_ctx(
     text: str = "Kal class 8 Force and Pressure", exchanges: list[Exchange] | None = None
 ) -> TurnContext:
     profile = user_profile(role=Role.TEACHER, language=E).model_copy(
-        update={"grade": 8, "subject": "science", "district": "Karauli"}
+        update={"grade": 8, "subject": "science", "district": "Karauli, Rajasthan"}
     )
     return turn_context(text_message(text), profile=profile).model_copy(
         update={"recent_exchanges": exchanges or []}

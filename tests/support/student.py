@@ -55,7 +55,7 @@ def student_ctx(
     grade: int | None = 8,
 ) -> TurnContext:
     profile = user_profile(role=Role.STUDENT, language=language).model_copy(
-        update={"grade": grade, "district": "Karauli"}
+        update={"grade": grade, "district": "Karauli, Rajasthan"}
     )
     return turn_context(text_message(text), profile=profile)
 

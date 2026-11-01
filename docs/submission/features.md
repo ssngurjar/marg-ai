@@ -208,7 +208,11 @@ of the **topics**, never the child's words, and never what a child disclosed.
 
 ### How it starts
 After choosing "student", Marg asks whether a parent or teacher knows they're talking to Marg
-(**Yes** goes on; **No** asks them to check at home first), then their class and district.
+(**Yes** goes on; **No** asks them to check at home first), then their class and district. The
+district is checked against the government's official list (LGD): a close spelling or a name
+typed in Hindi ("बाड़मेर") is offered back to confirm ("Is your district Barmer, Rajasthan?"), a
+state alone ("Delhi") gets "which district?", and after one more try what they wrote is kept, so
+no one is stuck. Teachers' districts are checked the same way.
 
 ### Asking anything about studies and careers
 1. Marg searches **53 official documents** (scholarships, sports trials, exams, public service,

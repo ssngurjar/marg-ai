@@ -528,3 +528,7 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
   knows school safeguarding practice in Rajasthan / UP.
 - [ ] **Read the teacher's "not about teaching" reply** (`TEACHER_OUT_OF_SCOPE`, same file), and
   try "mera transfer kaise hoga".
+- [ ] **Read the district questions** (`DISTRICT_CONFIRM_ONE`, `DISTRICT_CONFIRM_MANY`,
+  `DISTRICT_WHICH_IN_STATE`, `DISTRICT_NOT_FOUND` in `app/constants/onboarding_copy.py`, and
+  `DASHBOARD_DISTRICT_UNVERIFIED` in `app/constants/teacher_copy.py`), and try "Karoli",
+  "बाड़मेर", "Delhi" and "Gurgaon" twice as a student (critic review D4).

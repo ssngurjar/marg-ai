@@ -38,9 +38,14 @@ from uuid import UUID
 
 from app.constants.child_talk_copy import PARENT_SUMMARY_AFTER_SADNESS, UNNAMED_CHILD_NAME
 from app.constants.journey_copy import NUDGE_ASK, NUDGE_BUTTONS
+from app.constants.lgd_districts import DISTRICTS
 from app.constants.photo_check import PERSON_PHRASES
 from app.constants.stt_keywords import STT_KEYWORDS
-from app.constants.teacher_copy import DASHBOARD_LINK, DASHBOARD_NO_DISTRICT
+from app.constants.teacher_copy import (
+    DASHBOARD_DISTRICT_UNVERIFIED,
+    DASHBOARD_LINK,
+    DASHBOARD_NO_DISTRICT,
+)
 from app.core.clock import Clock
 from app.core.errors import (
     DomainError,
@@ -135,6 +140,10 @@ FALLBACK_REGISTER: Final = Language.HINGLISH
 logger = get_logger(__name__)
 
 type SuccessOutcome = Literal[StepOutcome.OK, StepOutcome.DEGRADED]
+
+
+LGD_LABELS: Final = frozenset(district.label for district in DISTRICTS)
+"""Districts stored as LGD names them; anything else was kept as typed (D4, 2026-11-01)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -595,11 +604,15 @@ class _Turn:
         token, no model; still checked by safety_out like any reply."""
         voice = Language.HINDI if self.register is Language.HINGLISH else self.register
         district = self.ctx.profile.district
-        if district:
+        if district is not None and district in LGD_LABELS:
             claims = teacher_claims(self.ctx.profile.user_hash, district)
             url = f"{links.base_url.rstrip('/')}/dashboard?t={links.codec.link_token(claims)}"
             body = DASHBOARD_LINK[self.register].format(url=url)
             spoken = DASHBOARD_LINK[voice].format(url="").split("\n")[0]
+        elif district:
+            # kept as typed, not on LGD's list: no district numbers for it (D4, 2026-11-01)
+            body = DASHBOARD_DISTRICT_UNVERIFIED[self.register].format(district=district)
+            spoken = DASHBOARD_DISTRICT_UNVERIFIED[voice].format(district=district)
         else:
             body, spoken = DASHBOARD_NO_DISTRICT[self.register], DASHBOARD_NO_DISTRICT[voice]
         reply = CanonicalReply(

@@ -297,10 +297,20 @@ Checked in this order. The first match wins, and only events in
    Otherwise `Unrecognised`.
 6. Nothing matched → `Unrecognised`.
 
-**District is stored as said, not validated against a list.** It's only used as a hint in
-prompts and for the teacher dashboard's district scope (s13). Rejected: no letters, fewer than 2
-or more than 60 characters. This is documented behaviour, so CLAUDE.md §4's "reject, don't
-repair" still holds for values that are actually malformed.
+**District is checked against LGD's list** (critic review D4, owner 2026-11-01; superseded
+"stored as said"). `app/constants/lgd_districts.py` holds every district from the Local
+Government Directory (790, fetched by `scripts/fetch_districts.py` with its source and date).
+`DistrictMatcher` reads the answer: an exact name (English, or LGD's Devanagari name; filler like
+"zila", "mera … hai" and a state name dropped) is stored as LGD's label, "Karauli, Rajasthan". A
+close spelling, a Hindi-script name matched by its consonants ("बाड़मेर" → Barmer), the first word
+of longer names ("Bengaluru") or one name in two states → `DistrictUnclear(candidates)`: copy
+`DISTRICT_CONFIRM_ONE` (Yes / No) or `DISTRICT_CONFIRM_MANY` (a button per district, plus "None
+of these" when there's room), buttons `onb:district:<LGD code>` and `onb:district:no`. A state
+alone → `DISTRICT_WHICH_IN_STATE`; nothing → `DISTRICT_NOT_FOUND`. When Marg's last reply was
+one of these, a second answer with nothing to offer is stored as typed: the way out, so no one is
+stuck (unverified: not an LGD label, so it has no district dashboard). Old names LGD doesn't
+carry (Bangalore, Gurgaon) take that way out, since no recalled alias list is used. Rejected as
+before: no letters, fewer than 2 or more than 80 characters (LGD's longest label is 68).
 
 ### 4.5 Language
 
@@ -707,3 +717,4 @@ On a real phone, from a number with no `users` row:
 | 2026-11-01 | **Another child is added and confirmed, with no khoj** (`ConversationMachine._child_answered`, `CopyKey.CHILD_ADDED`; `COPY_VERSION` onb-2026-11-01.1). A second or third child aged 3-8 gets "{child} is added! Ask for a khoj for {child} whenever you like." and the child-talk question with that child's buttons; no first khoj and no daily-time question. The first child is unchanged (khoj in the same turn) | The owner's demo: adding Isha sent a khoj and the daily-time question ("why are you giving me the khoj, I just wanted to add my child"), and never asked whether Isha may talk to Marg | owner |
 | 2026-11-01 | **Onboarding ends with a question, not a khoj; a question about Marg is answered at once** (`ConversationMachine._child_answered`, `_child_talk_answered`, `_about_marg`; event `AboutMargAsked`; `CopyKey.ABOUT_MARG`, `KHOJ_OR_QUESTION`; `profile_extraction` 1.3.0: `about_marg`; `COPY_VERSION` onb-2026-11-01.2). Every child, the first too: "{child} is added!" and the child-talk question; the answer (yes or not now) brings "What would you like now: today's khoj, or a question?" with a Today's khoj button. No first khoj and no daily-time question unasked for; a question kept during onboarding is answered once the child is added (no longer dropped for the khoj). A question about Marg itself (what it does, keeps, needs, costs) gets `ABOUT_MARG` and the waiting question again. Replaces 2026-10-29's khoj in the same turn | The owner's second demo: "First tell what can you do" got "I've noted your question" twice; after "Munni, 5 Years" came a khoj, the child-talk question and the time question at once: "just ask if Munni can talk, and what do you want, then a khoj or a general question". Onboarding bank: 151/152 | owner |
 | 2026-11-01 | **Several children in one answer are all added, each asked about child talk; spoken half-years are ages, not names** (`OnboardingAnswerParser.parse_children`, `ChildParse`, `ChildrenParse`; event `ChildrenAnswered`; `ConversationMachine._children_answered`, `_child_effects`; `OnboardingResult.follow_ups`; no new copy). "Munni 5 aur Golu 7" adds both (up to three children; past the limit, `MAX_CHILDREN`), with "{child} is added" and the child-talk question as one message per child, each with that child's Yes / Not now buttons. Each part needs one home name and an age; unnamed ("beti 5 aur beta 7") or unclear answers keep the one-child path. "saadhe teen saal" is 3, "paune chaar saal" 3, "dhai saal" 2 (whole years); these words and month words are never a nickname. "2 saal" stays valid (ages 2-19; the khoj is for 3-8) | Critic review of `evals/intents/` (owner's decision D3): "Munni 5 aur Golu 7" got the full-name message, "saadhe teen saal" saved the nickname "saadhe". Onboarding bank 170/170 over two runs | owner |
+| 2026-11-01 | **The district is checked against LGD's official list, with a way out** (`LgdDistrict`, `app/constants/lgd_districts.py` from `scripts/fetch_districts.py`; `DistrictMatcher`; event `DistrictUnclear`; `OnboardingLayer._DistrictReader`; copy `DISTRICT_CONFIRM_ONE`, `DISTRICT_CONFIRM_MANY`, `DISTRICT_WHICH_IN_STATE`, `DISTRICT_NOT_FOUND`, `DASHBOARD_DISTRICT_UNVERIFIED`; `COPY_VERSION` onb-2026-11-01.3; `DISTRICT_LENGTHS` 2-80). See "District is checked against LGD's list" above | Critic review D4: districts were stored as typed. The owner chose confirm + a way out after the evidence that a strict list loops real people ("Delhi" is 11 districts, Bangalore and Gurgaon aren't LGD names, only 198 of 790 have a Devanagari name). LGD's web service, fetched 2026-11-01: 790 districts. Onboarding bank 182/182 over two runs; every LGD name finds itself (unit test over all 790) | owner |

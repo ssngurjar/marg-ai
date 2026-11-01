@@ -7,6 +7,7 @@ read the common answers; the ProfileExtraction model call reads the rest, and wh
 answer counts as not understood (outcome DEGRADED), never as a guess.
 """
 
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
@@ -15,6 +16,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict
 
+from app.constants.lgd_districts import DISTRICTS
 from app.constants.onboarding_copy import (
     ADD_CHILD,
     CHANNEL_VARIANTS,
@@ -28,6 +30,11 @@ from app.constants.onboarding_copy import (
     DELETE_ASK,
     DELETE_NO,
     DELETE_YES,
+    DISTRICT_BUTTON,
+    DISTRICT_NO,
+    DISTRICT_NO_TITLE,
+    DISTRICT_NONE_TITLE,
+    DISTRICT_YES_TITLE,
     GUARDIAN_NO,
     GUARDIAN_YES,
     ROLE_PARENT,
@@ -57,6 +64,7 @@ from app.domain.models.conversation import (
     DeletionCancelled,
     DeletionConfirmed,
     DeletionRequested,
+    DistrictUnclear,
     FirstContact,
     GuardianConfirmed,
     GuardianDeclined,
@@ -88,6 +96,7 @@ from app.domain.models.writes import (
     TurnWrite,
 )
 from app.domain.rules.conversation_machine import ConversationMachine
+from app.domain.rules.district_matcher import DistrictMatcher
 from app.domain.rules.onboarding_answer_parser import ChildrenParse, Found, OnboardingAnswerParser
 from app.domain.rules.register_detector import RegisterDetector
 from app.prompts.prompt_registry import PromptRegistry, PromptSpec
@@ -282,6 +291,8 @@ class OnboardingLayer:
         event = self._BUTTON_EVENTS.get(button_id)
         if event is not None:
             return event
+        if button_id.startswith(f"{DISTRICT_BUTTON}:"):
+            return _DistrictReader.button(ctx, button_id)
         for prefix, allowed in ((CHILD_TALK_YES, True), (CHILD_TALK_NO, False)):
             learner_id = self._learner_in(ctx, button_id.removeprefix(f"{prefix}:"))
             if button_id.startswith(f"{prefix}:") and learner_id is not None:
@@ -365,7 +376,7 @@ class OnboardingLayer:
             if asked is CopyKey.ASK_SUBJECT_TEACHER and is_short_value:
                 return ProfileAnswered(ProfileUpdate(subject=user_text))
             if asked is CopyKey.ASK_DISTRICT and is_short_value:
-                return ProfileAnswered(ProfileUpdate(district=user_text))
+                return _DistrictReader.typed(ctx, user_text)
         except InvalidProfileValue:
             return Unrecognised()  # malformed ("12345" as a district): ask again, store nothing
         return None
@@ -477,7 +488,8 @@ class OnboardingLayer:
                 child_talk_question = self._reply([asks[0]], language, fixed_kind)
                 handoff = FirstKhojHandoff(handoff.learner, then_ask=child_talk_question)
         messages = _OneQuestionEach.split(shown)
-        replies = [self._reply(message, language, fixed_kind) for message in messages]
+        district = reading.event if isinstance(reading.event, DistrictUnclear) else None
+        replies = [self._reply(message, language, fixed_kind, district) for message in messages]
         return OnboardingResult(
             reply=replies[0] if replies else self._reply([], language, fixed_kind),
             writes=writes,
@@ -490,7 +502,11 @@ class OnboardingLayer:
         )
 
     def _reply(
-        self, copies: Sequence["_Copy"], language: Language, fixed_kind: FixedReplyKind
+        self,
+        copies: Sequence["_Copy"],
+        language: Language,
+        fixed_kind: FixedReplyKind,
+        district: DistrictUnclear | None = None,
     ) -> CanonicalReply:
         bodies: list[str] = []
         buttons: tuple[ReplyButton, ...] = ()
@@ -498,6 +514,7 @@ class OnboardingLayer:
             values = {
                 "child": copy.child or CHILD_FALLBACK[language],
                 "invite_link": self._invite_link,
+                **_DistrictReader.values(district),
             }
             entry = COPY[(copy.key, language)]
             bodies.append(entry.body.format_map(values))
@@ -509,6 +526,8 @@ class OnboardingLayer:
                         ReplyButton(id=f"{button.id}:{learner_id}", title=button.title)
                         for button in entry.buttons
                     )
+            if district is not None and copy.key in _DistrictReader.CONFIRM_KEYS:
+                buttons = _DistrictReader.buttons(district, language)
         return CanonicalReply(
             body="\n\n".join(bodies),
             body_language=language,
@@ -517,6 +536,99 @@ class OnboardingLayer:
             buttons=list(buttons),
             fixed_kind=fixed_kind,
         )
+
+
+class _DistrictReader:
+    """A district answer checked against LGD's list (critic review D4, owner 2026-11-01): an
+    exact name is stored as "Karauli, Rajasthan"; anything less sure is confirmed or asked again
+    once; a second unclear answer is stored as typed (unverified: not an LGD label)."""
+
+    CONFIRM_KEYS: ClassVar[frozenset[CopyKey]] = frozenset(
+        {CopyKey.DISTRICT_CONFIRM_ONE, CopyKey.DISTRICT_CONFIRM_MANY}
+    )
+    ASKED_KEYS: ClassVar[frozenset[CopyKey]] = CONFIRM_KEYS | {
+        CopyKey.DISTRICT_WHICH_IN_STATE,
+        CopyKey.DISTRICT_NOT_FOUND,
+    }
+    BUTTON_TITLE_MAX: ClassVar[int] = 20  # WhatsApp's limit
+
+    @staticmethod
+    def typed(ctx: TurnContext, typed: str) -> ConversationEvent:
+        match = DistrictMatcher.match(typed, DISTRICTS)
+        if match.found is not None:
+            return ProfileAnswered(ProfileUpdate(district=match.found.label))
+        if _DistrictReader._asked_before(ctx) and not match.candidates:
+            # the way out (owner, 2026-11-01): asked once already, so keep what they wrote
+            try:
+                return ProfileAnswered(ProfileUpdate(district=typed.strip()))
+            except InvalidProfileValue:
+                return DistrictUnclear(())
+        return DistrictUnclear(match.candidates, match.state_named)
+
+    @staticmethod
+    def button(ctx: TurnContext, button_id: str) -> ConversationEvent:
+        asked = ConversationMachine.next_profile_question(ctx.profile, len(ctx.learners))
+        if ctx.profile.state is not _S.AWAITING_PROFILE or asked is not CopyKey.ASK_DISTRICT:
+            return Unrecognised()  # an old button
+        if button_id == DISTRICT_NO:
+            return DistrictUnclear(())
+        district = _DISTRICTS_BY_CODE.get(button_id.removeprefix(f"{DISTRICT_BUTTON}:"))
+        if district is None:
+            return Unrecognised()
+        return ProfileAnswered(ProfileUpdate(district=district.label))
+
+    @staticmethod
+    def values(district: DistrictUnclear | None) -> dict[str, str]:
+        if district is None:
+            return {}
+        labels = [candidate.label for candidate in district.candidates]
+        numbered = [f"{number}. {label}" for number, label in enumerate(labels, start=1)]
+        return {
+            "district": labels[0] if labels else "",
+            "choices": "\n".join(numbered),
+            "state": district.state_named or "",
+        }
+
+    @staticmethod
+    def buttons(district: DistrictUnclear, language: Language) -> tuple[ReplyButton, ...]:
+        candidates = district.candidates
+        if len(candidates) == 1:
+            return (
+                ReplyButton(
+                    id=f"{DISTRICT_BUTTON}:{candidates[0].code}",
+                    title=DISTRICT_YES_TITLE[language],
+                ),
+                ReplyButton(id=DISTRICT_NO, title=DISTRICT_NO_TITLE[language]),
+            )
+        named = [
+            ReplyButton(
+                id=f"{DISTRICT_BUTTON}:{candidate.code}",
+                title=candidate.name[: _DistrictReader.BUTTON_TITLE_MAX],
+            )
+            for candidate in candidates
+        ]
+        if len(named) < DistrictMatcher.MAX_CANDIDATES:
+            named.append(ReplyButton(id=DISTRICT_NO, title=DISTRICT_NONE_TITLE[language]))
+        return tuple(named)
+
+    @staticmethod
+    def _asked_before(ctx: TurnContext) -> bool:
+        """Marg's last reply was one of the district questions: this is the second try."""
+        if not ctx.recent_exchanges:
+            return False
+        last_reply = ctx.recent_exchanges[-1].reply_text
+        for (key, _language), entry in COPY.items():
+            if key not in _DistrictReader.ASKED_KEYS:
+                continue
+            fixed_parts = (part.strip() for part in _PLACEHOLDER.split(entry.body))
+            longest = max(fixed_parts, key=len)
+            if longest and longest in last_reply:
+                return True
+        return False
+
+
+_PLACEHOLDER: Final = re.compile(r"\{\w+\}")
+_DISTRICTS_BY_CODE: Final = {str(district.code): district for district in DISTRICTS}
 
 
 @dataclass(frozen=True, slots=True)
@@ -562,10 +674,9 @@ class _ExtractionMapper:
         if state is _S.AWAITING_ROLE and extraction.role is not None:
             return RoleChosen(Role(extraction.role))
         if state is _S.AWAITING_PROFILE:
-            update = _ExtractionMapper._profile_update(extraction)
-            if update is not None and not update.is_empty:
-                question = extraction.question[:QUESTION_MAX_CHARS] if extraction.question else None
-                return ProfileAnswered(update, question=question)
+            answered = _ExtractionMapper._profile_answer(ctx, extraction)
+            if answered is not None:
+                return answered
         if state is _S.AWAITING_CHILD and extraction.child_age is not None:
             return _ExtractionMapper._child(extraction, current_year)
         if extraction.question:
@@ -575,13 +686,29 @@ class _ExtractionMapper:
         return None
 
     @staticmethod
+    def _profile_answer(
+        ctx: TurnContext, extraction: ProfileExtraction
+    ) -> ConversationEvent | None:
+        """The profile fields read, or a district to check on its own (D4)."""
+        update = _ExtractionMapper._profile_update(extraction)
+        if update is not None and not update.is_empty:
+            question = extraction.question[:QUESTION_MAX_CHARS] if extraction.question else None
+            return ProfileAnswered(update, question=question)
+        if extraction.district:
+            return _DistrictReader.typed(ctx, extraction.district)
+        return None
+
+    @staticmethod
     def _profile_update(extraction: ProfileExtraction) -> ProfileUpdate | None:
-        """Out-of-range or malformed values count as absent, never as the nearest valid one."""
+        """Out-of-range or malformed values count as absent, never as the nearest valid one. A
+        district counts only when LGD's list names it exactly; otherwise it's asked on its own."""
         grade = extraction.grade if extraction.grade in OnboardingAnswerParser.GRADES else None
+        district = None
+        if extraction.district:
+            found = DistrictMatcher.match(extraction.district, DISTRICTS).found
+            district = found.label if found is not None else None
         try:
-            return ProfileUpdate(
-                grade=grade, subject=extraction.subject, district=extraction.district
-            )
+            return ProfileUpdate(grade=grade, subject=extraction.subject, district=district)
         except InvalidProfileValue:
             return None
 

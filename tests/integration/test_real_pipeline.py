@@ -348,6 +348,45 @@ async def test_a_disclosure_only_the_policy_check_sees_gets_the_child_helpline(
 # --- onboarding and delete-my-data, end to end (s08 §10) -------------------------------------
 
 
+async def teacher_at_the_district_question(pipeline: Pipeline, prefix: str) -> None:
+    await ask(pipeline, "Hello", message_id=f"wamid.{prefix}1")
+    await send(pipeline, wa.button_reply("onb:consent:yes", "Haan, theek hai"))
+    await send(
+        pipeline, wa.button_reply("onb:role:teacher", "Teacher", message_id=f"wamid.{prefix}3")
+    )
+    await ask(pipeline, "Maths", message_id=f"wamid.{prefix}4")
+    await ask(pipeline, "class 4", message_id=f"wamid.{prefix}5")
+
+
+async def test_a_close_district_spelling_is_confirmed_then_stored_as_lgd_names_it(
+    engine: AsyncEngine,
+) -> None:
+    # critic review D4, 2026-11-01
+    pipeline = wire(engine, FakeSafetyClassifier())
+    await teacher_at_the_district_question(pipeline, "D")
+    await ask(pipeline, "Karoli", message_id="wamid.D6")
+    assert await rows(engine, "SELECT state, district FROM users") == [("awaiting_profile", None)]
+    confirm = pipeline.sender.sent[-1].part
+    yes = confirm.buttons[0]
+    assert "Karauli, Rajasthan" in (confirm.text or "")
+    await send(pipeline, wa.button_reply(yes.id, yes.title, message_id="wamid.D7"))
+    assert await rows(engine, "SELECT state, district FROM users") == [
+        ("active", "Karauli, Rajasthan")
+    ]
+
+
+async def test_a_district_not_on_the_list_is_asked_once_then_kept_as_typed(
+    engine: AsyncEngine,
+) -> None:
+    # owner, 2026-11-01: the way out, so no one is stuck on the district question
+    pipeline = wire(engine, FakeSafetyClassifier())
+    await teacher_at_the_district_question(pipeline, "G")
+    await ask(pipeline, "Gurgaon", message_id="wamid.G6")
+    assert await rows(engine, "SELECT state, district FROM users") == [("awaiting_profile", None)]
+    await ask(pipeline, "Gurgaon", message_id="wamid.G7")
+    assert await rows(engine, "SELECT state, district FROM users") == [("active", "Gurgaon")]
+
+
 async def test_two_children_in_one_answer_are_both_stored_each_with_their_own_question(
     engine: AsyncEngine,
 ) -> None:

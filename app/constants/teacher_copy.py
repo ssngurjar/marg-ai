@@ -90,6 +90,20 @@ DASHBOARD_NO_DISTRICT: Final[dict[Language, str]] = {
     Language.HINDI: "डैशबोर्ड के लिए पहले अपना ज़िला बताइए।",
     Language.ENGLISH: "Please tell me your district first, to see its dashboard.",
 }
+# A district kept as typed, not on LGD's list (critic review D4, owner 2026-11-01): it has no
+# district dashboard, since its numbers would mean a group the official list doesn't know.
+DASHBOARD_DISTRICT_UNVERIFIED: Final[dict[Language, str]] = {
+    Language.HINGLISH: (
+        "Aapka zila ({district}) sarkari soochi mein nahi mila, isliye uska dashboard abhi nahi"
+        " ban sakta."
+    ),
+    Language.HINDI: (
+        "आपका ज़िला ({district}) सरकारी सूची में नहीं मिला, इसलिए उसका डैशबोर्ड अभी नहीं बन सकता।"
+    ),
+    Language.ENGLISH: (
+        "Your district ({district}) isn't on the official list, so it has no dashboard yet."
+    ),
+}
 # A teacher worried about a child (critic review D2, owner 2026-11-01): what to do now, in fixed
 # words; the helpline number is the sourced one in crisis_replies. Pending the owner's review.
 TEACHER_CONCERN: Final[dict[Language, str]] = {

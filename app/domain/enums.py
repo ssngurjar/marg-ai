@@ -266,6 +266,11 @@ class CopyKey(StrEnum):
     ASK_SUBJECT_TEACHER = "ask_subject_teacher"
     ASK_GRADE_TEACHER = "ask_grade_teacher"
     ASK_DISTRICT = "ask_district"
+    # the district checked against LGD's list (critic review D4, 2026-11-01)
+    DISTRICT_CONFIRM_ONE = "district_confirm_one"  # "Karauli, Rajasthan?" yes / no
+    DISTRICT_CONFIRM_MANY = "district_confirm_many"  # which of these, one button each
+    DISTRICT_WHICH_IN_STATE = "district_which_in_state"  # "Delhi": which district of it?
+    DISTRICT_NOT_FOUND = "district_not_found"  # not on the list: write it as on official papers
     INVALID_GRADE = "invalid_grade"
     ASK_CHILD = "ask_child"
     CHILD_INVALID_AGE = "child_invalid_age"

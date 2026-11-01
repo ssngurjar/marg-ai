@@ -40,6 +40,7 @@ from app.domain.models.conversation import (
     DeletionCancelled,
     DeletionConfirmed,
     DeletionRequested,
+    DistrictUnclear,
     Effect,
     FirstContact,
     GuardianConfirmed,
@@ -337,6 +338,19 @@ def _check_age(step: _Step, child: ChildAnswered) -> None:
         raise InvalidProfileValue(f"birth_year {child.birth_year} gives age {age}, outside 2-19")
 
 
+def _district_unclear(step: _Step, event: DistrictUnclear) -> Transition:
+    """Asked again, with the names to confirm or what to write; nothing stored (D4)."""
+    if len(event.candidates) == 1:
+        key = CopyKey.DISTRICT_CONFIRM_ONE
+    elif event.candidates:
+        key = CopyKey.DISTRICT_CONFIRM_MANY
+    elif event.state_named is not None:
+        key = CopyKey.DISTRICT_WHICH_IN_STATE
+    else:
+        key = CopyKey.DISTRICT_NOT_FOUND
+    return step.moved(_S.AWAITING_PROFILE, SendCopy(key))
+
+
 def _child_invalid(step: _Step, event: ChildInvalid) -> Transition:
     return step.moved(_S.AWAITING_CHILD, SendCopy(event.reason))
 
@@ -445,6 +459,7 @@ def _table() -> Mapping[tuple[ConversationState, type[ConversationEvent]], _Hand
         (_S.AWAITING_GUARDIAN, GuardianConfirmed): _for(GuardianConfirmed, _guardian_confirmed),
         (_S.AWAITING_GUARDIAN, GuardianDeclined): _for(GuardianDeclined, _guardian_declined),
         (_S.AWAITING_PROFILE, ProfileAnswered): _for(ProfileAnswered, _profile_answered),
+        (_S.AWAITING_PROFILE, DistrictUnclear): _for(DistrictUnclear, _district_unclear),
         (_S.AWAITING_CHILD, ChildAnswered): _for(ChildAnswered, _child_answered),
         (_S.AWAITING_CHILD, ChildrenAnswered): _for(ChildrenAnswered, _children_answered),
         (_S.AWAITING_CHILD, ChildInvalid): _for(ChildInvalid, _child_invalid),

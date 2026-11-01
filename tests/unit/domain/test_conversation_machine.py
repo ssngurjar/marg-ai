@@ -13,6 +13,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
+from app.constants.lgd_districts import DISTRICTS
 from app.core.errors import InvalidProfileValue, InvalidTransition
 from app.domain.enums import (
     Channel,
@@ -37,6 +38,7 @@ from app.domain.models.conversation import (
     DeletionCancelled,
     DeletionConfirmed,
     DeletionRequested,
+    DistrictUnclear,
     FirstContact,
     GuardianConfirmed,
     GuardianDeclined,
@@ -422,7 +424,7 @@ def test_a_child_outside_2_to_19_is_refused(birth_year: int) -> None:
         ({"district": ""}, "district"),
         ({"district": "   "}, "district"),
         ({"district": "12345"}, "district"),
-        ({"district": "x" * 61}, "district"),
+        ({"district": "x" * 81}, "district"),
         ({"subject": ""}, "subject"),
         ({"subject": "x" * 41}, "subject"),
     ],
@@ -508,6 +510,32 @@ def test_children_answered_needs_at_least_two(children: tuple[ChildAnswered, ...
         ChildrenAnswered(children)
 
 
+@pytest.mark.parametrize(
+    ("event", "copy"),
+    [
+        (DistrictUnclear((DISTRICTS[0],)), CopyKey.DISTRICT_CONFIRM_ONE),
+        (DistrictUnclear(DISTRICTS[:3]), CopyKey.DISTRICT_CONFIRM_MANY),
+        (DistrictUnclear((), "Delhi"), CopyKey.DISTRICT_WHICH_IN_STATE),
+        (DistrictUnclear(()), CopyKey.DISTRICT_NOT_FOUND),
+    ],
+    ids=["one", "many", "state", "nothing"],
+)
+def test_an_unclear_district_stores_nothing_and_asks_the_right_way(
+    event: DistrictUnclear, copy: CopyKey
+) -> None:
+    # critic review D4, 2026-11-01
+    profile = at(S.AWAITING_PROFILE, role=Role.TEACHER, subject="Maths", grade=4, **CONSENTED)
+    done = step(profile, event)
+    assert done.profile.state is S.AWAITING_PROFILE
+    assert done.profile.district is None
+    assert done.effects == (SendCopy(copy),)
+
+
+def test_an_unclear_district_is_refused_outside_the_profile_questions() -> None:
+    with pytest.raises(InvalidTransition, match="DistrictUnclear"):
+        step(at(S.ACTIVE, role=Role.TEACHER, **CONSENTED), DistrictUnclear(()))
+
+
 # --- properties --------------------------------------------------------------------------------
 
 NICKNAMES = st.one_of(st.none(), st.sampled_from(["Munni", "मुन्नी", "Golu", "Chhotu"]))
@@ -546,6 +574,11 @@ EVENTS: st.SearchStrategy[ConversationEvent] = st.one_of(
             min_size=2,
             max_size=4,
         ).map(tuple),
+    ),
+    st.builds(
+        DistrictUnclear,
+        candidates=st.lists(st.sampled_from(DISTRICTS[:5]), max_size=3).map(tuple),
+        state_named=st.one_of(st.none(), st.just("Delhi")),
     ),
     st.builds(
         ChildInvalid,
