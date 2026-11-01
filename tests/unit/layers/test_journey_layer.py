@@ -22,6 +22,7 @@ from app.constants.journey_copy import (
     NICKNAME_SAVED,
     NUDGE_ASK,
     NUDGE_OFF_REPLY,
+    PROGRESS_HEADER,
     REFLECTION_FALLBACK,
     SUPERVISION_LINE,
     WHICH_CHILD,
@@ -625,7 +626,7 @@ async def test_a_report_read_as_a_report_gets_the_reflection() -> None:
         text="usne patte gine", button=None, open_activity=offer(FIRST, MUNNI), layer=layer
     )
     assert result.reply.body.startswith(REFLECTION_PRAISE)
-    assert result.prompt_versions["parent_intent"] == "1.8.0"
+    assert result.prompt_versions["parent_intent"] == "1.9.0"
     [prompt] = llm.by_prompt["parent_intent"].prompts
     assert "usne patte gine" in prompt.user
 
@@ -1184,3 +1185,21 @@ async def test_an_unknown_khoj_button_offers_todays_khoj() -> None:
     layer, _ = layer_with()
     result = await report(ParentMessage("", [f"jrn:about:{UUID(int=999)}"]), layer)
     assert offered(result).learner_id == MUNNI.id
+
+
+# --- "how is my child doing?" (owner, 2026-11-01) ------------------------------------------------
+
+
+async def test_asking_how_the_child_is_doing_gets_the_record_and_todays_khoj() -> None:
+    # Owner's demo: "but we did lot of stuff, you can show the progress right"
+    layer, llm = layer_with(intent=reading("progress", "english"))
+    done = offer(FIRST, MUNNI, hours_ago=3, status=ActivityStatus.DONE, number=70)
+    ctx = turn_context(text_message("how is my child doing"), learners=[MUNNI]).model_copy(
+        update={"all_activities": [done]}
+    )
+    result = await layer.handle(ctx, ParentMessage("how is my child doing", []), NOW, H)
+    assert result.reply.body.startswith(PROGRESS_HEADER[H].format(name="Munni"))
+    assert FIRST.title in result.reply.body
+    assert [button.id for button in result.reply.buttons] == ["jrn:today"]
+    assert llm.by_prompt["parent_answer"].prompts == []
+    assert result.writes == []

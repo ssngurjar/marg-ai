@@ -276,3 +276,49 @@ async def test_deleting_the_parent_deletes_the_sessions(
             await connection.execute(text("SELECT count(*) FROM child_sessions"))
         ).scalar_one()
     assert remaining == 0
+
+
+async def test_recent_topics_are_each_childs_own_and_only_from_the_window(
+    engine: AsyncEngine, sessions: async_sessionmaker[AsyncSession]
+) -> None:
+    # a parent's progress summary (owner, 2026-11-01)
+    munni_old = await started(sessions, MUNNI)
+    async with sessions() as session, session.begin():
+        await ChildSessionRepository.count_turn(
+            session, PARENT, ChildTalkTurn(session_id=munni_old, topic=CuriosityDomain.ART_MUSIC)
+        )
+        await ChildSessionRepository.end(
+            session,
+            PARENT,
+            ChildSessionEnd(session_id=munni_old, reason=ChildSessionEndReason.CHILD_ENDED),
+        )
+    async with engine.begin() as connection:
+        await connection.execute(
+            text("UPDATE child_sessions SET started_at = now() - interval '40 days'")
+        )
+    for learner, topic in (
+        (MUNNI, CuriosityDomain.EARTH_SKY),
+        (GOLU, CuriosityDomain.NATURE_LIVING),
+    ):
+        session_id = await started(sessions, learner)
+        async with sessions() as session, session.begin():
+            await ChildSessionRepository.count_turn(
+                session, PARENT, ChildTalkTurn(session_id=session_id, topic=topic)
+            )
+            await ChildSessionRepository.end(
+                session,
+                PARENT,
+                ChildSessionEnd(session_id=session_id, reason=ChildSessionEndReason.CHILD_ENDED),
+            )
+    async with engine.connect() as connection:
+        now = (await connection.execute(text("SELECT now()"))).scalar_one()
+    async with sessions() as session:
+        recent = await ChildSessionRepository.recent_topics(
+            session, PARENT, now - timedelta(days=30)
+        )
+        others = await ChildSessionRepository.recent_topics(
+            session, OTHER, now - timedelta(days=30)
+        )
+    by_child = {topics.learner_id: topics.topics for topics in recent}
+    assert by_child == {MUNNI: [CuriosityDomain.EARTH_SKY], GOLU: [CuriosityDomain.NATURE_LIVING]}
+    assert others == []

@@ -150,6 +150,11 @@ Behaviour, food, sleep: a warm, practical answer with one thing to try today. He
 no advice, a referral to the anganwadi worker, the ASHA didi or a doctor. Asked about Marg itself
 ("what can you do?", "can my child talk to you?"), the answer sticks to what Marg really does.
 
+### How is my child doing?
+"How is my child doing?" or "Munni ne ab tak kya kiya" gets a short summary for each child,
+built from the record by code: the khojs done and skipped in the last 30 days, what the child
+explored, and what they asked Marg about in their own talks (topics only, never their words).
+
 ### Children and their names
 Up to three children. Another child is added with "Another child" (or in words): Marg confirms
 by name and asks whether they may talk to Marg too, without sending a khoj until asked. With

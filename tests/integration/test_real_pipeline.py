@@ -95,6 +95,9 @@ QUESTION_READING: Final[Mapping[str, object]] = {
     "intent": "question",
     "language": "hinglish",
     "braj": False,
+    "asked_language": None,
+    "child_name": None,
+    "report_about": None,
 }
 REPORT_READING: Final[Mapping[str, object]] = {**QUESTION_READING, "intent": "report"}
 
@@ -280,7 +283,7 @@ async def test_a_parents_question_is_answered_and_every_step_is_recorded(
     ]
     assert await rows(
         engine, "SELECT status, route, fixed_reply_kind, prompt_versions FROM turns"
-    ) == [("completed", "journey", None, {"parent_answer": "1.2.0", "parent_intent": "1.2.0"})]
+    ) == [("completed", "journey", None, {"parent_answer": "1.2.0", "parent_intent": "1.9.0"})]
 
 
 async def test_llama_guard_down_is_covered_by_the_muse_spark_backup(engine: AsyncEngine) -> None:

@@ -69,6 +69,7 @@ from app.store.tables import inbox_messages, learner_activities, turns, users
 from app.store.turn_progress_notifier import TurnProgressNotifier
 
 RETENTION_BATCH = 1000
+PROGRESS_WINDOW = timedelta(days=30)  # a parent's progress summary covers this long
 
 
 @dataclass(frozen=True, slots=True)
@@ -159,6 +160,9 @@ class TurnRepository:
                 last_child_session_end = await ChildSessionRepository.last_ended_at(
                     session, started.user_hash
                 )
+                child_talk_topics = await ChildSessionRepository.recent_topics(
+                    session, started.user_hash, newest - PROGRESS_WINDOW
+                )
                 memory = await ProfileMemoryRepository.get(session, started.user_hash)
                 active_roadmap = await RoadmapRepository.active_for(session, started.user_hash)
         except (SQLAlchemyError, OSError) as exc:
@@ -181,6 +185,8 @@ class TurnRepository:
             active_learner=talking or journey.active_learner,
             open_activity=journey.open_activity,
             activity_history=journey.history,
+            all_activities=records,
+            child_talk_topics=child_talk_topics,
             messages=messages,
             recent_exchanges=exchanges,
             is_session_start=SessionRules.is_session_start(

@@ -127,6 +127,37 @@ WHICH_KHOJ: Final[dict[Language, str]] = {
     _HINDI: "यह किस खोज के बारे में है?",
     _ENGLISH: "Which khoj is this about?",
 }
+# A parent's progress summary, built by code from the record (owner, 2026-11-01)
+PROGRESS_HEADER: Final[dict[Language, str]] = {
+    _HINGLISH: "{name}, pichhle 30 din:",
+    _HINDI: "{name}, पिछले 30 दिन:",
+    _ENGLISH: "{name}, the last 30 days:",
+}
+PROGRESS_DONE: Final[dict[Language, str]] = {
+    _HINGLISH: "• Ki gayi khoj: {count} ({titles})",
+    _HINDI: "• की गई खोजें: {count} ({titles})",
+    _ENGLISH: "• Khojs done: {count} ({titles})",
+}
+PROGRESS_SKIPPED: Final[dict[Language, str]] = {
+    _HINGLISH: "• Chhodi: {count}",
+    _HINDI: "• छोड़ी: {count}",
+    _ENGLISH: "• Skipped: {count}",
+}
+PROGRESS_EXPLORED: Final[dict[Language, str]] = {
+    _HINGLISH: "• Jaana-samjha: {topics}",
+    _HINDI: "• जाना-समझा: {topics}",
+    _ENGLISH: "• Explored: {topics}",
+}
+PROGRESS_ASKED: Final[dict[Language, str]] = {
+    _HINGLISH: "• Marg se khud poochha: {topics}",
+    _HINDI: "• मार्ग से खुद पूछा: {topics}",
+    _ENGLISH: "• Asked Marg about: {topics}",
+}
+PROGRESS_NOTHING_YET: Final[dict[Language, str]] = {
+    _HINGLISH: "{name} ne abhi tak koi khoj nahi ki. Aaj ki khoj maangiye, shuru karte hain!",
+    _HINDI: "{name} ने अभी तक कोई खोज नहीं की। आज की खोज माँगिए, शुरू करते हैं!",
+    _ENGLISH: "{name} hasn't done a khoj yet. Ask for today's khoj to begin!",
+}
 WHICH_CHILD: Final[dict[Language, str]] = {
     _HINGLISH: "Aaj ki khoj kis bachche ke liye bhejun?",
     _HINDI: "आज की खोज किस बच्चे के लिए भेजूँ?",

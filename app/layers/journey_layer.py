@@ -111,6 +111,7 @@ from app.layers.intent_reader import IntentRead, IntentReader
 from app.layers.layer_result import LayerResult
 from app.layers.local_voice import LocalVoice
 from app.layers.parent_question_layer import ParentQuestionLayer
+from app.layers.progress_report import ProgressRecord, ProgressReport
 from app.prompts.prompt_registry import PromptRegistry, PromptSpec
 from app.providers.ports import LanguageModel
 
@@ -310,6 +311,8 @@ class JourneyLayer:
                 return self._daily_off(register, khoj_open=open_activity is not None)
             case ParentIntent.SOMEONE_ELSE:
                 return JourneyLayer._who_is_writing(ctx, now, register)
+            case ParentIntent.PROGRESS:
+                return self._progress(ctx, now, register)
             case ParentIntent.DELETE_DATA:
                 return _fixed(
                     DELETE_DATA_OFFER[register], register, (DELETE_DATA_BUTTON[register],)
@@ -370,6 +373,17 @@ class JourneyLayer:
         if message.photo is not None and not message.text.strip() and others:
             return JourneyLayer._which_khoj(open_activity, others, register)
         return await self._reflect(ctx, open_activity, message.text, register, message.photo)
+
+    def _progress(self, ctx: TurnContext, now: datetime, register: Language) -> LayerResult:
+        """ "How is my child doing?": the record, by code (owner, 2026-11-01)."""
+        report = ProgressReport.text(
+            ctx.learners,
+            ProgressRecord(activities=ctx.all_activities, child_talk=ctx.child_talk_topics),
+            find=self._source.find,
+            now=now,
+            register=register,
+        )
+        return _fixed(report, register, (TODAY_KHOJ_BUTTON[register],))
 
     async def _khoj_button(
         self,

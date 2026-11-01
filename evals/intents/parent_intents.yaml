@@ -170,6 +170,14 @@ cases:
   - {text: "beti doosre bachche ke liye khilona chhin leti hai", open_khoj: false, intent: question}
   - {text: "mera beta ek aur bachche se ladta rehta hai", open_khoj: true, intent: question}
 
+  # --- progress: how the child is doing --------------------------------------------------------
+  - {text: "how is my child doing", open_khoj: false, intent: progress}
+  - {text: "Munni ne ab tak kya kya kiya", open_khoj: true, intent: progress}
+  - {text: "progress batao bachche ki", open_khoj: false, intent: progress}
+  - {text: "can I see the summary of what she did so far", open_khoj: false, intent: progress}
+  - {text: "मेरे बच्चे ने अब तक क्या सीखा", open_khoj: false, intent: progress}
+  - {text: "beta school mein marks kam la raha hai", open_khoj: false, intent: question}
+
   # --- feedback on Marg's last reply, and agreeing to a suggestion (owner's demo, 2026-11-01) --
   - {text: "why are you giving me the khoj i just wanted to add my child", open_khoj: true, intent: question}
   - {text: "you didn't answer what I asked", open_khoj: false, intent: question}

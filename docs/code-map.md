@@ -123,6 +123,7 @@ line of the module's docstring.
 | `learner.py` | `Learner` | Learners: the child or student whose journey Marg.ai follows (contracts §2.2, data-model). |
 | `message.py` | `MediaRef`, `InboundMessage`, `AudioClip`, `ImageClip`, `Transcript` | What users send us: messages and the media they carry (contracts.md §2.1). |
 | `photo.py` | `ObjectCount`, `PhotoFindings` | What a parent's photo of the child's work tells us: counts only, never the image (s10b §4.14). |
+| `progress.py` | `ChildTalkTopics` | What a parent can see of a child's progress (owner, 2026-11-01): counts and topics from the |
 | `reply.py` | `ReplyButton`, `TemplateRef`, `OutboundPart`, `Citation`, `LocalisedReply`, `CanonicalReply` | What we send back (contracts.md §2.6): reply content and the outbound parts that carry it. |
 | `retrieval.py` | `RetrievalQuery`, `RetrievedChunk`, `RetrievalResult` | What retrieval is asked and what it finds (s11 §4.6, §4.7; contracts §2.7). |
 | `routing.py` | `RouteDecision` | Where a turn goes (contracts §2.5). |
@@ -205,6 +206,7 @@ line of the module's docstring.
 | `mentor_layer.py` | `MentorClaim`, `MentorAnswer`, `MentorSettings`, `MentorLayer` | MentorLayer: a student's question answered only from official sources, or honestly not |
 | `onboarding_layer.py` | `ProfileExtraction`, `FirstKhojHandoff`, `PendingQuestionHandoff`, `OnboardingResult`, `OnboardingLayer` | OnboardingLayer: a message during onboarding → a state-machine event → fixed copy and writes |
 | `parent_question_layer.py` | `ParentAnswer`, `ParentQuestionLayer` | ParentQuestionLayer: a parent's question answered warmly and practically (s10b §4.9, flow D). |
+| `progress_report.py` | `ProgressRecord`, `ProgressReport` | ProgressReport: what a parent sees when they ask how their child is doing (owner, |
 | `query_rewriter.py` | `RewrittenQuery`, `QueryRewriter` | QueryRewriter: a student's question as an English search with exam and scheme names |
 | `roadmap_layer.py` | `RoadmapDraftStep`, `RoadmapDraft`, `RoadmapLayer` | RoadmapLayer: a student's goal as 3-6 concrete, sourced steps (s12 §4.4). |
 | `student_intent_reader.py` | `StudentIntentReading`, `StudentIntentRead`, `StudentIntentReader` | StudentIntentReader: whether a student's free text asks for a plan, read by Muse Spark. |

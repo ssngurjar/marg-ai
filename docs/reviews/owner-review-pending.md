@@ -511,3 +511,5 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
   `PARENT_TAKEOVER_DONE` in `app/constants/child_talk_copy.py`, three languages).
 - [ ] **Read the "which khoj" question** (`WHICH_KHOJ` in `app/constants/journey_copy.py`), and try
   it: ask for another khoj, then send a photo of the first with no words.
+- [ ] **Read the progress summary lines** (`PROGRESS_*` in `app/constants/journey_copy.py`), and try
+  "how is my child doing?" after a few khojs.

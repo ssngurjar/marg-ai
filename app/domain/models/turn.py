@@ -3,12 +3,15 @@
 from dataclasses import dataclass
 from datetime import datetime
 
+from pydantic import Field
+
 from app.domain.enums import Channel, ConversationState, Language, Role, Route, Speaker
 from app.domain.models.activity import OfferRecord
 from app.domain.models.base import DomainModel, TurnId, UserHash
 from app.domain.models.child_session import ChildSession
 from app.domain.models.learner import Learner
 from app.domain.models.message import InboundMessage
+from app.domain.models.progress import ChildTalkTopics
 from app.domain.models.student import ProfileMemory, Roadmap
 
 
@@ -50,6 +53,10 @@ class TurnContext(DomainModel):
     active_learner: Learner | None  # who this turn is about (LearnerChooser); None: ask
     open_activity: OfferRecord | None  # the active learner's latest OFFERED activity, < 48 h
     activity_history: list[OfferRecord]  # the active learner's activities, newest first
+    # Every child's activities in the last 60 days, newest first, and what each child asked
+    # in their own talks in the last 30: a parent's progress summary (owner, 2026-11-01)
+    all_activities: list[OfferRecord] = Field(default_factory=list)
+    child_talk_topics: list[ChildTalkTopics] = Field(default_factory=list)
     messages: list[InboundMessage]  # oldest first; at least one
     recent_exchanges: list[Exchange]  # the last RECENT_EXCHANGES, oldest first
     is_session_start: bool  # first turn, or SESSION_GAP since the previous (SessionRules)

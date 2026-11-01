@@ -25,6 +25,7 @@ from app.domain.enums import (
 from app.domain.models.base import TurnId, UserHash
 from app.domain.models.child_session import ChildSession
 from app.domain.models.learner import LearnerId
+from app.domain.models.progress import ChildTalkTopics
 from app.domain.models.writes import (
     ChildSessionEnd,
     ChildSessionLanguage,
@@ -84,6 +85,33 @@ class ChildSessionRepository:
             topics=[CuriosityDomain(topic) for topic in row.topics],
             language=Language(row.language) if row.language is not None else None,
         )
+
+    @staticmethod
+    async def recent_topics(
+        session: AsyncSession, user_hash: UserHash, since: datetime
+    ) -> list[ChildTalkTopics]:
+        """What each of the user's children asked about in sessions started since `since`,
+        topics only (a parent's progress summary; never the child's words)."""
+        rows = (
+            await session.execute(
+                select(child_sessions.c.learner_id, child_sessions.c.topics)
+                .where(
+                    and_(
+                        child_sessions.c.user_hash == user_hash,
+                        child_sessions.c.started_at >= since,
+                    )
+                )
+                .order_by(child_sessions.c.started_at)
+            )
+        ).all()
+        by_learner: dict[LearnerId, list[CuriosityDomain]] = {}
+        for row in rows:
+            topics = by_learner.setdefault(LearnerId(row.learner_id), [])
+            topics.extend(CuriosityDomain(topic) for topic in row.topics)
+        return [
+            ChildTalkTopics(learner_id=learner_id, topics=topics)
+            for learner_id, topics in by_learner.items()
+        ]
 
     @staticmethod
     async def last_ended_at(session: AsyncSession, user_hash: UserHash) -> datetime | None:

@@ -1,6 +1,6 @@
 +++
 id = "parent_intent"
-version = "1.8.0"
+version = "1.9.0"
 model_setting = "MODEL_TEXT"
 max_output_tokens = 1200
 output_model = "IntentReading"
@@ -51,6 +51,9 @@ Pick exactly one intent:
 - child_name: gives or changes their child's home name ("bacche ka naam Prisa hai", "call her
   Gudiya", "uska naam Chotu rakho"). Naming a child while asking or telling something else is
   not this.
+- progress: asks how their child is doing or what the child has done so far with Marg ("how is
+  my child doing", "Munni ne ab tak kya kiya", "progress batao", "can I see her summary").
+  Asking about the child's school marks or studies is a question.
 - delete_data: wants Marg to delete everything it keeps about them or their child ("mera sab
   data mita do, ab nahi chahiye", "remove all our information please"). Something deleted on
   their own phone, or asking whether data is kept safe, is not this.
