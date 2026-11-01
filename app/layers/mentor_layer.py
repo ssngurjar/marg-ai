@@ -24,6 +24,8 @@ from app.constants.student_copy import (
     FAMILY_PRESSURE_WORDS,
     MAKE_A_PLAN_BUTTON,
     SOURCES_LABEL,
+    STUDENT_ACKNOWLEDGED,
+    STUDENT_GOOD_NIGHT,
 )
 from app.core.errors import ProviderResponseInvalid
 from app.domain.enums import Language, StepOutcome
@@ -33,6 +35,7 @@ from app.domain.models.turn import TurnContext
 from app.domain.models.usage import StepUsage
 from app.domain.rules.phrase_finder import PhraseFinder
 from app.domain.rules.register_detector import RegisterDetector
+from app.domain.rules.small_talk_rules import SmallTalk, SmallTalkRules
 from app.domain.rules.stage_rules import StageRules
 from app.domain.rules.student_level import StudentLevel
 from app.layers.layer_result import LayerResult
@@ -115,7 +118,11 @@ class MentorLayer:
 
     async def answer(self, ctx: TurnContext, user_text: str, register: Language) -> LayerResult:
         """Raises ProviderError when the model can't answer, StoreError when the corpus can't be
-        read (the turn then gets TRY_AGAIN_LATER)."""
+        read (the turn then gets TRY_AGAIN_LATER). An "ok", thanks or good night gets a short fixed
+        reply at once (owner's field test, 2026-11-01)."""
+        small_talk = SmallTalkRules.kind(user_text)
+        if small_talk is not None:
+            return MentorLayer._small_talk_reply(small_talk, register)
         retrieved = await self.retrieve(ctx, user_text)
         relevant = [] if retrieved.result.nothing_relevant else retrieved.result.chunks
         context = MentorContextBuilder.build(ctx, relevant, user_text)
@@ -162,6 +169,26 @@ class MentorLayer:
             outcome=StepOutcome.DEGRADED if degraded else StepOutcome.OK,
             degraded_reason=degraded,
             hazard_rule=None,
+        )
+
+    @staticmethod
+    def _small_talk_reply(kind: SmallTalk, register: Language) -> LayerResult:
+        copy = STUDENT_GOOD_NIGHT if kind == "good_night" else STUDENT_ACKNOWLEDGED
+        voice = Language.HINDI if register is Language.HINGLISH else register
+        return LayerResult(
+            reply=CanonicalReply(
+                body=copy[register],
+                body_language=register,
+                spoken_text=copy[voice],
+                citations=[],
+                buttons=[],
+                fixed_kind=None,
+            ),
+            usages=[],
+            prompt_versions={},
+            outcome=StepOutcome.OK,
+            degraded_reason=None,
+            step_note="small_talk=true",
         )
 
     async def retrieve(self, ctx: TurnContext, user_text: str) -> _Retrieved:

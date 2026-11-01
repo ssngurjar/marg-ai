@@ -541,4 +541,7 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
   (`MARG_FACTS`, "messages still on my phone").
 - [ ] **Read the student's class question** (`ASK_GRADE_STUDENT` in
   `app/constants/onboarding_copy.py`): it now says "(1 se 12, ya college/graduate)".
+- [ ] **Read the student's quick replies** (`STUDENT_ACKNOWLEDGED`, `STUDENT_GOOD_NIGHT` in
+  `app/constants/student_copy.py`) and the general refusal, now worded for everyone (`REFUSE` /
+  `GENERAL` in `app/constants/fixed_replies.py`).
 

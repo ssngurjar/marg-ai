@@ -102,6 +102,7 @@ from app.domain.rules.audio_analyser import AudioAnalyser
 from app.domain.rules.filler_detector import FillerDetector
 from app.domain.rules.indic_script_normaliser import IndicScriptNormaliser
 from app.domain.rules.register_chooser import RegisterChooser
+from app.domain.rules.small_talk_rules import SmallTalkRules
 from app.domain.rules.stage_rules import StageRules
 from app.layers.about_marg_layer import AboutMargLayer
 from app.layers.child_talk_layer import ChildTalkLayer
@@ -356,7 +357,9 @@ class _Turn:
         for a plan, and a plan goes to the roadmap. A failed or slow reading keeps the mentor."""
         student = self.steps.student
         reader = student.intents if student is not None else None
-        if reader is None or decision.route is not Route.MENTOR or not self.user_text.strip():
+        # an "ok" or good night needs no reading: the mentor answers it at once (field test)
+        nothing_to_read = not self.user_text.strip() or SmallTalkRules.kind(self.user_text)
+        if reader is None or decision.route is not Route.MENTOR or nothing_to_read:
             return decision, None
         try:
             read = await self._bounded(reader.read(self.user_text), self.settings.route_timeout)

@@ -9,6 +9,7 @@ from uuid import UUID
 
 import pytest
 
+from app.constants.student_copy import STUDENT_ACKNOWLEDGED, STUDENT_GOOD_NIGHT
 from app.constants.teacher_copy import DASHBOARD_DISTRICT_UNVERIFIED, DASHBOARD_NO_DISTRICT
 from app.core.errors import ProviderError, ProviderTimeout, StoreError
 from app.domain.enums import (
@@ -403,6 +404,20 @@ async def test_a_students_question_about_marg_is_answered_from_the_facts_not_the
     generate = [step for step in result.recorder.steps if step.step is StepName.GENERATE]
     assert [step.detail for step in generate] == ["about_marg=true"]
     assert result.outcome.prompt_versions["about_marg"] == "1.0.0"
+
+
+@pytest.mark.parametrize("text", ["okay okay", "okk okk 🤣", "acha good night", "🥰"])
+async def test_a_students_ok_or_good_night_is_answered_at_once_with_no_model(text: str) -> None:
+    # owner's field test, 2026-11-01: "okay okay" took 10 s; "okk okk 🤣" repeated the UPSC facts
+    result = await run_student(student_ctx(text), {}, read_intent=True)
+    assert result.outcome.route is Route.MENTOR
+    assert result.outcome.prompt_versions == {}  # no reading, no rewrite, no mentor prompt
+    assert result.delivered in {
+        STUDENT_ACKNOWLEDGED[Language.HINGLISH],
+        STUDENT_GOOD_NIGHT[Language.HINGLISH],
+    }
+    generate = [step for step in result.recorder.steps if step.step is StepName.GENERATE]
+    assert [step.detail for step in generate] == ["small_talk=true"]
 
 
 async def test_plan_words_route_without_calling_the_model() -> None:

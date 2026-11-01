@@ -87,3 +87,17 @@ PLAN_UNVERIFIABLE: Final[dict[Language, str]] = {
     ),
 }
 """Sent when retrieval finds nothing relevant: no plan is drafted or stored (golden roadmap-003)."""
+# A student's "ok", thanks or emoji, and a good night: answered at once, never by the mentor
+# (owner's field test, 2026-11-01: "okay okay" took 10 s and "okk okk" repeated the UPSC facts)
+STUDENT_ACKNOWLEDGED: Final[dict[Language, str]] = {
+    Language.HINGLISH: (
+        "Theek hai! Jab man kare, padhai ya aage ke raaste ka koi bhi sawaal poochhiye."
+    ),
+    Language.HINDI: "ठीक है! जब मन करे, पढ़ाई या आगे के रास्ते का कोई भी सवाल पूछिए।",
+    Language.ENGLISH: "Okay! Ask me anything about your studies or your path, whenever you like.",
+}
+STUDENT_GOOD_NIGHT: Final[dict[Language, str]] = {
+    Language.HINGLISH: "Shubh ratri! Kal phir baat karte hain.",
+    Language.HINDI: "शुभ रात्रि! कल फिर बात करते हैं।",
+    Language.ENGLISH: "Good night! Talk again tomorrow.",
+}

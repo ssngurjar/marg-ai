@@ -170,13 +170,17 @@ _PLAIN_TEXTS: Final[dict[tuple[FixedReplyKind, FixedReplyVariant], dict[Language
             "didi or a doctor."
         ),
     },
+    # Said to parents, students and teachers alike (owner's field test, 2026-11-01: a student
+    # was told "let's talk about the child's khoj")
     (_K.REFUSE, _V.GENERAL): {
         _HINGLISH: (
-            "Is baare mein baat nahi kar sakte. Aaiye, bachche ki khoj aur seekhne ki baat karein."
+            "Is baare mein baat nahi kar sakte. Aaiye, padhai, seekhne ya kisi aur sawaal ki baat"
+            " karein."
         ),
-        _HINDI: "इस बारे में बात नहीं कर सकते। आइए, बच्चे की खोज और सीखने की बात करें।",
+        _HINDI: "इस बारे में बात नहीं कर सकते। आइए, पढ़ाई, सीखने या किसी और सवाल की बात करें।",
         _ENGLISH: (
-            "I can't talk about that. Let's talk about your child's discoveries and learning."
+            "I can't talk about that. Let's talk about studies, learning or anything else you'd"
+            " like to ask."
         ),
     },
     (_K.REFUSE, _V.GENERIC): {
@@ -189,7 +193,7 @@ _PLAIN_TEXTS: Final[dict[tuple[FixedReplyKind, FixedReplyVariant], dict[Language
     },
 }
 
-_VERSIONS: Final[dict[FixedReplyKind, str]] = {_K.REPEAT_PLEASE: "2"}  # all others "1"
+_VERSIONS: Final[dict[FixedReplyKind, str]] = {_K.REPEAT_PLEASE: "2", _K.REFUSE: "2"}  # else "1"
 
 
 def _spoken_language(language: Language) -> Language:

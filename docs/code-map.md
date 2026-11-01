@@ -169,6 +169,7 @@ line of the module's docstring.
 | `register_detector.py` | `RegisterDetector` | RegisterDetector: which language and script a message is in (s09's detect_register). Pure. |
 | `sentence_case.py` | `SentenceCase` | SentenceCase: a model-written line shown on its own, starting with a capital and ending with |
 | `session_rules.py` | `SessionRules` | SessionRules: the only definition of a session (contracts §2.2). Pure. |
+| `small_talk_rules.py` | `SmallTalkRules` | SmallTalkRules: a message that only acknowledges, thanks, greets or says good night ("ok ok |
 | `stage_rules.py` | `StageRules` | StageRules: a learner's age and NEP stage from their birth year (s10b §4.2). Pure. |
 | `student_level.py` | `StudentLevel` | StudentLevel: how a student's grade reads to a model, and which sources it may see (owner's |
 | `turn_batcher.py` | `TurnBatcher` | TurnBatcher: which pending messages a turn takes, and when it gives up (s04 §4.4, §4.9). Pure. |
