@@ -27,7 +27,7 @@ class ParentAnswer(BaseModel):
 
     answer: str = Field(min_length=1, max_length=500)
     try_this: str = Field(min_length=1, max_length=200)
-    spoken_text: str = Field(min_length=1, max_length=900)
+    spoken_text: str = Field(max_length=900)
 
 
 PARENT_ANSWER: Final = PromptSpec(prompt_id="parent_answer", output_type=ParentAnswer)

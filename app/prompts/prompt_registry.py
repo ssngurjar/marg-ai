@@ -70,6 +70,9 @@ class PromptSettings:
     models: Mapping[str, str]  # setting name → model id, e.g. {"MODEL_TEXT": "muse-spark-1.3"}
     reasoning_effort: ReasoningEffort
     user_slot_max_chars: int
+    # VOICE_REPLIES_ENABLED. Off, nobody hears spoken_text: every prompt's `spoken_rule` asks for
+    # it empty, and the checks drop their spoken_text problems (owner, 2026-11-01).
+    voice_replies: bool = True
 
 
 class UserSlot:
@@ -98,6 +101,26 @@ class UserSlot:
             last_space = cut.rfind(" ")
             cleaned = (cut[:last_space] if last_space > 0 else cut) + " […]"
         return WrappedSlot(text=f"<{name}>\n{cleaned}\n</{name}>", truncated=truncated)
+
+
+SPOKEN_TEXT_OFF: Final = (
+    'Voice replies are switched off: write spoken_text as an empty string (""), whatever the '
+    "description above says."
+)
+
+
+def _without_spoken_problems[OutputT: BaseModel](
+    check: Callable[[OutputT], list[str]] | None,
+) -> Callable[[OutputT], list[str]] | None:
+    """A semantic check that ignores its spoken_text problems: nobody hears it while voice
+    replies are off. Every other problem still counts."""
+    if check is None:
+        return None
+
+    def written_only(output: OutputT) -> list[str]:
+        return [problem for problem in check(output) if not problem.startswith("spoken_text")]
+
+    return written_only
 
 
 class PromptRegistry:
@@ -139,8 +162,12 @@ class PromptRegistry:
             name: UserSlot.wrap(name, text, self._settings.user_slot_max_chars)
             for name, text in user_vars.items()
         }
+        system_values = dict(system_vars)
+        if not self._settings.voice_replies and "spoken_rule" in system_values:
+            system_values["spoken_rule"] = SPOKEN_TEXT_OFF
+            semantic_check = _without_spoken_problems(semantic_check)
         context = {
-            "system": dict(system_vars),
+            "system": system_values,
             "user": {name: slot.text for name, slot in wrapped.items()},
         }
         try:

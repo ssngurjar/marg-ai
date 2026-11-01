@@ -118,7 +118,7 @@ class ActivityPersonalisation(BaseModel):
     questions_to_ask: list[str] = Field(min_length=2, max_length=4)
     listen_for: str = Field(min_length=1, max_length=160)
     parent_tip: str = Field(min_length=1, max_length=160)
-    spoken_text: str = Field(min_length=1, max_length=1500)
+    spoken_text: str = Field(max_length=1500)
 
 
 class ParentReflection(BaseModel):
@@ -130,7 +130,7 @@ class ParentReflection(BaseModel):
     next_question: str = Field(min_length=1, max_length=160)
     parent_tip: str = Field(min_length=1, max_length=160)
     summary_for_record: str = Field(min_length=1, max_length=200)
-    spoken_text: str = Field(min_length=1, max_length=900)
+    spoken_text: str = Field(max_length=900)
 
 
 ACTIVITY_PERSONALISE: Final = PromptSpec(

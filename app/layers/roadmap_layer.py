@@ -56,7 +56,7 @@ class RoadmapDraft(BaseModel):
 
     goal: str = Field(min_length=1, max_length=80)
     steps: list[RoadmapDraftStep] = Field(min_length=3, max_length=6)
-    spoken_text: str = Field(min_length=1, max_length=1500)
+    spoken_text: str = Field(max_length=1500)
 
 
 ROADMAP: Final = PromptSpec(prompt_id="roadmap", output_type=RoadmapDraft)

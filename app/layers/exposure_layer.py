@@ -74,7 +74,7 @@ class ExposureBridge(BaseModel):
     extra_activity: str | None = Field(max_length=500)
     extra_activity_field: str | None = Field(max_length=60)
     extra_activity_materials: list[Material] = Field(max_length=6)
-    spoken_text: str = Field(min_length=1, max_length=1500)
+    spoken_text: str = Field(max_length=1500)
 
     @model_validator(mode="after")
     def _per_outcome(self) -> Self:

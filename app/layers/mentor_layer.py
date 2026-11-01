@@ -64,7 +64,7 @@ class MentorAnswer(BaseModel):
     guidance: str | None = Field(max_length=600)  # mentor 1.1.0: room for real paths
     next_question: str | None = Field(max_length=160)
     suggest_roadmap: bool
-    spoken_text: str = Field(min_length=1, max_length=1500)
+    spoken_text: str = Field(max_length=1500)
 
 
 MENTOR: Final = PromptSpec(prompt_id="mentor", output_type=MentorAnswer)

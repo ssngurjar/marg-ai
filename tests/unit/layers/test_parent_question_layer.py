@@ -1,14 +1,17 @@
 """ParentQuestionLayer: one warm answer in the parent's register (s10b §4.9 flow D, S5 exit)."""
 
+from dataclasses import replace
+
 import pytest
 
 from app.core.errors import ProviderUnavailable
 from app.domain.enums import Language, StepOutcome
 from app.layers.parent_question_layer import ParentAnswer, ParentQuestionLayer
-from app.prompts.prompt_registry import PromptRegistry, PromptSettings
+from app.prompts.prompt_registry import SPOKEN_TEXT_OFF, PromptRegistry, PromptSettings
 from app.wiring import PROMPT_SPECS
 from tests.fakes.language_model import FakeLanguageModel
 from tests.support.parent_answers import ANSWER_IN, ENGLISH_ANSWER, HINDI_ANSWER, HINGLISH_ANSWER
+from tests.support.prompts import TEST_PROMPT_SETTINGS
 from tests.support.turn_context import text_message, turn_context
 
 pytestmark = pytest.mark.unit
@@ -146,3 +149,39 @@ def test_a_parent_answer_naming_a_hazard_gets_a_repair_turn_naming_the_word() ->
     )
     problems = ParentQuestionLayer.script_problems(answer, Language.HINGLISH)
     assert any('"chhat"' in problem and '"छत"' in problem for problem in problems)
+
+
+# --- voice replies off: no spoken text is written (owner, 2026-11-01) ----------------------------
+
+VOICE_OFF = PromptRegistry(
+    specs=PROMPT_SPECS, settings=replace(TEST_PROMPT_SETTINGS, voice_replies=False)
+)
+NO_SPOKEN_TEXT = {**HINGLISH_ANSWER, "spoken_text": ""}
+
+
+async def test_with_voice_replies_off_the_prompt_asks_for_no_spoken_text() -> None:
+    llm = FakeLanguageModel([NO_SPOKEN_TEXT])
+    layer = ParentQuestionLayer(llm, VOICE_OFF)
+    text = "bachcha khana nahi khata"
+    result = await layer.answer(turn_context(text_message(text)), text, Language.HINGLISH)
+    [prompt] = llm.prompts
+    assert SPOKEN_TEXT_OFF in prompt.system
+    assert "Devanagari script" not in prompt.system.split("Language:")[1].split("Fill")[1]
+    assert result.reply.body.startswith(str(HINGLISH_ANSWER["answer"]))
+
+
+async def test_with_voice_replies_on_an_empty_spoken_text_is_sent_back_for_repair() -> None:
+    llm = FakeLanguageModel([NO_SPOKEN_TEXT])
+    layer = layer_with(llm)
+    text = "bachcha khana nahi khata"
+    with pytest.raises(AssertionError, match="semantic check"):
+        await layer.answer(turn_context(text_message(text)), text, Language.HINGLISH)
+
+
+async def test_with_voice_replies_off_every_written_problem_still_counts() -> None:
+    wrong_script = {**NO_SPOKEN_TEXT, "answer": "बच्चा खाना नहीं खाता तो धीरज रखिए।"}
+    llm = FakeLanguageModel([wrong_script])
+    layer = ParentQuestionLayer(llm, VOICE_OFF)
+    text = "bachcha khana nahi khata"
+    with pytest.raises(AssertionError, match="semantic check"):
+        await layer.answer(turn_context(text_message(text)), text, Language.HINGLISH)

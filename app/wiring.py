@@ -677,6 +677,7 @@ def prompt_registry(settings: Settings) -> PromptRegistry:
     return PromptRegistry(
         specs=PROMPT_SPECS,
         settings=PromptSettings(
+            voice_replies=settings.voice_replies_enabled,
             models={
                 "MODEL_TEXT": settings.model_text,
                 "OPEN_MODEL": settings.open_model,

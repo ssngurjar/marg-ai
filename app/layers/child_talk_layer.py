@@ -104,7 +104,7 @@ class ChildReply(BaseModel):
     ask_back: str = Field(min_length=1, max_length=120)
     who_explores_this: str = Field(max_length=160)
     topic: CuriosityDomain | None
-    spoken_text: str = Field(min_length=1, max_length=900)
+    spoken_text: str = Field(max_length=900)
 
 
 CHILD_TALK: Final = PromptSpec(prompt_id="child_talk", output_type=ChildReply)
