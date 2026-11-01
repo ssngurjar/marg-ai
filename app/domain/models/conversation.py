@@ -16,6 +16,7 @@ GRADE_RANGE = range(1, 13)
 SUBJECT_MAX_CHARS = 40
 DISTRICT_LENGTHS = range(2, 61)
 NICKNAME_MAX_CHARS = 20
+MIN_CHILDREN_IN_ONE_ANSWER = 2  # ChildrenAnswered: one child is a ChildAnswered
 
 
 @dataclass(frozen=True, slots=True)
@@ -107,6 +108,18 @@ class ChildAnswered:
 
 
 @dataclass(frozen=True, slots=True)
+class ChildrenAnswered:
+    """Two or more children in one answer ("Munni 5 aur Golu 7"), in the order given: each is
+    added, up to the limit, and asked about on its own (critic review D3, 2026-11-01)."""
+
+    children: tuple[ChildAnswered, ...]
+
+    def __post_init__(self) -> None:
+        if len(self.children) < MIN_CHILDREN_IN_ONE_ANSWER:
+            raise InvalidProfileValue("ChildrenAnswered needs at least two children")
+
+
+@dataclass(frozen=True, slots=True)
 class ChildInvalid:
     reason: CopyKey  # CHILD_INVALID_AGE or CHILD_NICKNAME_TOO_LONG: the precise re-ask
 
@@ -176,6 +189,7 @@ type ConversationEvent = (
     | GuardianDeclined
     | ProfileAnswered
     | ChildAnswered
+    | ChildrenAnswered
     | ChildInvalid
     | AddChild
     | ChildTalkAnswered

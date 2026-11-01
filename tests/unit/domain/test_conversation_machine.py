@@ -29,6 +29,7 @@ from app.domain.models.conversation import (
     AddChild,
     ChildAnswered,
     ChildInvalid,
+    ChildrenAnswered,
     ChildTalkAnswered,
     ConsentDeclined,
     ConsentGiven,
@@ -446,6 +447,67 @@ def test_a_fourth_child_is_refused_by_the_machine() -> None:
     assert not any(isinstance(effect, UpsertLearner) for effect in done.effects)
 
 
+def test_two_children_in_one_answer_are_both_added_each_asked_about_child_talk() -> None:
+    # critic review D3, 2026-11-01: "Munni 5 aur Golu 7" added neither
+    profile = at(S.AWAITING_CHILD, role=Role.PARENT, **CONSENTED)
+    done = step(
+        profile, ChildrenAnswered((ChildAnswered(2021, "Munni"), ChildAnswered(2019, "Golu")))
+    )
+    assert done.profile.state is S.ACTIVE
+    assert done.effects == (
+        UpsertLearner(LearnerRelation.PARENT, 2021, "Munni"),
+        RecordConsent(ConsentEventKind.CHILD_PROFILE_CONSENT),
+        SendCopy(CopyKey.CHILD_ADDED),
+        SendCopy(CopyKey.ASK_CHILD_TALK),
+        UpsertLearner(LearnerRelation.PARENT, 2019, "Golu"),
+        SendCopy(CopyKey.CHILD_ADDED),
+        SendCopy(CopyKey.ASK_CHILD_TALK),
+    )
+
+
+def test_children_past_the_limit_are_not_added_and_the_parent_is_told() -> None:
+    profile = at(S.AWAITING_CHILD, role=Role.PARENT, **CONSENTED)
+    children = (ChildAnswered(2021, "Munni"), ChildAnswered(2019, "Golu"))
+    done = step(profile, ChildrenAnswered(children), learners=MAX_LEARNERS - 1)
+    upserts = [effect for effect in done.effects if isinstance(effect, UpsertLearner)]
+    assert upserts == [UpsertLearner(LearnerRelation.PARENT, 2021, "Munni")]
+    assert copies(done) == [CopyKey.CHILD_ADDED, CopyKey.ASK_CHILD_TALK, CopyKey.MAX_CHILDREN]
+    assert RecordConsent(ConsentEventKind.CHILD_PROFILE_CONSENT) not in done.effects
+
+
+def test_a_child_outside_3_to_8_among_several_gets_no_child_talk_question() -> None:
+    profile = at(S.AWAITING_CHILD, role=Role.PARENT, **CONSENTED)
+    done = step(
+        profile, ChildrenAnswered((ChildAnswered(2016, "Raju"), ChildAnswered(2021, "Munni")))
+    )
+    assert copies(done) == [
+        CopyKey.PROFILE_DONE_PARENT_OTHER_AGE,
+        CopyKey.CHILD_ADDED,
+        CopyKey.ASK_CHILD_TALK,
+    ]
+
+
+def test_the_pending_question_is_handed_off_once_after_several_children() -> None:
+    profile = at(S.AWAITING_CHILD, role=Role.PARENT, pending_question=QUESTION, **CONSENTED)
+    done = step(profile, ChildrenAnswered((ChildAnswered(2021, None), ChildAnswered(2020, None))))
+    assert done.effects[-1] == HandoffPendingQuestion(QUESTION)
+    assert done.effects.count(HandoffPendingQuestion(QUESTION)) == 1
+    assert done.profile.pending_question is None
+
+
+def test_an_out_of_range_child_among_several_adds_none() -> None:
+    profile = at(S.AWAITING_CHILD, role=Role.PARENT, **CONSENTED)
+    children = (ChildAnswered(2021, "Munni"), ChildAnswered(NOW.year - 1, "Golu"))
+    with pytest.raises(InvalidProfileValue, match="outside 2-19"):
+        step(profile, ChildrenAnswered(children))
+
+
+@pytest.mark.parametrize("children", [(), (ChildAnswered(2021, "Munni"),)], ids=["none", "one"])
+def test_children_answered_needs_at_least_two(children: tuple[ChildAnswered, ...]) -> None:
+    with pytest.raises(InvalidProfileValue, match="at least two"):
+        ChildrenAnswered(children)
+
+
 # --- properties --------------------------------------------------------------------------------
 
 NICKNAMES = st.one_of(st.none(), st.sampled_from(["Munni", "मुन्नी", "Golu", "Chhotu"]))
@@ -472,6 +534,18 @@ EVENTS: st.SearchStrategy[ConversationEvent] = st.one_of(
     ),
     st.builds(
         ChildAnswered, birth_year=st.integers(NOW.year - 19, NOW.year - 2), nickname=NICKNAMES
+    ),
+    st.builds(
+        ChildrenAnswered,
+        children=st.lists(
+            st.builds(
+                ChildAnswered,
+                birth_year=st.integers(NOW.year - 19, NOW.year - 2),
+                nickname=NICKNAMES,
+            ),
+            min_size=2,
+            max_size=4,
+        ).map(tuple),
     ),
     st.builds(
         ChildInvalid,

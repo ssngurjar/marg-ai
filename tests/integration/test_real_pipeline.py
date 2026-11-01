@@ -348,6 +348,50 @@ async def test_a_disclosure_only_the_policy_check_sees_gets_the_child_helpline(
 # --- onboarding and delete-my-data, end to end (s08 §10) -------------------------------------
 
 
+async def test_two_children_in_one_answer_are_both_stored_each_with_their_own_question(
+    engine: AsyncEngine,
+) -> None:
+    # critic review D3, 2026-11-01: "Munni 5 aur Golu 7" added neither
+    pipeline = wire(engine, FakeSafetyClassifier(), ModelSays(intent=REPORT_READING))
+    await ask(pipeline, "Hello", message_id="wamid.T1")
+    await send(pipeline, wa.button_reply("onb:consent:yes", "Haan, theek hai"))
+    await send(
+        pipeline, wa.button_reply("onb:role:parent", "Main parent hoon", message_id="wamid.T3")
+    )
+    await ask(pipeline, "Munni 5 aur Golu 7", message_id="wamid.T4")
+    learners = await rows(
+        engine, "SELECT id, nickname, birth_year FROM learners ORDER BY nickname DESC"
+    )
+    assert [(nickname, year) for _, nickname, year in learners] == [
+        ("Munni", NOW.year - 5),
+        ("Golu", NOW.year - 7),
+    ]
+    assert await rows(engine, "SELECT kind FROM consent_events ORDER BY id") == [
+        ("granted",),
+        ("child_profile_consent",),
+    ]
+    munni_question, golu_question = (sent.part for sent in pipeline.sender.sent[-2:])
+    (munni_id, _, _), (golu_id, _, _) = learners
+    assert [button.id for button in munni_question.buttons] == [
+        f"onb:childtalk:yes:{munni_id}",
+        f"onb:childtalk:no:{munni_id}",
+    ]
+    assert [button.id for button in golu_question.buttons] == [
+        f"onb:childtalk:yes:{golu_id}",
+        f"onb:childtalk:no:{golu_id}",
+    ]
+    await send(
+        pipeline, wa.button_reply(f"onb:childtalk:no:{golu_id}", "Abhi nahi", message_id="wamid.T5")
+    )
+    await send(
+        pipeline, wa.button_reply(f"onb:childtalk:yes:{munni_id}", "Haan", message_id="wamid.T6")
+    )
+    assert await rows(
+        engine,
+        "SELECT nickname, child_talk_consented_at IS NOT NULL FROM learners ORDER BY nickname",
+    ) == [("Golu", False), ("Munni", True)]
+
+
 async def test_a_new_parent_is_onboarded_with_consent_recorded_and_one_child(
     engine: AsyncEngine,
 ) -> None:

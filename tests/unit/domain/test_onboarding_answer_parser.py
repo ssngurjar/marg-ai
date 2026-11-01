@@ -5,7 +5,12 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 from app.domain.enums import Language, Role
-from app.domain.rules.onboarding_answer_parser import Found, OnboardingAnswerParser
+from app.domain.rules.onboarding_answer_parser import (
+    ChildParse,
+    ChildrenParse,
+    Found,
+    OnboardingAnswerParser,
+)
 
 pytestmark = pytest.mark.unit
 
@@ -71,6 +76,37 @@ def test_a_grade_outside_1_to_12_is_reported_not_repaired(text: str) -> None:
 )  # fmt: skip
 def test_child_ages(text: str, birth_year: int) -> None:
     assert P.parse_child_age(text, YEAR).birth_year == birth_year
+
+
+@pytest.mark.parametrize(
+    ("text", "age"),
+    [
+        ("saadhe teen saal", 3), ("Munni saadhe teen saal ki hai", 3), ("sawa paanch saal", 5),
+        ("paune chaar saal", 3), ("dhai saal ka hai", 2), ("साढ़े तीन साल", 3),
+        ("सवा पाँच साल की है", 5), ("पौने चार साल", 3), ("ढाई साल", 2),
+    ],
+)  # fmt: skip
+def test_a_spoken_half_or_quarter_counts_the_whole_years(text: str, age: int) -> None:
+    # critic review, 2026-11-01: "saadhe teen saal" saved the nickname "saadhe"
+    assert P.parse_child_age(text, YEAR).birth_year == YEAR - age
+
+
+@pytest.mark.parametrize(
+    "text", ["saadhe teen saal", "sawa paanch saal", "paune chaar saal", "ढाई साल", "dedh saal"]
+)
+def test_half_and_quarter_words_are_never_a_nickname(text: str) -> None:
+    assert P.parse_nickname(text).problem is Found.ABSENT
+
+
+def test_one_and_a_half_years_is_under_two_and_out_of_range() -> None:
+    assert P.parse_child_age("dedh saal", YEAR).problem is Found.OUT_OF_RANGE
+
+
+@pytest.mark.parametrize("text", ["2 saal", "do saal ki hai", "दो साल"])
+def test_two_years_is_a_valid_age(text: str) -> None:
+    # critic review, 2026-11-01, checked: ages 2-19 are accepted (a parent of a two-year-old is
+    # told the khoj is for 3-8), so "2 saal" is never refused
+    assert P.parse_child_age(text, YEAR).birth_year == YEAR - 2
 
 
 @pytest.mark.parametrize("text", ["1", "25", "40 saal", "1990"])
@@ -224,3 +260,73 @@ def test_a_sentence_about_a_language_is_not_a_switch(text: str) -> None:
 @pytest.mark.parametrize("text", ["Hellooo", "Hiii", "Helo ji", "namasteee"])
 def test_stretched_greetings_are_greetings(text: str) -> None:
     assert OnboardingAnswerParser.is_greeting(text)
+
+
+# --- several children in one answer (critic review D3, 2026-11-01) -----------------------------
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Munni 5 aur Golu 7", "Munni 5, Golu 7", "Munni 5 saal aur Golu 7 saal",
+        "Munni 5 or Golu 7",
+        "5 saal ki Munni aur 7 saal ka Golu", "Meri 2 betiyan hain, Munni 5 aur Golu 7",
+        "do bachche hain: Munni 5 and Golu 7",
+    ],
+)  # fmt: skip
+def test_two_named_children_are_both_read(text: str) -> None:
+    assert P.parse_children(text, YEAR) == ChildrenParse(
+        (ChildParse(YEAR - 5, "Munni"), ChildParse(YEAR - 7, "Golu")), None
+    )
+
+
+def test_two_children_in_devanagari_are_both_read() -> None:
+    assert P.parse_children("मुन्नी 5 साल और गोलू 7 साल", YEAR) == ChildrenParse(
+        (ChildParse(YEAR - 5, "मुन्नी"), ChildParse(YEAR - 7, "गोलू")), None
+    )
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Munni 5 saal", "beti, Munni, 5 saal", "Munni 5 saal ki hai aur class 1 mein hai",
+        "beti 5 aur beta 7", "2 bachche hain", "",
+    ],
+)  # fmt: skip
+def test_one_child_or_unnamed_children_are_left_to_the_one_child_rules(text: str) -> None:
+    assert P.parse_children(text, YEAR) is None
+
+
+@pytest.mark.parametrize(
+    ("text", "problem"),
+    [
+        ("Munni 5 aur Golu 1", Found.OUT_OF_RANGE),
+        ("Munni 5 aur Golu 6 mahine", Found.OUT_OF_RANGE),
+        ("Munni 5 aur Priya Sharma 7", Found.LOOKS_LIKE_FULL_NAME),
+    ],
+)  # fmt: skip
+def test_one_bad_child_among_several_is_reported_not_dropped(text: str, problem: Found) -> None:
+    assert P.parse_children(text, YEAR) == ChildrenParse((), problem)
+
+
+NAMES = st.sampled_from(["Munni", "Golu", "Chotu", "Pinky", "मुन्नी", "गोलू", "lali", "Gudiya"])
+JOINERS = st.sampled_from([" aur ", ", ", " and ", " और ", " & "])
+
+
+@given(
+    children=st.lists(
+        st.tuples(NAMES, st.integers(2, 19)),
+        min_size=2,
+        max_size=3,
+        unique_by=lambda child: child[0],
+    ),
+    joiner=JOINERS,
+    unit=st.sampled_from(["", " saal", " years", " साल"]),
+)
+def test_any_named_children_with_ages_are_read_in_order(
+    children: list[tuple[str, int]], joiner: str, unit: str
+) -> None:
+    text = joiner.join(f"{name} {age}{unit}" for name, age in children)
+    assert P.parse_children(text, YEAR) == ChildrenParse(
+        tuple(ChildParse(YEAR - age, name) for name, age in children), None
+    )

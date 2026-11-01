@@ -788,6 +788,28 @@ async def test_onboarding_the_first_child_asks_about_child_talk_and_sends_no_kho
     assert kinds == ["profile_change", "learner_upsert"]
 
 
+async def test_two_children_at_once_get_one_child_talk_question_each_in_order() -> None:
+    # critic review D3, 2026-11-01: "Munni 5 aur Golu 7" got the full-name message
+    parent = user_profile(state=ConversationState.AWAITING_CHILD, consented=True)
+    ctx = turn_context(text_message("Munni 5 aur Golu 7"), profile=parent)
+    result = await run(ctx, llm=FakeLanguageModel([]))
+    munni_part, golu_part = result.outcome.delivery.parts
+    munni, golu = [write for write in result.outcome.writes if isinstance(write, LearnerUpsert)]
+    assert munni_part.text is not None
+    assert golu_part.text is not None
+    assert "Munni" in munni_part.text
+    assert "Golu" in golu_part.text
+    assert [button.id for button in munni_part.buttons] == [
+        f"onb:childtalk:yes:{munni.learner_id}",
+        f"onb:childtalk:no:{munni.learner_id}",
+    ]
+    assert [button.id for button in golu_part.buttons] == [
+        f"onb:childtalk:yes:{golu.learner_id}",
+        f"onb:childtalk:no:{golu.learner_id}",
+    ]
+    assert result.outcome.fixed_reply_kind is FixedReplyKind.ONBOARDING
+
+
 async def test_an_english_onboarding_stays_english_and_baccha_is_never_a_name() -> None:
     # Owner's demo, 2026-11-01: "Mera baccha 6 saal ka hai" had saved the nickname "baccha"
     parent = user_profile(

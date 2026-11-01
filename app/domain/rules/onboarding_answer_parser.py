@@ -16,6 +16,7 @@ from enum import Enum, auto
 from typing import ClassVar, Final
 
 from app.domain.enums import Language, Role
+from app.domain.models.conversation import MIN_CHILDREN_IN_ONE_ANSWER
 from app.domain.rules.phrase_finder import PhraseFinder
 
 
@@ -42,6 +43,20 @@ class ChildAgeParse:
 class NicknameParse:
     nickname: str | None
     problem: Found | None  # ABSENT, TOO_LONG or LOOKS_LIKE_FULL_NAME when nickname is None
+
+
+@dataclass(frozen=True, slots=True)
+class ChildParse:
+    birth_year: int
+    nickname: str
+
+
+@dataclass(frozen=True, slots=True)
+class ChildrenParse:
+    """Several children named in one answer ("Munni 5 aur Golu 7"), in the order given."""
+
+    children: tuple[ChildParse, ...]  # two or more, when problem is None
+    problem: Found | None  # OUT_OF_RANGE, TOO_LONG or LOOKS_LIKE_FULL_NAME for any one child
 
 
 class OnboardingAnswerParser:
@@ -146,7 +161,13 @@ class OnboardingAnswerParser:
         "barah": 12, "दो": 2, "तीन": 3, "चार": 4, "पाँच": 5, "पांच": 5, "पाच": 5, "छह": 6,
         "छः": 6, "सात": 7, "आठ": 8, "नौ": 9, "दस": 10, "ग्यारह": 11, "बारह": 12,
         "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8,
-        "nine": 9, "ten": 10,
+        "nine": 9, "ten": 10, "dhai": 2, "dhaai": 2, "ढाई": 2, "dedh": 1, "डेढ़": 1,
+    }  # fmt: skip
+    # "saadhe teen saal" is three and a half: the age counts whole years, so the word before the
+    # number moves it by this much (critic review, 2026-11-01: "saadhe" was saved as a nickname)
+    _FRACTION_WORDS: ClassVar[dict[str, int]] = {
+        "saadhe": 0, "sadhe": 0, "saade": 0, "sade": 0, "sawa": 0, "sava": 0, "paune": -1,
+        "pone": -1, "साढ़े": 0, "साढे": 0, "सवा": 0, "पौने": -1,
     }  # fmt: skip
     _HINDI_ORDINALS: ClassVar[dict[str, int]] = {
         "पहली": 1, "दूसरी": 2, "तीसरी": 3, "चौथी": 4, "पाँचवीं": 5, "पांचवीं": 5, "छठी": 6,
@@ -165,9 +186,22 @@ class OnboardingAnswerParser:
             # saved the nickname "baccha")
             "baccha", "bacchi", "bacche", "bachha", "bachhi", "bachhe", "bachche", "bachcho",
             "bachon", "bacchon", "bachey", "bachchey", "बच्चे", "बच्चों", "लड़का", "लड़की",
+            # several children in one answer (critic review D3, 2026-11-01)
+            "hain", "betiyan", "betiyaan", "betiya", "bete", "ladke", "ladkiyan", "children",
+            "kids", "daughters", "sons", "हैं", "बेटियाँ", "बेटियां", "बेटे",
         }
     )  # fmt: skip
     _NUMBER: ClassVar[re.Pattern[str]] = re.compile(r"\d+")
+    # Where one child's part of an answer ends: "Munni 5 aur Golu 7", "Munni 5, Golu 7"
+    _CHILD_SEPARATOR: ClassVar[re.Pattern[str]] = re.compile(
+        r"\s*(?:[,;&]|\band\b|\baur\b|\bor\b|और|तथा)\s*", re.IGNORECASE
+    )
+    # "2 bachche hain", "do betiyan": how many children, never an age
+    _CHILD_COUNT: ClassVar[re.Pattern[str]] = re.compile(
+        r"(?:\d+|do|teen|two|three|दो|तीन)\s+(?:bachche|bacche|bachhe|bachchey|betiyan|betiyaan"
+        r"|betiya|bete|ladke|ladkiyan|children|kids|daughters|sons|बच्चे|बेटियाँ|बेटियां|बेटे)\b",
+        re.IGNORECASE,
+    )
 
     # --- whole-message checks ------------------------------------------------------------------
 
@@ -287,7 +321,13 @@ class OnboardingAnswerParser:
             normalised = PhraseFinder.normalise(word)
             if not normalised or not any(character.isalpha() for character in normalised):
                 continue
-            if normalised in _NOT_A_NAME or normalised in _AGE_UNITS or normalised in _NUMBERS:
+            if (
+                normalised in _NOT_A_NAME
+                or normalised in _AGE_UNITS
+                or normalised in _MONTH_UNITS
+                or normalised in _NUMBERS
+                or normalised in _FRACTIONS
+            ):
                 continue
             candidates.append(word)
         if not candidates:
@@ -305,6 +345,38 @@ class OnboardingAnswerParser:
         return NicknameParse(nickname, None)
 
     @staticmethod
+    def parse_children(text: str, current_year: int) -> ChildrenParse | None:
+        """Two or more children, each with one home name and an age ("Munni 5 aur Golu 7",
+        "मुन्नी 5 साल, गोलू 7 साल"); None when the answer isn't that, and the one-child rules
+        read it. A part without an age belongs to the child before it ("Munni 5 saal ki hai aur
+        class 1 mein hai" stays one child: "class mein" is no home name)."""
+        without_counts = OnboardingAnswerParser._CHILD_COUNT.sub(" ", text)
+        parts: list[str] = []
+        waiting: list[str] = []
+        for segment in OnboardingAnswerParser._CHILD_SEPARATOR.split(without_counts):
+            waiting.append(segment)
+            age = OnboardingAnswerParser.parse_child_age(segment, current_year)
+            if age.problem is not Found.ABSENT:  # an age, in range or not, ends a child's part
+                parts.append(" ".join(waiting))
+                waiting = []
+        if len(parts) < MIN_CHILDREN_IN_ONE_ANSWER:
+            return None
+        if waiting:
+            parts[-1] = " ".join([parts[-1], *waiting])
+        children: list[ChildParse] = []
+        for part in parts:
+            nickname = OnboardingAnswerParser.parse_nickname(part)
+            if nickname.problem in {Found.TOO_LONG, Found.LOOKS_LIKE_FULL_NAME}:
+                return ChildrenParse((), nickname.problem)
+            if nickname.nickname is None or len(nickname.nickname.split()) > 1:
+                return None
+            age = OnboardingAnswerParser.parse_child_age(part, current_year)
+            if age.birth_year is None:
+                return ChildrenParse((), Found.OUT_OF_RANGE)
+            children.append(ChildParse(age.birth_year, nickname.nickname))
+        return ChildrenParse(tuple(children), None)
+
+    @staticmethod
     def _numbers(text: str) -> list[int]:
         """Every run of digits, Devanagari digits included, in order."""
         ascii_digits = "".join(
@@ -315,13 +387,16 @@ class OnboardingAnswerParser:
 
     @staticmethod
     def _spelled_ages(text: str) -> list[int]:
-        """Number words followed by an age unit ("paanch saal"): a bare "do" is just a verb."""
+        """Number words followed by an age unit ("paanch saal", "paune chaar saal" is 3): a bare
+        "do" is just a verb."""
         words = PhraseFinder.words(text)
         ages: list[int] = []
         for index, word in enumerate(words[:-1]):
             number = _NUMBERS.get(word)
-            if number is not None and words[index + 1] in _AGE_UNITS:
-                ages.append(number)
+            if number is None or words[index + 1] not in _AGE_UNITS:
+                continue
+            word_before = words[index - 1] if index > 0 else ""
+            ages.append(number + _FRACTIONS.get(word_before, 0))
         return ages
 
 
@@ -336,6 +411,7 @@ def _normalised_keys(numbers: dict[str, int]) -> dict[str, int]:
 # Vocabulary as PhraseFinder.words sees it (nasal marks and nukta dropped: पाँच → पाच).
 _NUMBERS: Final = _normalised_keys(OnboardingAnswerParser._NUMBER_WORDS)
 _ORDINALS: Final = _normalised_keys(OnboardingAnswerParser._HINDI_ORDINALS)
+_FRACTIONS: Final = _normalised_keys(OnboardingAnswerParser._FRACTION_WORDS)
 _NOT_A_NAME: Final = _normalised_set(OnboardingAnswerParser._NOT_A_NAME)
 _AGE_UNITS: Final = _normalised_set(OnboardingAnswerParser._AGE_UNITS)
 _MONTH_UNITS: Final = _normalised_set(OnboardingAnswerParser.MONTH_UNITS)

@@ -115,7 +115,7 @@ line of the module's docstring.
 | `aspiration.py` | `AspirationSignals`, `ExtractAspiration` | What a student's own words say about where they're heading (s13 §4.3). Never a label. |
 | `base.py` | `DomainModel` | Identifiers and the base every domain model shares (contracts.md §2.1). |
 | `child_session.py` | `ChildSession` | A child talking to Marg.ai directly on the parent's phone (s10b §4.16, C13). |
-| `conversation.py` | `ProfileUpdate`, `FirstContact`, `ConsentGiven`, `ConsentDeclined`, `RoleChosen`, `RoleUnavailable`, `GuardianConfirmed`, `GuardianDeclined`, `ProfileAnswered`, `ChildAnswered`, `ChildInvalid`, `AddChild`, `ChildTalkAnswered`, `TeacherAsked`, `LanguageSwitched`, `QuestionNoted`, `AboutMargAsked`, `Unrecognised`, `DeletionRequested`, `DeletionConfirmed`, `DeletionCancelled`, `SendCopy`, `RecordConsent`, `UpsertLearner`, `SetChildTalk`, `PurgeAfterDelivery`, `HandoffPendingQuestion`, `HandoffFirstKhoj`, `Transition` | The onboarding conversation's events and effects (s08 §4.2). Pure data. |
+| `conversation.py` | `ProfileUpdate`, `FirstContact`, `ConsentGiven`, `ConsentDeclined`, `RoleChosen`, `RoleUnavailable`, `GuardianConfirmed`, `GuardianDeclined`, `ProfileAnswered`, `ChildAnswered`, `ChildrenAnswered`, `ChildInvalid`, `AddChild`, `ChildTalkAnswered`, `TeacherAsked`, `LanguageSwitched`, `QuestionNoted`, `AboutMargAsked`, `Unrecognised`, `DeletionRequested`, `DeletionConfirmed`, `DeletionCancelled`, `SendCopy`, `RecordConsent`, `UpsertLearner`, `SetChildTalk`, `PurgeAfterDelivery`, `HandoffPendingQuestion`, `HandoffFirstKhoj`, `Transition` | The onboarding conversation's events and effects (s08 §4.2). Pure data. |
 | `curiosity.py` | `CuriositySignals`, `CuriositySource`, `ExtractSignals`, `MakeKhojCard`, `UpdateMemory` | What a child engaged with, for the young-learner trajectory (s13 §4.4). Never a label. |
 | `curriculum.py` | `Chapter`, `CatalogueBook`, `ChapterMatch` | The textbook chapter catalogue (s10 §4.5): official NCERT titles, used only as a hint. |
 | `delivery.py` | `PartState` | Where an outbound part stands in its delivery (s04 §4.10). |
@@ -157,7 +157,7 @@ line of the module's docstring.
 | `learner_chooser.py` | `RecentOffer`, `LearnerChooser` | LearnerChooser: which of a parent's children this turn is about (s10b §4.2). Pure. |
 | `message_splitter.py` | `MessageSplitter` | MessageSplitter: a reply cut into channel-sized messages (s05 §4.7). Pure. |
 | `nudge_schedule.py` | `NudgeSchedule` | NudgeSchedule: when the daily khoj message is due, in India time (s10b §4.11). Pure. |
-| `onboarding_answer_parser.py` | `Found`, `GradeParse`, `ChildAgeParse`, `NicknameParse`, `OnboardingAnswerParser` | OnboardingAnswerParser: what an onboarding answer says, without a model (s08 §4.4 step 4). Pure. |
+| `onboarding_answer_parser.py` | `Found`, `GradeParse`, `ChildAgeParse`, `NicknameParse`, `ChildParse`, `ChildrenParse`, `OnboardingAnswerParser` | OnboardingAnswerParser: what an onboarding answer says, without a model (s08 §4.4 step 4). Pure. |
 | `parent_mention.py` | `ParentMention` | ParentMention: whether a reply to a child already sends them to Mummy and Papa (owner, |
 | `phrase_finder.py` | `PhraseFinder` | PhraseFinder: whole-phrase matching on normalised text, for keyword rules (s07, s08). Pure. |
 | `rank_fusion.py` | `RankedHit`, `FusedHit`, `RankFusion` | RankFusion: two ranked candidate lists into one (s11 §4.7). Pure. |

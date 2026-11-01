@@ -26,6 +26,7 @@ from app.domain.enums import ConversationState, Language, Role
 from app.domain.models.conversation import (
     ChildAnswered,
     ChildInvalid,
+    ChildrenAnswered,
     ConversationEvent,
     LanguageSwitched,
     ProfileAnswered,
@@ -52,6 +53,7 @@ EventName = Literal[
     "GuardianConfirmed",
     "GuardianDeclined",
     "ChildAnswered",
+    "ChildrenAnswered",
     "ChildInvalid",
     "ProfileAnswered",
     "LanguageSwitched",
@@ -82,6 +84,7 @@ class Expected(BaseModel):
     language: Language | None = None
     question: bool | None = None
     reason: str | None = None
+    children: list[str] | None = None  # ChildrenAnswered: the home names, in order
 
 
 class OnboardingCase(BaseModel):
@@ -129,6 +132,10 @@ class EventComparer:
             differences.append(f"role {event.role.value}")
         if isinstance(event, ChildAnswered):
             differences.extend(EventComparer._child(expected, event, now))
+        if isinstance(event, ChildrenAnswered) and expected.children is not None:
+            names = [(child.nickname or "").casefold() for child in event.children]
+            if names != [name.casefold() for name in expected.children]:
+                differences.append(f"children {names}")
         if isinstance(event, ProfileAnswered):
             differences.extend(EventComparer._profile(expected, event))
         if isinstance(event, LanguageSwitched) and expected.language not in {None, event.language}:

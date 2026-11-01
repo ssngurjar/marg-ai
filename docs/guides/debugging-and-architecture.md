@@ -382,7 +382,7 @@ points at a saved run.
 | Command | What it reads |
 |---|---|
 | `.venv/bin/python -m scripts.intent_bank [--repeat 2] [--save]` | 196 parent messages → intent and asked language; where a case gives them, Braj, written language, child name, which khoj a report is about |
-| `.venv/bin/python -m scripts.onboarding_bank [--repeat 2]` | 72 onboarding answers → event and values (age, nickname, grade, district…) |
+| `.venv/bin/python -m scripts.onboarding_bank [--repeat 2]` | 85 onboarding answers → event and values (age, nickname, several children, grade, district…) |
 | `.venv/bin/python -m scripts.student_route_bank [--repeat 2]` | 37 student messages → mentor or plan |
 | `.venv/bin/python -m scripts.teacher_bank [--repeat 2]` | 20 teacher messages → bridge or teaching help |
 

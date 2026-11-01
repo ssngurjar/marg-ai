@@ -158,7 +158,9 @@ explored, and what they asked Marg about in their own talks (topics only, never 
 
 ### Children and their names
 Up to three children. Another child is added with "Another child" (or in words): Marg confirms
-by name and asks whether they may talk to Marg too, without sending a khoj until asked. With
+by name and asks whether they may talk to Marg too, without sending a khoj until asked. Several
+children can be given in one answer ("Munni 5 aur Golu 7"): each is added and gets their own
+child-talk question. With
 several children, Marg asks which child today's khoj is for. A home name can be
 given or changed later ("bacche ka naam Prisa hai"): it's saved and confirmed; a full name isn't.
 

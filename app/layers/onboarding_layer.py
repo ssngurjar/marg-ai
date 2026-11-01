@@ -49,6 +49,7 @@ from app.domain.models.conversation import (
     AddChild,
     ChildAnswered,
     ChildInvalid,
+    ChildrenAnswered,
     ChildTalkAnswered,
     ConsentDeclined,
     ConsentGiven,
@@ -87,7 +88,7 @@ from app.domain.models.writes import (
     TurnWrite,
 )
 from app.domain.rules.conversation_machine import ConversationMachine
-from app.domain.rules.onboarding_answer_parser import Found, OnboardingAnswerParser
+from app.domain.rules.onboarding_answer_parser import ChildrenParse, Found, OnboardingAnswerParser
 from app.domain.rules.register_detector import RegisterDetector
 from app.prompts.prompt_registry import PromptRegistry, PromptSpec
 from app.providers.ports import LanguageModel
@@ -140,6 +141,9 @@ class OnboardingResult:
     prompt_versions: dict[str, str]
     outcome: Literal[StepOutcome.OK, StepOutcome.DEGRADED]
     degraded_reason: str | None
+    # More messages after `reply`: one per further child-talk question when several children
+    # were added at once (critic review D3, 2026-11-01)
+    follow_ups: tuple[CanonicalReply, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -320,6 +324,9 @@ class OnboardingLayer:
 
     @staticmethod
     def _child_event(user_text: str, current_year: int) -> ConversationEvent | None:
+        several = _P.parse_children(user_text, current_year)
+        if several is not None:
+            return OnboardingLayer._children_event(several)
         age = _P.parse_child_age(user_text, current_year)
         if age.problem is Found.OUT_OF_RANGE:
             return ChildInvalid(CopyKey.CHILD_INVALID_AGE)
@@ -333,6 +340,17 @@ class OnboardingLayer:
             # the name, so the extraction model reads it (onboarding bank, 2026-11-01)
             return None
         return ChildAnswered(age.birth_year, nickname.nickname)
+
+    @staticmethod
+    def _children_event(several: ChildrenParse) -> ConversationEvent:
+        """ "Munni 5 aur Golu 7": both added (critic review D3, 2026-11-01)."""
+        if several.problem is Found.OUT_OF_RANGE:
+            return ChildInvalid(CopyKey.CHILD_INVALID_AGE)
+        if several.problem is not None:
+            return ChildInvalid(CopyKey.CHILD_NICKNAME_TOO_LONG)
+        return ChildrenAnswered(
+            tuple(ChildAnswered(child.birth_year, child.nickname) for child in several.children)
+        )
 
     def _profile_event(self, ctx: TurnContext, user_text: str) -> ConversationEvent | None:
         asked = ConversationMachine.next_profile_question(ctx.profile, len(ctx.learners))
@@ -406,13 +424,12 @@ class OnboardingLayer:
         writes: list[TurnWrite] = [_profile_change(ctx.profile, transition)]
         new_learner: Learner | None = None
         handoff: FirstKhojHandoff | PendingQuestionHandoff | None = None
-        copy_keys: list[CopyKey] = []
+        copies: list[_Copy] = []
         child_named: str | None = None
-        fixed_kind = FixedReplyKind.ONBOARDING
         for effect in transition.effects:
             match effect:
                 case SendCopy(key=key):
-                    copy_keys.append(key)
+                    copies.append(_Copy(key, child_named, new_learner))
                 case UpsertLearner():
                     new_learner = Learner(
                         id=LearnerId(uuid4()),
@@ -443,51 +460,53 @@ class OnboardingLayer:
                     handoff = PendingQuestionHandoff(question)
                 case RecordConsent():
                     pass  # carried by the ProfileChange (consent_events)
-        if CopyKey.DATA_DELETED in copy_keys:
-            fixed_kind = FixedReplyKind.DATA_DELETED
-        if CopyKey.CONSENT_DECLINED in copy_keys:
-            fixed_kind = FixedReplyKind.CONSENT_DECLINED
+        fixed_kind = _fixed_kind([copy.key for copy in copies])
         language = transition.profile.language or Language.HINGLISH
-        shown_keys = [CHANNEL_VARIANTS.get((key, ctx.profile.channel), key) for key in copy_keys]
-        if isinstance(handoff, FirstKhojHandoff) and CopyKey.ASK_CHILD_TALK in shown_keys:
-            shown_keys.remove(CopyKey.ASK_CHILD_TALK)
-            child_talk_question = self._reply(
-                [CopyKey.ASK_CHILD_TALK], language, child_named, new_learner, fixed_kind
+        shown = [
+            _Copy(
+                CHANNEL_VARIANTS.get((copy.key, ctx.profile.channel), copy.key),
+                copy.child,
+                copy.learner,
             )
-            handoff = FirstKhojHandoff(handoff.learner, then_ask=child_talk_question)
-        reply = self._reply(shown_keys, language, child_named, new_learner, fixed_kind)
+            for copy in copies
+        ]
+        if isinstance(handoff, FirstKhojHandoff):
+            asks = [copy for copy in shown if copy.key is CopyKey.ASK_CHILD_TALK]
+            if asks:
+                shown.remove(asks[0])
+                child_talk_question = self._reply([asks[0]], language, fixed_kind)
+                handoff = FirstKhojHandoff(handoff.learner, then_ask=child_talk_question)
+        messages = _OneQuestionEach.split(shown)
+        replies = [self._reply(message, language, fixed_kind) for message in messages]
         return OnboardingResult(
-            reply=reply,
+            reply=replies[0] if replies else self._reply([], language, fixed_kind),
             writes=writes,
             handoff=handoff,
             usages=list(reading.usages),
             prompt_versions=dict(reading.prompt_versions),
             outcome=StepOutcome.DEGRADED if reading.degraded_reason else StepOutcome.OK,
             degraded_reason=reading.degraded_reason,
+            follow_ups=tuple(replies[1:]),
         )
 
     def _reply(
-        self,
-        copy_keys: Sequence[CopyKey],
-        language: Language,
-        child_named: str | None,
-        new_learner: Learner | None,
-        fixed_kind: FixedReplyKind,
+        self, copies: Sequence["_Copy"], language: Language, fixed_kind: FixedReplyKind
     ) -> CanonicalReply:
-        values = {
-            "child": child_named or CHILD_FALLBACK[language],
-            "invite_link": self._invite_link,
-        }
         bodies: list[str] = []
         buttons: tuple[ReplyButton, ...] = ()
-        for key in copy_keys:
-            entry = COPY[(key, language)]
+        for copy in copies:
+            values = {
+                "child": copy.child or CHILD_FALLBACK[language],
+                "invite_link": self._invite_link,
+            }
+            entry = COPY[(copy.key, language)]
             bodies.append(entry.body.format_map(values))
             if entry.buttons:
                 buttons = entry.buttons
-                if key is CopyKey.ASK_CHILD_TALK and new_learner is not None:
+                if copy.key is CopyKey.ASK_CHILD_TALK and copy.learner is not None:
+                    learner_id = copy.learner.id
                     buttons = tuple(
-                        ReplyButton(id=f"{button.id}:{new_learner.id}", title=button.title)
+                        ReplyButton(id=f"{button.id}:{learner_id}", title=button.title)
                         for button in entry.buttons
                     )
         return CanonicalReply(
@@ -498,6 +517,36 @@ class OnboardingLayer:
             buttons=list(buttons),
             fixed_kind=fixed_kind,
         )
+
+
+@dataclass(frozen=True, slots=True)
+class _Copy:
+    """One piece of reviewed copy, and the child it is about (its name and, for the child-talk
+    question, the learner its buttons answer for)."""
+
+    key: CopyKey
+    child: str | None
+    learner: Learner | None
+
+
+class _OneQuestionEach:
+    """Copy split into messages so that each child-talk question ends its own message, with its
+    own buttons (critic review D3, 2026-11-01: "Munni 5 aur Golu 7" asks about each child)."""
+
+    @staticmethod
+    def split(copies: Sequence[_Copy]) -> list[list[_Copy]]:
+        messages: list[list[_Copy]] = []
+        current: list[_Copy] = []
+        for copy in copies:
+            current.append(copy)
+            if copy.key is CopyKey.ASK_CHILD_TALK:
+                messages.append(current)
+                current = []
+        if current and messages:
+            messages[-1] += current
+        elif current:
+            messages.append(current)
+        return messages
 
 
 class _ExtractionMapper:
@@ -560,6 +609,14 @@ _EXTRACTED_LANGUAGES: Final = {
     "hindi": Language.HINDI,
     "hinglish": Language.HINGLISH,
 }
+
+
+def _fixed_kind(keys: Sequence[CopyKey]) -> FixedReplyKind:
+    if CopyKey.CONSENT_DECLINED in keys:
+        return FixedReplyKind.CONSENT_DECLINED
+    if CopyKey.DATA_DELETED in keys:
+        return FixedReplyKind.DATA_DELETED
+    return FixedReplyKind.ONBOARDING
 
 
 def _profile_change(before: UserProfile, transition: Transition) -> ProfileChange:

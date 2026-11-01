@@ -438,22 +438,27 @@ class _Turn:
         reply = result.reply
         kind = reply.fixed_kind or FixedReplyKind.ONBOARDING
         safe = self.steps.gate.clear_fixed(_localised(reply), kind)
+        # several children added at once: each further child-talk question is its own message
+        follow_ups = tuple(
+            self.steps.gate.clear_fixed(_localised(follow_up), kind)
+            for follow_up in result.follow_ups
+        )
         writes: list[TurnWrite] = list(result.writes)
-        delivery = self._delivery(safe)
+        delivery = self._delivery(safe, trailers=follow_ups)
         if isinstance(result.handoff, FirstKhojHandoff):
             asks: tuple[SafeReply, ...] = ()
             if result.handoff.then_ask is not None:
                 asks = (self.steps.gate.clear_fixed(_localised(result.handoff.then_ask), kind),)
-            delivery = self._delivery(safe, trailers=asks)
+            delivery = self._delivery(safe, trailers=(*follow_ups, *asks))
             khoj = await self._first_khoj(result.handoff, safe.reply_register)
             if khoj is not None:
-                trailers = (*asks, self._nudge_ask(safe.reply_register))
+                trailers = (*follow_ups, *asks, self._nudge_ask(safe.reply_register))
                 delivery = self._delivery(khoj.safe, preamble=safe, trailers=trailers)
                 writes.extend(khoj.writes)
         elif isinstance(result.handoff, PendingQuestionHandoff):
             answer = await self._pending_answer(result.handoff, writes, safe.reply_register)
             if answer is not None:
-                delivery = self._delivery(answer.safe, preamble=safe)
+                delivery = self._delivery(answer.safe, preamble=safe, trailers=follow_ups)
         return TurnOutcome(
             turn_id=self.ctx.turn_id,
             route=route,

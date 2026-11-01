@@ -32,6 +32,7 @@ from app.domain.models.conversation import (
     AddChild,
     ChildAnswered,
     ChildInvalid,
+    ChildrenAnswered,
     ChildTalkAnswered,
     ConsentDeclined,
     ConsentGiven,
@@ -282,30 +283,58 @@ def _profile_answered(step: _Step, event: ProfileAnswered) -> Transition:
 
 
 def _child_answered(step: _Step, event: ChildAnswered) -> Transition:
-    age = step.now.year - event.birth_year
-    if age not in CHILD_AGES:
-        raise InvalidProfileValue(f"birth_year {event.birth_year} gives age {age}, outside 2-19")
+    _check_age(step, event)
     if step.learner_count >= MAX_LEARNERS:
         return step.moved(_S.ACTIVE, SendCopy(CopyKey.MAX_CHILDREN))
-    nickname = event.nickname.strip() if event.nickname else None
-    effects: list[Effect] = [UpsertLearner(LearnerRelation.PARENT, event.birth_year, nickname)]
-    if StageRules.age_band(event.birth_year, step.now.date()) is not AgeBand.FOUNDATIONAL_3_8:
-        # The daily khoj and child talk are for 3-8-year-olds: no khoj promised or sent, no
-        # child talk offered and no daily time asked; the parent can still ask anything.
-        if step.learner_count == 0:
-            effects.append(RecordConsent(ConsentEventKind.CHILD_PROFILE_CONSENT))
-        effects.append(SendCopy(CopyKey.PROFILE_DONE_PARENT_OTHER_AGE))
-        return step.moved(_S.ACTIVE, *effects, pending_question=None)
-    # Any child, the first included: added and confirmed, and asked whether they may talk to
-    # Marg; no khoj and no daily-time question until the parent asks (owner's second demo,
-    # 2026-11-01: "just ask if Munni can talk, and what do you want: a khoj or a question").
-    if step.learner_count == 0:
-        effects.append(RecordConsent(ConsentEventKind.CHILD_PROFILE_CONSENT))
-    effects += [SendCopy(CopyKey.CHILD_ADDED), SendCopy(CopyKey.ASK_CHILD_TALK)]
+    effects = _child_effects(step, event, step.learner_count)
     pending = step.profile.pending_question
     if pending:
         effects.append(HandoffPendingQuestion(pending))  # answered now, no khoj stands in for it
     return step.moved(_S.ACTIVE, *effects, pending_question=None)
+
+
+def _children_answered(step: _Step, event: ChildrenAnswered) -> Transition:
+    """Each child added in turn, with its own confirmation and child-talk question; past the
+    limit, the rest are not added and the parent is told (critic review D3, 2026-11-01)."""
+    for child in event.children:
+        _check_age(step, child)
+    effects: list[Effect] = []
+    learner_count = step.learner_count
+    for child in event.children:
+        if learner_count >= MAX_LEARNERS:
+            effects.append(SendCopy(CopyKey.MAX_CHILDREN))
+            break
+        effects += _child_effects(step, child, learner_count)
+        learner_count += 1
+    pending = step.profile.pending_question
+    if pending:
+        effects.append(HandoffPendingQuestion(pending))
+    return step.moved(_S.ACTIVE, *effects, pending_question=None)
+
+
+def _child_effects(step: _Step, child: ChildAnswered, learner_count: int) -> list[Effect]:
+    """One child added: the learner, the parent's consent with the first child, and the
+    confirmation. Each copy follows the learner it is about."""
+    nickname = child.nickname.strip() if child.nickname else None
+    effects: list[Effect] = [UpsertLearner(LearnerRelation.PARENT, child.birth_year, nickname)]
+    if learner_count == 0:
+        effects.append(RecordConsent(ConsentEventKind.CHILD_PROFILE_CONSENT))
+    if StageRules.age_band(child.birth_year, step.now.date()) is not AgeBand.FOUNDATIONAL_3_8:
+        # The daily khoj and child talk are for 3-8-year-olds: no khoj promised or sent, no
+        # child talk offered and no daily time asked; the parent can still ask anything.
+        effects.append(SendCopy(CopyKey.PROFILE_DONE_PARENT_OTHER_AGE))
+        return effects
+    # Any child, the first included: added and confirmed, and asked whether they may talk to
+    # Marg; no khoj and no daily-time question until the parent asks (owner's second demo,
+    # 2026-11-01: "just ask if Munni can talk, and what do you want: a khoj or a question").
+    effects += [SendCopy(CopyKey.CHILD_ADDED), SendCopy(CopyKey.ASK_CHILD_TALK)]
+    return effects
+
+
+def _check_age(step: _Step, child: ChildAnswered) -> None:
+    age = step.now.year - child.birth_year
+    if age not in CHILD_AGES:
+        raise InvalidProfileValue(f"birth_year {child.birth_year} gives age {age}, outside 2-19")
 
 
 def _child_invalid(step: _Step, event: ChildInvalid) -> Transition:
@@ -417,6 +446,7 @@ def _table() -> Mapping[tuple[ConversationState, type[ConversationEvent]], _Hand
         (_S.AWAITING_GUARDIAN, GuardianDeclined): _for(GuardianDeclined, _guardian_declined),
         (_S.AWAITING_PROFILE, ProfileAnswered): _for(ProfileAnswered, _profile_answered),
         (_S.AWAITING_CHILD, ChildAnswered): _for(ChildAnswered, _child_answered),
+        (_S.AWAITING_CHILD, ChildrenAnswered): _for(ChildrenAnswered, _children_answered),
         (_S.AWAITING_CHILD, ChildInvalid): _for(ChildInvalid, _child_invalid),
         (_S.ACTIVE, AddChild): _for(AddChild, _add_child),
         (_S.ACTIVE, ChildTalkAnswered): _for(ChildTalkAnswered, _child_talk_answered),

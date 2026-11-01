@@ -454,6 +454,67 @@ async def test_a_second_child_is_confirmed_by_name_with_their_child_talk_buttons
     ]
 
 
+@pytest.mark.parametrize(
+    "answer",
+    ["Munni 5 aur Golu 7", "munni 5 saal, golu 7 saal", "Meri 2 betiyan hain, Munni 5 aur Golu 7"],
+)
+async def test_two_children_in_one_answer_are_both_added_each_with_their_own_question(
+    answer: str,
+) -> None:
+    # critic review D3, 2026-11-01: "Munni 5 aur Golu 7" got the full-name message
+    result, llm = await handle(at(S.AWAITING_CHILD, role=Role.PARENT), text_message(answer))
+    munni, golu = [write for write in result.writes if isinstance(write, LearnerUpsert)]
+    munni_name, golu_name = munni.nickname or "", golu.nickname or ""
+    assert (munni_name.casefold(), munni.birth_year) == ("munni", 2021)
+    assert (golu_name.casefold(), golu.birth_year) == ("golu", 2019)
+    assert profile_change(result).consent_events == [ConsentEventKind.CHILD_PROFILE_CONSENT]
+    [second] = result.follow_ups
+    assert munni_name in result.reply.body
+    assert golu_name not in result.reply.body
+    assert golu_name in second.body
+    assert [button.id for button in result.reply.buttons] == [
+        f"onb:childtalk:yes:{munni.learner_id}",
+        f"onb:childtalk:no:{munni.learner_id}",
+    ]
+    assert [button.id for button in second.buttons] == [
+        f"onb:childtalk:yes:{golu.learner_id}",
+        f"onb:childtalk:no:{golu.learner_id}",
+    ]
+    assert llm.prompts == []
+
+
+async def test_children_past_the_limit_are_told_after_the_last_one_added() -> None:
+    parent = at(S.AWAITING_CHILD, role=Role.PARENT)
+    two_already = [MUNNI, MUNNI.model_copy(update={"id": LearnerId(UUID(int=12))})]
+    result, _ = await handle(parent, text_message("Golu 7 aur Chotu 4"), learners=two_already)
+    [golu] = [write for write in result.writes if isinstance(write, LearnerUpsert)]
+    assert golu.nickname == "Golu"
+    assert result.follow_ups == ()
+    assert result.reply.body.endswith(body(CopyKey.MAX_CHILDREN))
+
+
+@pytest.mark.parametrize(
+    ("answer", "copy"),
+    [
+        ("Munni 5 aur Golu 1", CopyKey.CHILD_INVALID_AGE),
+        ("Munni 5 aur Golu 40", CopyKey.CHILD_INVALID_AGE),
+        ("Munni 5 aur Priya Sharma 7", CopyKey.CHILD_NICKNAME_TOO_LONG),
+    ],
+)
+async def test_one_bad_child_among_several_asks_again_and_stores_none(
+    answer: str, copy: CopyKey
+) -> None:
+    result, _ = await handle(at(S.AWAITING_CHILD, role=Role.PARENT), text_message(answer))
+    assert result.reply.body == body(copy)
+    assert not any(isinstance(write, LearnerUpsert) for write in result.writes)
+    assert result.follow_ups == ()
+
+
+async def test_one_child_still_gets_one_message() -> None:
+    result, _ = await handle(at(S.AWAITING_CHILD, role=Role.PARENT), text_message("Munni 5 saal"))
+    assert result.follow_ups == ()
+
+
 async def test_child_talk_consent_from_the_button_is_recorded_for_that_child() -> None:
     parent = at(S.ACTIVE, role=Role.PARENT)
     result, _ = await handle(
