@@ -2,8 +2,7 @@
 
 A working map of the running system: what runs, how one message travels through it, where each
 feature lives, and how to find out why something didn't happen. Read it next to the code.
-Design intent lives in `docs/design/`; this guide describes what is built (as of 2026-10-28,
-the feature freeze). What each feature does for users, step by step: `docs/submission/features.md`. Every module and class is listed in [`docs/code-map.md`](../code-map.md).
+Design intent lives in `docs/design/`; this guide describes what is built (as of 2026-11-01). What each feature does for users, step by step: `docs/submission/features.md`. Every module and class is listed in [`docs/code-map.md`](../code-map.md).
 
 ---
 
@@ -49,7 +48,7 @@ Order matters: database, migrations, ML sidecar, API, tunnel.
 | # | What | Command | Check |
 |---|---|---|---|
 | 1 | Postgres | `docker compose up -d postgres` | `docker compose ps` shows healthy |
-| 2 | Migrations | `make migrate` | `.venv/bin/alembic current` → `s04_user_leases (head)` |
+| 2 | Migrations | `make migrate` | `.venv/bin/alembic current` → `s10b_child_session_language (head)` |
 | 3 | ML sidecar, only with `VOICE_REPLIES_ENABLED=true` | `make sidecar` (see §2.1) | `curl -s 127.0.0.1:8100/healthz` → `"engine":"mms"` |
 | 3b | Corpus (once, and after any change under `corpus/`) | `.venv/bin/python -m app.cli ingest-corpus` | the mentor cites sources |
 | 4 | API + worker | `.venv/bin/uvicorn app.main:create_app --factory --host 127.0.0.1 --port 8000 --no-access-log` | `curl -s 127.0.0.1:8000/readyz` → `ready`, every probe `ok` (§7.3) |
@@ -96,11 +95,12 @@ make sidecar-check    # its strict mypy and its tests (also part of `make check`
 | `QUERY_REWRITE_ENABLED`, `RETRIEVAL_MIN_TEXT_RANK` | the mentor's search: Muse Spark's English rewrite (on), and how strong a text match must be to count without an exact exam or scheme name (1.3) |
 | `REPLY_AUDIO_FOR_TEXT_INPUT` | `true`: typed messages also get a voice reply (default: only voice notes do) |
 | `CHILD_TALK_ENABLED` | child talk on or off; the "Main bachcha hoon" button disappears when off |
-| `INTENT_READING_ENABLED` | a parent's free text read by Muse Spark into an intent (on); off, the word rules decide |
+| `INTENT_READING_ENABLED` | free text read by Muse Spark: a parent's intent, and whether a student asks for a plan (on); off, the word rules decide |
+| `BREAKER_FAILURES`, `BREAKER_WINDOW_S`, `BREAKER_OPEN_S`, `BREAKER_PROBE_S` | the breakers in front of Llama Guard and Muse Spark Open: 2 failures within 60 s skip the provider for up to 300 s; Llama Guard is probed every 30 s meanwhile |
 | `NUDGES_ENABLED` | daily khoj messages; **off** until Meta approves the templates |
 | `KHOJ_CARD_ENABLED` | illustrated cards after a good report |
 | `SAFETY_POLICY_MODEL_ENABLED` | the Muse Spark safety check that runs with Llama Guard |
-| `TIMEOUT_*` | per-step limits; `TURN_BUDGET_S` (25 s) caps the whole turn; teachers' bridges and students' answers get 18 s (`TIMEOUT_EXPOSURE_S`, `TIMEOUT_MENTOR_S`) |
+| `TIMEOUT_*` | per-step limits; `TURN_BUDGET_S` (35 s) caps the whole turn; teachers' bridges and students' answers get 24 s (`TIMEOUT_EXPOSURE_S`, `TIMEOUT_MENTOR_S`); reading a student's message gets `TIMEOUT_ROUTE_S` (4 s) |
 | `RUN_WORKER_IN_API`, `WORKER_CONCURRENCY`, `LEASE_DURATION_S`, `DATABASE_LISTEN_URL` | where the worker runs, how many users at once, how long a lease lasts, the unpooled connection for LISTEN |
 | `RETRIEVAL_TOP_K`, `RETRIEVAL_MIN_SIMILARITY` | how many corpus chunks the mentor sees, and the cut-off for "I don't know" |
 | `EVAL_DATABASE_ADMIN_URL` | lets `marg eval` create and drop its own `marg_eval_*` database |
@@ -174,14 +174,14 @@ A crash during 6 puts the messages back with backoff (`turn_crashed`); after
 |---|---|---|
 | `fetch_media` | download the voice note (WhatsApp or web), convert to 16 kHz WAV, measure speech | too big or unreadable → UNSUPPORTED_MEDIA; otherwise REPEAT_PLEASE |
 | `transcribe` | silence/length check, then Muse Voice Transcribe | too short or silent or "umm" → REPEAT_PLEASE; over 3 min → TOO_LONG; down → REPEAT_PLEASE |
-| `route` | `TurnRouter.decide`: deterministic rules, no model | — |
+| `route` | `TurnRouter.decide`: deterministic rules; for a student's free text the plan words didn't catch, Muse Spark reads whether it asks for a plan (`StudentIntentReader`; `detail` says `plan asked for (read)` or `question (read)`) | the reading fails or is slow → the mentor, and `detail` says why |
 | `fetch_image` | a photo, only with a khoj open (WhatsApp download or the web's `inbound_photo` blob), memory only | the photo is dropped; the report goes on without it |
-| `analyze_image` | SAM 3.1: first the person check (`person_check=pass/reject`), then counting the activity's `photo_count_phrases` (`stone=5`) | anyone in it → PHOTO_HAS_PERSON; SAM down → photo dropped |
+| `analyze_image` | SAM 3.1: first the face check (`person_check=pass/reject`; hands are fine), then counting the activity's `photo_count_phrases` (`stone=5`) | a face → PHOTO_HAS_PERSON; SAM down → photo dropped |
 | `safety_in` (photo) | Llama Guard on the image, while SAM counts (`photo decision=…`) | flagged → REFUSE; down → photo dropped (no backup for images) |
-| `safety_in` | crisis words first, then Llama Guard ‖ Muse Spark policy | both down → HOLDING (fail closed) |
+| `safety_in` | crisis words first, then Llama Guard (with the turn before as context) ‖ Muse Spark policy; Llama Guard is skipped while its breaker is open | both down → HOLDING (fail closed) |
 | `generate` | the routed layer (runs **in parallel** with `safety_in`; discarded unless it allows) | TRY_AGAIN_LATER |
 | `translate` | always SKIPPED: layers write in the user's language (C3c) | — |
-| `safety_out` | d8 and child rules, d7 hazards, then Llama Guard (+ second opinion) on text **and spoken text** | blocked → REFUSE; both down → HOLDING |
+| `safety_out` | d8 and child rules, d7 hazards, then Llama Guard (+ second opinion) on text **and spoken text** (no spoken text while voice replies are off) | blocked → REFUSE; both down → HOLDING |
 | `synthesize` | only when the user spoke (or the setting): voice server → OGG voice note → `media_blobs` | text-only reply, turn DEGRADED |
 
 Post-turn steps: `extract_signals`, `make_card` (recorded on the same turn).
@@ -189,17 +189,21 @@ Post-turn steps: `extract_signals`, `make_card` (recorded on the same turn).
 ### 5.1 Routes (`pipeline/turn_router.py`, in order)
 
 1. An open child session → `CHILD_TALK` (nothing a child sends reaches deletion or settings).
-2. A deletion phrase ("mera data hatao") → `DATA_DELETION`.
+2. A deletion phrase → `DATA_DELETION`. For a parent in the journey, only a short request on
+   its own ("mera data hatao", "please delete my data"); a longer message goes to the journey,
+   where the `delete_data` intent offers a button that starts the same confirmation.
 3. Not yet `ACTIVE` (consent, role, child) → `ONBOARDING`.
 4. A parent's `kid:start` or "Main Munni hoon" → `CHILD_TALK` (consent and cooldown checked in the layer).
 5. `onb:` buttons → `ONBOARDING`; `jrn:` and `nudge:` buttons → `JOURNEY`; any other button → REPEAT_PLEASE.
 6. A language name → `ONBOARDING`. Then by role:
-   - **Parent:** `jrn:`/`nudge:` buttons → `JOURNEY`; "ek aur bachcha" → `ONBOARDING`; a photo
-     alone → `JOURNEY`; blank → REPEAT_PLEASE; otherwise → `JOURNEY`.
+   - **Parent:** `jrn:`/`nudge:` buttons → `JOURNEY`; a photo alone → `JOURNEY`; blank →
+     REPEAT_PLEASE; otherwise → `JOURNEY`, where Muse Spark reads the intent (adding a child
+     included: the old "ek aur bachcha" rule sent worries about "another child" to onboarding).
    - **Teacher:** `exp:` buttons → `EXPOSURE`; "dashboard" → `DASHBOARD_LINK`; blank →
      REPEAT_PLEASE; otherwise → `EXPOSURE`.
-   - **Student:** `rm:` buttons or a plan request ("plan bana do") → `ROADMAP`; blank →
-     REPEAT_PLEASE; otherwise → `MENTOR`.
+   - **Student:** `rm:` buttons or plan words ("plan bana do") → `ROADMAP`; blank →
+     REPEAT_PLEASE; otherwise → `MENTOR`, unless Muse Spark reads an explicit plan request
+     ("step by step rasta batao") → `ROADMAP` (in the orchestrator, recorded on the route step).
    - Any other button → REPEAT_PLEASE.
 
 The turn row's `route` column and the `route` step's `detail` tell you which rule fired.
@@ -210,9 +214,10 @@ The turn row's `route` column and the `route` step's `detail` tell you which rul
 
 | Feature | Main code | Prompts / copy | Tables |
 |---|---|---|---|
-| Onboarding (consent, parent/teacher, child) | `layers/onboarding_layer.py`, `domain/rules/conversation_machine.py` | `prompts/profile_extraction.md.j2`, `constants/onboarding_copy.py` | `users`, `consent_events`, `learners` |
+| Onboarding (consent, role, guardian, child, profile) | `layers/onboarding_layer.py`, `domain/rules/conversation_machine.py`, `domain/rules/onboarding_answer_parser.py` (rules first; `profile_extraction` when they aren't sure) | `prompts/profile_extraction.md.j2`, `constants/onboarding_copy.py`; bank `evals/intents/onboarding_answers.yaml` | `users`, `consent_events`, `learners` |
 | Delete my data | router rule 2 → onboarding; `UserRepository.purge_user` after the reply is delivered | — | every table (cascade) |
-| What a parent's words mean (intent reading) | `layers/intent_reader.py`, `journey_layer.py` `handle` / `_by_intent` (rules in `_by_rules`) | `parent_intent.md.j2`; `INTENT_READING_ENABLED` | — |
+| What a parent's words mean (intent reading) | `layers/intent_reader.py`, `journey_layer.py` `handle` / `_by_intent` (rules in `_by_rules`); intents include child talk, a child's name, delete my data, and a language asked for one reply | `parent_intent.md.j2`; `INTENT_READING_ENABLED`; bank `evals/intents/parent_intents.yaml` | `learners` (a name given later) |
+| A student's plan request | `layers/student_intent_reader.py`, `orchestrator._student_reading` | `student_intent.md.j2`; bank `evals/intents/student_routes.yaml` | — |
 | Today's khoj (flow A) | `layers/journey_layer.py` `_today`, `domain/rules/activity_chooser.py`, `content/activities/*.yaml` | `activity_personalise.md.j2`, `constants/journey_copy.py` | `learner_activities` |
 | Report back (flow B) | `journey_layer.py` `_reflect` | `parent_reflection.md.j2` (Muse Spark Open, falls back to Spark) | `learner_activities` |
 | Parent question (flow D) | `layers/parent_question_layer.py` | `parent_answer.md.j2` | — |
@@ -223,7 +228,7 @@ The turn row's `route` column and the `route` step's `detail` tell you which rul
 | Photos (C7) | `orchestrator._photo_for` / `_look`, `providers/image/sam_image_segmenter.py`, `safety_gate.check_photo` | `parent_reflection.md.j2` (counts only), `constants/photo_check.py`, `photo_count_phrases` in each activity YAML | `learner_activities.photo_findings`, `media_blobs` (`inbound_photo`, ≤ 10 min) |
 | Khoj card (C6) | `layers/khoj_card_maker.py`, `worker/khoj_card_sender.py`, `providers/image/` | `khoj_card_text.md.j2`, `constants/khoj_card_style.py` | `media_blobs`, `learner_activities.card_blob_id` |
 | Voice in/out (S6) | `orchestrator._hear` / `_with_voice`, `audio/`, `providers/speech/` | `audio/tts_text_preparer.py` (what the voice may say) | `media_blobs` |
-| Safety | `safety/safety_gate.py`, `safety/domain_policy.py`, `domain/rules/crisis_phrase_matcher.py` | `minor_policy.md.j2`, `reply_policy.md.j2`, `constants/crisis_*.py`, `child_hazards.py` | — |
+| Safety | `safety/safety_gate.py`, `safety/domain_policy.py`, `domain/rules/crisis_phrase_matcher.py`; the breaker: `core/circuit_breaker.py`, `core/provider_breaker.py` | `minor_policy.md.j2`, `reply_policy.md.j2`, `image_policy.md.j2`, `constants/crisis_*.py`, `child_hazards.py` | — |
 | Teacher bridges (S10) | `layers/exposure_layer.py`, `layers/curriculum_catalogue.py`, `domain/rules/chapter_matcher.py` | `exposure.md.j2` | — |
 | Student mentor (S11/S12) | `layers/mentor_layer.py`, `layers/query_rewriter.py`, `rag/retriever.py` (keyword search in Postgres, `domain/rules/rank_fusion.py`) | `mentor.md.j2`, `query_rewrite.md.j2`, `corpus/` (each file has `source_url`, `retrieved_on`) | `corpus_documents`, `corpus_chunks` |
 | Plans (S12) | `layers/roadmap_layer.py` | `roadmap.md.j2` | `roadmaps`, `roadmap_steps` |
@@ -254,6 +259,9 @@ hashes and fixed words (`core/logging.py` redacts the rest). Useful events:
 | `outbox_resend_after_stuck` | parts left in `sending` by a dead worker were reset |
 | `delivery_failed` (with `error`) | a part couldn't be sent: `window_closed`, `media_expired`, a Graph error code |
 | `llama_guard_down`, `second_opinion_failed` | safety fell back to the Muse Spark check |
+| `breaker_opened` / `breaker_closed` (with `provider`) | Llama Guard or Muse Spark Open is being skipped after repeated failures / is back |
+| `llama_guard_probe_failed` | the breaker's background probe got no answer; it stays open |
+| `student_intent_failed`, `student_intent_slow` | a student's message couldn't be read in time; the mentor answered |
 | `open_model_fallback` | Muse Spark Open failed or was slow; Spark 1.3 answered |
 | `curiosity_extraction_failed`, `aspiration_extraction_failed`, `memory_update_failed`, `khoj_card_failed` | post-turn work failed (the reply was already sent) |
 | `maintenance_failed` | the 30-second pass raised (often a missing migration) |
@@ -342,7 +350,8 @@ GROUP BY 1, 2, 3 ORDER BY 5 DESC;
 
 - `GET /healthz`: the process is up. `GET /readyz`: `database`, `schema` (migrations at head)
   and `queue` (no message waiting too long, so a worker is alive) are critical; `model_api`,
-  `safety`, `sidecar` (voice server) and `ffmpeg` aren't (the reply degrades). Provider probes
+  `safety` and `ffmpeg` aren't (the reply degrades), and `sidecar` (the voice server) is probed
+  only with voice replies on. Provider probes
   are cached 60 s. WhatsApp has no probe: the messaging token can't read the phone number.
 - Voice server: `GET 127.0.0.1:8100/healthz` shows the engine and models loaded.
 
@@ -361,21 +370,30 @@ fake models: the best place to reproduce a whole conversation.
 `scripts/load/web_smoke.py` plays 10 web visitors at once against a running app
 (`docs/load/2026-10-28-smoke-test.md`).
 
-### 7.5 Trying a prompt live
+### 7.5 Trying a prompt live, and the understanding banks
 
-Each prompt was checked with a small script against the real model (synthetic messages only),
-the pattern being: load settings, build the adapter and `prompt_registry(settings)` from
-`app/wiring.py`, call the layer, print the reply. The scripts used on 2026-10-27 are in the
-session's scratchpad, not the repo; recreate one when a prompt changes (CLAUDE.md §10).
+After changing how Marg reads people, run the banks: each sends real-style synthetic messages
+through the live reader (as a turn does) and prints every miss; it exits with an error below 97%.
+
+| Command | What it reads |
+|---|---|
+| `.venv/bin/python -m scripts.intent_bank [--repeat 2]` | 151 parent messages → intent and asked language |
+| `.venv/bin/python -m scripts.onboarding_bank [--repeat 2]` | 72 onboarding answers → event and values (age, nickname, grade, district…) |
+| `.venv/bin/python -m scripts.student_route_bank [--repeat 2]` | 37 student messages → mentor or plan |
+
+For any other prompt, the pattern is a small script: load settings, build the adapter and
+`prompt_registry(settings)` from `app/wiring.py`, call the layer, print the reply (synthetic
+messages only, CLAUDE.md §10).
 
 ### 7.6 Scoring a change: `marg eval`
 
 `.venv/bin/python -m app.cli eval [--file parent_journey.yaml | --case crisis-001] --baseline
-evals/results/<last>.json` plays the golden cases through the real pipeline (real models) in a
+evals/results/<last>.json` plays the 86 golden cases through the real pipeline (real models) in a
 fresh `marg_eval_*` database, scores them by code and by the judge, and writes a scorecard to
 `evals/results/` (`--no-write` to skip). Crisis and adversarial cases are hard gates. Run one
 eval at a time: two starting together collide creating their databases. A single run moves by
-several points; compare the cases that changed, not only the rate.
+several points; compare the cases that changed, not only the rate. `marg eval` keeps voice
+replies on, so the spoken path stays tested even while real users get text.
 
 ---
 
@@ -386,7 +404,8 @@ several points; compare the cases that changed, not only the rate.
 | No reply at all | `inbox_messages` for the message; the logs for `webhook_*` | tunnel URL changed and Meta still posts to the old one; signature fails (`401`); app not running |
 | A reply, but "try again later" | the turn's `failure_step` / `failure_kind` | a model timed out or the turn budget ran out |
 | "Abhi aapka message dekhne mein dikkat…" (HOLDING) | `safety_in` / `safety_out` rows FAILED | Llama Guard **and** the Muse Spark check both failed (fail closed, by design) |
-| A refusal for a harmless question | `safety_in` `detail` categories | Llama Guard flag confirmed by the policy check; tune the prompt or word list, never bypass |
+| A refusal for a harmless question | `safety_in` `detail` categories | Llama Guard flag confirmed by the policy check; tune the prompt or word list, never bypass. A follow-up read alone used to be flagged; Llama Guard now sees the turn before |
+| Replies slow, `guard=down` on many steps | the log's `breaker_opened` / `llama_guard_down` | DeepInfra slow or down: the breaker skips Llama Guard for up to 5 minutes and Muse Spark checks alone |
 | The reviewed activity text instead of the personalised one | `generate` `detail` `catalogue_fallback=…` | personalisation failed its checks twice; `safety_out` blocked it (d7: the khoj, reflection and parent answers keep the strict word rule) |
 | A child's question gets "chalo, saath mein pata lagaate hain" and nothing else | `generate` `detail` `curiosity_fallback=…` / `child_fallback=…` | the answer failed its checks twice: a hazard in the find-out activity, anything about medicine, or a danger only in the voice note (d7, owner 2026-10-28: answers may name or explain a danger, never invite the child to do it) |
 | A child's blocked question still got a model reply | `safety_in` `decision=block categories=s9` then `generate` `child_redirect` | by design: S1/S9/S2 blocks in child talk get a redirect (CLAUDE.md §11 exception); any other block, or a failed redirect, sends the fixed child refusal for its reason |
@@ -394,13 +413,15 @@ several points; compare the cases that changed, not only the rate.
 | A teacher's or student's reply is "try again later" | `generate` FAILED `timeout` | over 18 s (`TIMEOUT_EXPOSURE_S` / `TIMEOUT_MENTOR_S`) |
 | A career question refused as self-harm | `safety_in` `detail` `guard_flagged=s11` | Llama Guard's S11 alone no longer counts; if refused, the Muse Spark check agreed: look at its reason |
 | Voice note → "samajh nahi aaya" | `fetch_media` detail (`voiced_ms`), `transcribe` FAILED kind | silent or under 0.7 s; speech-to-text down; only "umm" |
-| Photo → "koi insaan dikh raha hai" | `analyze_image` detail `person_check=reject` | anyone in the frame, a hand too (by design, owner 2026-10-28) |
+| Photo → "kisi ka chehra dikh raha hai" | `analyze_image` detail `person_check=reject` | a face in the frame (hands are fine: owner, 2026-11-01) |
 | Photo → "Photo ke liye shukriya!…" | `analyze_image` SKIPPED `photo_not_needed` | no khoj open (none offered, already reported, or older than 48 h) |
 | A photo report with no number in the reply | `fetch_image` / `analyze_image` / `safety_in` FAILED `photo_dropped`, `counts_dropped` | a failure dropped the photo; or the activity counts nothing |
-| A parent's message went to the wrong flow (a question taken as the report, "send it again" offered a new khoj) | the `generate` row: `parent_intent` in the prompt versions, the reply | `INTENT_READING_ENABLED` off, or the reading failed (`intent_read_failed=…`, the rules decided); otherwise the reading itself (`parent_intent.md.j2`) |
+| A parent's message went to the wrong flow (a question taken as the report, "send it again" offered a new khoj) | the `generate` row: `parent_intent` in the prompt versions, the reply | `INTENT_READING_ENABLED` off, or the reading failed (`intent_read_failed=…`, the rules decided); otherwise the reading itself (`parent_intent.md.j2`): add the message to the intent bank, fix, rerun the bank |
+| A student's plan request got a mentor answer | the `route` row's `detail` | plan words missed and the reading said `question (read)`, or it failed or was slow; "how do I become X?" is a question by design |
+| A child's nickname is wrong ("baccha", "mein Lala bolte hain") | `learners.nickname`; the onboarding turn | a word the nickname rule didn't know; the parent can correct it any time ("bacche ka naam Prisa hai") |
 | No voice reply | `VOICE_REPLIES_ENABLED`, then the `synthesize` row | off (the default: text only, no row); or the ML sidecar down or the wrong engine (422); spoken text not speakable (`TtsTextInvalid`, e.g. Latin letters for the Hindi voice) |
 | Mentor says it doesn't know something the corpus covers | the `retrieve` / `rewrite_query` rows | the rewrite gave no exam or scheme name and the text match was below `RETRIEVAL_MIN_TEXT_RANK` (1.3); add the name to the document's `keywords` |
-| Reply in the wrong language | the turn's `reply_register`, the transcript | `RegisterChooser`: Devanagari is Hindi however short; a switch from the family's language needs 4+ words, so a short English message keeps the old language (by design, 2026-10-28) |
+| Reply in the wrong language | the turn's `reply_register`, the transcript | `RegisterChooser`: Devanagari is Hindi however short; a switch from the family's language needs 4+ words, so a short English message keeps the old language (by design, 2026-10-28); "in Hindi" inside a request changes that reply only |
 | Braj reply for a non-Braj speaker (or none for one) | the profile's district, the message | two Braj markers in the message, or a Braj district, turn it on (`braj_detector.py`, `braj_words.py`) |
 | The web demo's trace doesn't move | browser console; `GET /demo/events` | the SSE stream dropped; the page falls back to polling |
 | No khoj card after a report | `make_card` row `detail` | engagement under 2, a card already today, safety blocked, `KHOJ_CARD_ENABLED=false`, the window closed |
@@ -427,7 +448,7 @@ several points; compare the cases that changed, not only the rate.
   lasts 24 hours, cards 7 days.
 - "Delete my data" removes the user from every table (`test_real_pipeline` checks each one).
 - The image prompt never contains the child's name or the parent's words; the reflection never
-  sees a photo, only SAM's object counts; a photo with a person in it is dropped unseen.
+  sees a photo, only SAM's object counts; a photo with a face in it is dropped unseen.
 - A child's find-out activity never involves a hazard (only round-tip children's scissors with a
   parent); no answer discusses medicine.
 - A turn is finalized only by the worker holding the user's lease: never two replies.
@@ -437,7 +458,9 @@ several points; compare the cases that changed, not only the rate.
 ## 10. Not built, or off
 
 Everything in the build plan is built; the feature freeze started 2026-10-28 (only fixes, data
-and prompt work since). Off by default: daily nudges (`NUDGES_ENABLED`, until Meta approves the
-templates). Not deployed yet: it runs locally behind the tunnel.
+and prompt work since, plus the reliability work of 2026-11-01). Off by default: daily nudges
+(`NUDGES_ENABLED`, until Meta approves the templates) and voice replies (`VOICE_REPLIES_ENABLED`,
+until the organisers rule on MMS-TTS). Deployed on Fly (`marg-ai.fly.dev`, `fly.toml`) with Neon
+Postgres; locally it runs behind the tunnel.
 
 Pending decisions and everything awaiting review: `docs/reviews/owner-review-pending.md`.

@@ -23,7 +23,7 @@ Oct 26 – Nov 4, 2026, by Santram Gurjar.
 |---|---|
 | **Impact** | Fewer than one in four Class 3 children in rural government schools can read a Class 2 story (ASER 2024), and 250 million children under five are at risk of not reaching their potential (The Lancet, 2017). Marg reaches families through the phone they already have: no app, just a voice note, at under one US cent a reply in model calls. → [Impact](#impact) |
 | **Meta AI tooling** | Six Meta models, each with one job: Muse Spark 1.3, Muse Spark Open (open weights), Muse Voice Transcribe, SAM 3.1, Muse Image and Llama Guard 4, plus measured feedback on where they fell short for Hindi and Braj. → [The models](#the-models-six-from-meta-each-with-one-job) · [feedback](docs/submission/submission-form.md#provide-feedback-from-your-experience-using-meta-products) |
-| **Technical depth** | Hexagonal (ports and adapters) architecture, enforced by an import-graph test; every message checked on the way in and out, failing closed, with Muse Spark backing up Llama Guard; 2,692 tests, including property-based ones; 86 eval cases through the real pipeline, with crisis and adversarial cases as hard gates (76% of the 82 scored pass on the latest full run); a design document and decisions log for every step. → [How it works](#how-it-works) · [Safety](#safety-and-childrens-privacy) · [Quality](#quality) |
+| **Technical depth** | Hexagonal (ports and adapters) architecture, enforced by an import-graph test; every message checked on the way in and out, failing closed, with Muse Spark backing up Llama Guard; 2,792 tests, including property-based ones; 86 eval cases through the real pipeline, with crisis and adversarial cases as hard gates (76% of the 82 scored pass on the latest full run); a design document and decisions log for every step. → [How it works](#how-it-works) · [Safety](#safety-and-childrens-privacy) · [Quality](#quality) |
 | **Demo** | A live web demo that shows a trace of every step behind each reply, and the three-minute video (English subtitles uploaded, not auto-generated). → [Try it](#try-it) |
 
 | | |
@@ -86,7 +86,7 @@ Consent comes first, and a user's data is deleted with one message ("mera data h
   child does it offline, in the courtyard. The parent reports what the child said, by voice, and
   Marg praises what the child noticed, asks one question that extends their idea, and gives the
   parent one tip about how children learn. A photo of what the child collected is checked for
-  people, then counted. Good discoveries become a shareable card.
+  faces, then counted. Good discoveries become a shareable card.
 - **The child's own questions.** A parent can pass on a question ("chaand roz shape kyun badalta
   hai?"), or, with one-time consent, the child asks Marg directly by voice note, in short
   sessions with strict child-safety rules (the parent reads the reply aloud). When Marg won't answer something directly (how a gun works),
@@ -143,7 +143,7 @@ deterministic router, rather than one chatbot.
 | **Muse Spark Open** (open weights) | Baseten | Reflects on what the child said; extracts curiosity and aspiration signals. Spark 1.3 takes over if it's slow. In a full 86-case eval run it did 16 of the 126 generation steps (13%): 3 parent reflections, and 13 of 15 signal extractions |
 | **Muse Voice Transcribe** | Meta Model API | Every voice note. Script slips (Hindi returned in Gujarati or Gurmukhi letters) are converted back to Devanagari |
 | **Muse Image** | Meta Model API | The khoj card. No child and no name ever go into the image prompt |
-| **SAM 3.1** | Meta Model API | First proves no person is in a child's photo (otherwise it's dropped unseen), then counts the leaves or stones the child collected. Photos are never stored |
+| **SAM 3.1** | Meta Model API | First checks there's no face in a child's photo (otherwise it's dropped unseen), then counts the leaves or stones the child collected. Photos are never stored |
 | **Llama Guard 4** | DeepInfra | Every message and every reply, written and spoken, with Muse Spark as the second opinion and the backup |
 
 Every generative call returns **structured output** validated into a typed model, with one
@@ -158,7 +158,7 @@ repair retry carrying the validation error; model ids, timeouts and cost caps li
                                     ▼     ▼
    api/      verify the signature, parse, store in the inbox (once per message id), < 1 s
    worker/   claim the user under a lease → one turn at a time per person, any number of workers
-   pipeline/ fetch media → transcribe → route (rules: buttons, safety, consent; no model)
+   pipeline/ fetch media → transcribe → route (rules: buttons, safety, consent; Muse Spark reads a student's plan request)
              → safety in ‖ generate (a parent's free text: Muse Spark reads its intent first)
              → safety out → speak → send; every step recorded with its time and cost
    layers/   journey · curiosity · child talk · teacher bridges · mentor · plans · memory
@@ -225,7 +225,7 @@ date; that is planned after the hackathon.
 
 | | |
 |---|---|
-| Tests | **2,692**: 2,487 unit and contract tests, plus 205 integration tests on Postgres; property-based tests (Hypothesis) for the state machine, message splitting, spoken-text rules, the chunker, signatures, payload parsing and the hazard matcher |
+| Tests | **2,792**: 2,587 unit and contract tests, plus 205 integration tests on Postgres; property-based tests (Hypothesis) for the state machine, message splitting, spoken-text rules, the chunker, signatures, payload parsing and the hazard matcher |
 | Checks | `ruff format`, `ruff check`, `mypy --strict` (no `Any`), `pytest`: all must pass before every commit |
 | Evals | `marg eval` plays **86** hand-written cases through the real pipeline and real models; code checks plus a judge model. Crisis and adversarial cases are hard gates |
 | Latest full scorecard | **76%** of the 82 scored cases pass (62); both hard gates pass; safety 5.00/5, reading level 4.73/5, cultural resonance 4.84/5 ([evals/results/](evals/results/)) |

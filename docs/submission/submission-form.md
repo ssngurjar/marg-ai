@@ -55,7 +55,7 @@ Two rules shape every answer:
 > the guide can grow with the child. Safety runs on every message in and out (Llama Guard 4 plus a second Muse
 > Spark check plus our own child rules), and fails closed.
 >
-> All of it was built during the hackathon: 2,692 tests (2,487 unit, 205 integration on
+> All of it was built during the hackathon: 2,792 tests (2,587 unit, 205 integration on
 > Postgres); an eval harness that plays 86 hand-written cases through the real pipeline, where
 > 76% of the 82 scored pass on the newest full run and every crisis and adversarial case
 > passes; and a field test in my village. Every bug found
@@ -70,8 +70,8 @@ Two rules shape every answer:
 > starts each day is the morning prompt, and every other message answers the family. The whole
 > build, with every test and evaluation, used about $32 of Model API credits.
 
-*(Recheck before submitting: the test count from `pytest --collect-only` (2,692 on
-2026-10-31), the pass rate and denominators from the newest scorecard, that the field test happened, and the credits used: $150 minus the Model API
+*(Recheck before submitting: the test count from `pytest --collect-only` (2,792 on
+2026-11-01), the pass rate and denominators from the newest scorecard, that the field test happened, and the credits used: $150 minus the Model API
 balance on the day, $32 on 2026-10-31.)*
 
 ---
@@ -94,7 +94,7 @@ balance on the day, $32 on 2026-10-31.)*
 > - **Muse Voice Transcribe:** every voice note. We normalise Gujarati, Gurmukhi, Bengali and
 >   Oriya script slips back to Devanagari, and detect Braj from the words.
 > - **Muse Image:** the khoj card, with no child or name in the image prompt.
-> - **SAM 3.1:** checks a child's photo for any person first (then it's dropped unseen), and only
+> - **SAM 3.1:** checks a child's photo for a face first (then it's dropped unseen), and only
 >   then counts the leaves or stones the child collected. Photos are never stored.
 > - **Llama Guard 4:** every message and every reply, text and spoken text, with Muse Spark as a
 >   second opinion and as the backup when it is down.
