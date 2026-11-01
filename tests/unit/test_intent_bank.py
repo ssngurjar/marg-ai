@@ -64,3 +64,9 @@ def test_child_name_is_given_only_for_naming_cases() -> None:
     named = [case for case in BANK.cases if case.child_name is not None]
     assert len(named) >= 5
     assert [case.text for case in named if case.intent is not ParentIntent.CHILD_NAME] == []
+
+
+def test_the_off_topic_section_has_judge_and_village_messages() -> None:
+    off_topic = [case for case in BANK.cases if case.section == "off_topic"]
+    assert len(off_topic) >= 10
+    assert {case.lang for case in off_topic} >= {"english", "hinglish", "hindi"}

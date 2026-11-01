@@ -60,6 +60,7 @@ class BankCase(BaseModel):
     open_khoj: bool
     intent: ParentIntent
     lang: CaseLanguage  # how the case is written, for the per-language table
+    section: Literal["main", "off_topic"] = "main"  # off_topic: reported on its own
     asked: Language | None = None
     # Checked only when a case gives them (critic review, 2026-11-01):
     braj: bool | None = None
@@ -142,12 +143,18 @@ async def run(repeat: int, *, save: bool) -> float:
     right_by_lang: Counter[str] = Counter(
         {lang: total - missed_by_lang[lang] for lang, total in total_by_lang.items()}
     )
+    total_by_section: Counter[str] = Counter(reading.case.section for reading in readings)
+    right_by_section: Counter[str] = Counter(
+        reading.case.section for reading in readings if not reading.wrong
+    )
     result = BankRun(
         bank="parent_intents",
         readings=len(readings),
         right_by_lang=right_by_lang,
         total_by_lang=total_by_lang,
         misses=misses,
+        right_by_section=right_by_section,
+        total_by_section=total_by_section,
     )
     await BankResults.print_and_save(result, repeat=repeat, save=save)
     return result.share_right

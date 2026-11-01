@@ -7,7 +7,7 @@ semantic check makes the model fix a reply in the wrong script (one repair retry
 
 from typing import ClassVar, Final
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.domain.enums import Language, StepOutcome
 from app.domain.models.reply import CanonicalReply
@@ -26,8 +26,16 @@ class ParentAnswer(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     answer: str = Field(min_length=1, max_length=500)
-    try_this: str = Field(min_length=1, max_length=200)
+    try_this: str = Field(max_length=200)  # "" only for an off-topic message
     spoken_text: str = Field(max_length=900)
+    # not about their child or Marg (the weather, a ration card): counted, no tip (2026-11-01)
+    off_topic: bool
+
+    @model_validator(mode="after")
+    def _a_tip_unless_off_topic(self) -> "ParentAnswer":
+        if not self.off_topic and not self.try_this.strip():
+            raise ValueError("try_this is empty but the message is about the child")
+        return self
 
 
 PARENT_ANSWER: Final = PromptSpec(prompt_id="parent_answer", output_type=ParentAnswer)
@@ -85,7 +93,8 @@ class ParentQuestionLayer:
         )
         result = await self._llm.generate(rendered.request)
         reply = result.output
-        body = f"{reply.answer}\n\n{reply.try_this}"
+        tip = reply.try_this.strip()
+        body = f"{reply.answer}\n\n{tip}" if tip else reply.answer
         degraded = bool(rendered.truncated_slots)
         return LayerResult(
             reply=CanonicalReply(
@@ -102,6 +111,7 @@ class ParentQuestionLayer:
             },
             outcome=StepOutcome.DEGRADED if degraded else StepOutcome.OK,
             degraded_reason="truncated=true" if degraded else None,
+            step_note="off_topic=true" if reply.off_topic else None,
         )
 
     @staticmethod

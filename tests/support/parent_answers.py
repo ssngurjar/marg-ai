@@ -9,16 +9,19 @@ HINGLISH_ANSWER: Final[Mapping[str, object]] = {
     "answer": "Rang sikhane ke liye ghar ki cheezon se khel kheliye.",
     "try_this": "Aaj teen laal cheezein saath dhoondhiye.",
     "spoken_text": "रंग सिखाने के लिए घर की चीज़ों से खेल खेलिए। आज तीन लाल चीज़ें साथ ढूंढिए।",
+    "off_topic": False,
 }
 HINDI_ANSWER: Final[Mapping[str, object]] = {
     "answer": "रंग सिखाने के लिए घर की चीज़ों से खेल खेलिए।",
     "try_this": "आज तीन लाल चीज़ें साथ ढूंढिए।",
     "spoken_text": "रंग सिखाने के लिए घर की चीज़ों से खेल खेलिए। आज तीन लाल चीज़ें साथ ढूंढिए।",
+    "off_topic": False,
 }
 ENGLISH_ANSWER: Final[Mapping[str, object]] = {
     "answer": "Play colour games with things you already have at home.",
     "try_this": "Today, find three red things together.",
     "spoken_text": "Play colour games with things at home. Today, find three red things together.",
+    "off_topic": False,
 }
 ANSWER_IN: Final[Mapping[Language, Mapping[str, object]]] = {
     Language.HINGLISH: HINGLISH_ANSWER,

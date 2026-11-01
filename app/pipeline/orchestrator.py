@@ -592,7 +592,7 @@ class _Turn:
                 started,
                 layer_result,
                 StepUsage.total(layer_result.usages),
-                layer_result.degraded_reason,
+                layer_result.degraded_reason or layer_result.step_note,
                 outcome=layer_result.outcome,
             )
         )
@@ -665,7 +665,7 @@ class _Turn:
                 started,
                 layer_result,
                 StepUsage.total(layer_result.usages),
-                layer_result.degraded_reason,
+                layer_result.degraded_reason or layer_result.step_note,
                 outcome=layer_result.outcome,
             )
         )
@@ -775,7 +775,7 @@ class _Turn:
                 started,
                 layer_result,
                 StepUsage.total(layer_result.usages),
-                layer_result.degraded_reason,
+                layer_result.degraded_reason or layer_result.step_note,
                 outcome=layer_result.outcome,
             )
         )

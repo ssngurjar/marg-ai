@@ -50,3 +50,22 @@ def test_a_miss_serialises_to_json() -> None:
         "lang": "braj",
         "wrong": "braj False, not True",
     }
+
+
+def test_the_off_topic_section_is_reported_on_its_own() -> None:
+    sectioned = BankRun(
+        bank="parent_intents",
+        readings=3,
+        right_by_lang=Counter({"english": 2}),
+        total_by_lang=Counter({"english": 3}),
+        misses=[BankMiss(text="write me a poem", lang="english", wrong="intent small_talk")],
+        right_by_section=Counter({"main": 2}),
+        total_by_section=Counter({"main": 2, "off_topic": 1}),
+    )
+    report = BankResults.report(sectioned)
+    assert "| off_topic | 0 | 1 | 0% |" in report
+    assert "| main | 2 | 2 | 100% |" in report
+
+
+def test_one_section_prints_no_section_table() -> None:
+    assert "| Section |" not in BankResults.report(RUN)

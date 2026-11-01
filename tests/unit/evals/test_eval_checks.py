@@ -121,14 +121,22 @@ def test_a_clean_devanagari_sentence_has_no_violations() -> None:
     assert EvalChecks.spoken_violations("बहुत अच्छा! मुन्नी ने पत्ते इकट्ठे किए।") == []
 
 
-PLAIN = st.text(
-    alphabet=st.sampled_from(list("abcdefghijklmnopqrstuvwxyzअआइकखगमनपरलवसह0123456789 .,?!।")),
-    max_size=80,
+WORD = st.text(
+    alphabet=st.sampled_from(list("abcdefghijklmnopqrstuvwxyzअआइकखगमनपरलवसह0123456789")),
+    min_size=1,
+    max_size=10,
 )
+# Plain sentences: words, each maybe ending in a sentence mark, joined by spaces. A mark inside a
+# word ("ab.in") is a domain's shape, and the link check is right to flag it.
+PLAIN = st.lists(
+    st.tuples(WORD, st.sampled_from(["", ".", ",", "?", "!", "।"])).map("".join),
+    max_size=12,
+).map(" ".join)
 
 
 @given(PLAIN)
 @example("ek do teen. kya?")
+@example("0.ac")  # a number and two letters, once read as a link
 def test_plain_words_digits_and_sentence_marks_are_always_clean(text: str) -> None:
     assert EvalChecks.spoken_violations(text) == []
 

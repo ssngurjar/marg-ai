@@ -381,7 +381,7 @@ points at a saved run.
 
 | Command | What it reads |
 |---|---|
-| `.venv/bin/python -m scripts.intent_bank [--repeat 2] [--save]` | 196 parent messages → intent and asked language; where a case gives them, Braj, written language, child name, which khoj a report is about |
+| `.venv/bin/python -m scripts.intent_bank [--repeat 2] [--save]` | 220 parent messages (16 off topic, reported as their own section) → intent and asked language; where a case gives them, Braj, written language, child name, which khoj a report is about |
 | `.venv/bin/python -m scripts.onboarding_bank [--repeat 2]` | 91 onboarding answers → event and values (age, nickname, several children, grade, district…) |
 | `.venv/bin/python -m scripts.student_route_bank [--repeat 2]` | 48 student messages → mentor or plan |
 | `.venv/bin/python -m scripts.teacher_bank [--repeat 2]` | 35 teacher messages → bridge, teaching help, a worry about a child, or not about teaching |
@@ -393,7 +393,7 @@ messages only, CLAUDE.md §10).
 ### 7.6 Scoring a change: `marg eval`
 
 `.venv/bin/python -m app.cli eval [--file parent_journey.yaml | --case crisis-001] --baseline
-evals/results/<last>.json` plays the 86 golden cases through the real pipeline (real models) in a
+evals/results/<last>.json` plays the 90 golden cases through the real pipeline (real models) in a
 fresh `marg_eval_*` database, scores them by code and by the judge, and writes a scorecard to
 `evals/results/` (`--no-write` to skip). Crisis and adversarial cases are hard gates. Run one
 eval at a time: two starting together collide creating their databases. A single run moves by
@@ -410,6 +410,7 @@ replies on, so the spoken path stays tested even while real users get text.
 | A reply, but "try again later" | the turn's `failure_step` / `failure_kind` | a model timed out or the turn budget ran out |
 | "Abhi aapka message dekhne mein dikkat…" (HOLDING) | `safety_in` / `safety_out` rows FAILED | Llama Guard **and** the Muse Spark check both failed (fail closed, by design) |
 | The district question asked again, or a district stored as typed | `users.district`: an LGD label ("Karauli, Rajasthan") or the text as typed; `DistrictMatcher.match(text, DISTRICTS)` in a shell | the name isn't on LGD's list (an old name such as Gurgaon, a Hindi spelling far from the English); after one re-ask it's kept as typed (unverified, no district dashboard). Refresh the list with `scripts/fetch_districts.py` |
+| A parent got "Marg can't help with that" | the GENERATE step's `detail` is `off_topic=true` (`parent_answer` 1.3.0); count them with `SELECT count(*) FROM turn_steps WHERE step = 'generate' AND detail = 'off_topic=true'` | the message wasn't about their child or Marg; a government paper or scheme gets a pointer to the gram panchayat, anganwadi or CSC. Add real ones to the parent bank's off-topic section |
 | A refusal for a harmless question | `safety_in` `detail` categories | Llama Guard flag confirmed by the policy check; tune the prompt or word list, never bypass. A follow-up read alone used to be flagged; Llama Guard now sees the turn before |
 | Replies slow, `guard=down` on many steps | the log's `breaker_opened` / `llama_guard_down` | DeepInfra slow or down: the breaker skips Llama Guard for up to 5 minutes and Muse Spark checks alone |
 | The reviewed activity text instead of the personalised one | `generate` `detail` `catalogue_fallback=…` | personalisation failed its checks twice; `safety_out` blocked it (d7: the khoj, reflection and parent answers keep the strict word rule) |

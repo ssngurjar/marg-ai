@@ -23,6 +23,9 @@ class LayerResult(DomainModel):
     prompt_versions: dict[str, str]  # prompt id → version, for every prompt the layer used
     outcome: Literal[StepOutcome.OK, StepOutcome.DEGRADED]
     degraded_reason: str | None  # fixed vocabulary, set when outcome is DEGRADED
+    # fixed vocabulary for the GENERATE step's detail when nothing degraded ("off_topic=true":
+    # a parent's message not about their child, counted from turn_steps; 2026-11-01)
+    step_note: str | None = None
     writes: list[TurnWrite] = Field(default_factory=list)
     fallback_reply: CanonicalReply | None = None  # reviewed text, if the generated reply is blocked
     hazard_rule: frozenset[str] | None = None  # declared hazards the d7 rule allows

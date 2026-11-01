@@ -1,6 +1,7 @@
 """ParentQuestionLayer: one warm answer in the parent's register (s10b §4.9 flow D, S5 exit)."""
 
 from dataclasses import replace
+from pathlib import Path
 
 import pytest
 
@@ -11,7 +12,7 @@ from app.prompts.prompt_registry import SPOKEN_TEXT_OFF, PromptRegistry, PromptS
 from app.wiring import PROMPT_SPECS
 from tests.fakes.language_model import FakeLanguageModel
 from tests.support.parent_answers import ANSWER_IN, ENGLISH_ANSWER, HINDI_ANSWER, HINGLISH_ANSWER
-from tests.support.prompts import TEST_PROMPT_SETTINGS
+from tests.support.prompts import TEST_PROMPT_SETTINGS, shipped_registry
 from tests.support.turn_context import text_message, turn_context
 
 pytestmark = pytest.mark.unit
@@ -45,7 +46,7 @@ async def test_the_reply_is_the_answer_then_one_thing_to_try(register: Language)
     assert result.reply.body_language is register
     assert result.outcome is StepOutcome.OK
     assert result.degraded_reason is None
-    assert result.prompt_versions == {"parent_answer": "1.2.0"}
+    assert result.prompt_versions == {"parent_answer": "1.3.0"}
     assert len(result.usages) == 1
 
 
@@ -124,14 +125,23 @@ def test_problems_never_quote_the_reply() -> None:
 @pytest.mark.parametrize(
     "fields",
     [
-        {"answer": "", "try_this": "x", "spoken_text": "x"},
-        {"answer": "x" * 501, "try_this": "x", "spoken_text": "x"},
-        {"answer": "x", "try_this": "x" * 201, "spoken_text": "x"},
-        {"answer": "x", "try_this": "x", "spoken_text": "x" * 901},
-        {"answer": "x", "try_this": "x"},
-        {"answer": "x", "try_this": "x", "spoken_text": "x", "extra": "x"},
+        {"answer": "", "try_this": "x", "spoken_text": "x", "off_topic": False},
+        {"answer": "x" * 501, "try_this": "x", "spoken_text": "x", "off_topic": False},
+        {"answer": "x", "try_this": "x" * 201, "spoken_text": "x", "off_topic": False},
+        {"answer": "x", "try_this": "x", "spoken_text": "x" * 901, "off_topic": False},
+        {"answer": "x", "try_this": "x", "spoken_text": "x"},
+        {"answer": "x", "try_this": "x", "spoken_text": "x", "off_topic": False, "extra": "x"},
+        {"answer": "x", "try_this": "", "spoken_text": "x", "off_topic": False},
     ],
-    ids=["empty-answer", "long-answer", "long-try", "long-spoken", "missing", "extra"],
+    ids=[
+        "empty-answer",
+        "long-answer",
+        "long-try",
+        "long-spoken",
+        "missing",
+        "extra",
+        "no-tip-on-topic",
+    ],
 )
 def test_the_output_model_rejects_bad_shapes(fields: dict[str, object]) -> None:
     with pytest.raises(ValueError, match="validation error for ParentAnswer"):
@@ -145,6 +155,7 @@ def test_a_parent_answer_naming_a_hazard_gets_a_repair_turn_naming_the_word() ->
             "answer": "Bachche ko chhat par mat jaane dijiye.",
             "try_this": "Aaj aangan mein khel kheliye.",
             "spoken_text": "बच्चे को छत पर मत जाने दीजिए। आज आँगन में खेल खेलिए।",
+            "off_topic": False,
         }
     )
     problems = ParentQuestionLayer.script_problems(answer, Language.HINGLISH)
@@ -185,3 +196,47 @@ async def test_with_voice_replies_off_every_written_problem_still_counts() -> No
     text = "bachcha khana nahi khata"
     with pytest.raises(AssertionError, match="semantic check"):
         await layer.answer(turn_context(text_message(text)), text, Language.HINGLISH)
+
+
+# --- off-topic messages (the bar-joke review, owner 2026-11-01) -----------------------------------
+
+OFF_TOPIC = {
+    "answer": "Ration card mein Marg madad nahi kar sakta. Gram panchayat ya CSC par poochiye.",
+    "try_this": "",
+    "spoken_text": "राशन कार्ड में मार्ग मदद नहीं कर सकता। ग्राम पंचायत या सी एस सी पर पूछ लीजिए।",
+    "off_topic": True,
+}
+
+
+async def test_an_off_topic_message_gets_no_tip_and_is_counted() -> None:
+    llm = FakeLanguageModel([OFF_TOPIC])
+    layer = ParentQuestionLayer(llm, shipped_registry())
+    text = "ration card banwana hai"
+    result = await layer.answer(turn_context(text_message(text)), text, Language.HINGLISH)
+    assert result.reply.body == OFF_TOPIC["answer"]
+    assert result.step_note == "off_topic=true"
+    assert result.outcome is StepOutcome.OK
+
+
+async def test_an_answer_about_the_child_is_not_counted_as_off_topic() -> None:
+    llm = FakeLanguageModel([HINGLISH_ANSWER])
+    layer = ParentQuestionLayer(llm, shipped_registry())
+    text = "bachcha khana nahi khata"
+    result = await layer.answer(turn_context(text_message(text)), text, Language.HINGLISH)
+    assert result.step_note is None
+
+
+def test_an_empty_tip_is_allowed_only_off_topic() -> None:
+    assert ParentAnswer.model_validate(OFF_TOPIC).try_this == ""
+    with pytest.raises(ValueError, match="try_this is empty"):
+        ParentAnswer.model_validate({**OFF_TOPIC, "off_topic": False})
+
+
+def test_the_prompt_points_to_where_to_ask_and_names_the_models() -> None:
+    system = " ".join(Path("app/prompts/parent_answer.md.j2").read_text(encoding="utf-8").split())
+    for place in ("gram panchayat", "anganwadi", "CSC (Common Service Centre)"):
+        assert place in system
+    assert "Meta's Muse Spark" in system
+    assert "Never say what a scheme gives" in system
+    assert "never tell them to wait and see" in system
+    assert "never say it is too early" in system

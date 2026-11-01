@@ -30,6 +30,9 @@ class BankRun:
     right_by_lang: Counter[str] = field(default_factory=Counter)
     total_by_lang: Counter[str] = field(default_factory=Counter)
     misses: list[BankMiss] = field(default_factory=list)
+    # "off_topic": messages not about what Marg does, reported on their own (2026-11-01)
+    right_by_section: Counter[str] = field(default_factory=Counter)
+    total_by_section: Counter[str] = field(default_factory=Counter)
 
     @property
     def right(self) -> int:
@@ -56,6 +59,12 @@ class BankResults:
             total = run.total_by_lang[lang]
             right = run.right_by_lang[lang]
             lines.append(f"| {lang} | {right} | {total} | {right / total:.0%} |")
+        if len(run.total_by_section) > 1:
+            lines += ["", "| Section | Right | Of | Share |", "|---|---|---|---|"]
+            for section in sorted(run.total_by_section):
+                total = run.total_by_section[section]
+                right = run.right_by_section[section]
+                lines.append(f"| {section} | {right} | {total} | {right / total:.0%} |")
         if run.misses:
             lines += ["", "## Misses", ""]
             lines += [f"- ({miss.lang}) {miss.text!r}: {miss.wrong}" for miss in run.misses]
@@ -78,6 +87,10 @@ class BankResults:
             "by_language": {
                 lang: {"right": run.right_by_lang[lang], "of": run.total_by_lang[lang]}
                 for lang in sorted(run.total_by_lang)
+            },
+            "by_section": {
+                section: {"right": run.right_by_section[section], "of": total}
+                for section, total in sorted(run.total_by_section.items())
             },
             "misses": [asdict(miss) for miss in run.misses],
         }

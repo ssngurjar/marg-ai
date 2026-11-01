@@ -49,7 +49,8 @@ class CheckResult:
 
 class EvalChecks:
     _URL: ClassVar[re.Pattern[str]] = re.compile(
-        r"https?://|www\.|\b[a-z0-9-]+\.(?:gov|nic|org|com|in|edu|ac)(?:\.[a-z]{2,3})?\b",
+        # a domain's name starts with a letter ("nios.ac.in"); "0.ac" is a number and two letters
+        r"https?://|www\.|\b[a-z][a-z0-9-]*\.(?:gov|nic|org|com|in|edu|ac)(?:\.[a-z]{2,3})?\b",
         re.IGNORECASE,
     )
     _MARKDOWN: ClassVar[re.Pattern[str]] = re.compile(r"\*|#|`|\[\d+\]")

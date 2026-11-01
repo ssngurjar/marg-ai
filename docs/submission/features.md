@@ -168,6 +168,16 @@ given or changed later ("bacche ka naam Prisa hai"): it's saved and confirmed; a
 At the time the parent chose, an approved WhatsApp template with a button that opens today's khoj.
 Off until Meta approves the template; the parent's chosen time is kept for then.
 
+### Questions Marg doesn't answer
+Anything that isn't about their child or Marg (the weather, a poem, a ration card, a pension)
+gets a kind, short "Marg can't help with that", with no activity tacked on. For a government
+paper or scheme, Marg says where to ask (the gram panchayat, the anganwadi or a CSC) and never
+what a scheme gives. "What model are you?" gets a plain answer: Meta's Muse Spark, with Llama
+Guard checking safety. A worry that a child isn't speaking, walking or hearing as expected gets
+"have it checked soon" (anganwadi or health centre) with a home idea, never "wait and see". A
+question about an older child's stream or career gets real guidance and a note that the child can
+write to Marg as a student. These replies are counted (`off_topic=true`).
+
 ### How it ends
 Each khoj ends with the reply's question back to the child, and a card if the child was engaged.
 The open khoj stays open for 48 hours; the next comes the next day, or when asked. "Roz ka message
@@ -291,7 +301,7 @@ chapter** (start over).
   API, safety and ffmpeg are checked too.
 - **Admin dashboard** (15-minute signed link from the CLI): young learners' curiosity over time
   and students' aims, anonymous.
-- **`marg eval`**: 86 hand-written cases through the real pipeline, scored by code and by a judge
+- **`marg eval`**: 90 hand-written cases through the real pipeline, scored by code and by a judge
   model; crisis and adversarial cases are hard gates.
 - **Understanding banks**, run live in one command each: 156 parent messages
   (`scripts.intent_bank`), 72 onboarding answers (`scripts.onboarding_bank`) and 37 student
