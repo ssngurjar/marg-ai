@@ -6,6 +6,8 @@ from typing import Final
 from uuid import UUID
 
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
 from app.constants.braj_words import BRAJ_RULE
 from app.constants.child_talk_copy import WHO_IS_WRITING, WHO_IS_WRITING_NO_CHILD
@@ -621,12 +623,21 @@ async def test_a_greeting_or_thanks_with_a_khoj_open_is_not_a_report(text: str) 
     assert llm.by_prompt["parent_reflection"].prompts == []
 
 
-@pytest.mark.parametrize("text", ["ok she counted 7 leaves", "Munni did it", "haan ho gaya"])
+@pytest.mark.parametrize("text", ["ok she counted 7 leaves", "Munni laughed at her shadow"])
 async def test_a_real_report_after_ok_is_still_a_report(text: str) -> None:
     layer, llm = layer_with()
     result = await khoj(text=text, button=None, open_activity=offer(FIRST, MUNNI), layer=layer)
     assert result.reply.body.startswith(REFLECTION_PRAISE)
     assert len(llm.by_prompt["parent_reflection"].prompts) == 1
+
+
+@pytest.mark.parametrize("text", ["haan ho gaya", "Munni did it"])
+async def test_done_in_words_with_a_khoj_open_gets_thanks_and_a_question(text: str) -> None:
+    # nothing about the child was said: never an invented reflection (2026-11-02)
+    layer, llm = layer_with()
+    result = await khoj(text=text, button=None, open_activity=offer(FIRST, MUNNI), layer=layer)
+    assert result.reply.body == DONE_THANKS[H].format(child="Munni")
+    assert llm.by_prompt["parent_reflection"].prompts == []
 
 
 # --- intent reading (owner, 2026-10-29) ----------------------------------------------------------
@@ -1287,6 +1298,49 @@ async def test_words_sent_before_the_question_come_with_the_tapped_khoj() -> Non
     await report(ParentMessage("", [f"jrn:about:{UUID(int=61)}"]), layer, earlier_exchange=asked)
     [prompt] = llm.by_prompt["parent_reflection"].prompts
     assert "he jumped like a frog" in prompt.user
+
+
+@pytest.mark.parametrize(
+    "said", ["हो गया।", "ho gaya", "humne kar liya ji", "done", "Munni did it"]
+)
+async def test_only_done_before_the_question_gets_thanks_never_an_invented_report(
+    said: str,
+) -> None:
+    # a field tester's voice note "done", then a tap on the khoj: the reply praised what the child
+    # did with stones and leaves, which nobody had said
+    layer, llm = layer_with()
+    asked = Exchange(user_text=said, reply_text=WHICH_KHOJ[H], route=Route.JOURNEY, at=NOW)
+    result = await report(
+        ParentMessage("", [f"jrn:about:{UUID(int=61)}"]), layer, earlier_exchange=asked
+    )
+    assert result.reply.body == DONE_THANKS[H].format(child="Munni")
+    assert llm.by_prompt["parent_reflection"].prompts == []
+    [written] = [write for write in result.writes if isinstance(write, ActivityReported)]
+    assert written.summary == NO_DETAILS_SUMMARY
+
+
+@pytest.mark.parametrize(
+    ("report_text", "only_done"),
+    [
+        ("", True),
+        ("हो गया", True),
+        ("ho gaya ji", True),
+        ("aaj khoj kar li", True),
+        ("ho gaya, usne 5 patte gine", False),
+        ("kar liya, bahut maza aaya", False),
+        ("nahi kiya", False),
+        ("she jumped like a frog", False),
+    ],
+)  # the child's own name is no detail: "Munni did it" only says it's done
+def test_a_report_says_only_done_when_every_word_is_about_doing_it(
+    report_text: str, *, only_done: bool
+) -> None:
+    assert JourneyLayer.says_only_done(report_text) is only_done
+
+
+@given(st.lists(st.sampled_from(["patte", "gine", "frog", "kooda", "poocha", "laal"]), min_size=1))
+def test_any_word_about_the_child_makes_it_a_real_report(details: list[str]) -> None:
+    assert not JourneyLayer.says_only_done(" ".join(["ho", "gaya", *details]))
 
 
 async def test_a_report_in_words_about_the_earlier_khoj_goes_to_it() -> None:

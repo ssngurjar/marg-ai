@@ -31,3 +31,16 @@ SMALL_TALK: Final = (
     "dhanyavad", "dhanyawad", "accha", "acha", "achha", "theek hai", "thik hai", "theek",
     "ठीक है", "धन्यवाद", "शुक्रिया", "अच्छा",
 )  # fmt: skip
+
+# A report that only says it's done ("ho gaya", "हो गया", "humne kar liya"): nothing said about the
+# child, so nothing to praise but the doing (a field tester's voice note, 2026-11-02: the reply
+# invented what the child did from the khoj's own steps). Every word must be one of these.
+DONE_ONLY_WORDS: Final = frozenset(
+    {
+        "ho", "gaya", "gya", "gayi", "gai", "hogaya", "hogya", "kar", "kr", "liya", "li", "lia",
+        "kiya", "kia", "diya", "done", "finished", "complete", "completed", "did", "it", "we",
+        "humne", "hamne", "maine", "usne", "ne", "bhi", "ji", "haan", "ha", "bas", "hai", "ok",
+        "okay", "aaj", "khoj", "हो", "गया", "गई", "गयी", "कर", "लिया", "ली", "किया", "दिया",
+        "हमने", "मैंने", "उसने", "ने", "भी", "जी", "हाँ", "हां", "बस", "है", "आज", "खोज",
+    }
+)  # fmt: skip

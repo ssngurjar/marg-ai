@@ -77,7 +77,7 @@ from app.constants.journey_copy import (
     WHICH_CHILD,
     WHICH_KHOJ,
 )
-from app.constants.journey_words import CAREER_WORDS, LABEL_WORDS, SMALL_TALK
+from app.constants.journey_words import CAREER_WORDS, DONE_ONLY_WORDS, LABEL_WORDS, SMALL_TALK
 from app.constants.onboarding_copy import CHILD_FALLBACK, COPY
 from app.constants.small_talk_copy import ACKNOWLEDGED_AGAIN, FAREWELLS, OTHER_ROLE_REPLY
 from app.constants.whatsapp import MAX_BUTTON_TITLE, MAX_BUTTONS
@@ -639,6 +639,14 @@ class JourneyLayer:
         return _fixed(WHO_IS_WRITING[register].format(names=names), register, buttons)
 
     @staticmethod
+    def says_only_done(report: str, child_name: str | None = None) -> bool:
+        """No words, or words that only say it's done ("ho gaya", "हो गया", "Munni did it"):
+        nothing about the child, so nothing may be described or praised but the doing
+        (2026-11-02)."""
+        name_words = set(PhraseFinder.words(child_name)) if child_name else set()
+        return all(word in _DONE_ONLY or word in name_words for word in PhraseFinder.words(report))
+
+    @staticmethod
     def _acknowledgement(ctx: TurnContext, register: Language, now: datetime) -> str:
         """An ok or thanks mid-conversation: by the child's name, after a khoj just done its
         own words, and never the same words twice in a row (web testers, 2026-11-02)."""
@@ -971,7 +979,8 @@ class JourneyLayer:
         learner = _learner_named(ctx.learners, open_activity)
         kid = _kid_buttons(learner, register) if self._settings.child_talk_enabled else ()
         buttons = (*self._after_report_buttons(ctx, register), *kid)
-        if not report.strip() and photo is None:
+        nothing_said = JourneyLayer.says_only_done(report, learner.nickname)
+        if nothing_said and photo is None:
             # "Done" with nothing said: thanks and one question, by code (owner's demo,
             # 2026-11-01: the model's praise for a khoj nobody described read as absurd)
             child = learner.nickname or CHILD_IN_HELLO[register]
@@ -993,7 +1002,7 @@ class JourneyLayer:
                 "listen_for": activity.listen_for,
                 # no words (a "Done" tap, a photo alone): nothing to praise but the doing
                 # (owner's demo, 2026-11-01: the reply invented what the child did)
-                "reported": bool(report.strip()),
+                "reported": not nothing_said,
                 "photo_sent": photo is not None,
                 "photo_counts": [
                     f"{found.count} {found.phrase}" for found in (photo.counts if photo else [])
@@ -1169,6 +1178,9 @@ class _ContentChecks:
         if PhraseFinder.contains_any(text, LABEL_WORDS):
             problems.append("text: labels the child")
         return problems
+
+
+_DONE_ONLY: Final = frozenset(" ".join(PhraseFinder.words(word)) for word in DONE_ONLY_WORDS)
 
 
 def _fixed(body: str, register: Language, buttons: Sequence[ReplyButton]) -> LayerResult:

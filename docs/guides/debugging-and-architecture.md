@@ -406,6 +406,7 @@ replies on, so the spoken path stays tested even while real users get text.
 
 | Symptom | First check | Usual cause |
 |---|---|---|
+| A reflection praised something the parent never said | the report's words: only "done" words? | `JourneyLayer.says_only_done` should catch it (thanks and a question, no model); a new done-word belongs in `DONE_ONLY_WORDS` |
 | A reply took much longer than usual | the server log for `generation_repaired` (prompt id) at that time | the first reply failed its schema or code check and was repaired: two model calls |
 | Someone asked to use Marg as another role and nothing changed | the ROUTE detail "other role (read)" (students) or the intent `other_role` | by design: `OTHER_ROLE_REPLY` explains how to start again; the role never changes from words |
 | Before agreeing, someone got the whole privacy note again instead of one line | `turns.reply_text` of the replies before: did one in the last 24 h hold the note? | the note was sent more than a day ago, or the message was only a greeting; `OnboardingLayer.consent_note_sent_since` |
