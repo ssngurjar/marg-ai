@@ -203,7 +203,16 @@ UNNAMED = consented_child(3, None, age=4)
 
 
 @pytest.mark.parametrize(
-    "text", ["mai bacha hun", "Main bachcha hoon", "main bachchi hu", "मैं बच्ची हूँ", "I am the child"]
+    "text",
+    [
+        "mai bacha hun",
+        "Main bachcha hoon",
+        "main bachchi hu",
+        "मैं बच्ची हूँ",
+        "I am the child",
+        "I'm the child",
+        "I\u2019m the child",
+    ],
 )
 def test_saying_i_am_the_child_starts_a_session_even_with_no_name(text: str) -> None:
     assert ChildSessionRules.says_i_am_the_child(text)

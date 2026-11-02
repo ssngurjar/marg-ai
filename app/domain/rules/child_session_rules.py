@@ -73,8 +73,10 @@ class ChildSessionRules:
 
     @staticmethod
     def says_i_am_the_child(text: str) -> bool:
-        """Only "main bachcha hoon", "mai bacha hun", "मैं बच्ची हूँ", "I am the child"."""
-        said = {ChildSessionRules._squeezed(word) for word in PhraseFinder.words(text)}
+        """Only "main bachcha hoon", "mai bacha hun", "मैं बच्ची हूँ", "I am the child", "I'm the
+        child" (the English reply's own words: the apostrophe is dropped, "I'm" is "im")."""
+        unquoted = text.replace("'", "").replace("\u2019", "")
+        said = {ChildSessionRules._squeezed(word) for word in PhraseFinder.words(unquoted)}
         only_these = said <= _I_WORDS | _CHILD_WORDS | _FILLER_WORDS
         return only_these and bool(said & _CHILD_WORDS) and bool(said & _I_WORDS)
 
