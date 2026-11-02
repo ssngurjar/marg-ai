@@ -70,6 +70,12 @@ ASK_A_GROWNUP: Final[dict[Language, str]] = {
     _HINDI: "यह काम मम्मी-पापा करेंगे। तुम मुझसे कुछ और पूछो!",
     _ENGLISH: "Mummy and Papa will do that. Ask me something else!",
 }
+# The child's "ok" twice in a row: said differently the second time (2026-11-02)
+CHILD_ACKNOWLEDGED_AGAIN: Final[dict[Language, str]] = {
+    _HINGLISH: "Theek hai! Jab man kare, poochho.",
+    _HINDI: "ठीक है! जब मन करे, पूछो।",
+    _ENGLISH: "Okay! Ask me whenever you like.",
+}
 # A child's hello in the middle of a talk: answered at once, not counted as a question
 CHILD_GREETED: Final[dict[Language, str]] = {
     _HINGLISH: "Namaste! Mujhse kuch bhi poochho: kyun, kaise, kya.",

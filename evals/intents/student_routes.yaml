@@ -66,3 +66,10 @@ cases:
   - {text: "are you a real person?", route: about_marg}
   - {text: "kya ye fraud hai, OTP to nahi maangoge", route: about_marg}
   - {text: "मैं लिख नहीं पाता, बोलकर पूछ सकता हूँ?", route: about_marg}
+
+  # --- wants to use Marg as a parent or teacher instead (2026-11-02) ----------------------------
+  - {text: "mujhe ye apne bete ke liye parent ki tarah use karna hai", route: other_role}
+  - {text: "I want to use this as a parent now", route: other_role}
+  - {text: "role change karna hai, main teacher hoon", route: other_role}
+  - {text: "मुझे इसे माता-पिता की तरह इस्तेमाल करना है", route: other_role}
+  - {text: "my mother is a parent, how do I write about her child", route: mentor}

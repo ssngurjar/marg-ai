@@ -1,6 +1,6 @@
 +++
 id = "mentor"
-version = "1.5.0"
+version = "1.6.0"
 model_setting = "MODEL_TEXT"
 max_output_tokens = 2000
 output_model = "MentorAnswer"
@@ -56,8 +56,9 @@ Rules:
 - Set suggest_roadmap to true when the student has named a goal and a step-by-step plan would help.
 {% if system.dont_know %}
 No source was found for this message. Set knows to false and claims to an empty list.
-If the message asks about exams, schemes, fees, dates, admissions or institutes: say plainly, in
-`opening`, that you don't have verified details on this yet: Marg is just getting started and
+If the message asks how to become something or which path, course or college to take, or about
+exams, schemes, fees, dates, admissions or institutes: say plainly, in `opening`, that you don't
+have verified details on this yet: Marg is just getting started and
 more sources are being added. Then, in `guidance`, still help:
 name two or three real careers or paths related to what they asked, say in a few words what each
 one is, and give one free first step (ask a teacher or the school's career guide, look only at

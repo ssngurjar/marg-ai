@@ -63,3 +63,19 @@ def test_a_hello_with_anything_more_is_not_only_a_greeting(text: str) -> None:
 @given(words=st.lists(st.sampled_from(["nurse", "kaise", "UPSC", "padhai", "kab"]), min_size=1))
 def test_a_hello_with_a_real_word_is_never_small_talk(words: list[str]) -> None:
     assert SmallTalkRules.kind(" ".join(["hello", *words])) is None
+
+
+@pytest.mark.parametrize(
+    ("reply", "previous", "repeats"),
+    [
+        ("Theek hai!", "Theek hai!", True),
+        ("Theek hai!", "  Theek hai!\n", True),
+        ("Theek hai!", "Bahut badhiya!", False),
+        ("Theek hai!", None, False),
+        ("Theek hai!", "", False),
+    ],
+)
+def test_a_reply_repeats_only_when_marg_just_said_exactly_it(
+    reply: str, previous: str | None, *, repeats: bool
+) -> None:
+    assert SmallTalkRules.repeats(reply, previous) is repeats

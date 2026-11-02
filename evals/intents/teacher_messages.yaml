@@ -54,3 +54,10 @@ cases:
   - {text: "do you sell our data?", intent: about_marg}
   - {text: "what AI model is this?", intent: about_marg}
   - {text: "kya aap mujhse OTP maangoge", intent: about_marg}
+
+  # --- wants to use Marg as a parent or student instead (2026-11-02) ----------------------------
+  - {text: "I want to use this as a parent for my own child", intent: other_role}
+  - {text: "mujhe ye parent ki tarah apne bachche ke liye use karna hai", intent: other_role}
+  - {text: "role change karna hai, student ki tarah", intent: other_role}
+  - {text: "मुझे इसे अपने बच्चे के लिए माता-पिता की तरह इस्तेमाल करना है", intent: other_role}
+  - {text: "can I switch this to a parent account", intent: other_role}

@@ -18,7 +18,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
-from app.constants.small_talk_copy import FAREWELLS
+from app.constants.small_talk_copy import ACKNOWLEDGED_AGAIN, FAREWELLS, OTHER_ROLE_REPLY
 from app.constants.student_copy import (
     CHILD_PROTECTION_LINE,
     DONT_KNOW_FALLBACK,
@@ -123,7 +123,8 @@ class MentorLayer:
         reply at once (owner's field test, 2026-11-01)."""
         small_talk = SmallTalkRules.kind(user_text)
         if small_talk is not None:
-            return MentorLayer._small_talk_reply(small_talk, register)
+            previous = ctx.recent_exchanges[-1].reply_text if ctx.recent_exchanges else None
+            return MentorLayer._small_talk_reply(small_talk, register, previous)
         retrieved = await self.retrieve(ctx, user_text)
         relevant = [] if retrieved.result.nothing_relevant else retrieved.result.chunks
         context = MentorContextBuilder.build(ctx, relevant, user_text)
@@ -173,8 +174,32 @@ class MentorLayer:
         )
 
     @staticmethod
-    def _small_talk_reply(kind: SmallTalk, register: Language) -> LayerResult:
+    def other_role_reply(register: Language) -> LayerResult:
+        """A student who wants to use Marg as a parent or teacher: how to, in fixed words."""
+        voice = Language.HINDI if register is Language.HINGLISH else register
+        return LayerResult(
+            reply=CanonicalReply(
+                body=OTHER_ROLE_REPLY[register],
+                body_language=register,
+                spoken_text=OTHER_ROLE_REPLY[voice],
+                citations=[],
+                buttons=[],
+                fixed_kind=None,
+            ),
+            usages=[],
+            prompt_versions={},
+            outcome=StepOutcome.OK,
+            degraded_reason=None,
+        )
+
+    @staticmethod
+    def _small_talk_reply(
+        kind: SmallTalk, register: Language, previous_reply: str | None
+    ) -> LayerResult:
+        """A fixed reply; never the same words as Marg's last reply (2026-11-02)."""
         copy = {"greeting": STUDENT_HELLO, **FAREWELLS}.get(kind, STUDENT_ACKNOWLEDGED)
+        if SmallTalkRules.repeats(copy[register], previous_reply):
+            copy = ACKNOWLEDGED_AGAIN
         voice = Language.HINDI if register is Language.HINGLISH else register
         return LayerResult(
             reply=CanonicalReply(

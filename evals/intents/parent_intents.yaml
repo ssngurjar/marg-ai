@@ -317,3 +317,15 @@ cases:
   - {text: "galti se done ho gaya, abhi karenge", open_khoj: false, intent: not_done_yet, lang: hinglish}
   - {text: "हमने अभी नहीं किया", open_khoj: false, intent: not_done_yet, lang: hindi}
   - {text: "usne abhi nahi kiya, kal karenge", open_khoj: true, intent: report, lang: hinglish}
+
+  # --- the parent wants to use Marg as a teacher or student instead (2026-11-02) ---------------
+  - {text: "I am a teacher too, can I use this for my class instead", open_khoj: false, intent: other_role, lang: english}
+  - {text: "mujhe isko teacher ki tarah use karna hai", open_khoj: false, intent: other_role, lang: hinglish}
+  - {text: "role change karna hai, main student hoon asal mein", open_khoj: false, intent: other_role, lang: hinglish}
+  - {text: "मैं शिक्षक हूँ, इसे अपनी कक्षा के लिए इस्तेमाल करना है", open_khoj: false, intent: other_role, lang: hindi}
+  - {text: "can I switch this account to a teacher account", open_khoj: true, intent: other_role, lang: english}
+
+  # --- how Marg works is about Marg (2026-11-02) -----------------------------------------------
+  - {text: "why don't you show that you are typing", open_khoj: false, intent: about_marg, lang: english}
+  - {text: "kya aap insaan ho ya machine", open_khoj: false, intent: about_marg, lang: hinglish}
+  - {text: "how fast do you usually reply", open_khoj: false, intent: about_marg, lang: english}

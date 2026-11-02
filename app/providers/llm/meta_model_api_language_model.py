@@ -21,12 +21,15 @@ from pydantic import BaseModel, SecretStr, ValidationError
 
 from app.core.clock import Clock
 from app.core.errors import ProviderResponseInvalid
+from app.core.logging import get_logger
 from app.core.strict_json_schema import JsonObject, StrictJsonSchema
 from app.domain.models.usage import StepUsage
 from app.providers.http import RetryPolicy
 from app.providers.llm.model_pricing import ModelPricing
 from app.providers.openai_error_mapper import OpenAiErrorMapper
 from app.providers.ports import GenerationRequest, GenerationResult
+
+logger = get_logger(__name__)
 
 PROVIDER: Final = "meta_model_api"
 
@@ -109,6 +112,10 @@ class MetaModelApiLanguageModel:
         completions = [first]
         output, problems = self._validate(request, first.content)
         if output is None:
+            # a repair doubles the wait: logged so a slow reply can be explained (2026-11-02)
+            logger.info(
+                "generation_repaired", prompt_id=request.prompt.prompt_id, problems=len(problems)
+            )
             repair_messages: list[ChatCompletionMessageParam] = [
                 *messages,
                 {"role": "assistant", "content": first.content},

@@ -173,6 +173,14 @@ class _Reading:
     degraded_reason: str | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class _FirstMessage:
+    """The first message's reading, and whether it asks about Marg itself (answered at once)."""
+
+    reading: _Reading
+    about_marg: bool
+
+
 class OnboardingLayer:
     EXTRACTION_STATES: ClassVar[frozenset[ConversationState]] = frozenset(
         {_S.AWAITING_ROLE, _S.AWAITING_PROFILE, _S.AWAITING_CHILD}
@@ -235,13 +243,46 @@ class OnboardingLayer:
         reading = OnboardingLayer._consent_note_seen(
             ctx, await self._read(ctx, user_text, interactive_ids, now), now
         )
+        first = await self._first_question_about_marg(ctx, reading, user_text)
         transition = ConversationMachine.transition(
-            ctx.profile, len(ctx.learners), reading.event, now
+            ctx.profile, len(ctx.learners), first.reading.event, now
         )
-        result = self._result(ctx, reading, transition)
-        if isinstance(reading.event, AboutMargAsked) and not reading.event.braj:
+        result = self._result(ctx, first.reading, transition)
+        about_marg = isinstance(reading.event, AboutMargAsked) and not reading.event.braj
+        if about_marg or first.about_marg:
             return await self._with_facts_answer(ctx, user_text, transition, result, now)
         return result
+
+    async def _first_question_about_marg(
+        self, ctx: TurnContext, reading: _Reading, user_text: str
+    ) -> "_FirstMessage":
+        """A first message that asks about Marg itself is answered at once, before the note,
+        instead of being kept for after onboarding (a web tester, 2026-11-02). Any other first
+        question is kept, as before; a failed reading keeps it too, marked DEGRADED."""
+        event = reading.event
+        if (
+            ctx.profile.state is not _S.NEW
+            or not isinstance(event, FirstContact)
+            or event.pending_question is None
+        ):
+            return _FirstMessage(reading, about_marg=False)
+        rendered = self._registry.render(
+            PROFILE_EXTRACTION,
+            system_vars={"asked": "nothing specific"},
+            user_vars={"user_message": user_text},
+        )
+        versions = ((rendered.request.prompt.prompt_id, rendered.request.prompt.prompt_version),)
+        try:
+            result = await self._llm.generate(rendered.request)
+        except ProviderError as exc:
+            failed = f"first_question_read_failed={type(exc).__name__}"
+            return _FirstMessage(
+                replace(reading, prompt_versions=versions, degraded_reason=failed), about_marg=False
+            )
+        if not result.output.about_marg:
+            return _FirstMessage(reading, about_marg=False)
+        answered_now = FirstContact(event.detected_language, None)
+        return _FirstMessage(_Reading(answered_now, (result.usage,), versions), about_marg=True)
 
     async def _with_facts_answer(
         self,

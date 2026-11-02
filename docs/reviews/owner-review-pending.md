@@ -562,3 +562,6 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
   it replaces "didn't understand" plus the whole note when someone answers before agreeing.
 - [ ] **Read the hellos** (`STUDENT_HELLO` in `student_copy.py`, `TEACHER_HELLO` in `teacher_copy.py`,
   `CHILD_GREETED` in `child_talk_copy.py`).
+- [ ] **Read the new small-talk and role replies** (`ACKNOWLEDGED` now with the child's name and
+  `ACKNOWLEDGED_AFTER_KHOJ` in `journey_copy.py`; `ACKNOWLEDGED_AGAIN` and `OTHER_ROLE_REPLY` in
+  `small_talk_copy.py`; `CHILD_ACKNOWLEDGED_AGAIN` in `child_talk_copy.py`).

@@ -6,6 +6,7 @@ from typing import Final
 import pytest
 
 from app.constants.crisis_replies import CHILD_HELPLINE
+from app.constants.small_talk_copy import ACKNOWLEDGED_AGAIN, OTHER_ROLE_REPLY
 from app.constants.teacher_copy import (
     ASK_CHAPTER,
     MORE_ACTIVITY,
@@ -258,7 +259,7 @@ async def test_how_to_start_the_class_gets_teaching_help_for_the_last_chapter() 
     [prompt] = llm.by_prompt["teaching_answer"].prompts
     assert "The chapter: Newton's laws of motion." in prompt.system
     assert llm.by_prompt["exposure"].prompts == []
-    assert result.prompt_versions == {"teacher_intent": "1.2.0", "teaching_answer": "1.0.0"}
+    assert result.prompt_versions == {"teacher_intent": "1.3.0", "teaching_answer": "1.0.0"}
 
 
 async def test_a_teaching_question_naming_its_topic_uses_that_topic() -> None:
@@ -310,7 +311,7 @@ async def test_a_worry_about_a_child_gets_the_fixed_steps_and_the_helpline_never
     assert llm.by_prompt["exposure"].prompts == []
     assert llm.by_prompt["teaching_answer"].prompts == []
     assert result.reply.buttons == []
-    assert result.prompt_versions == {"teacher_intent": "1.2.0"}
+    assert result.prompt_versions == {"teacher_intent": "1.3.0"}
 
 
 async def test_a_message_not_about_teaching_gets_an_honest_reply_and_no_bridge() -> None:
@@ -331,7 +332,15 @@ async def test_a_teachers_question_about_marg_is_answered_not_turned_away() -> N
     result = await layer_with_reader.generate(teacher_ctx(text, [LAST_BRIDGE]), text, [], E)
     assert result.reply.body == ABOUT_MARG_REPLY["answer"]
     assert llm.by_prompt["exposure"].prompts == []
-    assert result.prompt_versions == {"teacher_intent": "1.2.0", "about_marg": "1.2.0"}
+    assert result.prompt_versions == {"teacher_intent": "1.3.0", "about_marg": "1.2.0"}
+
+
+async def test_a_teacher_who_wants_to_be_a_parent_is_told_how() -> None:
+    layer_with_reader, llm = reading_layer(teacher_reading("other_role"))
+    text = "I want to use this as a parent for my own child"
+    result = await layer_with_reader.generate(teacher_ctx(text, [LAST_BRIDGE]), text, [], E)
+    assert result.reply.body == OTHER_ROLE_REPLY[E]
+    assert llm.by_prompt["exposure"].prompts == []
 
 
 def test_the_concern_reply_gives_the_sourced_helpline_in_every_language() -> None:
@@ -356,6 +365,13 @@ async def test_a_teachers_hello_is_answered_at_once(text: str) -> None:
     result = await layer_with_reader.generate(teacher_ctx(text, [LAST_BRIDGE]), text, [], E)
     assert result.reply.body == TEACHER_HELLO[E]
     assert llm.by_prompt["teacher_intent"].prompts == []
+
+
+async def test_a_teachers_second_ok_in_a_row_is_said_differently() -> None:
+    said = Exchange(user_text="ok", reply_text=TEACHER_ACKNOWLEDGED[E], route=Route.EXPOSURE, at=AT)
+    layer_with_reader, _ = reading_layer(teacher_reading("out_of_scope"))
+    result = await layer_with_reader.generate(teacher_ctx("ok", [said]), "ok", [], E)
+    assert result.reply.body == ACKNOWLEDGED_AGAIN[E]
 
 
 async def test_buttons_never_call_the_reader() -> None:

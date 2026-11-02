@@ -16,6 +16,7 @@ from typing import Protocol
 import httpx2
 import pytest
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
+from structlog.testing import capture_logs
 
 from app.core.errors import (
     ProviderRateLimited,
@@ -161,6 +162,23 @@ async def test_an_invalid_reply_gets_one_repair_turn(
     assert isinstance(repair, dict)
     assert str(repair["content"]).startswith("Your previous reply did not pass validation. ")
     assert result.usage.input_tokens == 2000  # both attempts are billed
+
+
+async def test_a_repair_is_logged_by_prompt_with_no_reply_text(harness_for: HarnessFactory) -> None:
+    # a 21 s mentor reply couldn't be explained afterwards (2026-11-02): repairs double the wait
+    harness = harness_for(chat_completion("Sure! play colour games."), chat_completion(VALID))
+    with capture_logs() as logs:
+        await harness.model.generate(request())
+    [repaired] = [entry for entry in logs if entry["event"] == "generation_repaired"]
+    assert repaired["problems"] >= 1
+    assert "colour" not in str(repaired)  # never the model's text
+
+
+async def test_a_valid_first_reply_logs_no_repair(harness_for: HarnessFactory) -> None:
+    harness = harness_for(chat_completion(VALID))
+    with capture_logs() as logs:
+        await harness.model.generate(request())
+    assert not [entry for entry in logs if entry["event"] == "generation_repaired"]
 
 
 async def test_repair_errors_never_echo_the_invalid_value(harness_for: HarnessFactory) -> None:

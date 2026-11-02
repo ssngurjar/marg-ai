@@ -11,8 +11,10 @@ from app.constants.braj_words import BRAJ_RULE
 from app.constants.child_talk_copy import WHO_IS_WRITING, WHO_IS_WRITING_NO_CHILD
 from app.constants.journey_copy import (
     ACKNOWLEDGED,
+    ACKNOWLEDGED_AFTER_KHOJ,
     ADD_CHILD_PROMPT,
     AGE_COMING_SOON,
+    CHILD_IN_HELLO,
     DELETE_DATA_BUTTON,
     DELETE_DATA_OFFER,
     DONE_THANKS,
@@ -38,7 +40,7 @@ from app.constants.journey_copy import (
     WHICH_KHOJ,
 )
 from app.constants.onboarding_copy import CHILD_TALK_NO, CHILD_TALK_YES, COPY
-from app.constants.small_talk_copy import GOOD_NIGHT, GOODBYE
+from app.constants.small_talk_copy import ACKNOWLEDGED_AGAIN, GOOD_NIGHT, GOODBYE, OTHER_ROLE_REPLY
 from app.core.errors import ProviderError, ProviderResponseInvalid, ProviderUnavailable
 from app.domain.enums import ActivityStatus, CopyKey, Language, Route, StepOutcome
 from app.domain.models.activity import OfferRecord
@@ -161,7 +163,7 @@ async def test_todays_khoj_is_the_chosen_activity_personalised_with_the_supervis
     assert offered(result).activity_id == FIRST.id
     assert offered(result).learner_id == MUNNI.id
     assert result.hazard_rule == frozenset(FIRST.hazards)
-    assert result.prompt_versions == {"activity_personalise": "1.1.1"}
+    assert result.prompt_versions == {"activity_personalise": "1.2.0"}
 
 
 async def test_the_reviewed_text_is_kept_as_the_fallback_reply() -> None:
@@ -655,7 +657,7 @@ async def test_a_report_read_as_a_report_gets_the_reflection() -> None:
         text="usne patte gine", button=None, open_activity=offer(FIRST, MUNNI), layer=layer
     )
     assert result.reply.body.startswith(REFLECTION_PRAISE)
-    assert result.prompt_versions["parent_intent"] == "1.16.0"
+    assert result.prompt_versions["parent_intent"] == "1.17.0"
     [prompt] = llm.by_prompt["parent_intent"].prompts
     assert "usne patte gine" in prompt.user
 
@@ -781,14 +783,56 @@ async def test_ok_after_a_suggestion_gets_encouragement_not_the_menu(text: str) 
     # Owner's demo, 2026-11-01: "ok" to "hop like a frog together" got "Hello! Would you like
     # today's khoj…"
     result = await answer_after_a_suggestion(text, open_activity=None)
-    assert result.reply.body == ACKNOWLEDGED[H]
+    assert result.reply.body == ACKNOWLEDGED[H].format(child="Munni")
     assert result.reply.buttons == []
 
 
 async def test_ok_with_a_khoj_open_keeps_its_buttons() -> None:
     result = await answer_after_a_suggestion("ok", open_activity=offer(FIRST, MUNNI))
-    assert result.reply.body == ACKNOWLEDGED[H]
+    assert result.reply.body == ACKNOWLEDGED[H].format(child="Munni")
     assert [button.id for button in result.reply.buttons] == [KHOJ_DONE, KHOJ_OTHER]
+
+
+async def test_ok_with_an_unnamed_child_says_the_child() -> None:
+    layer, _ = layer_with()
+    unnamed = child(1, None, 5)
+    ctx = turn_context(text_message("ok"), learners=[unnamed]).model_copy(
+        update={"recent_exchanges": [EARLIER_SUGGESTION]}
+    )
+    result = await layer.handle(ctx, ParentMessage("ok", []), NOW, H)
+    assert result.reply.body == ACKNOWLEDGED[H].format(child=CHILD_IN_HELLO[H])
+
+
+async def test_thanks_right_after_a_done_khoj_thanks_them_not_enjoy_it_again() -> None:
+    # a web tester tapped Done, then "Thanku": "enjoy it together" came for a khoj already done
+    layer, _ = layer_with()
+    done = offer(FIRST, MUNNI, hours_ago=0.2, status=ActivityStatus.DONE, number=80)
+    ctx = turn_context(text_message("thanks"), learners=[MUNNI], activity_history=[done])
+    ctx = ctx.model_copy(update={"recent_exchanges": [EARLIER_SUGGESTION]})
+    result = await layer.handle(ctx, ParentMessage("thanks", []), NOW, H)
+    assert result.reply.body == ACKNOWLEDGED_AFTER_KHOJ[H].format(child="Munni")
+
+
+async def test_the_same_ok_reply_is_never_sent_twice_in_a_row() -> None:
+    layer, _ = layer_with()
+    said_before = Exchange(
+        user_text="thanks",
+        reply_text=ACKNOWLEDGED[H].format(child="Munni"),
+        route=Route.JOURNEY,
+        at=NOW - timedelta(minutes=1),
+    )
+    ctx = turn_context(text_message("ok"), learners=[MUNNI]).model_copy(
+        update={"recent_exchanges": [said_before]}
+    )
+    result = await layer.handle(ctx, ParentMessage("ok", []), NOW, H)
+    assert result.reply.body == ACKNOWLEDGED_AGAIN[H]
+
+
+async def test_a_parent_who_wants_to_be_a_teacher_is_told_how() -> None:
+    layer, _ = layer_with(intent=reading("other_role"))
+    result = await khoj(text="mujhe isko teacher ki tarah use karna hai", button=None, layer=layer)
+    assert result.reply.body == OTHER_ROLE_REPLY[H]
+    assert result.writes == []
 
 
 async def test_a_greeting_mid_conversation_still_gets_the_hello() -> None:

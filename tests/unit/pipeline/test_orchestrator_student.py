@@ -9,7 +9,7 @@ from uuid import UUID
 
 import pytest
 
-from app.constants.small_talk_copy import GOOD_NIGHT
+from app.constants.small_talk_copy import ACKNOWLEDGED_AGAIN, GOOD_NIGHT, OTHER_ROLE_REPLY
 from app.constants.student_copy import STUDENT_ACKNOWLEDGED, STUDENT_HELLO
 from app.constants.teacher_copy import DASHBOARD_DISTRICT_UNVERIFIED, DASHBOARD_NO_DISTRICT
 from app.core.errors import ProviderError, ProviderTimeout, StoreError
@@ -27,8 +27,8 @@ from app.domain.enums import (
 from app.domain.models.aspiration import ExtractAspiration
 from app.domain.models.curiosity import UpdateMemory
 from app.domain.models.learner import Learner, LearnerId
-from app.domain.models.turn import TurnContext
-from app.domain.models.writes import SaveRoadmap
+from app.domain.models.turn import Exchange, TurnContext
+from app.domain.models.writes import ProfileChange, SaveRoadmap
 from app.layers.about_marg_layer import AboutMargLayer
 from app.layers.child_talk_layer import ChildTalkLayer
 from app.layers.curriculum_catalogue import ChapterCatalogue
@@ -372,7 +372,7 @@ async def test_a_plan_read_from_free_words_goes_to_the_roadmap_and_is_recorded_s
     assert result.recorder.turn_route is Route.ROADMAP
     assert route_step(result).detail == "plan asked for (read)"
     assert route_step(result).usage is not None
-    assert result.outcome.prompt_versions["student_intent"] == "1.2.0"
+    assert result.outcome.prompt_versions["student_intent"] == "1.3.0"
 
 
 async def test_a_question_read_as_a_question_stays_with_the_mentor() -> None:
@@ -407,6 +407,18 @@ async def test_a_students_question_about_marg_is_answered_from_the_facts_not_the
     assert result.outcome.prompt_versions["about_marg"] == "1.2.0"
 
 
+async def test_a_student_who_wants_to_be_a_parent_is_told_how_never_switched() -> None:
+    # owner, 2026-11-02: explain, and point to deleting and starting again
+    result = await run_student(
+        student_ctx("mujhe ye parent ki tarah use karna hai"),
+        {"student_intent": [{"intent": "other_role"}]},
+        read_intent=True,
+    )
+    assert route_step(result).detail == "other role (read)"
+    assert result.delivered == OTHER_ROLE_REPLY[Language.HINGLISH]
+    assert not any(isinstance(write, ProfileChange) for write in result.outcome.writes)
+
+
 @pytest.mark.parametrize("text", ["okay okay", "okk okk 🤣", "acha good night", "🥰"])
 async def test_a_students_ok_or_good_night_is_answered_at_once_with_no_model(text: str) -> None:
     # owner's field test, 2026-11-01: "okay okay" took 10 s; "okk okk 🤣" repeated the UPSC facts
@@ -428,6 +440,18 @@ async def test_a_students_hello_is_answered_at_once_with_no_model(text: str) -> 
     assert result.outcome.route is Route.MENTOR
     assert result.outcome.prompt_versions == {}  # no reading, no rewrite, no mentor prompt
     assert result.delivered == STUDENT_HELLO[Language.HINGLISH]
+
+
+async def test_a_students_second_ok_in_a_row_is_said_differently() -> None:
+    earlier = Exchange(
+        user_text="ok",
+        reply_text=STUDENT_ACKNOWLEDGED[Language.HINGLISH],
+        route=Route.MENTOR,
+        at=NOW,
+    )
+    ctx = student_ctx("ok ok").model_copy(update={"recent_exchanges": [earlier]})
+    result = await run_student(ctx, {}, read_intent=True)
+    assert result.delivered == ACKNOWLEDGED_AGAIN[Language.HINGLISH]
 
 
 async def test_plan_words_route_without_calling_the_model() -> None:

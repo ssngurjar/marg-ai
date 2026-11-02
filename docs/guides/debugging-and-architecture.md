@@ -406,6 +406,8 @@ replies on, so the spoken path stays tested even while real users get text.
 
 | Symptom | First check | Usual cause |
 |---|---|---|
+| A reply took much longer than usual | the server log for `generation_repaired` (prompt id) at that time | the first reply failed its schema or code check and was repaired: two model calls |
+| Someone asked to use Marg as another role and nothing changed | the ROUTE detail "other role (read)" (students) or the intent `other_role` | by design: `OTHER_ROLE_REPLY` explains how to start again; the role never changes from words |
 | Before agreeing, someone got the whole privacy note again instead of one line | `turns.reply_text` of the replies before: did one in the last 24 h hold the note? | the note was sent more than a day ago, or the message was only a greeting; `OnboardingLayer.consent_note_sent_since` |
 | "Another child, Riya 7" asked for the age again | the turn's ROUTE detail: "new child with age" (onboarding) or "parent default" (journey) | the message had more than five other words, or no new-child phrase ("for the other child" is a khoj for a child already added); `OnboardingAnswerParser.adds_a_child_with_age` |
 | "Not done yet" after Done didn't reopen the khoj | `learner_activities.status` for the child's newest khoj | it was offered more than 48 h ago, was skipped rather than done, or the intent wasn't read as `not_done_yet` |

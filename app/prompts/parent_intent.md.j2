@@ -1,6 +1,6 @@
 +++
 id = "parent_intent"
-version = "1.16.0"
+version = "1.17.0"
 model_setting = "MODEL_TEXT"
 max_output_tokens = 1200
 output_model = "IntentReading"
@@ -73,7 +73,12 @@ Pick exactly one intent:
   whether to trust it, how to use it without reading or typing, which AI it is, or whether it
   will ask for an OTP or money ("how do you keep my child safe?", "mera data kaun dekhta hai",
   "kya ye fraud hai", "main padh nahi sakti, kaise use karun", "what model are you?"). Asking whether
-  or how their child can talk to Marg is child_talk; deleting their data is delete_data.
+  or how their child can talk to Marg is child_talk; deleting their data is delete_data. Questions about how Marg works are about_marg too: why it doesn't show
+  "typing", how fast it replies, whether a person reads ("why don't you show typing", "kya aap
+  insaan ho").
+- other_role: the parent themselves wants to use Marg as a teacher or a student instead ("main
+  teacher bhi hoon, apni class ke liye use karna hai", "I want to use this as a teacher",
+  "role change karna hai"). A child or student writing about themselves is someone_else.
 - stop_all: wants Marg to stop altogether but doesn't say whether that means the daily
   messages or deleting their data ("sab band karo, mujhe ye nahi chahiye", "stop everything",
   "ye sab band kar do", "I don't want this anymore"). Marg will ask which. If they also ask to delete or wipe their data ("sab band karo aur

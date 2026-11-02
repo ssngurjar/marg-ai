@@ -35,7 +35,8 @@ class StudentCase(BaseModel):
 
     text: str
     # about_marg: a question about Marg itself, answered from the reviewed facts (2026-11-01)
-    route: Literal["roadmap", "mentor", "about_marg"]
+    # other_role: wants to use Marg as a parent or teacher instead (2026-11-02)
+    route: Literal["roadmap", "mentor", "about_marg", "other_role"]
 
 
 class StudentRouteBank(BaseModel):
@@ -48,18 +49,19 @@ class StudentRouteBank(BaseModel):
         return StudentRouteBank.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
 
 
-type Destination = Literal["roadmap", "mentor", "about_marg"]
+type Destination = Literal["roadmap", "mentor", "about_marg", "other_role"]
 DESTINATIONS: Final[dict[StudentIntent, Destination]] = {
     StudentIntent.PLAN: "roadmap",
     StudentIntent.QUESTION: "mentor",
     StudentIntent.ABOUT_MARG: "about_marg",
+    StudentIntent.OTHER_ROLE: "other_role",
 }
 
 
 @dataclass(frozen=True, slots=True)
 class Routed:
     case: StudentCase
-    route: str  # where the turn goes: a route's name, or "about_marg"
+    route: str  # where the turn goes: a route's name, "about_marg" or "other_role"
     by: str  # "words" or "reading"
 
 

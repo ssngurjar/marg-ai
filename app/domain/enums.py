@@ -356,6 +356,8 @@ class ParentIntent(StrEnum):
     ABOUT_MARG = "about_marg"
     # the khoj wasn't done yet, or Done was tapped by mistake (second field test, 2026-11-02)
     NOT_DONE_YET = "not_done_yet"
+    # wants to use Marg as a teacher or student instead (owner, 2026-11-02: every persona)
+    OTHER_ROLE = "other_role"
 
 
 class StudentIntent(StrEnum):
@@ -365,6 +367,7 @@ class StudentIntent(StrEnum):
     PLAN = "plan"  # wants a step-by-step plan toward a goal made, shown or redone
     QUESTION = "question"  # anything else: a fact, a choice, a worry, what a job is
     ABOUT_MARG = "about_marg"  # about Marg itself: safety, privacy, trust (2026-11-01)
+    OTHER_ROLE = "other_role"  # wants to use Marg as a parent or teacher instead (2026-11-02)
 
 
 class TeacherIntent(StrEnum):
@@ -376,6 +379,7 @@ class TeacherIntent(StrEnum):
     CONCERN = "concern"  # worried about a child's safety or welfare: hurt, beaten, unfed, missing
     OUT_OF_SCOPE = "out_of_scope"  # not about teaching: a transfer, salary, leave, a complaint
     ABOUT_MARG = "about_marg"  # about Marg itself: safety, privacy, trust (2026-11-01)
+    OTHER_ROLE = "other_role"  # wants to use Marg as a parent or student instead (2026-11-02)
 
 
 class CorpusTopic(StrEnum):

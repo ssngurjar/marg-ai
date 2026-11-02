@@ -37,6 +37,7 @@ from app.constants.child_safety_words import (
 from app.constants.child_talk_copy import (
     ASK_A_GROWNUP,
     CHILD_ACKNOWLEDGED,
+    CHILD_ACKNOWLEDGED_AGAIN,
     CHILD_FALLBACK,
     CHILD_GOODBYE,
     CHILD_GREETED,
@@ -183,8 +184,15 @@ class ChildTalkLayer:
                 ctx, user_text, interactive_ids, now, register, blocked=blocked
             )
         learner = _learner(ctx.learners, session.learner_id)
+        previous = ctx.recent_exchanges[-1].reply_text if ctx.recent_exchanges else None
         control = self._session_control(
-            session, learner, user_text, interactive_ids, now=now, register=register
+            session,
+            learner,
+            user_text,
+            interactive_ids,
+            now=now,
+            register=register,
+            previous_reply=previous,
         )
         if control is not None:
             return control
@@ -202,6 +210,7 @@ class ChildTalkLayer:
         *,
         now: datetime,
         register: Language,
+        previous_reply: str | None,
     ) -> LayerResult | None:
         """What ends or steers the session before anything is answered: the parent taking the
         phone back, an account action, the limits, a goodbye, a parent's words, a language.
@@ -217,7 +226,8 @@ class ChildTalkLayer:
             return self._goodbye(session, learner, register, ChildSessionEndReason.CHILD_ENDED, ())
         if small_talk == "thanks":
             # an "ok" or emoji: answered at once and not counted as a question (2026-11-02)
-            return _fixed(CHILD_ACKNOWLEDGED, register)
+            repeated = SmallTalkRules.repeats(CHILD_ACKNOWLEDGED[register], previous_reply)
+            return _fixed(CHILD_ACKNOWLEDGED_AGAIN if repeated else CHILD_ACKNOWLEDGED, register)
         if small_talk == "greeting":
             return _fixed(CHILD_GREETED, register)
         if ChildSessionRules.claims_to_be_parent(user_text, learner.nickname):

@@ -102,6 +102,7 @@ from app.domain.rules.audio_analyser import AudioAnalyser
 from app.domain.rules.filler_detector import FillerDetector
 from app.domain.rules.indic_script_normaliser import IndicScriptNormaliser
 from app.domain.rules.register_chooser import RegisterChooser
+from app.domain.rules.register_detector import RegisterDetector
 from app.domain.rules.small_talk_rules import SmallTalkRules
 from app.domain.rules.stage_rules import StageRules
 from app.layers.about_marg_layer import AboutMargLayer
@@ -302,6 +303,7 @@ class _Turn:
         self.photos: list[InboundMessage] = []  # photos sent this turn (when photos are on)
         self.closing_notes: list[SafeReply] = []  # fixed notes sent after the reply
         self.asks_about_marg = False  # a student's question read as about Marg itself
+        self.wants_other_role = False  # a student who wants to use Marg as a parent or teacher
         self.sealed: _Sealed | None = None
 
     async def run(self) -> TurnOutcome:
@@ -316,8 +318,11 @@ class _Turn:
         if isinstance(read, TurnOutcome):
             return read
         interactive_ids, has_unsupported = read
+        last_replies = self.ctx.recent_exchanges[-1:]
+        conversation = RegisterDetector.detect(last_replies[0].reply_text) if last_replies else None
         self.register = (
-            RegisterChooser.choose(self.user_text, self.ctx.profile.language) or FALLBACK_REGISTER
+            RegisterChooser.choose(self.user_text, self.ctx.profile.language, conversation)
+            or FALLBACK_REGISTER
         )
         if self.user_text:
             await self._safely(self.recorder.set_turn_text(self.ctx.turn_id, self.user_text))
@@ -373,9 +378,12 @@ class _Turn:
                 update={"route": Route.ROADMAP, "reason": "plan asked for (read)"}
             )
             return plan, read.usage
-        if read.intent is StudentIntent.ABOUT_MARG:
-            self.asks_about_marg = True
-            return decision.model_copy(update={"reason": "about Marg (read)"}), read.usage
+        if read.intent in {StudentIntent.ABOUT_MARG, StudentIntent.OTHER_ROLE}:
+            # answered by the mentor step: from the facts, or the fixed other-role reply
+            self.asks_about_marg = read.intent is StudentIntent.ABOUT_MARG
+            self.wants_other_role = read.intent is StudentIntent.OTHER_ROLE
+            reason = "about Marg (read)" if self.asks_about_marg else "other role (read)"
+            return decision.model_copy(update={"reason": reason}), read.usage
         if read.failed is not None:
             logger.warning("student_intent_failed", error=read.failed)
             return decision.model_copy(update={"reason": f"student default; {read.failed}"}), None
@@ -745,6 +753,8 @@ class _Turn:
                 self.ctx, self.user_text, interactive_ids, self.register
             )
             return await self._bounded(bridge, self.settings.exposure_timeout)
+        elif self.wants_other_role:
+            return MentorLayer.other_role_reply(self.register)  # explained, never changed
         elif self.asks_about_marg and student.about_marg is not None:
             work = student.about_marg.answer(self.ctx, self.user_text, self.register)
         else:

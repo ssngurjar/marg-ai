@@ -1,0 +1,57 @@
+{
+  "bank": "parent_intents",
+  "run_at_utc": "2026-11-02-1215",
+  "commit": "0aac73a",
+  "repeat": 1,
+  "readings": 252,
+  "right": 249,
+  "by_language": {
+    "braj": {
+      "right": 15,
+      "of": 15
+    },
+    "english": {
+      "right": 72,
+      "of": 73
+    },
+    "hindi": {
+      "right": 28,
+      "of": 28
+    },
+    "hinglish": {
+      "right": 133,
+      "of": 135
+    },
+    "mixed": {
+      "right": 1,
+      "of": 1
+    }
+  },
+  "by_section": {
+    "main": {
+      "right": 234,
+      "of": 236
+    },
+    "off_topic": {
+      "right": 15,
+      "of": 16
+    }
+  },
+  "misses": [
+    {
+      "text": "kal se roz 7 baje bhejna aur aaj wali abhi bhejo",
+      "lang": "hinglish",
+      "wrong": "intent daily_time, not new_khoj"
+    },
+    {
+      "text": "is the khoj safe for 3 year old",
+      "lang": "english",
+      "wrong": "intent about_marg, not question"
+    },
+    {
+      "text": "kisi insaan se baat karao",
+      "lang": "hinglish",
+      "wrong": "intent about_marg, not question"
+    }
+  ]
+}

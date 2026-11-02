@@ -70,3 +70,31 @@ def test_the_answer_is_always_the_family_language_or_what_was_written(
     text: str, usual: Language
 ) -> None:
     assert RegisterChooser.choose(text, usual) in {usual, RegisterDetector.detect(text)}
+
+
+@pytest.mark.parametrize("message", ["Ok cool 😎", "ok", "👍", "nice"])
+def test_a_short_message_follows_the_conversation_after_english_answers(message: str) -> None:
+    # a web tester's "Ok cool 😎" after two English answers got a Hinglish reply (2026-11-02)
+    assert RegisterChooser.choose(message, H, conversation=E) is E
+
+
+@pytest.mark.parametrize("message", ["theek hai", "accha ji"])
+def test_a_short_message_in_the_family_language_keeps_it(message: str) -> None:
+    assert RegisterChooser.choose(message, H, conversation=E) is H
+
+
+def test_devanagari_still_means_hindi_whatever_the_conversation() -> None:
+    assert RegisterChooser.choose("ठीक है", E, conversation=E) is HI
+
+
+def test_a_long_message_decides_for_itself() -> None:
+    assert RegisterChooser.choose("Mujhe aaj ki khoj batao please", E, conversation=E) is H
+
+
+@given(st.text(max_size=60), LANGUAGES, st.one_of(st.none(), LANGUAGES))
+@example("Ok cool 😎", H, E)
+def test_the_answer_is_the_family_the_conversation_or_what_was_written(
+    text: str, usual: Language, conversation: Language | None
+) -> None:
+    allowed = {usual, conversation, RegisterDetector.detect(text)}
+    assert RegisterChooser.choose(text, usual, conversation) in allowed

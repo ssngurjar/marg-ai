@@ -54,6 +54,12 @@ class SmallTalkRules:
         return "thanks" if set(words) <= _WORDS else None
 
     @staticmethod
+    def repeats(reply: str, previous_reply: str | None) -> bool:
+        """Marg's last reply was exactly this: say it differently (the same small-talk reply twice
+        in a row sounds like a machine; a web tester, 2026-11-02)."""
+        return previous_reply is not None and previous_reply.strip() == reply.strip()
+
+    @staticmethod
     def _leaving(said: str) -> SmallTalk | None:
         """ "good night" or a goodbye, maybe after an ok."""
         if SmallTalkRules._ends_with(said, _GOOD_NIGHT):

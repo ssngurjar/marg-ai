@@ -35,6 +35,7 @@ from app.constants.child_talk_copy import (
 )
 from app.constants.journey_copy import (
     ACKNOWLEDGED,
+    ACKNOWLEDGED_AFTER_KHOJ,
     ADD_CHILD_BUTTON,
     ADD_CHILD_PROMPT,
     AGE_COMING_SOON,
@@ -78,7 +79,7 @@ from app.constants.journey_copy import (
 )
 from app.constants.journey_words import CAREER_WORDS, LABEL_WORDS, SMALL_TALK
 from app.constants.onboarding_copy import CHILD_FALLBACK, COPY
-from app.constants.small_talk_copy import FAREWELLS
+from app.constants.small_talk_copy import ACKNOWLEDGED_AGAIN, FAREWELLS, OTHER_ROLE_REPLY
 from app.constants.whatsapp import MAX_BUTTON_TITLE, MAX_BUTTONS
 from app.core.errors import ProviderError
 from app.domain.enums import (
@@ -314,7 +315,7 @@ class JourneyLayer:
             case ParentIntent.CHILD_QUESTION:
                 return await self._question(ctx, user_text, now, register, child_question=True)
             case ParentIntent.SMALL_TALK:
-                return self._small_talk_reply(ctx, register, user_text)
+                return self._small_talk_reply(ctx, register, user_text, now)
             case ParentIntent.NEW_KHOJ | ParentIntent.ANOTHER_KHOJ | ParentIntent.SAME_KHOJ_AGAIN:
                 return await self._khoj_asked(intent, turn)
             case ParentIntent.DAILY_TIME | ParentIntent.DAILY_OFF:
@@ -325,7 +326,7 @@ class JourneyLayer:
                 return JourneyLayer._who_is_writing(ctx, now, register)
             case ParentIntent.PROGRESS | ParentIntent.NOT_DONE_YET:
                 return self._khojs_so_far(intent, ctx, now, register)
-            case ParentIntent.DELETE_DATA | ParentIntent.STOP_ALL:
+            case ParentIntent.DELETE_DATA | ParentIntent.STOP_ALL | ParentIntent.OTHER_ROLE:
                 return JourneyLayer._stop_or_delete(intent, register)
             case ParentIntent.ABOUT_MARG:
                 # safety, privacy, trust: only from the reviewed facts (2026-11-01)
@@ -594,7 +595,7 @@ class JourneyLayer:
         return _fixed(ask.body.format_map(values), register, buttons)
 
     def _small_talk_reply(
-        self, ctx: TurnContext, register: Language, user_text: str
+        self, ctx: TurnContext, register: Language, user_text: str, now: datetime
     ) -> LayerResult:
         """A greeting or thanks: the open khoj is still waiting, or today's khoj is offered.
         Fixed copy, no model: nothing to guess (owner's demo, 2026-10-29). An "ok" or "thanks"
@@ -609,7 +610,7 @@ class JourneyLayer:
         )
         if acknowledges:
             buttons = KHOJ_BUTTONS[register] if open_activity is not None else ()
-            return _fixed(ACKNOWLEDGED[register], register, buttons)
+            return _fixed(JourneyLayer._acknowledgement(ctx, register, now), register, buttons)
         if open_activity is not None:
             waiting = KHOJ_STILL_OPEN[register].format(title=open_activity.activity.title)
             return _fixed(waiting, register, KHOJ_BUTTONS[register])
@@ -636,6 +637,19 @@ class JourneyLayer:
             named_kid_button(str(learner.id), str(learner.nickname)) for learner in young
         )
         return _fixed(WHO_IS_WRITING[register].format(names=names), register, buttons)
+
+    @staticmethod
+    def _acknowledgement(ctx: TurnContext, register: Language, now: datetime) -> str:
+        """An ok or thanks mid-conversation: by the child's name, after a khoj just done its
+        own words, and never the same words twice in a row (web testers, 2026-11-02)."""
+        learner = ctx.active_learner
+        child = learner.nickname if learner and learner.nickname else CHILD_IN_HELLO[register]
+        closed = JourneyLayer.reopenable(ctx.activity_history, now)
+        just_done = ctx.open_activity is None and closed is not None
+        copy = ACKNOWLEDGED_AFTER_KHOJ if just_done else ACKNOWLEDGED
+        reply = copy[register].format(child=child)
+        previous = ctx.recent_exchanges[-1].reply_text if ctx.recent_exchanges else None
+        return ACKNOWLEDGED_AGAIN[register] if SmallTalkRules.repeats(reply, previous) else reply
 
     def _khojs_so_far(
         self, intent: ParentIntent, ctx: TurnContext, now: datetime, register: Language
@@ -714,7 +728,7 @@ class JourneyLayer:
         `child_question`: what intent reading said; None, the word rule decides. Raises
         ProviderError."""
         if JourneyLayer.small_talk(user_text):
-            return self._small_talk_reply(ctx, register, user_text)
+            return self._small_talk_reply(ctx, register, user_text, now)
         nicknames = [learner.nickname for learner in ctx.learners]
         not_the_childs: NotAChildQuestion | None = None
         relayed = (
@@ -783,6 +797,9 @@ class JourneyLayer:
         """Deletion is only ever offered, never done from words; "sab band karo" asks which of
         the two they mean (critic review D1, 2026-11-01)."""
         delete = DELETE_DATA_BUTTON[register]
+        if intent is ParentIntent.OTHER_ROLE:
+            # explained, never changed from words (owner, 2026-11-02)
+            return _fixed(OTHER_ROLE_REPLY[register], register, ())
         if intent is ParentIntent.STOP_ALL:
             return _fixed(STOP_WHICH[register], register, (STOP_DAILY_BUTTON[register], delete))
         return _fixed(DELETE_DATA_OFFER[register], register, (delete,))

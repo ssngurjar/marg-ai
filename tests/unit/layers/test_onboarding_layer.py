@@ -1091,3 +1091,51 @@ async def test_a_question_about_marg_before_consent_is_followed_by_one_line_if_t
     assert result.about_marg is not None
     assert result.reply.body == body(waiting)
     assert profile_change(result).new_state is S.AWAITING_CONSENT
+
+
+# --- a first message about Marg is answered at once (web tester, 2026-11-02) --------------------
+
+
+async def first_message(text: str, *outputs: ScriptedOutput) -> OnboardingResult:
+    ctx = turn_context(text_message(text), profile=at(S.NEW))
+    layer = OnboardingLayer(
+        FakeLanguageModel(list(outputs)), shipped_registry(), invite_link=INVITE_LINK
+    )
+    return await layer.handle(ctx, text, [], NOW)
+
+
+async def test_a_first_question_about_marg_is_answered_then_the_note() -> None:
+    question = "tum kaun ho aur tumhe kisne banaya"
+    result = await first_message(
+        question, extraction(question=question, about_marg=True), FACTS_ANSWER
+    )
+    assert result.about_marg is not None
+    assert result.about_marg.reply.body == FACTS_ANSWER["answer"]
+    assert result.reply.body == body(CopyKey.INTRO_CONSENT)  # the note, never "question noted"
+    assert profile_change(result).pending_question is None
+    assert profile_change(result).new_state is S.AWAITING_CONSENT
+
+
+async def test_a_first_question_not_about_marg_is_still_kept_for_after() -> None:
+    question = "10th ke baad kya padhna chahiye"
+    result = await first_message(question, extraction(question=question, about_marg=False))
+    assert result.about_marg is None
+    assert result.reply.body == body(CopyKey.INTRO_CONSENT_WITH_QUESTION)
+    assert profile_change(result).pending_question == question
+
+
+async def test_if_the_first_question_cant_be_read_it_is_kept_and_marked_degraded() -> None:
+    question = "tum kaun ho aur tumhe kisne banaya"
+    result = await first_message(question, ProviderUnavailable("503", provider="meta_model_api"))
+    assert result.about_marg is None
+    assert profile_change(result).pending_question == question
+    assert result.outcome is StepOutcome.DEGRADED
+    assert result.degraded_reason == "first_question_read_failed=ProviderUnavailable"
+
+
+async def test_a_first_greeting_costs_no_model_call() -> None:
+    ctx = turn_context(text_message("Hi"), profile=at(S.NEW))
+    llm = FakeLanguageModel([])
+    layer = OnboardingLayer(llm, shipped_registry(), invite_link=INVITE_LINK)
+    await layer.handle(ctx, "Hi", [], NOW)
+    assert llm.prompts == []

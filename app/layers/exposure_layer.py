@@ -17,7 +17,7 @@ from typing import Annotated, Final, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
-from app.constants.small_talk_copy import FAREWELLS
+from app.constants.small_talk_copy import ACKNOWLEDGED_AGAIN, FAREWELLS, OTHER_ROLE_REPLY
 from app.constants.teacher_copy import (
     ASK_CHAPTER,
     DEVICE_OR_PURCHASE_WORDS,
@@ -154,6 +154,9 @@ class ExposureLayer:
         if small_talk is not None:
             # an "ok", a hello or good night needs no model (owner's field test, 2026-11-02)
             said = {"greeting": TEACHER_HELLO, **FAREWELLS}.get(small_talk, TEACHER_ACKNOWLEDGED)
+            last = ctx.recent_exchanges[-1].reply_text if ctx.recent_exchanges else None
+            if SmallTalkRules.repeats(said[register], last):
+                said = ACKNOWLEDGED_AGAIN  # never the same words twice in a row (2026-11-02)
             return ExposureLayer._said(said, register)
         if interactive_ids or not user_text.strip() or self._intents is None:
             return await self._bridge(ctx, user_text, interactive_ids, register, previous)
@@ -329,6 +332,8 @@ class ExposureLayer:
         "this is what I do", both in fixed words (critic review D2, 2026-11-01)."""
         if intent is TeacherIntent.CONCERN:
             return ExposureLayer._said(TEACHER_CONCERN, register)
+        if intent is TeacherIntent.OTHER_ROLE:
+            return ExposureLayer._said(OTHER_ROLE_REPLY, register)  # explained, never changed
         if intent is TeacherIntent.OUT_OF_SCOPE:
             # counted like a parent's off-topic message (turn_steps detail, 2026-11-02)
             said = ExposureLayer._said(TEACHER_OUT_OF_SCOPE, register)

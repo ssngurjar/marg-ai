@@ -11,6 +11,7 @@ import pytest
 
 from app.constants.child_talk_copy import (
     CHILD_ACKNOWLEDGED,
+    CHILD_ACKNOWLEDGED_AGAIN,
     CHILD_FALLBACK,
     CHILD_GREETED,
     CHILD_HELLO,
@@ -339,6 +340,14 @@ async def test_a_childs_hello_is_answered_at_once_and_uses_up_no_question(text: 
     assert any(reply in result.delivered for reply in CHILD_GREETED.values())
     assert result.outcome.writes == []
     assert llm.prompts == []
+
+
+async def test_a_childs_second_ok_in_a_row_is_said_differently() -> None:
+    first = await run(in_session("ok"), llm=FakeLanguageModel([CHILD_REPLY]))
+    said = Exchange(user_text="ok", reply_text=first.delivered, route=Route.CHILD_TALK, at=NOW)
+    ctx = in_session("ok").model_copy(update={"recent_exchanges": [said]})
+    second = await run(ctx, llm=FakeLanguageModel([CHILD_REPLY]))
+    assert any(reply in second.delivered for reply in CHILD_ACKNOWLEDGED_AGAIN.values())
 
 
 async def test_a_childs_good_night_ends_the_session_like_bye() -> None:
