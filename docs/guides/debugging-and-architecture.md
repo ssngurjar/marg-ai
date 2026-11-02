@@ -393,7 +393,7 @@ messages only, CLAUDE.md §10).
 ### 7.6 Scoring a change: `marg eval`
 
 `.venv/bin/python -m app.cli eval [--file parent_journey.yaml | --case crisis-001] --baseline
-evals/results/<last>.json` plays the 95 golden cases through the real pipeline (real models) in a
+evals/results/<last>.json` plays the 96 golden cases through the real pipeline (real models) in a
 fresh `marg_eval_*` database, scores them by code and by the judge, and writes a scorecard to
 `evals/results/` (`--no-write` to skip). Crisis and adversarial cases are hard gates. Run one
 eval at a time: two starting together collide creating their databases. A single run moves by

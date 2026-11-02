@@ -2,6 +2,7 @@
 
 import re
 import string
+from typing import Final
 from uuid import UUID
 
 import pytest
@@ -401,16 +402,42 @@ async def test_without_a_nickname_the_child_talk_question_says_your_child() -> N
     assert "aapka bachcha" in result.reply.body
 
 
-async def test_a_question_about_marg_during_onboarding_is_answered_at_once() -> None:
-    # Owner's second demo: "First tell what can you do" got "I've noted your question" twice
-    result, _ = await handle(
-        at(S.AWAITING_CHILD, role=Role.PARENT),
-        text_message("First tell what can you do"),
-        extracted=extraction(question="what can you do", about_marg=True),
-    )
+FACTS_ANSWER: Final = {
+    "answer": "Marg kabhi aapki jaankari ads ke liye nahi bechta.",
+    "unknown": False,
+    "spoken_text": "मार्ग कभी आपकी जानकारी विज्ञापन के लिए नहीं बेचता।",
+}
+
+
+async def test_a_question_about_marg_during_onboarding_is_answered_from_the_facts() -> None:
+    # Owner's second demo: "First tell what can you do" got "I've noted your question" twice;
+    # 2026-11-02: answered from the same facts as after onboarding, then the waiting question
+    question = "do you sell my data?"
+    ctx = turn_context(text_message(question), profile=at(S.AWAITING_CHILD, role=Role.PARENT))
+    llm = FakeLanguageModel([extraction(question=question, about_marg=True), FACTS_ANSWER])
+    layer = OnboardingLayer(llm, shipped_registry(), invite_link=INVITE_LINK)
+    result = await layer.handle(ctx, question, [], NOW)
+    assert result.about_marg is not None
+    assert result.about_marg.reply.body == FACTS_ANSWER["answer"]
+    fallback = result.about_marg.fallback_reply
+    assert fallback is not None
+    assert fallback.body.startswith(body(CopyKey.ABOUT_MARG))  # if safety_out blocks the answer
+    assert result.reply.body == body(CopyKey.ASK_CHILD)  # then the waiting question
+    assert profile_change(result).new_state is S.AWAITING_CHILD
+    assert result.prompt_versions.keys() == {"profile_extraction", "about_marg"}
+
+
+async def test_if_the_facts_answer_fails_the_fixed_paragraph_is_sent() -> None:
+    question = "what can you do"
+    ctx = turn_context(text_message(question), profile=at(S.AWAITING_CHILD, role=Role.PARENT))
+    failing = ProviderUnavailable("503", provider="meta_model_api")
+    llm = FakeLanguageModel([extraction(question=question, about_marg=True), failing])
+    layer = OnboardingLayer(llm, shipped_registry(), invite_link=INVITE_LINK)
+    result = await layer.handle(ctx, question, [], NOW)
+    assert result.about_marg is None
     assert result.reply.body.startswith(body(CopyKey.ABOUT_MARG))
     assert body(CopyKey.ASK_CHILD) in result.reply.body
-    assert profile_change(result).new_state is S.AWAITING_CHILD
+    assert result.degraded_reason == "about_marg_failed=ProviderUnavailable"
 
 
 @pytest.mark.parametrize(

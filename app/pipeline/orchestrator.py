@@ -464,6 +464,16 @@ class _Turn:
         )
         writes: list[TurnWrite] = list(result.writes)
         delivery = self._delivery(safe, trailers=follow_ups)
+        reply_text = safe.text
+        if result.about_marg is not None:
+            # a question about Marg, answered from the facts: safety_out first (2026-11-02)
+            checked = await self._checked(result.about_marg, route)
+            if isinstance(checked, TurnOutcome):
+                return checked
+            if checked is not None:
+                delivery = self._delivery(checked.safe, trailers=(safe, *follow_ups))
+                # the whole reply, answer then the waiting question: the next turn reads it
+                reply_text = f"{checked.safe.text}\n\n{safe.text}"
         if isinstance(result.handoff, FirstKhojHandoff):
             asks: tuple[SafeReply, ...] = ()
             if result.handoff.then_ask is not None:
@@ -484,7 +494,7 @@ class _Turn:
             delivery=delivery,
             fixed_reply_kind=kind,
             user_text=self.user_text or None,
-            reply_text=safe.text,
+            reply_text=reply_text,
             reply_register=safe.reply_register,
             prompt_versions=self.prompt_versions,
             first_failure=self.first_failure,

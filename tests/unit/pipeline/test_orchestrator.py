@@ -15,6 +15,7 @@ from enum import StrEnum
 import pytest
 
 from app.constants.journey_copy import SUPERVISION_LINE
+from app.constants.onboarding_copy import COPY as ONBOARDING_COPY
 from app.core.errors import (
     InvalidTransition,
     ProviderError,
@@ -23,6 +24,7 @@ from app.core.errors import (
 )
 from app.domain.enums import (
     ConversationState,
+    CopyKey,
     FailureKind,
     FixedReplyKind,
     Language,
@@ -865,3 +867,52 @@ async def test_a_blocked_report_is_not_extracted() -> None:
         classifier=flagging(user=[SafetyCategory.SEXUAL_CONTENT]),
     )
     assert result.outcome.post_turn == []
+
+
+# --- a question about Marg during onboarding, from the facts (owner, 2026-11-02) -------------
+
+ONBOARDING_FACTS_ANSWER = {
+    "answer": "Marg kabhi aapki jaankari ads ke liye nahi bechta.",
+    "unknown": False,
+    "spoken_text": "मार्ग कभी आपकी जानकारी विज्ञापन के लिए नहीं बेचता।",
+}
+ABOUT_MARG_EXTRACTION = {
+    "role": None, "grade": None, "subject": None, "district": None, "child_age": None,
+    "child_nickname": None, "language": None, "question": "do you sell my data?",
+    "about_marg": True,
+}  # fmt: skip
+
+
+def awaiting_child_asking(text: str) -> TurnContext:
+    parent = user_profile(state=ConversationState.AWAITING_CHILD, consented=True)
+    return turn_context(text_message(text), profile=parent)
+
+
+async def test_onboarding_answers_a_question_about_marg_from_the_facts_then_asks_again() -> None:
+    llm = FakeLanguageModel([ABOUT_MARG_EXTRACTION, ONBOARDING_FACTS_ANSWER])
+    result = await run(awaiting_child_asking("do you sell my data?"), llm=llm)
+    first, second = result.outcome.delivery.parts
+    assert first.text == ONBOARDING_FACTS_ANSWER["answer"]
+    assert second.text == ONBOARDING_COPY[(CopyKey.ASK_CHILD, Language.HINGLISH)].body
+    assert result.outcome.reply_text == f"{first.text}\n\n{second.text}"
+    assert result.classifier.speakers() == ["user", "assistant"]  # message in, answer out
+
+
+async def test_a_blocked_facts_answer_falls_back_to_the_reviewed_paragraph() -> None:
+    def flag(request: SafetyRequest) -> list[SafetyCategory]:
+        generated = str(ONBOARDING_FACTS_ANSWER["answer"])
+        flagged = request.speaker != "user" and generated in request.text
+        return [SafetyCategory.SPECIALIZED_ADVICE] if flagged else []
+
+    confirmed = scripted_policy(reply_outputs=[reply_answer(medical=True)])[0]
+    llm = FakeLanguageModel([ABOUT_MARG_EXTRACTION, ONBOARDING_FACTS_ANSWER])
+    result = await run(
+        awaiting_child_asking("do you sell my data?"),
+        llm=llm,
+        classifier=FakeSafetyClassifier(flag=flag),
+        policy=confirmed,
+    )
+    first = result.outcome.delivery.parts[0]
+    assert first.text is not None
+    assert first.text.startswith(ONBOARDING_COPY[(CopyKey.ABOUT_MARG, Language.HINGLISH)].body)
+    assert str(ONBOARDING_FACTS_ANSWER["answer"]) not in result.delivered

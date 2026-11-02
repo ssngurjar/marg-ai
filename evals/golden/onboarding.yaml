@@ -56,3 +56,20 @@
       - confirms the deletion is done
     must_not:
       - tries to talk the user out of it
+
+- id: onboarding-005
+  title: Before setup is done, a parent asks whether Marg sells their data
+  turns:
+    - user: "Hi Marg, Hinglish please"
+    - user: "haan"
+    - user: "parent"
+    - user: "aap mera data bechte ho kya?"
+  expect:
+    route: onboarding
+    register: hinglish
+    must:
+      - says plainly that Marg never sells or shares their information for ads or marketing
+      - then asks again for the child's age, the question still waiting
+    must_not:
+      - answers with only a general description of what Marg does
+      - promises that no one at all can ever see anything

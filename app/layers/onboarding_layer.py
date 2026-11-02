@@ -9,7 +9,7 @@ answer counts as not understood (outcome DEGRADED), never as a guess.
 
 import re
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import ClassVar, Final, Literal
 from uuid import UUID, uuid4
@@ -102,6 +102,8 @@ from app.domain.rules.conversation_machine import ConversationMachine
 from app.domain.rules.district_matcher import DistrictMatcher
 from app.domain.rules.onboarding_answer_parser import ChildrenParse, Found, OnboardingAnswerParser
 from app.domain.rules.register_detector import RegisterDetector
+from app.layers.about_marg_layer import AboutMargLayer
+from app.layers.layer_result import LayerResult
 from app.prompts.prompt_registry import PromptRegistry, PromptSpec
 from app.providers.ports import LanguageModel
 
@@ -156,6 +158,9 @@ class OnboardingResult:
     # More messages after `reply`: one per further child-talk question when several children
     # were added at once (critic review D3, 2026-11-01)
     follow_ups: tuple[CanonicalReply, ...] = ()
+    # A question about Marg answered from the facts, sent before `reply` once safety_out allows
+    # it; its fallback_reply is the fixed paragraph (2026-11-02)
+    about_marg: LayerResult | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -213,6 +218,7 @@ class OnboardingLayer:
         self._registry = registry
         self._invite_link = invite_link
         self._web_default_language = web_default_language
+        self._about_marg = AboutMargLayer(llm, registry)
 
     async def handle(
         self, ctx: TurnContext, user_text: str, interactive_ids: Sequence[str], now: datetime
@@ -224,7 +230,40 @@ class OnboardingLayer:
         transition = ConversationMachine.transition(
             ctx.profile, len(ctx.learners), reading.event, now
         )
-        return self._result(ctx, reading, transition)
+        result = self._result(ctx, reading, transition)
+        if isinstance(reading.event, AboutMargAsked) and not reading.event.braj:
+            return await self._with_facts_answer(ctx, user_text, transition, result)
+        return result
+
+    async def _with_facts_answer(
+        self,
+        ctx: TurnContext,
+        user_text: str,
+        transition: Transition,
+        result: OnboardingResult,
+    ) -> OnboardingResult:
+        """A question about Marg is answered from the reviewed facts, as after onboarding, then
+        the waiting question (owner, 2026-11-02: one behaviour, every persona). The fixed
+        paragraph is the answer's fallback, and the answer itself if the model can't reply."""
+        # the account's language, like the waiting question after it: one reply, one language
+        language = transition.profile.language or Language.HINGLISH
+        try:
+            answer = await self._about_marg.answer(ctx, user_text, language)
+        except ProviderError as exc:
+            degraded = f"about_marg_failed={type(exc).__name__}"
+            return replace(result, outcome=StepOutcome.DEGRADED, degraded_reason=degraded)
+        paragraph = self._reply(
+            [_Copy(CopyKey.ABOUT_MARG, None, None)], language, FixedReplyKind.ONBOARDING
+        )
+        waiting = ConversationMachine.question_for(transition.profile, len(ctx.learners))
+        question_only = [_Copy(waiting, None, None)] if waiting else []
+        return replace(
+            result,
+            reply=self._reply(question_only, language, FixedReplyKind.ONBOARDING),
+            about_marg=answer.model_copy(update={"fallback_reply": paragraph}),
+            usages=[*result.usages, *answer.usages],
+            prompt_versions={**result.prompt_versions, **answer.prompt_versions},
+        )
 
     # --- reading a message -----------------------------------------------------------------------
 

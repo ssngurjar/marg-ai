@@ -1,6 +1,7 @@
 """Questions about Marg itself, answered only from the reviewed facts (owner, 2026-11-01)."""
 
 import re
+from pathlib import Path
 
 import pytest
 
@@ -156,3 +157,18 @@ def test_someone_without_a_role_gets_only_the_facts_true_for_everyone() -> None:
 def test_every_role_has_its_own_what_marg_keeps() -> None:
     for role in Role:
         assert AboutMargLayer.facts_for(role).count("- what Marg keeps:") == 1
+
+
+def test_the_child_prompt_says_the_child_relevant_facts_and_nothing_else_new() -> None:
+    # owner, 2026-11-02: about Marg is answered from the same facts for every persona
+    child_prompt = " ".join(
+        Path("app/prompts/child_talk.md.j2").read_text(encoding="utf-8").split()
+    )
+    for fact in (
+        "Mummy or Papa said yes before you could talk",
+        "never the child's own words",
+        "you never ask where they live or their full name",
+    ):
+        assert fact in child_prompt
+    summary = next(f for f in MARG_FACTS if f.topic == "a child talking to Marg")
+    assert "never the child's own words" in summary.text
