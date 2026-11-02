@@ -303,3 +303,9 @@ cases:
   - {text: "bas itna hi, aur kuch nahi", open_khoj: false, intent: small_talk, lang: hinglish}
   - {text: "कुछ नहीं बोली, बस कर लिया", open_khoj: false, intent: small_talk, lang: hindi}
   - {text: "nothing much, but she gets angry when she loses", open_khoj: false, intent: question, lang: english}
+
+  # --- "how can you help my child?" asks what Marg does, never child talk (2026-11-02) ----------
+  - {text: "How can you assist my child?", open_khoj: false, intent: about_marg, lang: english}
+  - {text: "How can you help?", open_khoj: false, intent: about_marg, lang: english}
+  - {text: "aap mere bachche ki kaise madad karoge", open_khoj: false, intent: about_marg, lang: hinglish}
+  - {text: "what can you do for my child", open_khoj: true, intent: about_marg, lang: english}

@@ -1,6 +1,6 @@
 +++
 id = "parent_intent"
-version = "1.14.0"
+version = "1.15.0"
 model_setting = "MODEL_TEXT"
 max_output_tokens = 1200
 output_model = "IntentReading"
@@ -52,7 +52,9 @@ Pick exactly one intent:
   ("my son is in class 10") is a question.
 - child_talk: asks whether or how their child can talk to Marg themselves ("can my child also
   talk to you", "can she talk directly, how do I do that", "kya Munni khud baat kar sakti hai").
-  Asking Marg how to talk with their own child is a question. A yes to Marg's question whether
+  Asking Marg how to talk with their own child is a question. "How can you help (my child)?",
+  "how can you assist my child?" or "what can you do for my child?" asks what Marg does: that
+  is about_marg, never child_talk. A yes to Marg's question whether
   the child may talk to Marg ("yes she can talk", "haan baat kar sakti hai") is child_talk too.
 - child_name: gives or changes their child's home name ("bacche ka naam Prisa hai", "call her
   Gudiya", "uska naam Chotu rakho"). Naming a child while asking or telling something else is
