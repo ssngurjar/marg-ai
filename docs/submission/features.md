@@ -12,7 +12,7 @@ The four journeys at a glance:
 | Who | How it starts | What they get | How a conversation ends |
 |---|---|---|---|
 | **Parent** of a 3–8-year-old | consent → "parent" → the child's age (and a home name) → may the child talk to Marg? → today's khoj, or a question | today's khoj, a reply to how it went, answers to the child's questions and their own, a khoj card, a progress summary | each khoj ends with one question back to the child; the next one comes when asked |
-| **Child** (3–8), with the parent's yes | "Main bachcha hoon" button, or "Main Munni hoon" | short true answers by voice, and something to go and find | after 6 exchanges or 10 minutes, with something to look for; the parent gets a summary |
+| **Child** (3–8), with the parent's yes | "Main bachcha hoon" button, or "Main Munni hoon" | short true answers (asked by voice; the reply is read aloud by the parent, or on the web demo by the browser), and something to go and find | after 6 exchanges or 10 minutes, with something to look for; the parent gets a summary |
 | **Student** (classes 6–12) | consent → "student" → a parent or teacher knows → class → district | answers that cite official sources, and a step-by-step plan | each answer ends with its sources and, where it fits, a "Make a plan" button |
 | **Teacher** | consent → "teacher" → subject → class → district | tomorrow's chapter connected to three real kinds of work, each with a classroom activity | "Another activity" or "New chapter" buttons |
 
@@ -47,8 +47,9 @@ months ("6 mahine") is under two, and Marg asks for an age from 2 to 19. The way
    Transcribe**. A silent, too short or too long note gets "please send it again" without a model
    call. A transcript in another Indian script is put back into Devanagari.
 2. The raw audio is deleted as soon as it's transcribed.
-3. **Replies are text.** Meta's MMS-TTS, the only Meta speech model, is CC-BY-NC, and the
-   organisers are still ruling on it (it is built in `services/ml_sidecar`, behind
+3. **Replies are text.** Meta's MMS-TTS, the only Meta speech model, is CC-BY-NC 4.0
+   (non-commercial); the organisers leave the licence to us, and a prize submission is hard to
+   square with it, so it stays off (built in `services/ml_sidecar`, behind
    `VOICE_REPLIES_ENABLED`). The web demo reads replies aloud with the browser's own voice, which
    isn't a model call. While voice replies are off, the models don't write a separate voice
    version at all, which makes every reply faster.

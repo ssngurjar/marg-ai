@@ -216,7 +216,7 @@ content is redone per place. The end card holds 2 s (the cut is 2:59.6).*
       test or a recorded demo shows a Braj reply; otherwise end that sentence at "language".
 - [ ] Replies are text (`VOICE_REPLIES_ENABLED=false`): every model called must be a Meta model,
       and Meta's only speech model, MMS-TTS, waits on the organisers' licence ruling (C8). No
-      shot plays a spoken Marg reply unless they clear MMS and voice replies are switched on.
+      shot plays a spoken Marg reply: voice replies are off (organisers, 2-3 Nov: the video may only show features that are built and run, never a staged clip).
 - [ ] Nothing on screen or in a caption calls Marg a chatbot, a tutor or "AI for education",
       and the student mentor never leads a scene: the rules ban basic RAG apps and AI-for-
       education chatbots, so the parent's offline discovery is the story.
