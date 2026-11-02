@@ -205,10 +205,10 @@ async def test_the_policy_check_catches_what_llama_guard_passed(
     "category",
     [
         C.VIOLENT_CRIMES, C.NON_VIOLENT_CRIMES, C.SEX_CRIMES, C.CHILD_EXPLOITATION, C.HATE,
-        C.PRIVACY,
+        C.PRIVACY, C.SEXUAL_CONTENT,
     ],
 )  # fmt: skip
-async def test_llama_guard_s1_s2_s3_s4_s7_or_s10_on_an_ordinary_question_is_not_enough(
+async def test_llama_guard_s1_s2_s3_s4_s7_s10_or_s12_on_an_ordinary_question_is_not_enough(
     category: SafetyCategory,
 ) -> None:
     check = await gate_with(flagging(category)).check_input("Meri beti raat ko darti hai")
@@ -224,9 +224,10 @@ async def test_llama_guard_s1_s2_s3_s4_s7_or_s10_on_an_ordinary_question_is_not_
         (C.SEX_CRIMES, "sexual"),
         (C.CHILD_EXPLOITATION, "child_sexual"),
         (C.HATE, "hate"),
+        (C.SEXUAL_CONTENT, "sexual"),
     ],
 )
-async def test_llama_guard_s1_s2_s3_s4_or_s10_blocks_when_the_policy_confirms_harm(
+async def test_llama_guard_s1_s2_s3_s4_s10_or_s12_blocks_when_the_policy_confirms_harm(
     category: SafetyCategory, harm: HarmKind
 ) -> None:
     policy, _ = scripted_policy([policy_answer(harm=harm)])
@@ -259,8 +260,23 @@ async def test_i_cant_read_after_a_question_about_data_is_allowed() -> None:
 
 
 async def test_other_llama_guard_codes_block_without_confirmation() -> None:
-    check = await gate_with(flagging(C.SEXUAL_CONTENT)).check_input("message")
+    check = await gate_with(flagging(C.INDISCRIMINATE_WEAPONS)).check_input("message")
     assert check.verdict.decision is SafetyDecision.BLOCK
+
+
+async def test_like_in_the_photo_above_after_a_frog_jump_is_allowed() -> None:
+    # regression (field test, 2026-11-02): Llama Guard read the turn before and called this S12
+    earlier = Exchange(
+        user_text="usne mendak wali chhalaang lagayi",
+        reply_text="Wah! Mendak jaise kudna mazedaar khel hai. Isse pair majboot hote hain.",
+        route=Route.JOURNEY,
+        at=datetime(2026, 11, 2, 7, 50, tzinfo=UTC),
+    )
+    check = await gate_with(flagging(C.SEXUAL_CONTENT)).check_input(
+        "bilkul waise jaise upar wali photo mein dikh raha hai", earlier
+    )
+    assert check.verdict.decision is SafetyDecision.ALLOW
+    assert check.verdict.categories == []
 
 
 async def test_a_parents_ordinary_message_flagged_s10_is_allowed() -> None:

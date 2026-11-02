@@ -149,6 +149,9 @@ class SafetyGate:
             # owner, 2026-11-01: "main padh nahi sakti, kaise use karun" after a question about
             # Marg's data was S7 every time, from the turn before
             SafetyCategory.PRIVACY,
+            # owner, 2026-11-02: "like in the photo above", after a frog-jump turn, was S12 4/4
+            # with the turn before and 0/4 alone
+            SafetyCategory.SEXUAL_CONTENT,
         }
     )
     """Llama Guard codes that count on a user's message only if the policy check confirms harm."""

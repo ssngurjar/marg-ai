@@ -32,7 +32,7 @@ Muse Spark 1.3 (reads what people mean, plans and replies) · Muse Spark Open, o
 Shown in the video:
 • A real voice note on the live demo: transcribed, checked, answered in Braj and checked again, in 12.5 s for $0.0061.
 • Llama Guard switched off for one take: Muse Spark checks instead, and nothing goes out unchecked.
-• Hexagonal architecture: every model behind a port, so every test runs without a live model. 3,215 tests; 97 eval cases through the real pipeline (76% of the 82 scored pass; every crisis and adversarial case passes).
+• Hexagonal architecture: every model behind a port, so every test runs without a live model. 3,218 tests; 98 eval cases through the real pipeline (76% of the 82 scored pass; every crisis and adversarial case passes).
 • Under one US cent a reply in model calls; WhatsApp's per-message fees come on top.
 
 Try it: https://marg-ai.fly.dev/demo

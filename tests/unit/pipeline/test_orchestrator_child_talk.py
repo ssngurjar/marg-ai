@@ -167,7 +167,12 @@ async def test_other_blocked_messages_keep_the_fixed_child_refusal(
     category: SafetyCategory, fixed: dict[Language, str]
 ) -> None:
     llm = FakeLanguageModel([CHILD_REPLY], delay_s=5)
-    result = await run(in_session("kuch bhi"), classifier=flagging(user=[category]), llm=llm)
+    result = await run(
+        in_session("kuch bhi"),
+        classifier=flagging(user=[category]),
+        llm=llm,
+        policy=scripted_policy([policy_answer(harm="sexual")])[0],  # S12 confirmed
+    )
     assert result.outcome.fixed_reply_kind is FixedReplyKind.REFUSE
     assert fixed[Language.HINGLISH] in result.delivered
     assert all(prompt.prompt_id != "child_redirect" for prompt in llm.prompts)
@@ -182,6 +187,7 @@ async def test_weapons_with_sexual_content_keeps_the_fixed_refusal() -> None:
             user=[SafetyCategory.INDISCRIMINATE_WEAPONS, SafetyCategory.SEXUAL_CONTENT]
         ),
         llm=FakeLanguageModel([CHILD_REPLY], delay_s=5),
+        policy=scripted_policy([policy_answer(harm="sexual")])[0],  # S12 confirmed
     )
     assert result.outcome.fixed_reply_kind is FixedReplyKind.REFUSE
 
