@@ -300,6 +300,7 @@ class _Turn:
         self.speaker = Speaker.GUIDE
         self.heard_blobs: list[UUID] = []  # web voice notes and photos read: deleted with it
         self.photos: list[InboundMessage] = []  # photos sent this turn (when photos are on)
+        self.closing_notes: list[SafeReply] = []  # fixed notes sent after the reply
         self.asks_about_marg = False  # a student's question read as about Marg itself
         self.sealed: _Sealed | None = None
 
@@ -1044,10 +1045,10 @@ class _Turn:
             return self._fixed(
                 _FixedChoice(FixedReplyKind.PHOTO_NOT_NEEDED, FixedReplyVariant.DEFAULT, route)
             )
-        return await self._look(photos, self.photos[-1], phrases)
+        return await self._look(photos, self.photos[-1], phrases, has_words=has_words)
 
     async def _look(
-        self, photos: PhotoSteps, message: InboundMessage, phrases: list[str]
+        self, photos: PhotoSteps, message: InboundMessage, phrases: list[str], *, has_words: bool
     ) -> "PhotoFindings | TurnOutcome":
         """Fetch, the person check, then Llama Guard ‖ counting. A photo that can't be checked
         is dropped (empty findings: the reflection thanks the parent without numbers). The image
@@ -1068,6 +1069,11 @@ class _Turn:
             await self._record(
                 _StepRecord(StepName.ANALYZE_IMAGE, started, None, usage, "person_check=reject")
             )
+            if has_words:
+                # The photo is gone, but the words are still answered, with the photo note after
+                # (owner's test, 2026-11-02: "She took 7 jumps…" with a photo got only the note)
+                self.closing_notes.append(self._sealed_note(FixedReplyKind.PHOTO_HAS_PERSON))
+                return dropped
             return self._fixed(
                 _FixedChoice(
                     FixedReplyKind.PHOTO_HAS_PERSON, FixedReplyVariant.DEFAULT, Route.JOURNEY
@@ -1274,7 +1280,9 @@ class _Turn:
         preamble: SafeReply | None = None,
         trailers: tuple[SafeReply, ...] = (),
     ) -> ReplyDelivery:
-        """Text parts for `safe`; the reply is remembered so its voice note can be added."""
+        """Text parts for `safe`; the reply is remembered so its voice note can be added. Any
+        closing note (a refused photo's) comes last."""
+        trailers = (*trailers, *self.closing_notes)
         self.sealed = _Sealed(safe, preamble, trailers)
         return ReplyPartsBuilder.build(
             safe, audio_blob_id=None, preamble=preamble, trailers=trailers
@@ -1345,6 +1353,13 @@ class _Turn:
             )
         )
         await self.observer.on_step(self.ctx.turn_id, failure.step, failure, usage, duration_ms)
+
+    def _sealed_note(self, kind: FixedReplyKind) -> SafeReply:
+        """A reviewed fixed text to send after the turn's reply, sealed without a classifier."""
+        localised = FixedReplyService.localise(
+            kind, FixedReplyVariant.DEFAULT, self.register, self.speaker
+        )
+        return self.steps.gate.clear_fixed(localised, kind)
 
     def _fixed(
         self,

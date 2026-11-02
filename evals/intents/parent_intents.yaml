@@ -296,3 +296,10 @@ cases:
   - {text: "can I trust you with my child?", open_khoj: false, intent: about_marg, lang: english}
   - {text: "mero lala tumse baat karego to sahi rahego?", open_khoj: false, intent: child_talk, lang: braj, braj: true}
 
+
+  # --- "nothing more to tell" after Marg asked what the child said (2026-11-02) ----------------
+  - {text: "nothing, she just did it", open_khoj: false, intent: small_talk, lang: english}
+  - {text: "kuch nahi bola, bas kar liya", open_khoj: false, intent: small_talk, lang: hinglish}
+  - {text: "bas itna hi, aur kuch nahi", open_khoj: false, intent: small_talk, lang: hinglish}
+  - {text: "कुछ नहीं बोली, बस कर लिया", open_khoj: false, intent: small_talk, lang: hindi}
+  - {text: "nothing much, but she gets angry when she loses", open_khoj: false, intent: question, lang: english}

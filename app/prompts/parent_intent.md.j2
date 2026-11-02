@@ -1,6 +1,6 @@
 +++
 id = "parent_intent"
-version = "1.13.0"
+version = "1.14.0"
 model_setting = "MODEL_TEXT"
 max_output_tokens = 1200
 output_model = "IntentReading"
@@ -29,7 +29,9 @@ Pick exactly one intent:
   the sky is blue").
 - small_talk: only a greeting, thanks or ok, with nothing else ("Hi", "dhanyavad", "theek hai"),
   including agreeing to what Marg just suggested ("ok sure", "haan karenge", "I said ok to your
-  idea").
+  idea"), and a short "nothing more to tell" after Marg asked what the child said or did
+  ("nothing, she just did it", "kuch nahi bola, bas kar liya", "bas itna hi"). A worry is a
+  question only when the parent names one.
 - new_khoj: wants a khoj when none is open ("aaj ki khoj", "kuch naya karayein", "give me an
   activity").
 - another_khoj: wants a different khoj than the open one ("koi aur khoj", "this one is hard,

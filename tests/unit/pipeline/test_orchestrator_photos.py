@@ -253,9 +253,7 @@ async def test_only_the_latest_photo_of_a_burst_is_looked_at() -> None:
 async def test_a_photo_with_a_face_in_it_is_refused_before_anything_else_sees_it(
     found: dict[str, int],
 ) -> None:
-    result = await run_photo(
-        reporting(photo("Munni ka minar")), segmenter=FakeImageSegmenter(found)
-    )
+    result = await run_photo(reporting(photo()), segmenter=FakeImageSegmenter(found))
     outcome = result.outcome
     assert outcome.fixed_reply_kind is FixedReplyKind.PHOTO_HAS_PERSON
     assert result.delivered == fixed_text(FixedReplyKind.PHOTO_HAS_PERSON)
@@ -263,6 +261,20 @@ async def test_a_photo_with_a_face_in_it_is_refused_before_anything_else_sees_it
     assert all(request.image is None for request in result.classifier.requests)
     assert result.llm.prompts == []  # no model saw the report either
     assert outcome.writes == []  # the khoj stays open; nothing about the photo is kept
+    assert result.details(StepName.ANALYZE_IMAGE) == ["person_check=reject"]
+
+
+async def test_words_sent_with_a_refused_photo_are_still_answered_then_the_photo_note() -> None:
+    # owner's test, 2026-11-02: "She took 7 jumps…" with a photo of the child got only the note
+    result = await run_photo(
+        reporting(photo("Munni ne 7 patthar rakhe")), segmenter=FakeImageSegmenter({"face": 1})
+    )
+    assert REFLECTION_PRAISE in result.delivered  # the words got their reflection
+    assert result.delivered.endswith(fixed_text(FixedReplyKind.PHOTO_HAS_PERSON))
+    assert result.segmenter.calls == [["face"]]  # the photo itself was never counted
+    assert all(request.image is None for request in result.classifier.requests)
+    [reflection] = [p for p in result.llm.prompts if p.prompt_id == "parent_reflection"]
+    assert "patthar" in reflection.user  # the words reached the reflection; the photo didn't
     assert result.details(StepName.ANALYZE_IMAGE) == ["person_check=reject"]
 
 
