@@ -21,7 +21,8 @@ platform by **Wed Nov 4, 9:00 PM ET = Thu Nov 5, 07:30 IST**. Our target: **Nov 
       cases (test data), the corpus source list. Point to the `pre-kickoff` tag.
 - [ ] The Meta models used and how: Muse Spark, Muse Voice Transcribe, Muse Image, SAM 3.1,
       Llama Guard 4, Muse Spark Open (C9), Muse Code. Every model called at runtime is Meta's
-      (organisers, 2026-10-29); replies are text until they rule on MMS-TTS's licence.
+      (organisers, 2026-10-29); replies are text: the organisers leave MMS-TTS's CC-BY-NC licence
+      to us (2026-11-02), and the owner keeps it off for a prize submission.
       *(2026-10-30: all runtime models are in the README; Muse Code is only in the form, pending
       the owner's "keep only if it really wrote committed code")*
 - [x] Safety and children's privacy: no screen for the child, consent, no photos stored, crisis path,

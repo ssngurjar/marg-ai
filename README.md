@@ -138,12 +138,13 @@ harness and the ML sidecar came after it; `git log pre-kickoff..main` shows each
 **Every model Marg calls is a Meta model**, as the organisers require, and everything Marg runs
 is in this repository. Two consequences, both decided on Oct 29:
 
-- **Replies are text.** No Meta speech model is cleared for us yet: Meta's MMS-TTS is
-  CC-BY-NC (non-commercial), and the organisers are still ruling on whether that fits a prize
-  submission. Voice notes *in* still work (Muse Voice Transcribe), and the web demo reads replies
-  aloud with the browser's own voice, which isn't a model call. The MMS voice is built in
-  [`services/ml_sidecar/`](services/ml_sidecar/) and stays off (`VOICE_REPLIES_ENABLED=false`)
-  until they rule.
+- **Replies are text.** Meta's MMS-TTS is the only Meta speech-output model, and its licence is
+  CC-BY-NC 4.0 (non-commercial). The organisers leave each licence to the entrant, and a prize
+  submission is hard to square with "non-commercial", so we keep it off. Voice notes *in* still
+  work (Muse Voice Transcribe), and the web demo reads replies aloud with the browser's own voice,
+  which isn't a model call. The MMS voice is built in
+  [`services/ml_sidecar/`](services/ml_sidecar/) and stays off (`VOICE_REPLIES_ENABLED=false`),
+  ready for a Meta speech model whose licence allows it.
 - **The source search is keyword search in Postgres**, with Muse Spark turning a Hindi or
   Hinglish question into English search terms first. An earlier version also used a non-Meta
   embedding model; it was removed.
@@ -152,6 +153,10 @@ is in this repository. Two consequences, both decided on Oct 29:
 
 Marg is a **compound AI system**: six Meta models and plain code working together behind a
 deterministic router, rather than one chatbot.
+
+**Open Meta models, and where they run:** Muse Spark Open on Baseten and Llama Guard 4 on
+DeepInfra, both called at runtime; MMS-TTS on our own ML sidecar (built, switched off: see above).
+The rest run on the Meta Model API.
 
 | Model | Where it runs | What it does in Marg |
 |---|---|---|
