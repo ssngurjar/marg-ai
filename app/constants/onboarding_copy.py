@@ -170,6 +170,21 @@ _TEXTS: Final[dict[CopyKey, dict[Language, str]]] = {
         language: f"{_QUESTION_REMEMBERED[language]}\n\n{_INTRO[language]}" for language in _INTRO
     },
     CopyKey.INTRO_CONSENT_WEB: _INTRO_WEB,
+    # a web tester typed their role before agreeing and got the whole note again (2026-11-02)
+    CopyKey.CONSENT_REASK: {
+        _HINGLISH: (
+            "Shuru karne se pehle, upar wali baat ke liye aapki haan chahiye: 'Haan, theek hai'"
+            " dabaiye ya 'haan' likhiye. Phir bataiye aap kaun hain."
+        ),
+        _HINDI: (
+            "शुरू करने से पहले, ऊपर वाली बात के लिए आपकी हाँ चाहिए: 'हाँ, ठीक है' दबाइए या 'हाँ'"
+            " लिखिए। फिर बताइए कि आप कौन हैं।"
+        ),
+        _ENGLISH: (
+            "Before we start, I need your yes to the note above: tap 'Yes, I agree' or type yes."
+            " Then tell me who you are."
+        ),
+    },
     CopyKey.INTRO_CONSENT_WITH_QUESTION_WEB: {
         language: f"{_QUESTION_REMEMBERED[language]}\n\n{_INTRO_WEB[language]}"
         for language in _INTRO_WEB
@@ -512,6 +527,7 @@ _BUTTONS_FOR: Final[dict[CopyKey, dict[Language, tuple[ReplyButton, ...]]]] = {
     CopyKey.INTRO_CONSENT: _CONSENT_BUTTONS,
     CopyKey.INTRO_CONSENT_WITH_QUESTION: _CONSENT_BUTTONS,
     CopyKey.INTRO_CONSENT_WEB: _CONSENT_BUTTONS,
+    CopyKey.CONSENT_REASK: _CONSENT_BUTTONS,
     CopyKey.INTRO_CONSENT_WITH_QUESTION_WEB: _CONSENT_BUTTONS,
     CopyKey.ASK_ROLE: _ROLE_BUTTONS,
     CopyKey.ASK_GUARDIAN: _GUARDIAN_BUTTONS,

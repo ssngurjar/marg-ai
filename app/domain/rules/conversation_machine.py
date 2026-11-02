@@ -431,6 +431,8 @@ def _unrecognised(step: _Step, event: Unrecognised) -> Transition:
     state = step.profile.state
     if state is _S.AWAITING_DELETION_CONFIRM:
         return step.moved(state, SendCopy(CopyKey.CONFIRM_DELETE))
+    if state is _S.AWAITING_CONSENT and event.consent_note_shown and not event.greeted:
+        return step.moved(state, SendCopy(CopyKey.CONSENT_REASK))
     question = ConversationMachine.question_for(step.profile, step.learner_count)
     effects: list[Effect] = [] if event.greeted and question else [SendCopy(event.not_understood)]
     if question:

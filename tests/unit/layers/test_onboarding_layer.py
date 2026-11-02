@@ -2,6 +2,7 @@
 
 import re
 import string
+from datetime import timedelta
 from typing import Final
 from uuid import UUID
 
@@ -1014,3 +1015,60 @@ async def test_hi_again_while_waiting_repeats_the_question_without_sorry(
 async def test_a_real_unclear_answer_still_says_sorry_and_repeats_the_question() -> None:
     result, _ = await handle(at(S.AWAITING_ROLE), text_message("hmm maybe"))
     assert result.reply.body.startswith(body(CopyKey.NOT_UNDERSTOOD))
+
+
+# --- an answer before consent points to the note (web tester, 2026-11-02) ----------------------
+
+
+def waiting_for_consent(note_sent_hours_ago: float | None, text: str = "Student") -> TurnContext:
+    ctx = turn_context(text_message(text), profile=at(S.AWAITING_CONSENT, consented=False))
+    if note_sent_hours_ago is None:
+        return ctx
+    note = Exchange(
+        user_text="Hi",
+        reply_text=body(CopyKey.INTRO_CONSENT_WEB, Language.ENGLISH),
+        route=Route.ONBOARDING,
+        at=NOW - timedelta(hours=note_sent_hours_ago),
+    )
+    return ctx.model_copy(update={"recent_exchanges": [note]})
+
+
+@pytest.mark.parametrize("hours_ago", [0.01, 24.0], ids=["just sent", "exactly a day ago"])
+async def test_a_role_before_consent_points_to_the_note_just_sent(hours_ago: float) -> None:
+    # a web tester typed "Student" before agreeing and got the whole note again
+    result, _ = await handle_in(waiting_for_consent(hours_ago))
+    assert result.reply.body == body(CopyKey.CONSENT_REASK)
+    assert body(CopyKey.NOT_UNDERSTOOD) not in result.reply.body
+    assert [button.id for button in result.reply.buttons] == ["onb:consent:yes", "onb:consent:no"]
+    assert profile_change(result).new_state is S.AWAITING_CONSENT
+    assert profile_change(result).role is None  # nothing is kept before consent
+
+
+@pytest.mark.parametrize(
+    "hours_ago", [24.0 + 1 / 3600, None], ids=["a day and a second ago", "never seen"]
+)
+async def test_without_the_note_in_the_last_day_it_is_sent_again_in_full(
+    hours_ago: float | None,
+) -> None:
+    result, _ = await handle_in(waiting_for_consent(hours_ago))
+    assert body(CopyKey.INTRO_CONSENT) in result.reply.body
+    assert body(CopyKey.CONSENT_REASK) not in result.reply.body
+
+
+async def test_hi_again_before_consent_still_shows_the_whole_note() -> None:
+    result, _ = await handle_in(waiting_for_consent(0.01, text="Hi"))
+    assert result.reply.body == body(CopyKey.INTRO_CONSENT)
+
+
+@pytest.mark.parametrize("language", list(Language))
+def test_every_version_of_the_note_ends_with_a_question_the_check_knows(language: Language) -> None:
+    for key in (CopyKey.INTRO_CONSENT, CopyKey.INTRO_CONSENT_WEB):
+        note = body(key, language)
+        assert any(question in note for question in OnboardingLayer.CONSENT_QUESTIONS), (
+            key,
+            language,
+        )
+    assert not any(
+        question in body(CopyKey.CONSENT_REASK, language)
+        for question in OnboardingLayer.CONSENT_QUESTIONS
+    )

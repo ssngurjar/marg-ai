@@ -558,3 +558,5 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
   and the "what Marg is" fact in `app/constants/marg_facts.py`.
 - [ ] **Read the "not done yet" replies** (`KHOJ_REOPENED`, `NOT_DONE_STILL_OPEN`, `NOT_DONE_NOTHING_RECENT` in
   `app/constants/journey_copy.py`).
+- [ ] **Read the one-line consent re-ask** (`CopyKey.CONSENT_REASK` in `app/constants/onboarding_copy.py`):
+  it replaces "didn't understand" plus the whole note when someone answers before agreeing.

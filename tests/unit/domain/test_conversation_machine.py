@@ -451,6 +451,19 @@ def test_a_child_given_out_of_range_raises() -> None:
         )
 
 
+def test_before_consent_an_unclear_answer_with_the_note_just_sent_gets_one_line() -> None:
+    done = step(at(S.AWAITING_CONSENT), Unrecognised(consent_note_shown=True))
+    assert done.profile.state is S.AWAITING_CONSENT
+    assert copies(done) == [CopyKey.CONSENT_REASK]
+
+
+def test_the_note_flag_changes_nothing_after_consent() -> None:
+    profile = at(S.AWAITING_ROLE, **CONSENTED)
+    assert copies(step(profile, Unrecognised(consent_note_shown=True))) == copies(
+        step(profile, Unrecognised())
+    )
+
+
 def test_teacher_asked_is_only_for_teachers() -> None:
     with pytest.raises(InvalidTransition, match="TeacherAsked"):
         step(at(S.ACTIVE, role=Role.PARENT, **CONSENTED), TeacherAsked(), learners=1)
@@ -663,6 +676,7 @@ EVENTS: st.SearchStrategy[ConversationEvent] = st.one_of(
     st.builds(LanguageSwitched, language=st.sampled_from(Language)),
     st.builds(QuestionNoted, question=st.sampled_from([QUESTION, "बच्चा क्यों रोता है?", "🙏"])),
     st.builds(Unrecognised),
+    st.builds(Unrecognised, consent_note_shown=st.booleans(), greeted=st.booleans()),
     st.just(DeletionRequested()),
     st.just(DeletionConfirmed()),
     st.just(DeletionCancelled()),

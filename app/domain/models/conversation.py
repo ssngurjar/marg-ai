@@ -194,6 +194,9 @@ class Unrecognised:
     # Only a greeting ("Hi" again, after a reload): ask the waiting question again, without
     # "Sorry, I didn't understand" (owner's judge walkthrough, 2026-10-29).
     greeted: bool = False
+    # Before consent, with the note sent within a day: one line pointing to it, not the whole
+    # note again (a web tester's role before "yes", 2026-11-02).
+    consent_note_shown: bool = False
 
 
 @dataclass(frozen=True, slots=True)

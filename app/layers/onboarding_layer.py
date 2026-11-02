@@ -10,7 +10,7 @@ answer counts as not understood (outcome DEGRADED), never as a guess.
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import ClassVar, Final, Literal
 from uuid import UUID, uuid4
 
@@ -89,7 +89,7 @@ from app.domain.models.conversation import (
 )
 from app.domain.models.learner import Learner, LearnerId
 from app.domain.models.reply import CanonicalReply, ReplyButton
-from app.domain.models.turn import TurnContext, UserProfile
+from app.domain.models.turn import Exchange, TurnContext, UserProfile
 from app.domain.models.usage import StepUsage
 from app.domain.models.writes import (
     ChildTalkConsent,
@@ -177,6 +177,12 @@ class OnboardingLayer:
     EXTRACTION_STATES: ClassVar[frozenset[ConversationState]] = frozenset(
         {_S.AWAITING_ROLE, _S.AWAITING_PROFILE, _S.AWAITING_CHILD}
     )
+    CONSENT_NOTE_FRESH: ClassVar[timedelta] = timedelta(hours=24)
+    CONSENT_QUESTIONS: ClassVar[tuple[str, ...]] = (
+        "Kya aap sahmat hain?",
+        "क्या आप सहमत हैं?",
+        "Do you agree?",
+    )
     LONG_ANSWER_WORDS: ClassVar[int] = 3  # longer than this may be a question: ask the model
     SHORT_VALUE_WORDS: ClassVar[int] = 3  # a subject or district answer is a few words
     _BUTTON_EVENTS: ClassVar[dict[str, ConversationEvent]] = {
@@ -226,7 +232,9 @@ class OnboardingLayer:
         """Raises InvalidTransition or InvalidProfileValue only on a bug: the interpreter
         produces events the current state allows. A failed extraction call isn't raised: the
         answer counts as not understood, and the result says DEGRADED with the error's type."""
-        reading = await self._read(ctx, user_text, interactive_ids, now)
+        reading = OnboardingLayer._consent_note_seen(
+            ctx, await self._read(ctx, user_text, interactive_ids, now), now
+        )
         transition = ConversationMachine.transition(
             ctx.profile, len(ctx.learners), reading.event, now
         )
@@ -264,6 +272,31 @@ class OnboardingLayer:
             usages=[*result.usages, *answer.usages],
             prompt_versions={**result.prompt_versions, **answer.prompt_versions},
         )
+
+    @staticmethod
+    def _consent_note_seen(ctx: TurnContext, reading: _Reading, now: datetime) -> _Reading:
+        """Before consent, an answer that isn't yes or no points to the note, if Marg sent it
+        within CONSENT_NOTE_FRESH; after that, the note is sent again in full."""
+        event = reading.event
+        if ctx.profile.state is not _S.AWAITING_CONSENT or not isinstance(event, Unrecognised):
+            return reading
+        if not OnboardingLayer.consent_note_sent_since(
+            ctx.recent_exchanges, now - OnboardingLayer.CONSENT_NOTE_FRESH
+        ):
+            return reading
+        return replace(reading, event=replace(event, consent_note_shown=True))
+
+    @staticmethod
+    def consent_note_sent_since(exchanges: Sequence[Exchange], since: datetime) -> bool:
+        """A reply after `since` held the note: it ends with the consent question, in every
+        language."""
+        for exchange in exchanges:
+            held_the_note = any(
+                question in exchange.reply_text for question in OnboardingLayer.CONSENT_QUESTIONS
+            )
+            if held_the_note and exchange.at >= since:
+                return True
+        return False
 
     # --- reading a message -----------------------------------------------------------------------
 
