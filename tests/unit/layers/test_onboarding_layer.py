@@ -1072,3 +1072,22 @@ def test_every_version_of_the_note_ends_with_a_question_the_check_knows(language
         question in body(CopyKey.CONSENT_REASK, language)
         for question in OnboardingLayer.CONSENT_QUESTIONS
     )
+
+
+@pytest.mark.parametrize(
+    ("hours_ago", "waiting"),
+    [(0.01, CopyKey.CONSENT_REASK), (25.0, CopyKey.INTRO_CONSENT), (None, CopyKey.INTRO_CONSENT)],
+    ids=["note just sent", "note a day old", "never seen"],
+)
+async def test_a_question_about_marg_before_consent_is_followed_by_one_line_if_the_note_is_fresh(
+    hours_ago: float | None, waiting: CopyKey
+) -> None:
+    # a web tester asked who made Marg before agreeing, and got the whole note again after it
+    question = "ye batao aapko kisne banaya hai"
+    ctx = waiting_for_consent(hours_ago, text=question)
+    llm = FakeLanguageModel([extraction(question=question, about_marg=True), FACTS_ANSWER])
+    layer = OnboardingLayer(llm, shipped_registry(), invite_link=INVITE_LINK)
+    result = await layer.handle(ctx, question, [], NOW)
+    assert result.about_marg is not None
+    assert result.reply.body == body(waiting)
+    assert profile_change(result).new_state is S.AWAITING_CONSENT

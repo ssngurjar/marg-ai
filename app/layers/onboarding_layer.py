@@ -240,7 +240,7 @@ class OnboardingLayer:
         )
         result = self._result(ctx, reading, transition)
         if isinstance(reading.event, AboutMargAsked) and not reading.event.braj:
-            return await self._with_facts_answer(ctx, user_text, transition, result)
+            return await self._with_facts_answer(ctx, user_text, transition, result, now)
         return result
 
     async def _with_facts_answer(
@@ -249,6 +249,7 @@ class OnboardingLayer:
         user_text: str,
         transition: Transition,
         result: OnboardingResult,
+        now: datetime,
     ) -> OnboardingResult:
         """A question about Marg is answered from the reviewed facts, as after onboarding, then
         the waiting question (owner, 2026-11-02: one behaviour, every persona). The fixed
@@ -264,6 +265,8 @@ class OnboardingLayer:
             [_Copy(CopyKey.ABOUT_MARG, None, None)], language, FixedReplyKind.ONBOARDING
         )
         waiting = ConversationMachine.question_for(transition.profile, len(ctx.learners))
+        if waiting is not None and OnboardingLayer._note_fresh(ctx, transition.profile.state, now):
+            waiting = CopyKey.CONSENT_REASK  # the note is just above: one line, not all of it
         question_only = [_Copy(waiting, None, None)] if waiting else []
         return replace(
             result,
@@ -280,11 +283,17 @@ class OnboardingLayer:
         event = reading.event
         if ctx.profile.state is not _S.AWAITING_CONSENT or not isinstance(event, Unrecognised):
             return reading
-        if not OnboardingLayer.consent_note_sent_since(
-            ctx.recent_exchanges, now - OnboardingLayer.CONSENT_NOTE_FRESH
-        ):
+        if not OnboardingLayer._note_fresh(ctx, ctx.profile.state, now):
             return reading
         return replace(reading, event=replace(event, consent_note_shown=True))
+
+    @staticmethod
+    def _note_fresh(ctx: TurnContext, state: ConversationState, now: datetime) -> bool:
+        """Still waiting for consent, and the note was sent within CONSENT_NOTE_FRESH."""
+        since = now - OnboardingLayer.CONSENT_NOTE_FRESH
+        return state is _S.AWAITING_CONSENT and OnboardingLayer.consent_note_sent_since(
+            ctx.recent_exchanges, since
+        )
 
     @staticmethod
     def consent_note_sent_since(exchanges: Sequence[Exchange], since: datetime) -> bool:
