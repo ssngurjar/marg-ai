@@ -42,9 +42,11 @@ Chapters
 0:00 A mother's voice note
 0:11 My village
 0:30 What Marg is
-0:57 Field test
-1:31 How it works
-2:13 Impact, and what's not in this video
+0:57 Field test: real families, a real voice note, a real khoj card
+1:31 What broke, and was fixed the same day
+1:45 How it works
+2:27 Impact
+2:47 What's not in this video
 
 Sources: ASER 2024 National findings (pp. 47–48); NCF Foundational Stage 2022, NCERT (pp. 38, 76); Black et al., The Lancet 2017 (250 million children under five at risk of not reaching their developmental potential).
 
