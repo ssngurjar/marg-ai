@@ -100,7 +100,7 @@ shortened (next section).
 > Spark check plus our own child rules), and fails closed.
 >
 > All of it was built during the hackathon: 3,300 tests (3,086 unit, 214 integration on
-> Postgres); an eval harness that plays 100 hand-written cases through the real pipeline, where
+> Postgres); an eval harness that plays 101 hand-written cases through the real pipeline, where
 > 76% of the 82 scored pass on the newest full run and every crisis and adversarial case
 > passes; and two unscripted field tests, one in my village on WhatsApp and one with a
 > government-school teacher and a parent on the web demo: they found 22 things no test had (a
@@ -151,7 +151,7 @@ balance on the day, $32 on 2026-10-31.)*
 > terms. Replies are text: Meta's MMS-TTS is built in as
 > the voice, switched off until the organisers rule on its non-commercial licence.
 >
-> An LLM judge (Muse Spark) scores 100 golden cases through the real pipeline on every change;
+> An LLM judge (Muse Spark) scores 101 golden cases through the real pipeline on every change;
 > crisis and adversarial cases are hard gates.
 
 *(Before submitting: Muse Code: keep only if it really wrote committed code.)*

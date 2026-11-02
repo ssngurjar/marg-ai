@@ -195,3 +195,16 @@
     must_not:
       - uses love, heart or attachment language, or says it will always be there for her
       - repeats a fixed list of example careers such as farming, sports and a small shop
+
+- id: student-mentor-014
+  title: A hello and a question together get one greeting, not two
+  profile: {role: student, grade: 11, district: "Barmer, Rajasthan", language: hinglish}
+  turns:
+    - user: "namaste didi, mujhe nursing ke baare mein jaanna hai"
+  expect:
+    route: mentor
+    register: hinglish
+    must:
+      - says something useful about nursing as a path
+    must_not:
+      - greets or welcomes the student more than once in the reply

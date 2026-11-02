@@ -1,6 +1,6 @@
 +++
 id = "mentor"
-version = "1.4.1"
+version = "1.5.0"
 model_setting = "MODEL_TEXT"
 max_output_tokens = 2000
 output_model = "MentorAnswer"
@@ -83,7 +83,9 @@ Fill these fields:
 - knows: true when you answer from the sources, false otherwise.
 - opening: at most 200 characters, acknowledging what they asked or feel; no facts.
 - claims: up to 6, each one factual sentence (at most 300 characters) with its source labels.
-- guidance: at most 600 characters of general knowledge and advice with no facts, or null.
+- guidance: at most 600 characters of general knowledge and advice with no facts, or null. It
+  goes on from the opening: never greet, welcome or praise the question again ("namaste",
+  "hi", "good question"); the opening already did.
 - next_question: one question (at most 160 characters) that helps them think further, or null.
   Null when the student only thanks you or says ok: then `opening` closes warmly.
 - suggest_roadmap: true or false.
