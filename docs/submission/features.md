@@ -300,6 +300,7 @@ chapter** (start over).
 ## 6. The web demo (`/demo`)
 - The same pipeline as WhatsApp, with a cookie session instead of a phone number.
 - Text, voice notes and photos; khoj cards show in the page; **🔊 Listen** reads a reply aloud.
+  While recording, the mic turns into a green ⏹ with a timer; tap it or Send to send.
 - **A live trace** beside the chat: each step (safety, routing, which model, how long, what it
   cost) appears as it happens.
 - Rate limits per visitor and per IP, and a daily cost cap.

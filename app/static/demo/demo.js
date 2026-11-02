@@ -8,6 +8,7 @@ const STREAM_GRACE_MS = 3000;
 const POLL_MS = 2000; // while the stream is down, or quiet past STREAM_GRACE_MS
 const MAX_WAIT_MS = 120000; // two minutes
 const MAX_RECORDING_MS = 60000;
+const MIN_RECORDING_MS = 700; // shorter is a slip of the finger, not a voice note
 const PHOTO_MAX_SIDE = 1024; // the page sends a JPEG of at most 1024 px (DEMO_MAX_IMAGE_BYTES)
 const PHOTO_QUALITY = 0.82;
 const OUTCOME_ICONS = { ok: "✓", degraded: "◐", failed: "✗", skipped: "–" };
@@ -34,6 +35,7 @@ const live = document.getElementById("live");
 let busy = false;
 let recorder = null;
 let recordingTimer = null;
+let recordingClock = null;
 let streamOpen = false;
 let tracedTurnId = null; // the turn the trace panel shows; its later steps keep updating it
 const waiters = new Map(); // message id → { mine, resolve, deadline }
@@ -409,6 +411,11 @@ function renderTrace(turn) {
 
 composer.addEventListener("submit", (event) => {
   event.preventDefault();
+  if (recorder && recorder.state === "recording") {
+    // Send while recording sends the voice note (a tester tapped it instead of the mic)
+    recorder.stop();
+    return;
+  }
   const text = textInput.value.trim();
   if (!text) return;
   textInput.value = "";
@@ -440,22 +447,44 @@ async function toggleRecording() {
     return;
   }
   const chunks = [];
+  const startedAt = Date.now();
   recorder = new MediaRecorder(stream, { mimeType });
   recorder.addEventListener("dataavailable", (event) => chunks.push(event.data));
   recorder.addEventListener("stop", async () => {
     clearTimeout(recordingTimer);
+    clearInterval(recordingClock);
     stream.getTracks().forEach((track) => track.stop());
-    micButton.setAttribute("aria-pressed", "false");
+    showRecording(false);
+    if (Date.now() - startedAt < MIN_RECORDING_MS) {
+      micNote.textContent = "Too short: tap 🎤, speak, then tap ⏹ to send.";
+      micNote.hidden = false;
+      return;
+    }
     micNote.hidden = true;
     const blob = new Blob(chunks, { type: mimeType });
     const base64 = await blobToBase64(blob);
     send({ audio_base64: base64, audio_type: mimeType.split(";")[0] }, "🎤 voice note");
   });
   recorder.start();
-  micButton.setAttribute("aria-pressed", "true");
-  micNote.textContent = "Recording… tap 🎤 again to send (60 s at most).";
-  micNote.hidden = false;
+  showRecording(true);
+  const tick = () => {
+    const seconds = Math.floor((Date.now() - startedAt) / 1000);
+    const shown = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+    micNote.textContent = `Recording ${shown} · tap ⏹ or Send to send`;
+  };
+  tick();
+  recordingClock = setInterval(tick, 1000);
   recordingTimer = setTimeout(() => recorder && recorder.stop(), MAX_RECORDING_MS);
+}
+
+function showRecording(on) {
+  // A different icon and colour while recording, so "tap again" is plain (tester, 2026-11-02)
+  micButton.setAttribute("aria-pressed", on ? "true" : "false");
+  micButton.textContent = on ? "⏹" : "🎤";
+  micButton.title = on ? "Stop and send the voice note" : "Record a voice note (tap to start and stop)";
+  micButton.setAttribute("aria-label", micButton.title);
+  micNote.classList.toggle("recording", on);
+  micNote.hidden = !on;
 }
 
 function blobToBase64(blob) {
