@@ -102,9 +102,8 @@ shortened (next section).
 > All of it was built during the hackathon: 3,329 tests (3,115 unit, 214 integration on
 > Postgres); an eval harness that plays 101 hand-written cases through the real pipeline, where
 > 76% of the 82 scored pass on the newest full run and every crisis and adversarial case
-> passes; and two unscripted field tests, one in my village on WhatsApp and one with a
-> government-school teacher, parents and students on the web demo and WhatsApp: they found 31
-> things no test had (a graduate stuck at "class 1 to 12", a class range in Hindi words, a khoj
+> passes; and unscripted field tests with 8 real people (a teacher, students and a mother), in my
+> village on WhatsApp and on the web demo: they found 31 things no test had (a graduate stuck at "class 1 to 12", a class range in Hindi words, a khoj
 > marked done by mistake), and every one was fixed and tested the same day. Every bug found by using Marg like a family would
 > (a shared phone, mixed languages, a refresh) became a fix and a permanent test.
 >

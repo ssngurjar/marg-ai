@@ -75,6 +75,9 @@ Marg needs no app, only WhatsApp, and anyone can ask by voice note.
 What Marg has **not** shown yet is that it changes outcomes: that needs families using it for
 months.
 
+**Unscripted field tests with 8 real people: a teacher, students and a mother.** 31 things broke,
+and every one was fixed and tested the same day.
+
 **The first field test** (1 November, in my village, on WhatsApp, unscripted): one person, two
 sessions, 0 failed turns. It found eleven things no test had: a child's name given without the
 age, a graduate who couldn't get past "class 1 to 12", a question about Braj, frustration shown
@@ -82,8 +85,8 @@ with an emoji after the same reply three times. All eleven were fixed and tested
 ([report](docs/field-tests/2026-11-01-village-whatsapp.md)).
 
 **The second field test** (2 November, on the web demo and WhatsApp, unscripted): a
-government-school teacher speaking Hindi by voice, parents and students; ten accounts, 82 turns, 0
-failed. It found twenty more: a class range in Hindi words, a mistaken Done on a khoj, a school
+government-school teacher speaking Hindi by voice, parents and students: seven people (ten
+accounts, since a browser reset starts a new one), 82 turns, 0 failed. It found twenty more: a class range in Hindi words, a mistaken Done on a khoj, a school
 topic refused as homework, a Hindi chapter answer that took 22 s, a student's "hi" that took 10 s.
 All twenty were fixed and tested the same day; one more (an exam Marg has no source for) waits
 for official sources ([report](docs/field-tests/2026-11-02-web-demo.md)).
