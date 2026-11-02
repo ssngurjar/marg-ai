@@ -320,6 +320,7 @@ async def test_a_message_not_about_teaching_gets_an_honest_reply_and_no_bridge()
     assert llm.by_prompt["exposure"].prompts == []
     assert llm.by_prompt["teaching_answer"].prompts == []
     assert result.outcome is StepOutcome.OK
+    assert result.step_note == "off_topic=true"  # counted, like a parent's
 
 
 async def test_a_teachers_question_about_marg_is_answered_not_turned_away() -> None:

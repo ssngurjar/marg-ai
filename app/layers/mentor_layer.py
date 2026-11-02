@@ -18,6 +18,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
+from app.constants.small_talk_copy import GOOD_NIGHT
 from app.constants.student_copy import (
     CHILD_PROTECTION_LINE,
     DONT_KNOW_FALLBACK,
@@ -25,7 +26,6 @@ from app.constants.student_copy import (
     MAKE_A_PLAN_BUTTON,
     SOURCES_LABEL,
     STUDENT_ACKNOWLEDGED,
-    STUDENT_GOOD_NIGHT,
 )
 from app.core.errors import ProviderResponseInvalid
 from app.domain.enums import Language, StepOutcome
@@ -173,7 +173,7 @@ class MentorLayer:
 
     @staticmethod
     def _small_talk_reply(kind: SmallTalk, register: Language) -> LayerResult:
-        copy = STUDENT_GOOD_NIGHT if kind == "good_night" else STUDENT_ACKNOWLEDGED
+        copy = GOOD_NIGHT if kind == "good_night" else STUDENT_ACKNOWLEDGED
         voice = Language.HINDI if register is Language.HINGLISH else register
         return LayerResult(
             reply=CanonicalReply(

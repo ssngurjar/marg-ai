@@ -83,6 +83,7 @@ line of the module's docstring.
 | `model_prices.py` | `ModelPrice` | Model prices per million tokens, for cost accounting (s05 §4.1, s07 §4.3). |
 | `onboarding_copy.py` | `CopyEntry` | Onboarding copy: fixed, reviewed text in Hinglish, Hindi and English (s08 §4.8). |
 | `photo_check.py` | — | What SAM 3.1 looks for before a photo is used (s10b §4.14). |
+| `small_talk_copy.py` | — | Replies to small talk that every persona gets alike (owner, 2026-11-02: what is true for one |
 | `stt_keywords.py` | — | Speech-to-text hints: words Muse Voice Transcribe might mishear (s06 §4.5). Reviewed copy. |
 | `student_copy.py` | — | Fixed copy for students (s12): labels the mentor's reply uses, its plan button and the |
 | `teacher_copy.py` | — | Fixed copy for teachers (s10): the exposure bridge's labels and buttons, and the ask-for-chapter |

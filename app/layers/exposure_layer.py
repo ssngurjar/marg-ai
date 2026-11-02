@@ -17,7 +17,7 @@ from typing import Annotated, Final, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
-from app.constants.student_copy import STUDENT_GOOD_NIGHT
+from app.constants.small_talk_copy import GOOD_NIGHT
 from app.constants.teacher_copy import (
     ASK_CHAPTER,
     DEVICE_OR_PURCHASE_WORDS,
@@ -152,7 +152,7 @@ class ExposureLayer:
         small_talk = SmallTalkRules.kind(user_text) if not interactive_ids else None
         if small_talk is not None:
             # an "ok" or good night needs no model (owner's field test, 2026-11-02)
-            said = STUDENT_GOOD_NIGHT if small_talk == "good_night" else TEACHER_ACKNOWLEDGED
+            said = GOOD_NIGHT if small_talk == "good_night" else TEACHER_ACKNOWLEDGED
             return ExposureLayer._said(said, register)
         if interactive_ids or not user_text.strip() or self._intents is None:
             return await self._bridge(ctx, user_text, interactive_ids, register, previous)
@@ -329,7 +329,9 @@ class ExposureLayer:
         if intent is TeacherIntent.CONCERN:
             return ExposureLayer._said(TEACHER_CONCERN, register)
         if intent is TeacherIntent.OUT_OF_SCOPE:
-            return ExposureLayer._said(TEACHER_OUT_OF_SCOPE, register)
+            # counted like a parent's off-topic message (turn_steps detail, 2026-11-02)
+            said = ExposureLayer._said(TEACHER_OUT_OF_SCOPE, register)
+            return said.model_copy(update={"step_note": "off_topic=true"})
         return None
 
     @staticmethod

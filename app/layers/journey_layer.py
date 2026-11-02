@@ -75,6 +75,7 @@ from app.constants.journey_copy import (
 )
 from app.constants.journey_words import CAREER_WORDS, LABEL_WORDS, SMALL_TALK
 from app.constants.onboarding_copy import CHILD_FALLBACK, COPY
+from app.constants.small_talk_copy import GOOD_NIGHT
 from app.constants.whatsapp import MAX_BUTTON_TITLE, MAX_BUTTONS
 from app.core.errors import ProviderError
 from app.domain.enums import (
@@ -107,6 +108,7 @@ from app.domain.rules.conversation_machine import MAX_LEARNERS
 from app.domain.rules.onboarding_answer_parser import OnboardingAnswerParser
 from app.domain.rules.phrase_finder import PhraseFinder
 from app.domain.rules.register_detector import RegisterDetector
+from app.domain.rules.small_talk_rules import SmallTalkRules
 from app.domain.rules.stage_rules import StageRules
 from app.layers.about_marg_layer import AboutMargLayer
 from app.layers.activity_catalogue import CatalogueActivitySource
@@ -595,6 +597,8 @@ class JourneyLayer:
         in the middle of a conversation answers what Marg just said: a short encouraging
         reply, never "Hello!" and the menu again (owner's demo, 2026-11-01)."""
         open_activity = self._offered(ctx)
+        if SmallTalkRules.kind(user_text) == "good_night":
+            return _fixed(GOOD_NIGHT[register], register, ())
         acknowledges = bool(ctx.recent_exchanges) and not OnboardingAnswerParser.is_greeting(
             user_text
         )
@@ -639,7 +643,8 @@ class JourneyLayer:
         """Only a greeting or a thank-you ("Hi", "ok", "शुक्रिया"): not a report on a khoj."""
         if not text.strip():
             return False
-        if OnboardingAnswerParser.is_greeting(text):
+        if OnboardingAnswerParser.is_greeting(text) or SmallTalkRules.kind(text) is not None:
+            # emoji, "ok ok", good night: the same small talk every persona gets (2026-11-02)
             return True
         said = " ".join(PhraseFinder.words(text))
         return said in {" ".join(PhraseFinder.words(phrase)) for phrase in SMALL_TALK}

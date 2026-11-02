@@ -549,4 +549,6 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
 - [ ] **Read the "just getting started" wording** (`TEACHER_OUT_OF_SCOPE`, `TEACHER_ACKNOWLEDGED` in
   `app/constants/teacher_copy.py`; `DONT_KNOW_FALLBACK` in `app/constants/student_copy.py`) and the
   matching lines in `parent_answer`, `about_marg` and `mentor`.
+- [ ] **Read the shared small-talk replies** (`GOOD_NIGHT` in `app/constants/small_talk_copy.py`,
+  and the child's `CHILD_ACKNOWLEDGED` in `app/constants/child_talk_copy.py`).
 

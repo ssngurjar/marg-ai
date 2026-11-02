@@ -36,6 +36,7 @@ from app.constants.child_safety_words import (
 )
 from app.constants.child_talk_copy import (
     ASK_A_GROWNUP,
+    CHILD_ACKNOWLEDGED,
     CHILD_FALLBACK,
     CHILD_GOODBYE,
     CHILD_HELLO,
@@ -94,6 +95,7 @@ from app.domain.rules.parent_mention import ParentMention
 from app.domain.rules.phrase_finder import PhraseFinder
 from app.domain.rules.register_detector import RegisterDetector
 from app.domain.rules.sentence_case import SentenceCase
+from app.domain.rules.small_talk_rules import SmallTalkRules
 from app.domain.rules.stage_rules import StageRules
 from app.layers.layer_result import LayerResult
 from app.layers.local_voice import LocalVoice
@@ -209,8 +211,12 @@ class ChildTalkLayer:
             return _fixed(ASK_A_GROWNUP, register)
         if ChildSessionRules.is_over(session, now, self._limits):
             return self._goodbye(session, learner, register, ChildSessionEndReason.TIME_LIMIT, ())
-        if ChildSessionRules.says_goodbye(user_text):
+        small_talk = SmallTalkRules.kind(user_text)
+        if ChildSessionRules.says_goodbye(user_text) or small_talk == "good_night":
             return self._goodbye(session, learner, register, ChildSessionEndReason.CHILD_ENDED, ())
+        if small_talk == "thanks":
+            # an "ok" or emoji: answered at once and not counted as a question (2026-11-02)
+            return _fixed(CHILD_ACKNOWLEDGED, register)
         if ChildSessionRules.claims_to_be_parent(user_text, learner.nickname):
             # only asks: a child typing it can't reach the parent's side without the button
             button = ReplyButton(id=KID_PARENT, title=PARENT_TAKEOVER_BUTTON[register])

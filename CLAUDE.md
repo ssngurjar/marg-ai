@@ -279,6 +279,22 @@ A reader should know what a file does from its name, without following the route
 - **`docs/code-map.md`** lists every module and class; regenerate it with
   `.venv/bin/python -m scripts.code_map` (a unit test fails while it's stale).
 
+### One behaviour, every persona (adopted 2026-11-02)
+
+Marg serves parents, students, teachers, children in child talk, and people still onboarding. A
+rule about how Marg treats a **kind of message** belongs to Marg, not to one persona: small talk
+("ok", thanks, emoji, good night), questions about Marg itself, stop and delete requests, a
+language switch, refusals, the "Marg is just getting started" wording, off-topic counting, and
+the script and safety checks. When a field test or a bug shows such a gap for one persona:
+
+- **Check every other persona's path in the same change** and apply it there too, through one
+  shared rule or copy (`SmallTalkRules`, `app/constants/small_talk_copy.py`, `MARG_FACTS`,
+  `RegisterDetector`), never a separate copy per layer.
+- **Where a persona must differ, say why** in that step's design doc ("Decisions log"): a child's
+  replies are child-worded and never use up a question for small talk; onboarding answers a
+  question about Marg in fixed reviewed copy.
+- **Add a test for each persona**, not only the one that showed the gap.
+
 ## 8. Dependencies and migrations
 
 - New dependencies need explicit human approval. Note the pinned version and whether it belongs in

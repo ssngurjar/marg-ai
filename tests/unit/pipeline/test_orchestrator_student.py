@@ -9,7 +9,8 @@ from uuid import UUID
 
 import pytest
 
-from app.constants.student_copy import STUDENT_ACKNOWLEDGED, STUDENT_GOOD_NIGHT
+from app.constants.small_talk_copy import GOOD_NIGHT
+from app.constants.student_copy import STUDENT_ACKNOWLEDGED
 from app.constants.teacher_copy import DASHBOARD_DISTRICT_UNVERIFIED, DASHBOARD_NO_DISTRICT
 from app.core.errors import ProviderError, ProviderTimeout, StoreError
 from app.domain.enums import (
@@ -414,7 +415,7 @@ async def test_a_students_ok_or_good_night_is_answered_at_once_with_no_model(tex
     assert result.outcome.prompt_versions == {}  # no reading, no rewrite, no mentor prompt
     assert result.delivered in {
         STUDENT_ACKNOWLEDGED[Language.HINGLISH],
-        STUDENT_GOOD_NIGHT[Language.HINGLISH],
+        GOOD_NIGHT[Language.HINGLISH],
     }
     generate = [step for step in result.recorder.steps if step.step is StepName.GENERATE]
     assert [step.detail for step in generate] == ["small_talk=true"]

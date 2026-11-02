@@ -98,8 +98,3 @@ STUDENT_ACKNOWLEDGED: Final[dict[Language, str]] = {
     Language.HINDI: "ठीक है! जब मन करे, पढ़ाई या आगे के रास्ते का कोई भी सवाल पूछिए।",
     Language.ENGLISH: "Okay! Ask me anything about your studies or your path, whenever you like.",
 }
-STUDENT_GOOD_NIGHT: Final[dict[Language, str]] = {
-    Language.HINGLISH: "Shubh ratri! Kal phir baat karte hain.",
-    Language.HINDI: "शुभ रात्रि! कल फिर बात करते हैं।",
-    Language.ENGLISH: "Good night! Talk again tomorrow.",
-}

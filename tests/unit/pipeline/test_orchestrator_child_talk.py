@@ -10,6 +10,7 @@ from datetime import timedelta
 import pytest
 
 from app.constants.child_talk_copy import (
+    CHILD_ACKNOWLEDGED,
     CHILD_FALLBACK,
     CHILD_HELLO,
     CHILD_LANGUAGE_SWITCHED,
@@ -311,3 +312,19 @@ async def test_a_child_asking_for_hindi_gets_it_and_the_account_is_unchanged(
         ChildSessionLanguage(session_id=SESSION_ID, language=language)
     ]  # no ProfileChange: the parent's language stays English
     assert result.classifier.speakers() == ["user", "assistant"]
+
+
+@pytest.mark.parametrize("text", ["ok", "👍", "thank you"])
+async def test_a_childs_ok_or_emoji_is_answered_at_once_and_uses_up_no_question(text: str) -> None:
+    # owner, 2026-11-02: small talk is answered alike for every persona; a child has 6 questions
+    llm = FakeLanguageModel([CHILD_REPLY])
+    result = await run(in_session(text), llm=llm)
+    assert result.outcome.route is Route.CHILD_TALK
+    assert any(reply in result.delivered for reply in CHILD_ACKNOWLEDGED.values())
+    assert result.outcome.writes == []  # no ChildTalkTurn: the question count stays
+    assert llm.prompts == []
+
+
+async def test_a_childs_good_night_ends_the_session_like_bye() -> None:
+    result = await run(in_session("ok good night"), llm=FakeLanguageModel([CHILD_REPLY]))
+    assert any(isinstance(write, ChildSessionEnd) for write in result.outcome.writes)

@@ -35,6 +35,7 @@ from app.constants.journey_copy import (
     WHICH_KHOJ,
 )
 from app.constants.onboarding_copy import CHILD_TALK_NO, CHILD_TALK_YES, COPY
+from app.constants.small_talk_copy import GOOD_NIGHT
 from app.core.errors import ProviderError, ProviderResponseInvalid, ProviderUnavailable
 from app.domain.enums import ActivityStatus, CopyKey, Language, Route, StepOutcome
 from app.domain.models.activity import OfferRecord
@@ -966,6 +967,23 @@ async def test_stop_everything_asks_whether_to_stop_messages_or_delete_and_chang
 def test_the_stop_buttons_fit_whatsapp_in_every_language(register: Language) -> None:
     for button in (STOP_DAILY_BUTTON[register], DELETE_DATA_BUTTON[register]):
         assert len(button.title) <= 20  # WhatsApp's button title limit
+
+
+@pytest.mark.parametrize("text", ["👍", "ok ok", "🥰"])
+async def test_a_parents_emoji_or_ok_ok_is_small_talk_with_no_model(text: str) -> None:
+    # owner, 2026-11-02: small talk is answered alike for every persona
+    layer, llm = layer_with(intent=reading("question", "hinglish"))
+    result = await khoj(text=text, button=None, layer=layer)
+    assert llm.by_prompt["parent_intent"].prompts == []
+    assert llm.by_prompt["parent_answer"].prompts == []
+    assert result.reply.body != GOOD_NIGHT[H]
+
+
+async def test_a_parents_good_night_gets_good_night_not_enjoy_it_together() -> None:
+    layer, llm = layer_with(intent=reading("question", "hinglish"))
+    result = await khoj(text="ok good night", button=None, layer=layer)
+    assert result.reply.body == GOOD_NIGHT[H]
+    assert llm.by_prompt["parent_intent"].prompts == []
 
 
 async def test_a_question_about_marg_is_answered_from_the_facts_not_the_parent_answer() -> None:

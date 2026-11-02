@@ -70,6 +70,13 @@ ASK_A_GROWNUP: Final[dict[Language, str]] = {
     _HINDI: "यह काम मम्मी-पापा करेंगे। तुम मुझसे कुछ और पूछो!",
     _ENGLISH: "Mummy and Papa will do that. Ask me something else!",
 }
+# A child's "ok", thanks or emoji: a quick fixed reply that doesn't use up a question (owner,
+# 2026-11-02: small talk is answered alike for every persona)
+CHILD_ACKNOWLEDGED: Final[dict[Language, str]] = {
+    _HINGLISH: "Accha! Aur kuch jaanna hai? Mujhse kuch bhi poochho.",
+    _HINDI: "अच्छा! और कुछ जानना है? मुझसे कुछ भी पूछो।",
+    _ENGLISH: "Okay! Want to know something else? Ask me anything.",
+}
 # A child asked for a language ("Hindi"): this session only, never the account (owner, 2026-10-29)
 # A parent taking the phone back during child talk (owner, 2026-11-01)
 PARENT_TAKEOVER_ASK: Final[dict[Language, str]] = {
