@@ -690,7 +690,7 @@ class JourneyLayer:
             if not isinstance(moment, NotAChildQuestion):
                 return _with_curiosity(moment, ctx.active_learner, "relayed_question")
             not_the_childs = moment
-        result = await self._parent_questions.answer(ctx, user_text, register)
+        result = await self._parent_questions.answer(ctx, user_text, register, now.date())
         if not_the_childs is None:
             return result.model_copy(update={"hazard_rule": frozenset()})
         return result.model_copy(

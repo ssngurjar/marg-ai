@@ -5,14 +5,18 @@ It writes directly in the parent's register (C3c), so the translate step is skip
 semantic check makes the model fix a reply in the wrong script (one repair retry, s05 §4.1).
 """
 
+from collections.abc import Sequence
+from datetime import date
 from typing import ClassVar, Final
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.domain.enums import Language, StepOutcome
+from app.domain.models.learner import Learner
 from app.domain.models.reply import CanonicalReply
-from app.domain.models.turn import TurnContext
+from app.domain.models.turn import Exchange, TurnContext
 from app.domain.rules.register_detector import RegisterDetector
+from app.domain.rules.stage_rules import StageRules
 from app.layers.hazard_word_checks import HazardWordChecks
 from app.layers.layer_result import LayerResult
 from app.layers.local_voice import LocalVoice
@@ -42,6 +46,8 @@ PARENT_ANSWER: Final = PromptSpec(prompt_id="parent_answer", output_type=ParentA
 
 
 class ParentQuestionLayer:
+    # the turn before, so "use aur kya sikhaun?" continues it (owner, 2026-11-02)
+    EARLIER_MAX_CHARS: ClassVar[int] = 400
     LANGUAGE_RULES: ClassVar[dict[Language, str]] = {
         Language.HINDI: "Write answer and try_this in simple Hindi, in Devanagari script.",
         Language.HINGLISH: (
@@ -78,8 +84,11 @@ class ParentQuestionLayer:
         self._llm = llm
         self._registry = registry
 
-    async def answer(self, ctx: TurnContext, user_text: str, register: Language) -> LayerResult:
-        """Raises a ProviderError when the model can't produce a valid reply."""
+    async def answer(
+        self, ctx: TurnContext, user_text: str, register: Language, today: date
+    ) -> LayerResult:
+        """Raises a ProviderError when the model can't produce a valid reply. The model is told
+        the parent's children and the turn before, so a follow-up about "her" needs no age."""
         rendered = self._registry.render(
             PARENT_ANSWER,
             system_vars={
@@ -88,7 +97,11 @@ class ParentQuestionLayer:
                 ),
                 "spoken_rule": self.SPOKEN_RULES[register],
             },
-            user_vars={"parent_message": user_text},
+            user_vars={
+                "children": ParentQuestionLayer.children_line(ctx, today),
+                "earlier": ParentQuestionLayer.earlier_exchange(ctx.recent_exchanges),
+                "parent_message": user_text,
+            },
             semantic_check=lambda answer: self.script_problems(answer, register),
         )
         result = await self._llm.generate(rendered.request)
@@ -113,6 +126,32 @@ class ParentQuestionLayer:
             degraded_reason="truncated=true" if degraded else None,
             step_note="off_topic=true" if reply.off_topic else None,
         )
+
+    @staticmethod
+    def children_line(ctx: TurnContext, today: date) -> str:
+        """Each child's home name (or "a child") and age; the child this talk is about is marked."""
+        talked_about = ctx.active_learner or (ctx.learners[0] if len(ctx.learners) == 1 else None)
+        described: list[str] = []
+        for learner in ctx.learners:
+            child = ParentQuestionLayer._describe(learner, today)
+            if talked_about is not None and learner.id == talked_about.id:
+                child += " (this conversation is about this child)"
+            described.append(child)
+        return "; ".join(described) or "none recorded"
+
+    @staticmethod
+    def _describe(learner: Learner, today: date) -> str:
+        age = StageRules.age_on(learner.birth_year, today)
+        return f"{learner.nickname or 'a child'}, {age} years old"
+
+    @staticmethod
+    def earlier_exchange(exchanges: Sequence[Exchange]) -> str:
+        """The parent's last message and Marg's reply, each cut to EARLIER_MAX_CHARS."""
+        if not exchanges:
+            return "none"
+        last = exchanges[-1]
+        limit = ParentQuestionLayer.EARLIER_MAX_CHARS
+        return f"Parent: {last.user_text[:limit]}\nMarg: {last.reply_text[:limit]}"
 
     @staticmethod
     def script_problems(answer: ParentAnswer, register: Language) -> list[str]:

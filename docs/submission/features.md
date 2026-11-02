@@ -105,7 +105,10 @@ different khoj, the same khoj again (also in another language), adding a child, 
 name, the daily time, stopping daily messages, someone else writing on the parent's phone, child
 talk, or deleting their data. Buttons, plain greetings and crisis phrases never need the model.
 An "ok" or "thanks" in the middle of a conversation gets a short encouraging reply, not the menu
-again; a complaint about Marg's last reply is answered as one.
+again; a complaint about Marg's last reply is answered as one. A parent's own question is
+answered knowing their children's ages and what was just said, so "what else can I teach
+her?" carries on the talk instead of asking her age, and a school idea the parent wants to
+understand is explained simply.
 Tested on 156 real-style messages in Hinglish, Hindi, Braj and English (99.7%).
 
 ### Today's khoj (discovery)
@@ -312,7 +315,7 @@ chapter** (start over).
   API, safety and ffmpeg are checked too.
 - **Admin dashboard** (15-minute signed link from the CLI): young learners' curiosity over time
   and students' aims, anonymous.
-- **`marg eval`**: 98 hand-written cases through the real pipeline, scored by code and by a judge
+- **`marg eval`**: 99 hand-written cases through the real pipeline, scored by code and by a judge
   model; crisis and adversarial cases are hard gates.
 - **Understanding banks**, run live in one command each: 156 parent messages
   (`scripts.intent_bank`), 72 onboarding answers (`scripts.onboarding_bank`) and 37 student

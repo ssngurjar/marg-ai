@@ -690,3 +690,19 @@
     must_not:
       - refuses because Marg does not do homework
       - writes a whole assignment or a list of worksheet answers
+
+- id: parent-journey-038
+  title: A follow-up about "her" builds on the turn before and knows the child's age
+  profile: {role: parent, language: hinglish}
+  learner: {relation: parent, nickname: Munni, age: 6}
+  turns:
+    - user: "Munni ko rang pehchanna kaise sikhayein?"
+    - user: "Aur use kya sikhaun?"
+  expect:
+    route: journey
+    register: hinglish
+    must:
+      - suggests something more for Munni to learn through play, fitting a 6-year-old
+    must_not:
+      - asks how old the child is
+      - asks the child's name

@@ -297,7 +297,10 @@ if it doesn't, ask the owner before changing approach.
 Output `CanonicalReply` fields via a small schema (`answer ≤ 500 chars`, `try_this ≤ 200 chars`,
 a play-based thing to try today). Rules: practical and warm; play-based; no diagnosis or labels;
 no medical advice (safety catches it as well); no "compare with other children"; suggest the
-anganwadi worker or teacher for anything persistent. There's no retrieval, and the answer states
+anganwadi worker or teacher for anything persistent. Besides the message, the model gets the
+parent's children (home name or "a child", and age; the child the talk is about is marked) and
+the turn before, each in its own data slot, so a follow-up about "her" needs no age question
+(2026-11-02). There's no retrieval, and the answer states
 no facts or figures (the same "no figures" validator as the s12 mentor's `guidance`).
 A career question about a young child ("mera 5 saal ka beta doctor kaise banega?") gets a gentle
 reframe: it's too early to choose, so nurture curiosity now. Then it offers today's khoj.
@@ -747,3 +750,4 @@ specificity, no careers for a 5-year-old, medical refusal, register).
 | 2026-11-02 | **"How can you help my child?" is about Marg, never child talk** (`parent_intent` 1.15.0) | A web tester answered "Not now" to child talk, then asked "How can you assist my child?" and "How can you help?" and got the child-talk question again both times | owner |
 
 | 2026-11-02 | **A parent who asks to understand a school idea gets it explained** (`parent_answer` 1.5.0): two to four simple sentences with an example from home or the village; still never the child's homework or worksheet answers. The same rule students already have (`mentor` 1.2.0), so every persona explains a school idea (golden parent-journey-037) | A web tester asked for a simple explanation of a class 8 science topic and was told Marg does not do homework | owner |
+| 2026-11-02 | **The parent answer knows the children and the turn before** (`parent_answer` 1.6.0; `ParentQuestionLayer.children_line`, `earlier_exchange`, `<children>` and `<earlier>` data slots): each child's home name and age, the child the talk is about marked, and the parent's last message with Marg's reply (each cut to 400 characters). A follow-up continues the talk and never asks an age <children> gives. Students (mentor) and child talk already read recent turns, so parents were the gap (golden parent-journey-038) | Field test: after a khoj report, "what else should I teach them?" got "how old is your child?" | owner |
