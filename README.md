@@ -81,11 +81,12 @@ age, a graduate who couldn't get past "class 1 to 12", a question about Braj, fr
 with an emoji after the same reply three times. All eleven were fixed and tested the same night
 ([report](docs/field-tests/2026-11-01-village-whatsapp.md)).
 
-**The second field test** (2 November, on the web demo, unscripted): a government-school teacher
-speaking Hindi by voice, and a parent; 41 turns, 0 failed. It found eleven more: a class range in
-Hindi words, a mistaken Done on a khoj, a school topic refused as homework, a Hindi chapter answer
-that took 22 s. All eleven were fixed and tested the same day
-([report](docs/field-tests/2026-11-02-web-demo.md)).
+**The second field test** (2 November, on the web demo and WhatsApp, unscripted): a
+government-school teacher speaking Hindi by voice, parents and students; ten accounts, 82 turns, 0
+failed. It found twenty more: a class range in Hindi words, a mistaken Done on a khoj, a school
+topic refused as homework, a Hindi chapter answer that took 22 s, a student's "hi" that took 10 s.
+All twenty were fixed and tested the same day; one more (an exam Marg has no source for) waits
+for official sources ([report](docs/field-tests/2026-11-02-web-demo.md)).
 
 ## What it does
 
