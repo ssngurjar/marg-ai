@@ -35,7 +35,7 @@ from app.constants.journey_copy import (
     WHICH_KHOJ,
 )
 from app.constants.onboarding_copy import CHILD_TALK_NO, CHILD_TALK_YES, COPY
-from app.constants.small_talk_copy import GOOD_NIGHT
+from app.constants.small_talk_copy import GOOD_NIGHT, GOODBYE
 from app.core.errors import ProviderError, ProviderResponseInvalid, ProviderUnavailable
 from app.domain.enums import ActivityStatus, CopyKey, Language, Route, StepOutcome
 from app.domain.models.activity import OfferRecord
@@ -977,6 +977,12 @@ async def test_a_parents_emoji_or_ok_ok_is_small_talk_with_no_model(text: str) -
     assert llm.by_prompt["parent_intent"].prompts == []
     assert llm.by_prompt["parent_answer"].prompts == []
     assert result.reply.body != GOOD_NIGHT[H]
+
+
+async def test_a_parents_ttyl_gets_a_goodbye_not_enjoy_it_together() -> None:
+    layer, _ = layer_with(intent=reading("question", "hinglish"))
+    result = await khoj(text="Ttyl", button=None, layer=layer)
+    assert result.reply.body == GOODBYE[H]
 
 
 async def test_a_parents_good_night_gets_good_night_not_enjoy_it_together() -> None:

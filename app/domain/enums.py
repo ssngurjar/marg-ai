@@ -217,6 +217,7 @@ class FixedReplyVariant(StrEnum):
     GENERIC = "generic"
     SELF_HARM = "self_harm"
     ABUSE = "abuse"
+    SILENT = "silent"  # a voice note with no sound in it: check the microphone (2026-11-02)
 
 
 class Mode(StrEnum):

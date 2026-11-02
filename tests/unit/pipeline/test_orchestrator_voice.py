@@ -302,6 +302,23 @@ async def test_short_silent_and_long_notes_are_answered_without_speech_to_text(
 
 
 @pytest.mark.parametrize(
+    ("wav_ms", "silence_ms", "says_mic"),
+    [(0, 6000, True), (200, 2800, True), (699, 0, False)],
+    ids=["six-seconds-silence", "a-cough", "too-short"],
+)
+async def test_a_silent_note_asks_to_check_the_microphone(
+    wav_ms: int, silence_ms: int, *, says_mic: bool
+) -> None:
+    # a web tester, 2026-11-02: 6 s of silence got "I couldn't understand that"
+    converter = FakeAudioConverter(wav=wav_of(wav_ms, silence_ms))
+    result = await run(speaking(), voice=hearing(converter=converter))
+    silent = FIXED_TEXTS[
+        FixedTextKey(FixedReplyKind.REPEAT_PLEASE, FixedReplyVariant.SILENT, Language.HINGLISH)
+    ].text
+    assert (silent in result.delivered) is says_mic
+
+
+@pytest.mark.parametrize(
     ("wav_ms", "silence_ms"), [(700, 0), (1000, 179_000)], ids=["exactly-700ms", "exactly-180s"]
 )
 async def test_notes_exactly_at_the_limits_are_transcribed(wav_ms: int, silence_ms: int) -> None:

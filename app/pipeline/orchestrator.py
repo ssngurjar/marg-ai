@@ -1228,11 +1228,14 @@ class _Turn:
             retryable=False,
         )
         await self._record_failed_step(started, failure, f"fallback={kind.value}", None)
-        return self._fixed(self._voice_reply(kind))
+        silent = verdict is AudioVerdict.SILENT
+        return self._fixed(self._voice_reply(kind, silent=silent))
 
     @staticmethod
-    def _voice_reply(kind: FixedReplyKind) -> _FixedChoice:
-        return _FixedChoice(kind, FixedReplyVariant.DEFAULT, Route.REPEAT_PLEASE)
+    def _voice_reply(kind: FixedReplyKind, *, silent: bool = False) -> _FixedChoice:
+        """No sound at all gets "check the microphone", not "I couldn't understand" (2026-11-02)."""
+        variant = FixedReplyVariant.SILENT if silent else FixedReplyVariant.DEFAULT
+        return _FixedChoice(kind, variant, Route.REPEAT_PLEASE)
 
     async def _with_voice(self, outcome: TurnOutcome) -> TurnOutcome:
         """The sealed reply as a voice note too, when voice replies are on and the user spoke (or

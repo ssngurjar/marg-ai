@@ -17,9 +17,17 @@ def test_acknowledgements_thanks_and_emoji_are_small_talk(text: str) -> None:
     assert SmallTalkRules.kind(text) == "thanks"
 
 
-@pytest.mark.parametrize("text", ["acha good night", "good night", "bye", "Shubh ratri", "gn"])
-def test_a_goodbye_is_good_night(text: str) -> None:
+@pytest.mark.parametrize("text", ["acha good night", "good night", "Shubh ratri", "gn"])
+def test_a_good_night_is_good_night(text: str) -> None:
     assert SmallTalkRules.kind(text) == "good_night"
+
+
+@pytest.mark.parametrize(
+    "text", ["bye", "Ttyl", "acha bye", "phir milte hain", "talk to you later"]
+)
+def test_a_goodbye_any_time_of_day_is_goodbye(text: str) -> None:
+    # a web tester, 2026-11-02: "Ttyl" at noon got "Enjoy it together"
+    assert SmallTalkRules.kind(text) == "goodbye"
 
 
 @pytest.mark.parametrize(

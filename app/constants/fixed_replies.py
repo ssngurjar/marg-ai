@@ -68,6 +68,19 @@ _PLAIN_TEXTS: Final[dict[tuple[FixedReplyKind, FixedReplyVariant], dict[Language
         _HINDI: "आपका संदेश समझ नहीं आया। क्या आप एक बार फिर से भेजेंगे?",
         _ENGLISH: "I couldn't understand that. Could you send it again?",
     },
+    # A voice note with no voice in it at all (a web tester, 2026-11-02: 6 s of silence got "I
+    # couldn't understand that", as if they had said something wrong)
+    (_K.REPEAT_PLEASE, _V.SILENT): {
+        _HINGLISH: (
+            "Voice note mein koi aawaaz nahi aayi. Phone ka mic check kijiye, phir bolkar dobara"
+            " bhejiye."
+        ),
+        _HINDI: "वॉइस नोट में कोई आवाज़ नहीं आई। फ़ोन का माइक देखिए, फिर बोलकर दोबारा भेजिए।",
+        _ENGLISH: (
+            "No sound came through in the voice note. Please check your phone's microphone and"
+            " send it again."
+        ),
+    },
     (_K.TOO_LONG, _V.DEFAULT): {
         _HINGLISH: (
             "Aapka voice message bahut lamba hai. Kripya chhota message bhejiye, ya apni baat do"

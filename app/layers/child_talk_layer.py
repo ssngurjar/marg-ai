@@ -212,7 +212,7 @@ class ChildTalkLayer:
         if ChildSessionRules.is_over(session, now, self._limits):
             return self._goodbye(session, learner, register, ChildSessionEndReason.TIME_LIMIT, ())
         small_talk = SmallTalkRules.kind(user_text)
-        if ChildSessionRules.says_goodbye(user_text) or small_talk == "good_night":
+        if ChildSessionRules.says_goodbye(user_text) or small_talk in {"good_night", "goodbye"}:
             return self._goodbye(session, learner, register, ChildSessionEndReason.CHILD_ENDED, ())
         if small_talk == "thanks":
             # an "ok" or emoji: answered at once and not counted as a question (2026-11-02)

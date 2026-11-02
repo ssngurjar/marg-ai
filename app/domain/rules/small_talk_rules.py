@@ -8,7 +8,7 @@ from typing import ClassVar, Final, Literal
 
 from app.domain.rules.phrase_finder import PhraseFinder
 
-type SmallTalk = Literal["thanks", "good_night"]
+type SmallTalk = Literal["thanks", "good_night", "goodbye"]
 
 
 class SmallTalkRules:
@@ -23,27 +23,38 @@ class SmallTalkRules:
         }
     )  # fmt: skip
     GOOD_NIGHT: ClassVar[frozenset[str]] = frozenset(
-        {"good night", "gn", "shubh ratri", "subh ratri", "bye", "bye bye", "शुभ रात्रि", "बाय"}
+        {"good night", "gn", "shubh ratri", "subh ratri", "शुभ रात्रि"}
     )
+    # Any time of day (a web tester, 2026-11-02: "Ttyl" at noon got "Enjoy it together")
+    GOODBYE: ClassVar[frozenset[str]] = frozenset(
+        {
+            "bye", "bye bye", "ttyl", "talk later", "talk to you later", "see you", "later",
+            "baad mein baat karte hain", "phir baat karte hain", "phir milte hain", "chalo bye",
+            "बाय", "फिर मिलते हैं", "बाद में बात करते हैं",
+        }
+    )  # fmt: skip
 
     @staticmethod
     def kind(text: str) -> SmallTalk | None:
-        """ "good_night" for a goodbye, "thanks" for an ok, thanks or emoji, else None."""
+        """ "good_night" or "goodbye" for leaving, "thanks" for an ok, thanks or emoji."""
         if not text.strip():
             return None
         words = PhraseFinder.words(text)
         if len(words) > SmallTalkRules.MAX_WORDS:
             return None
-        if SmallTalkRules._good_night(" ".join(words)):
+        said = " ".join(words)
+        if SmallTalkRules._ends_with(said, _GOOD_NIGHT):
             return "good_night"
+        if SmallTalkRules._ends_with(said, _GOODBYE):
+            return "goodbye"
         if not words:
             return "thanks" if SmallTalkRules._only_emoji(text) else None
         return "thanks" if set(words) <= _WORDS else None
 
     @staticmethod
-    def _good_night(said: str) -> bool:
+    def _ends_with(said: str, phrases: frozenset[str]) -> bool:
         """ "good night", "acha good night", "bye": a goodbye, maybe after an ok."""
-        for phrase in _GOOD_NIGHT:
+        for phrase in phrases:
             ends_with_it = said == phrase or said.endswith(f" {phrase}")
             if ends_with_it and set(said.removesuffix(phrase).split()) <= _WORDS:
                 return True
@@ -63,4 +74,7 @@ class SmallTalkRules:
 _WORDS: Final = frozenset(" ".join(PhraseFinder.words(word)) for word in SmallTalkRules.WORDS)
 _GOOD_NIGHT: Final = frozenset(
     " ".join(PhraseFinder.words(phrase)) for phrase in SmallTalkRules.GOOD_NIGHT
+)
+_GOODBYE: Final = frozenset(
+    " ".join(PhraseFinder.words(phrase)) for phrase in SmallTalkRules.GOODBYE
 )

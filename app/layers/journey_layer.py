@@ -75,7 +75,7 @@ from app.constants.journey_copy import (
 )
 from app.constants.journey_words import CAREER_WORDS, LABEL_WORDS, SMALL_TALK
 from app.constants.onboarding_copy import CHILD_FALLBACK, COPY
-from app.constants.small_talk_copy import GOOD_NIGHT
+from app.constants.small_talk_copy import FAREWELLS
 from app.constants.whatsapp import MAX_BUTTON_TITLE, MAX_BUTTONS
 from app.core.errors import ProviderError
 from app.domain.enums import (
@@ -597,8 +597,9 @@ class JourneyLayer:
         in the middle of a conversation answers what Marg just said: a short encouraging
         reply, never "Hello!" and the menu again (owner's demo, 2026-11-01)."""
         open_activity = self._offered(ctx)
-        if SmallTalkRules.kind(user_text) == "good_night":
-            return _fixed(GOOD_NIGHT[register], register, ())
+        leaving = FAREWELLS.get(SmallTalkRules.kind(user_text) or "")
+        if leaving is not None:
+            return _fixed(leaving[register], register, ())
         acknowledges = bool(ctx.recent_exchanges) and not OnboardingAnswerParser.is_greeting(
             user_text
         )
