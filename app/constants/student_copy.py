@@ -89,6 +89,13 @@ PLAN_UNVERIFIABLE: Final[dict[Language, str]] = {
     ),
 }
 """Sent when retrieval finds nothing relevant: no plan is drafted or stored (golden roadmap-003)."""
+# A student's hello: answered at once, never by the mentor (a web tester's "Hii", 2026-11-02, took
+# 10 s and got two greetings in one reply)
+STUDENT_HELLO: Final[dict[Language, str]] = {
+    Language.HINGLISH: "Namaste! Padhai, career ya koi sapna: jo bhi poochhna ho, poochhiye.",
+    Language.HINDI: "नमस्ते! पढ़ाई, करियर या कोई सपना: जो भी पूछना हो, पूछिए।",
+    Language.ENGLISH: "Hello! Studies, careers or a dream: ask me anything.",
+}
 # A student's "ok", thanks or emoji, and a good night: answered at once, never by the mentor
 # (owner's field test, 2026-11-01: "okay okay" took 10 s and "okk okk" repeated the UPSC facts)
 STUDENT_ACKNOWLEDGED: Final[dict[Language, str]] = {

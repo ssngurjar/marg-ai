@@ -26,6 +26,7 @@ from app.constants.student_copy import (
     MAKE_A_PLAN_BUTTON,
     SOURCES_LABEL,
     STUDENT_ACKNOWLEDGED,
+    STUDENT_HELLO,
 )
 from app.core.errors import ProviderResponseInvalid
 from app.domain.enums import Language, StepOutcome
@@ -173,7 +174,7 @@ class MentorLayer:
 
     @staticmethod
     def _small_talk_reply(kind: SmallTalk, register: Language) -> LayerResult:
-        copy = FAREWELLS.get(kind, STUDENT_ACKNOWLEDGED)
+        copy = {"greeting": STUDENT_HELLO, **FAREWELLS}.get(kind, STUDENT_ACKNOWLEDGED)
         voice = Language.HINDI if register is Language.HINGLISH else register
         return LayerResult(
             reply=CanonicalReply(

@@ -45,3 +45,21 @@ def test_anything_with_a_question_or_a_thought_is_not(text: str) -> None:
 @example(words=["ok", "nurse"])
 def test_a_message_with_any_real_word_is_never_small_talk(words: list[str]) -> None:
     assert SmallTalkRules.kind(" ".join(["ok", *words])) is None
+
+
+@pytest.mark.parametrize("text", ["Hii", "Hello ji", "namaste 🙏", "नमस्ते", "good morning", "Hey"])
+def test_a_hello_alone_is_a_greeting(text: str) -> None:
+    # a web tester's "Hii", 2026-11-02, took 10 s through the mentor
+    assert SmallTalkRules.kind(text) == "greeting"
+
+
+@pytest.mark.parametrize(
+    "text", ["hi, how do I become a nurse", "hello kya aap braj bolte ho", "hi ok"]
+)
+def test_a_hello_with_anything_more_is_not_only_a_greeting(text: str) -> None:
+    assert SmallTalkRules.kind(text) != "greeting"
+
+
+@given(words=st.lists(st.sampled_from(["nurse", "kaise", "UPSC", "padhai", "kab"]), min_size=1))
+def test_a_hello_with_a_real_word_is_never_small_talk(words: list[str]) -> None:
+    assert SmallTalkRules.kind(" ".join(["hello", *words])) is None

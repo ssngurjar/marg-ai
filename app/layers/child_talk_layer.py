@@ -39,6 +39,7 @@ from app.constants.child_talk_copy import (
     CHILD_ACKNOWLEDGED,
     CHILD_FALLBACK,
     CHILD_GOODBYE,
+    CHILD_GREETED,
     CHILD_HELLO,
     CHILD_LANGUAGE_SWITCHED,
     CHILD_REFUSE_DANGER,
@@ -217,6 +218,8 @@ class ChildTalkLayer:
         if small_talk == "thanks":
             # an "ok" or emoji: answered at once and not counted as a question (2026-11-02)
             return _fixed(CHILD_ACKNOWLEDGED, register)
+        if small_talk == "greeting":
+            return _fixed(CHILD_GREETED, register)
         if ChildSessionRules.claims_to_be_parent(user_text, learner.nickname):
             # only asks: a child typing it can't reach the parent's side without the button
             button = ReplyButton(id=KID_PARENT, title=PARENT_TAKEOVER_BUTTON[register])

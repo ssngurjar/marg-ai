@@ -560,3 +560,5 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
   `app/constants/journey_copy.py`).
 - [ ] **Read the one-line consent re-ask** (`CopyKey.CONSENT_REASK` in `app/constants/onboarding_copy.py`):
   it replaces "didn't understand" plus the whole note when someone answers before agreeing.
+- [ ] **Read the hellos** (`STUDENT_HELLO` in `student_copy.py`, `TEACHER_HELLO` in `teacher_copy.py`,
+  `CHILD_GREETED` in `child_talk_copy.py`).

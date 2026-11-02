@@ -10,7 +10,7 @@ from uuid import UUID
 import pytest
 
 from app.constants.small_talk_copy import GOOD_NIGHT
-from app.constants.student_copy import STUDENT_ACKNOWLEDGED
+from app.constants.student_copy import STUDENT_ACKNOWLEDGED, STUDENT_HELLO
 from app.constants.teacher_copy import DASHBOARD_DISTRICT_UNVERIFIED, DASHBOARD_NO_DISTRICT
 from app.core.errors import ProviderError, ProviderTimeout, StoreError
 from app.domain.enums import (
@@ -419,6 +419,15 @@ async def test_a_students_ok_or_good_night_is_answered_at_once_with_no_model(tex
     }
     generate = [step for step in result.recorder.steps if step.step is StepName.GENERATE]
     assert [step.detail for step in generate] == ["small_talk=true"]
+
+
+@pytest.mark.parametrize("text", ["Hii", "namaste", "Hello ji"])
+async def test_a_students_hello_is_answered_at_once_with_no_model(text: str) -> None:
+    # a web tester's "Hii", 2026-11-02, took 10 s and got two greetings in one reply
+    result = await run_student(student_ctx(text), {}, read_intent=True)
+    assert result.outcome.route is Route.MENTOR
+    assert result.outcome.prompt_versions == {}  # no reading, no rewrite, no mentor prompt
+    assert result.delivered == STUDENT_HELLO[Language.HINGLISH]
 
 
 async def test_plan_words_route_without_calling_the_model() -> None:

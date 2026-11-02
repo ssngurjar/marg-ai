@@ -70,6 +70,12 @@ ASK_A_GROWNUP: Final[dict[Language, str]] = {
     _HINDI: "यह काम मम्मी-पापा करेंगे। तुम मुझसे कुछ और पूछो!",
     _ENGLISH: "Mummy and Papa will do that. Ask me something else!",
 }
+# A child's hello in the middle of a talk: answered at once, not counted as a question
+CHILD_GREETED: Final[dict[Language, str]] = {
+    _HINGLISH: "Namaste! Mujhse kuch bhi poochho: kyun, kaise, kya.",
+    _HINDI: "नमस्ते! मुझसे कुछ भी पूछो: क्यों, कैसे, क्या।",
+    _ENGLISH: "Hello! Ask me anything: why, how, what.",
+}
 # A child's "ok", thanks or emoji: a quick fixed reply that doesn't use up a question (owner,
 # 2026-11-02: small talk is answered alike for every persona)
 CHILD_ACKNOWLEDGED: Final[dict[Language, str]] = {

@@ -28,6 +28,7 @@ from app.constants.teacher_copy import (
     NEW_CHAPTER,
     TEACHER_ACKNOWLEDGED,
     TEACHER_CONCERN,
+    TEACHER_HELLO,
     TEACHER_OUT_OF_SCOPE,
 )
 from app.core.errors import DomainError
@@ -151,8 +152,8 @@ class ExposureLayer:
             return ExposureLayer._ask_chapter(register)
         small_talk = SmallTalkRules.kind(user_text) if not interactive_ids else None
         if small_talk is not None:
-            # an "ok" or good night needs no model (owner's field test, 2026-11-02)
-            said = FAREWELLS.get(small_talk, TEACHER_ACKNOWLEDGED)
+            # an "ok", a hello or good night needs no model (owner's field test, 2026-11-02)
+            said = {"greeting": TEACHER_HELLO, **FAREWELLS}.get(small_talk, TEACHER_ACKNOWLEDGED)
             return ExposureLayer._said(said, register)
         if interactive_ids or not user_text.strip() or self._intents is None:
             return await self._bridge(ctx, user_text, interactive_ids, register, previous)

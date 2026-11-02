@@ -12,6 +12,7 @@ from app.constants.teacher_copy import (
     NEW_CHAPTER,
     TEACHER_ACKNOWLEDGED,
     TEACHER_CONCERN,
+    TEACHER_HELLO,
     TEACHER_OUT_OF_SCOPE,
 )
 from app.core.errors import DomainError, ProviderUnavailable
@@ -346,6 +347,14 @@ async def test_a_teachers_ok_is_answered_at_once_never_out_of_scope(text: str) -
     layer_with_reader, llm = reading_layer(teacher_reading("out_of_scope"))
     result = await layer_with_reader.generate(teacher_ctx(text, [LAST_BRIDGE]), text, [], E)
     assert result.reply.body == TEACHER_ACKNOWLEDGED[E]
+    assert llm.by_prompt["teacher_intent"].prompts == []
+
+
+@pytest.mark.parametrize("text", ["Namaste", "hello ji", "good morning"])
+async def test_a_teachers_hello_is_answered_at_once(text: str) -> None:
+    layer_with_reader, llm = reading_layer(teacher_reading("out_of_scope"))
+    result = await layer_with_reader.generate(teacher_ctx(text, [LAST_BRIDGE]), text, [], E)
+    assert result.reply.body == TEACHER_HELLO[E]
     assert llm.by_prompt["teacher_intent"].prompts == []
 
 

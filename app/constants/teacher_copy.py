@@ -144,6 +144,16 @@ TEACHER_OUT_OF_SCOPE: Final[dict[Language, str]] = {
         " and careers, or how to teach it in class. Which chapter?"
     ),
 }
+# A teacher's hello: answered at once (one behaviour, every persona: 2026-11-02)
+TEACHER_HELLO: Final[dict[Language, str]] = {
+    Language.HINGLISH: (
+        "Namaste! Kal ka chapter batayiye: use asli kaam aur ek chhoti gatividhi se jodenge."
+    ),
+    Language.HINDI: "नमस्ते! कल का अध्याय बताइए: उसे असली काम और एक छोटी गतिविधि से जोड़ेंगे।",
+    Language.ENGLISH: (
+        "Hello! Tell me tomorrow's chapter, and we'll link it to real work and a short activity."
+    ),
+}
 # A teacher's "ok", thanks or emoji: answered at once (owner's field test, 2026-11-02: "Ok" got the
 # out-of-scope reply)
 TEACHER_ACKNOWLEDGED: Final[dict[Language, str]] = {

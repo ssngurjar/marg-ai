@@ -6,9 +6,10 @@ repeated the UPSC facts). Pure."""
 import unicodedata
 from typing import ClassVar, Final, Literal
 
+from app.domain.rules.onboarding_answer_parser import OnboardingAnswerParser
 from app.domain.rules.phrase_finder import PhraseFinder
 
-type SmallTalk = Literal["thanks", "good_night", "goodbye"]
+type SmallTalk = Literal["thanks", "greeting", "good_night", "goodbye"]
 
 
 class SmallTalkRules:
@@ -36,20 +37,30 @@ class SmallTalkRules:
 
     @staticmethod
     def kind(text: str) -> SmallTalk | None:
-        """ "good_night" or "goodbye" for leaving, "thanks" for an ok, thanks or emoji."""
+        """ "good_night" or "goodbye" for leaving, "greeting" for a hello (a web tester's "Hii",
+        2026-11-02, took 10 s through the mentor), "thanks" for an ok, thanks or emoji."""
         if not text.strip():
             return None
         words = PhraseFinder.words(text)
         if len(words) > SmallTalkRules.MAX_WORDS:
             return None
-        said = " ".join(words)
+        leaving = SmallTalkRules._leaving(" ".join(words))
+        if leaving is not None:
+            return leaving
+        if not words:
+            return "thanks" if SmallTalkRules._only_emoji(text) else None
+        if OnboardingAnswerParser.is_greeting(text):
+            return "greeting"
+        return "thanks" if set(words) <= _WORDS else None
+
+    @staticmethod
+    def _leaving(said: str) -> SmallTalk | None:
+        """ "good night" or a goodbye, maybe after an ok."""
         if SmallTalkRules._ends_with(said, _GOOD_NIGHT):
             return "good_night"
         if SmallTalkRules._ends_with(said, _GOODBYE):
             return "goodbye"
-        if not words:
-            return "thanks" if SmallTalkRules._only_emoji(text) else None
-        return "thanks" if set(words) <= _WORDS else None
+        return None
 
     @staticmethod
     def _ends_with(said: str, phrases: frozenset[str]) -> bool:

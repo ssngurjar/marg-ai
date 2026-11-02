@@ -12,6 +12,7 @@ import pytest
 from app.constants.child_talk_copy import (
     CHILD_ACKNOWLEDGED,
     CHILD_FALLBACK,
+    CHILD_GREETED,
     CHILD_HELLO,
     CHILD_LANGUAGE_SWITCHED,
     CHILD_REFUSE_DANGER,
@@ -328,6 +329,15 @@ async def test_a_childs_ok_or_emoji_is_answered_at_once_and_uses_up_no_question(
     assert result.outcome.route is Route.CHILD_TALK
     assert any(reply in result.delivered for reply in CHILD_ACKNOWLEDGED.values())
     assert result.outcome.writes == []  # no ChildTalkTurn: the question count stays
+    assert llm.prompts == []
+
+
+@pytest.mark.parametrize("text", ["hello", "namaste"])
+async def test_a_childs_hello_is_answered_at_once_and_uses_up_no_question(text: str) -> None:
+    llm = FakeLanguageModel([CHILD_REPLY])
+    result = await run(in_session(text), llm=llm)
+    assert any(reply in result.delivered for reply in CHILD_GREETED.values())
+    assert result.outcome.writes == []
     assert llm.prompts == []
 
 
