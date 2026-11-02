@@ -675,3 +675,18 @@
     must:
       - says Marg is free to use, using only the usual WhatsApp data
       - says Marg never asks for an OTP, a password, bank details or money
+
+- id: parent-journey-037
+  title: A parent asks Marg to explain a school idea for an older child
+  profile: {role: parent, language: english}
+  learner: {relation: parent, nickname: Munni, age: 5}
+  turns:
+    - user: "My son is in class 8. Can you explain basic thermodynamics simply?"
+  expect:
+    route: journey
+    register: english
+    must:
+      - explains a basic idea of thermodynamics (such as heat moving from hot to cold) simply and correctly, with an everyday example
+    must_not:
+      - refuses because Marg does not do homework
+      - writes a whole assignment or a list of worksheet answers

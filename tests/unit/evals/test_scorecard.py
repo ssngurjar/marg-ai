@@ -15,7 +15,7 @@ from app.evals.scorecard_renderer import ScorecardRenderer
 pytestmark = pytest.mark.unit
 
 AT = datetime(2026, 10, 28, 12, 0, tzinfo=UTC)
-VERSIONS = {"mentor": "1.0.0", "parent_answer": "1.4.0"}
+VERSIONS = {"mentor": "1.0.0", "parent_answer": "1.5.0"}
 
 
 def result(  # noqa: PLR0913  # one keyword per field a test sets
