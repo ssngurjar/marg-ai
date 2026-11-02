@@ -96,9 +96,6 @@ as done without a clean run of all four stages is a failed task.
 - `pytest` by default runs `unit` and `contract` tests (hermetic). Integration tests need
   `docker compose -f docker-compose.test.yml up -d` and run with `pytest -m integration`; run them
   whenever `app/store/` or `alembic/` changed.
-- `services/ml_sidecar/` has its own Python 3.12 environment (torch, transformers). Ruff covers it from
-  the root; its mypy (the same strict settings) and its tests run there: `make sidecar-check`,
-  which `make check` includes. Run it whenever the sidecar changed.
 - Report the actual output. Never claim a stage passed if it did not, and never describe a stage
   you skipped as having run.
 
@@ -210,12 +207,12 @@ file, or deleting the code. Return with:
    interface, adding a dependency, relaxing a rule for a documented reason).
 
 The same applies to a test failing three times for reasons you do not understand, and to a
-provider (Model API, WhatsApp, sidecar) behaving differently from its documentation three times.
+provider (Model API, WhatsApp, Baseten, DeepInfra) behaving differently from its documentation three times.
 Escalating is the correct outcome, not a failure.
 
 ## 6. Typing standards
 
-- Every function, method and coroutine in `app/`, `services/` and `tests/` is fully annotated,
+- Every function, method and coroutine in `app/` and `tests/` is fully annotated,
   including `-> None`.
 - No implicit `Optional`. `x: str | None = None`, never `x: str = None`.
 - `Sequence` / `Mapping` for read-only parameters; concrete `list` / `dict` for returns.
@@ -298,9 +295,9 @@ the script and safety checks. When a field test or a bug shows such a gap for on
 ## 8. Dependencies and migrations
 
 - New dependencies need explicit human approval. Note the pinned version and whether it belongs in
-  `[project.dependencies]`, the `dev` group, or the sidecar's own requirements. Heavy ML
-  dependencies (`torch`, `transformers`, `sentence-transformers`) belong in `services/ml_sidecar/`
-  only, never in the API image.
+  `[project.dependencies]` or the `dev` group. Heavy ML dependencies (`torch`, `transformers`,
+  `sentence-transformers`) never go in the API image; an ML service of our own needs the owner's
+  approval (the MMS-TTS sidecar was removed on 2026-11-02, tag `voice-sidecar-2026-11-02`).
 - Schema changes require an alembic migration. Never edit a table without one.
 - **Never run `alembic upgrade` / `downgrade` against the deployed database** unless asked.
   Migrations are tested against `docker-compose.test.yml`.

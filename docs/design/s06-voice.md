@@ -1,5 +1,9 @@
 # S6 — Voice: media, transcoding, speech-to-text, text-to-speech
 
+> **2026-11-02: no voice replies in this build.** The MMS-TTS sidecar and its adapter were removed
+> (tag `voice-sidecar-2026-11-02`); voice notes in are unchanged. Below, §4.7, §4.9 and the TTS
+> settings describe what that tag holds. See the decisions log.
+
 > **Hackathon build level: Full.** We build the full design by default; lite only as the listed exceptions in [mvp-scope.md](mvp-scope.md), which wins for the hackathon where it differs.
 
 ## 1. Purpose
@@ -659,3 +663,4 @@ aren't billed. New points:
 | 2026-11-02 | **A voice note with no voice in it asks to check the microphone** (`FixedReplyVariant.SILENT` on `REPEAT_PLEASE`; `Orchestrator._voice_reply(silent=)`, chosen when `AudioAnalyser` says SILENT). Too short or not understood keeps "could you send it again?". Every channel and persona | A web tester: 6.4 s of silence (`voiced_ms=0`) got "I couldn't understand that", as if they had said something wrong | owner |
 | 2026-11-02 | **MMS-TTS stays off for the submission** (`VOICE_REPLIES_ENABLED=false`). The organisers don't interpret licences for entrants (an entry using a model without the rights is disqualified); self-hosting a Meta open model is fine and counts. CC-BY-NC 4.0 forbids use "primarily intended for or directed towards commercial advantage or monetary compensation", which a prize submission is hard to square with. The README names the open Meta models and where they run, as asked | Organisers' answer in #office-hours | owner |
 | 2026-11-03 | **The organisers' answer, in full:** licence calls are the entrant's; self-hosting a Meta open model counts; if the licence doesn't fit, ship text-only replies, and the demo video may only show features that are built and run, never a staged clip of something not live. Replies stay text; the video shows no spoken Marg reply | #office-hours | owner |
+| 2026-11-02 | **The MMS-TTS sidecar is removed from the build** (`services/ml_sidecar`, `SidecarSynthesizer`, the `SIDECAR_*`, `TTS_ENGINE`, `TTS_PITCH` settings, the sidecar readiness probe, the Makefile targets; tag `voice-sidecar-2026-11-02` keeps them). The `Synthesizer` port and the orchestrator's voice-reply path stay, tested with a fake; `VoiceSteps.synthesizer` is `None`, and `VOICE_REPLIES_ENABLED=true` stops the app at startup | Owner: replies are text for the submission, so the sidecar isn't needed now | owner |

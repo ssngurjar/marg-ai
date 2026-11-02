@@ -26,7 +26,7 @@ Design intent lives in `docs/design/`; this guide describes what is built (as of
                       outbox, users, learners,        Muse Spark Open (Baseten)
                       activities, sessions,           Muse Voice Transcribe, Muse Image
                       signals, media, nudges,         Llama Guard 4 (DeepInfra), SAM 3.1
-                      corpus chunks, plans, memory    ML sidecar (MMS-TTS, off by default)
+                      corpus chunks, plans, memory
 ```
 
 - **The tables are the queue** (E1, `docs/design/mvp-scope.md` §4.1). By default the worker runs
@@ -43,48 +43,32 @@ Design intent lives in `docs/design/`; this guide describes what is built (as of
 
 ## 2. Running everything locally
 
-Order matters: database, migrations, ML sidecar, API, tunnel.
+Order matters: database, migrations, API, tunnel.
 
 | # | What | Command | Check |
 |---|---|---|---|
 | 1 | Postgres | `docker compose up -d postgres` | `docker compose ps` shows healthy |
 | 2 | Migrations | `make migrate` | `.venv/bin/alembic current` → `s10b_child_session_language (head)` |
-| 3 | ML sidecar, only with `VOICE_REPLIES_ENABLED=true` | `make sidecar` (see §2.1) | `curl -s 127.0.0.1:8100/healthz` → `"engine":"mms"` |
 | 3b | Corpus (once, and after any change under `corpus/`) | `.venv/bin/python -m app.cli ingest-corpus` | the mentor cites sources |
 | 4 | API + worker | `.venv/bin/uvicorn app.main:create_app --factory --host 127.0.0.1 --port 8000 --no-access-log` | `curl -s 127.0.0.1:8000/readyz` → `ready`, every probe `ok` (§7.3) |
 | 5 | Public tunnel | `scripts/dev_tunnel.sh 8000` | prints a `https://…trycloudflare.com` URL |
 | 6 | WhatsApp callback | point Meta at `<tunnel>/webhooks/whatsapp` (new URL on every tunnel start) | send "Hi" from the phone |
 | 7 | Web demo | open `<tunnel>/demo` (or `http://127.0.0.1:8000/demo`) | the page greets you |
 
-**From VS Code:** Run and Debug → **"Marg.ai: API + ML sidecar"** starts steps 1, 3 and 4 with
+**From VS Code:** Run and Debug → **"Marg.ai API + worker"** starts steps 1 and 4 with
 breakpoints (`.vscode/launch.json`; Postgres comes up first through `.vscode/tasks.json`). Run the
 tunnel with Terminal → Run Task → "tunnel: public URL for WhatsApp and /demo".
 
 Logs: uvicorn prints JSON lines (structlog) to stdout. Redirect them to a file when running in
 the background: `… >> /tmp/marg-app.log 2>&1`.
 
-### 2.1 The ML sidecar (`services/ml_sidecar/`)
+### 2.1 Voice replies (none in this build)
 
-The voice for replies: FastAPI with `/tts` (Meta's MMS-TTS, `facebook/mms-tts-hin` and `-eng`)
-and `/healthz`. **Off by default:** every model Marg calls must be a Meta model, and MMS is
-CC-BY-NC, so `VOICE_REPLIES_ENABLED=false` until the organisers rule on it (s06 log,
-2026-10-29). With it off, replies are text, no `synthesize` step runs, `/readyz` doesn't probe
-the sidecar, and the web demo offers the browser's own voice ("🔊 Listen").
-
-It has its own Python 3.12 environment, so torch stays out of the API:
-
-```sh
-make sidecar-setup    # once: services/ml_sidecar/.venv from its own lockfile
-make sidecar          # serves :8100 with this repo's .env
-make sidecar-check    # its strict mypy and its tests (also part of `make check`)
-```
-
-- It loads the speech model `TTS_ENGINE` names (only `mms`). Another model plugs in as a
-  `SpeechEngine` (`sidecar/speech_engine.py`) and an entry in `sidecar/server.py`'s `ENGINES`,
-  plus its name in `app/core/types.py` `TtsEngine` and `SidecarSynthesizer.MODELS`.
-- `.env` needs `VOICE_REPLIES_ENABLED=true`, `TTS_ENGINE`, `SIDECAR_BASE_URL` and
-  `SIDECAR_TOKEN`. An engine mismatch returns 422 and every reply goes text-only (`synthesize`
-  FAILED in the trace).
+Voice notes in are transcribed (Muse Voice Transcribe); replies are text. Every model Marg calls
+must be a Meta model, and the only Meta speech model, MMS-TTS, is CC-BY-NC 4.0, so its sidecar
+was removed on 2026-11-02 (git tag `voice-sidecar-2026-11-02` restores it). The reply path still
+speaks through the `Synthesizer` port with no adapter wired, and `VOICE_REPLIES_ENABLED=true` stops
+the app at startup with a `ConfigError`. The web demo offers the browser's own voice ("🔊 Listen").
 
 ### 2.2 Settings that change behaviour (`.env`)
 

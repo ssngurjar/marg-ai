@@ -11,7 +11,7 @@ from pydantic import Field, HttpUrl, SecretStr, ValidationError, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.core.errors import ConfigError
-from app.core.types import ReasoningEffort, ReplyLanguage, TtsEngine
+from app.core.types import ReasoningEffort, ReplyLanguage
 
 ASYNCPG_SCHEME = "postgresql+asyncpg://"
 LOCAL_BASE_URL = "http://127.0.0.1:8000"
@@ -131,19 +131,12 @@ class Settings(DatabaseSettings):
     # Hinglish, the families' default (owner, 2026-10-29).
     web_default_language: ReplyLanguage = "english"
 
-    # Added in S6 for voice (s06 §7). Voice replies are off (text only) until the organisers
-    # rule on MMS-TTS's non-commercial licence: every model Marg calls must be a Meta model,
-    # and MMS is the only Meta speech model (owner, 2026-10-29). When on, TTS_ENGINE names the
-    # ML sidecar's speech model and the sidecar must run the same one.
+    # Added in S6 for voice (s06 §7). Replies are text: every model Marg calls must be a Meta model,
+    # and the only Meta speech model, MMS-TTS, is non-commercial (CC-BY-NC 4.0). Its sidecar was
+    # removed on 2026-11-02 (tag voice-sidecar-2026-11-02); with no speech model in this build,
+    # VOICE_REPLIES_ENABLED=true stops the app at startup.
     model_stt: str = Field(default="muse-voice-transcribe-1.0", min_length=1)
     voice_replies_enabled: bool = False
-    tts_engine: TtsEngine = "mms"
-    # Raises or lowers the voice at the same speed; 1.0 leaves MMS's one Hindi voice as it is.
-    # 1.28 was tried for a woman's voice and rejected by ear: still a man's voice, and worse
-    # speech (owner, 2026-10-29).
-    tts_pitch: float = Field(default=1.0, ge=0.5, le=2.0)
-    sidecar_base_url: HttpUrl
-    sidecar_token: SecretStr
     timeout_fetch_media_s: float = Field(default=5.0, gt=0)
     timeout_transcribe_s: float = Field(default=10.0, gt=0)
     timeout_synthesize_s: float = Field(default=8.0, gt=0)
@@ -259,7 +252,6 @@ class Settings(DatabaseSettings):
         "model_api_key",
         "safety_api_key",
         "open_model_api_key",
-        "sidecar_token",
         "session_signing_key",
     )
     @classmethod

@@ -17,7 +17,7 @@ platform by **Wed Nov 4, 9:00 PM ET = Thu Nov 5, 07:30 IST**. Our target: **Nov 
       ("a voice-first WhatsApp guide that helps rural parents turn everyday moments into
       discovery for their 3–8-year-olds; the child never touches a screen").
 - [x] **Built during the hackathon (Oct 26–Nov 4):** all code, prompts, activity catalogue, the
-      ML sidecar, the web demo. **Prepared before kickoff:** planning and design docs, golden eval
+      web demo. **Prepared before kickoff:** planning and design docs, golden eval
       cases (test data), the corpus source list. Point to the `pre-kickoff` tag.
 - [ ] The Meta models used and how: Muse Spark, Muse Voice Transcribe, Muse Image, SAM 3.1,
       Llama Guard 4, Muse Spark Open (C9), Muse Code. Every model called at runtime is Meta's
@@ -42,12 +42,12 @@ platform by **Wed Nov 4, 9:00 PM ET = Thu Nov 5, 07:30 IST**. Our target: **Nov 
       mentor is one part, with claims, citations and an honest "I don't know"; health questions
       are referred).
 - [x] Licences of every model and library used (the rules require them to be followed): the
-      README's Licences section lists them, the sidecar's included, with the "Built with Muse
+      README's Licences section lists them, with the "Built with Muse
       Spark Open" and "Built with Llama" attributions. Muse Spark Open: Muse Model License; Llama
       Guard 4: Llama 4 Community License (from their Hugging Face model cards, 2026-10-29; the
       licence texts themselves are gated, read them once when logged in). Marg's own code: all rights
-      reserved, viewing and running to evaluate the entry allowed (`LICENSE`, 2026-10-29). The sidecar is MMS-TTS only
-      now (CC-BY-NC 4.0, off by default); the GPL phonemiser left with Kokoro.
+      reserved, viewing and running to evaluate the entry allowed (`LICENSE`, 2026-10-29). The MMS-TTS sidecar was
+      removed on 2026-11-02 (tag `voice-sidecar-2026-11-02`).
 - [ ] How to try it: the WhatsApp number / QR and the `/demo` link. *(2026-10-30: the demo link
       <https://marg-ai.fly.dev/demo> is in; the WhatsApp number waits for Meta's new token)*
 

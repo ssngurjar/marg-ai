@@ -31,3 +31,10 @@ def test_an_unpriced_safety_model_refuses_to_start() -> None:
     settings = make_settings().model_copy(update={"safety_model": "llama-guard-3-8b"})
     with pytest.raises(ConfigError, match="no price recorded for model 'llama-guard-3-8b'"):
         check_startup(settings)
+
+
+def test_voice_replies_with_no_speech_model_in_the_build_refuse_to_start() -> None:
+    # the MMS-TTS sidecar was removed (2026-11-02): voice replies can't be switched on by mistake
+    settings = make_settings().model_copy(update={"voice_replies_enabled": True})
+    with pytest.raises(ConfigError, match="VOICE_REPLIES_ENABLED=true needs a speech model"):
+        check_startup(settings)

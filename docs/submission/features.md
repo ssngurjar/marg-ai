@@ -49,8 +49,8 @@ months ("6 mahine") is under two, and Marg asks for an age from 2 to 19. The way
 2. The raw audio is deleted as soon as it's transcribed.
 3. **Replies are text.** Meta's MMS-TTS, the only Meta speech model, is CC-BY-NC 4.0
    (non-commercial); the organisers leave the licence to us, and a prize submission is hard to
-   square with it, so it stays off (built in `services/ml_sidecar`, behind
-   `VOICE_REPLIES_ENABLED`). The web demo reads replies aloud with the browser's own voice, which
+   square with it, so this build has no speech model (the MMS voice built during the hackathon is
+   kept under the git tag `voice-sidecar-2026-11-02`). The web demo reads replies aloud with the browser's own voice, which
    isn't a model call. While voice replies are off, the models don't write a separate voice
    version at all, which makes every reply faster.
 

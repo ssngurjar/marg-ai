@@ -23,26 +23,20 @@ def database_url() -> str:
     return url
 
 
-@pytest.mark.parametrize("voice_replies", [True, False], ids=["voice-on", "voice-off"])
-def test_readyz_against_real_postgres(database_url: str, *, voice_replies: bool) -> None:
+def test_readyz_against_real_postgres(database_url: str) -> None:
     """The database-backed probes pass against the test Postgres; the providers point at a
     closed local port (no live call from the test suite), so their critical probes fail and
-    the service is honestly not ready. The ML sidecar is probed only when voice replies are on."""
+    the service is honestly not ready. There is no speech model to probe: replies are text."""
     nowhere = HttpUrl("http://127.0.0.1:1/v1")
     settings = make_settings(database_url=database_url).model_copy(
-        update={
-            "model_api_base_url": nowhere,
-            "safety_base_url": nowhere,
-            "sidecar_base_url": nowhere,
-            "voice_replies_enabled": voice_replies,
-        }
+        update={"model_api_base_url": nowhere, "safety_base_url": nowhere}
     )
     with TestClient(create_app(settings=settings)) as client:
         response = client.get("/readyz")
     checks = {
         check["name"]: (check["ok"], check["critical"]) for check in response.json()["checks"]
     }
-    expected = {
+    assert checks == {
         "database": (True, True),
         "schema": (True, True),  # the test database is at the newest migration
         "queue": (True, True),
@@ -50,9 +44,6 @@ def test_readyz_against_real_postgres(database_url: str, *, voice_replies: bool)
         "safety": (False, True),
         "ffmpeg": (True, False),
     }
-    if voice_replies:
-        expected["sidecar"] = (False, False)  # text replies still go out without it
-    assert checks == expected
     assert response.status_code == 503
 
 

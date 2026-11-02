@@ -172,7 +172,7 @@ class VoiceSteps:
     fetcher: MediaFetcher
     converter: AudioConverter
     transcriber: Transcriber
-    synthesizer: Synthesizer
+    synthesizer: Synthesizer | None  # None: no speech model in this build, replies are text
     audio_store: ReplyAudioStore
     limits: VoiceLimits
     voice_replies_enabled: bool  # VOICE_REPLIES_ENABLED: off, the reply stays text only
@@ -1258,7 +1258,7 @@ class _Turn:
         REPLY_AUDIO_FOR_TEXT_INPUT). Its spoken text passed safety_out with the text. Any failure
         leaves the reply as text only (DEGRADED, s06 §8)."""
         voice = self.steps.voice
-        if self.sealed is None or not voice.voice_replies_enabled:
+        if self.sealed is None or not voice.voice_replies_enabled or voice.synthesizer is None:
             return outcome
         if not (self.voice_turn or voice.reply_audio_for_text_input):
             return outcome

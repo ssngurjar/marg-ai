@@ -630,7 +630,6 @@ and a unit test enforce. When the user's language is unknown, the Hinglish versi
 | `OPEN_MODEL_ROUTES` | `frozenset[str]` | `{"parent_reflection", "curiosity_extract"}`: prompt ids served by Muse Spark Open; any failure falls back to `MODEL_TEXT` |
 | `SAFETY_BASE_URL` / `SAFETY_API_KEY` / `SAFETY_MODEL` | `HttpUrl` / `SecretStr` / `str` | host decided in S2 |
 | `SAFETY_POLICY_MODEL_ENABLED` | `bool` | `true` |
-| `SIDECAR_BASE_URL` / `SIDECAR_TOKEN` | `HttpUrl` / `SecretStr` | — |
 | `STT_FALLBACK_ENABLED` | `bool` | `false` |
 | `SEARCH_GROUNDING_ENABLED` | `bool` | `false` (stays off for the MVP) |
 | `QUERY_REWRITE_ENABLED` | `bool` | `false` (on only if the S11 retrieval eval shows ≥ +0.05 recall@5) |
@@ -736,3 +735,4 @@ Per-step timeouts `TIMEOUT_<STEP>_S`: `FETCH_MEDIA` 5, `TRANSCRIBE` 8, `SAFETY_I
 | 2026-11-02 | Second field test: write `ActivityReopened(learner_activity_id)`; `ParentIntent.NOT_DONE_YET`; `AddChild(answered: ChildAnswered \| ChildrenAnswered \| None = None)`; `OnboardingAnswerParser.adds_a_child_with_age`, `without_new_child_phrase`, `NEW_CHILD_PHRASES`; route reason "new child with age"; `JourneyLayer.reopenable(history, now)` | Second field test | owner |
 | 2026-11-02 | `CopyKey.CONSENT_REASK`; `Unrecognised.consent_note_shown: bool = False`; `OnboardingLayer.CONSENT_NOTE_FRESH`, `CONSENT_QUESTIONS`, `consent_note_sent_since(exchanges, since)` | Web tester | owner |
 | 2026-11-02 | `ParentIntent.OTHER_ROLE`, `StudentIntent.OTHER_ROLE`, `TeacherIntent.OTHER_ROLE`; `OTHER_ROLE_REPLY`, `ACKNOWLEDGED_AGAIN` (`small_talk_copy`); `ACKNOWLEDGED_AFTER_KHOJ`; `CHILD_ACKNOWLEDGED_AGAIN`; `SmallTalkRules.repeats(reply, previous_reply)`; `RegisterChooser.choose(text, usual, conversation=None)`; `MentorLayer.other_role_reply(register)`; log event `generation_repaired`; route reason "other role (read)" | Owner's to-fix list from the 2 Nov testing | owner |
+| 2026-11-02 | Removed: `SIDECAR_BASE_URL`, `SIDECAR_TOKEN`, `TTS_ENGINE`, `TTS_PITCH`, `TtsEngine`, `SidecarSynthesizer`, `HealthChecks.sidecar`; `VoiceSteps.synthesizer: Synthesizer \| None` | MMS-TTS sidecar removed (s06 log) | owner |

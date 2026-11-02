@@ -17,8 +17,7 @@ fixed or written down with its workaround before going on.
   replies are on).
 - [ ] `/status` for the last 24 h: success rate ≥ 98%, p95 within the smoke-test numbers
   (`docs/load/2026-10-28-smoke-test.md`).
-- [ ] `VOICE_REPLIES_ENABLED=false` unless the organisers have cleared MMS-TTS; if it's on, the
-      ML sidecar (`make sidecar`) is running and stays up through judging.
+- [ ] `VOICE_REPLIES_ENABLED=false` (this build has no speech model; `true` stops the app at startup).
 - [ ] The corpus is ingested (`marg ingest-corpus --yes` on prod): 53 documents, verified from India.
 - [ ] **Production is running again, on the latest code** (scaled to 0 on 2026-10-30 to save Neon
   compute hours; main has moved on since that image). Deploy, don't just scale up:

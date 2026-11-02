@@ -33,7 +33,7 @@ from app.channels.whatsapp.whatsapp_sender import WhatsAppConfig, WhatsAppSender
 from app.core.circuit_breaker import BreakerLimits
 from app.core.clock import Clock, SystemClock
 from app.core.config import Settings
-from app.core.errors import ProviderUnavailable, StoreError
+from app.core.errors import ConfigError, ProviderUnavailable, StoreError
 from app.core.provider_breaker import ProviderBreaker
 from app.core.signed_token_codec import SignedTokenCodec
 from app.core.user_identity import UserIdentity
@@ -98,7 +98,6 @@ from app.providers.ports import (
 )
 from app.providers.safety.llama_guard_classifier import LlamaGuardClassifier, SafetyHostConfig
 from app.providers.speech.muse_voice_transcriber import MuseVoiceTranscriber, TranscriberConfig
-from app.providers.speech.sidecar_synthesizer import SidecarConfig, SidecarSynthesizer
 from app.rag.retriever import Retriever, RetrieverSettings
 from app.safety.domain_policy import (
     IMAGE_POLICY,
@@ -238,7 +237,6 @@ class VoiceAdapters:
     fetcher: WhatsAppMediaFetcher
     transcoder: AudioTranscoder
     transcriber: MuseVoiceTranscriber
-    synthesizer: SidecarSynthesizer
     media: MediaBlobRepository
 
 
@@ -358,7 +356,6 @@ def build_container(settings: Settings) -> Container:
 @dataclass(frozen=True, slots=True)
 class HealthChecks:
     model_api: HttpHealthCheck
-    sidecar: HttpHealthCheck
 
 
 def build_health_checks(settings: Settings) -> HealthChecks:
@@ -368,14 +365,6 @@ def build_health_checks(settings: Settings) -> HealthChecks:
                 provider="meta_model_api",
                 url=f"{str(settings.model_api_base_url).rstrip('/')}/models",
                 token=settings.model_api_key,
-                timeout_s=PROBE_TIMEOUT_S,
-            )
-        ),
-        sidecar=HttpHealthCheck(
-            HealthEndpoint(
-                provider="ml_sidecar",
-                url=f"{str(settings.sidecar_base_url).rstrip('/')}/healthz",
-                token=settings.sidecar_token,
                 timeout_s=PROBE_TIMEOUT_S,
             )
         ),
@@ -398,7 +387,7 @@ def provider_probes(
         if verdict.categories:
             raise ProviderUnavailable("safety host flags a greeting", provider="llama_guard")
 
-    probes = (
+    return (
         ReadinessProbe(
             name="model_api",
             critical=True,
@@ -410,14 +399,6 @@ def provider_probes(
             check=CachedCheck(safety_allows_a_greeting, PROVIDER_PROBE_TTL, clock),
         ),
     )
-    if not settings.voice_replies_enabled:
-        return probes
-    sidecar = ReadinessProbe(
-        name="sidecar",
-        critical=False,
-        check=CachedCheck(checks.sidecar.check, PROVIDER_PROBE_TTL, clock),
-    )
-    return (*probes, sidecar)
 
 
 async def schema_is_current(engine: AsyncEngine) -> None:
@@ -499,9 +480,7 @@ def build_voice_adapters(
 ) -> VoiceAdapters:
     """Voice notes in (WhatsApp download, ffmpeg, Muse Voice Transcribe) and out (the voice
     server running TTS_ENGINE, ffmpeg). s06."""
-    transcoder = AudioTranscoder(
-        timeout_s=settings.transcode_timeout_s, voice_pitch=settings.tts_pitch
-    )
+    transcoder = AudioTranscoder(timeout_s=settings.transcode_timeout_s)
     return VoiceAdapters(
         fetcher=WhatsAppMediaFetcher(
             config=MediaFetchConfig(
@@ -525,17 +504,6 @@ def build_voice_adapters(
             retry=retry,
             clock=clock,
         ),
-        synthesizer=SidecarSynthesizer(
-            config=SidecarConfig(
-                base_url=str(settings.sidecar_base_url),
-                token=settings.sidecar_token,
-                engine=settings.tts_engine,
-                timeout_s=settings.timeout_synthesize_s,
-            ),
-            transcoder=transcoder,
-            retry=retry,
-            clock=clock,
-        ),
         media=MediaBlobRepository(session_factory),
     )
 
@@ -547,7 +515,7 @@ def voice_steps(settings: Settings, adapters: VoiceAdapters) -> VoiceSteps:
         ),
         converter=adapters.transcoder,
         transcriber=adapters.transcriber,
-        synthesizer=adapters.synthesizer,
+        synthesizer=None,  # no speech model in this build: replies are text (s06)
         audio_store=adapters.media,
         limits=VoiceLimits(
             min_duration_ms=settings.min_voice_note_ms,
@@ -628,6 +596,11 @@ def check_startup(settings: Settings) -> None:
     ModelPricing.price_of(settings.safety_model)
     FixedReplyService.check_all_languages()
     OnboardingLayer.check_copy()
+    if settings.voice_replies_enabled:
+        raise ConfigError(
+            "VOICE_REPLIES_ENABLED=true needs a speech model, and this build has none: the MMS-TTS"
+            " sidecar was removed (tag voice-sidecar-2026-11-02); replies are text (s06)"
+        )
 
 
 def build_orchestrator(
@@ -1111,7 +1084,6 @@ async def close_providers(providers: Providers) -> None:
     await providers.safety_classifier.aclose()
     await providers.voice_adapters.fetcher.aclose()
     await providers.voice_adapters.transcriber.aclose()
-    await providers.voice_adapters.synthesizer.aclose()
     await providers.image_generator.aclose()
     await providers.image_segmenter.aclose()
 
@@ -1125,10 +1097,8 @@ async def close_container(container: Container) -> None:
     await container.safety_classifier.aclose()
     await container.voice_adapters.fetcher.aclose()
     await container.voice_adapters.transcriber.aclose()
-    await container.voice_adapters.synthesizer.aclose()
     await container.image_generator.aclose()
     await container.image_segmenter.aclose()
     await container.engine.dispose()
     await container.listener_engine.dispose()
     await container.health_checks.model_api.aclose()
-    await container.health_checks.sidecar.aclose()

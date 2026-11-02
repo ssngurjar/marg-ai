@@ -39,16 +39,15 @@ costs more than a feature not shipped: the Indie track is judged on
 
 `make check` is the §2 verification loop.
 
-- `make setup` — `uv sync`, here and in `services/ml_sidecar`
+- `make setup` — `uv sync`
 - `make fmt` — `.venv/bin/ruff format .`
 - `make lint` — `.venv/bin/ruff check .`
 - `make type` — `.venv/bin/mypy .`
 - `make test` — `.venv/bin/pytest` (unit + contract, hermetic)
-- `make check` — fmt + lint + type + test + sidecar-check, in order; each stage must exit 0 before the next
+- `make check` — fmt + lint + type + test, in order; each stage must exit 0 before the next
 - `make test-db-up` / `make test-db-down` — Postgres for integration tests
   (`docker-compose.test.yml`)
 - `make test-int` — alembic upgrade/downgrade/upgrade + check, then `pytest -m integration`
-- `make sidecar` — the ML sidecar (MMS voice, only with `VOICE_REPLIES_ENABLED=true`) on :8100 with `.env`; `make sidecar-check` — its mypy and tests
 - `make migrate` — `alembic upgrade head` against the LOCAL database only (never a deployed
   database unless asked, §8)
 - `marg eval` on the affected golden cases when a prompt or a layer changes; report the
@@ -67,8 +66,6 @@ costs more than a feature not shipped: the Indie track is judged on
 - `app/core/` — config, clock, errors, types, logging (including the redaction processor).
 - `app/prompts/` — `*.md.j2` prompt templates with versioned frontmatter.
 - `app/safety/` — safety checks plus the fixed crisis replies (`crisis.py`).
-- `services/ml_sidecar/` — heavy ML dependencies (`torch`, `transformers`,
-  `sentence-transformers`) belong here only, never in the API image.
 - `corpus/` — RAG corpus; every file carries `source_url` and `retrieved_on`.
 - `evals/` — golden eval sets (never generated from real user conversations).
 - `tests/` — `unit/`, `contract/`, `integration/` suites plus `fakes/` (unit tests never call
@@ -148,9 +145,6 @@ as done without a clean run of all four stages is a failed task.
 - `pytest` by default runs `unit` and `contract` tests (hermetic). Integration tests need
   `docker compose -f docker-compose.test.yml up -d` and run with `pytest -m integration`; run them
   whenever `app/store/` or `alembic/` changed.
-- `services/ml_sidecar/` has its own Python 3.12 environment (torch, transformers). Ruff covers it from
-  the root; its mypy (the same strict settings) and its tests run there: `make sidecar-check`,
-  which `make check` includes. Run it whenever the sidecar changed.
 - Report the actual output. Never claim a stage passed if it did not, and never describe a stage
   you skipped as having run.
 
@@ -262,12 +256,12 @@ file, or deleting the code. Return with:
    interface, adding a dependency, relaxing a rule for a documented reason).
 
 The same applies to a test failing three times for reasons you do not understand, and to a
-provider (Model API, WhatsApp, sidecar) behaving differently from its documentation three times.
+provider (Model API, WhatsApp, Baseten, DeepInfra) behaving differently from its documentation three times.
 Escalating is the correct outcome, not a failure.
 
 ## 6. Typing standards
 
-- Every function, method and coroutine in `app/`, `services/` and `tests/` is fully annotated,
+- Every function, method and coroutine in `app/` and `tests/` is fully annotated,
   including `-> None`.
 - No implicit `Optional`. `x: str | None = None`, never `x: str = None`.
 - `Sequence` / `Mapping` for read-only parameters; concrete `list` / `dict` for returns.
@@ -350,9 +344,9 @@ the script and safety checks. When a field test or a bug shows such a gap for on
 ## 8. Dependencies and migrations
 
 - New dependencies need explicit human approval. Note the pinned version and whether it belongs in
-  `[project.dependencies]`, the `dev` group, or the sidecar's own requirements. Heavy ML
-  dependencies (`torch`, `transformers`, `sentence-transformers`) belong in `services/ml_sidecar/`
-  only, never in the API image.
+  `[project.dependencies]` or the `dev` group. Heavy ML dependencies (`torch`, `transformers`,
+  `sentence-transformers`) never go in the API image; an ML service of our own needs the owner's
+  approval (the MMS-TTS sidecar was removed on 2026-11-02, tag `voice-sidecar-2026-11-02`).
 - Schema changes require an alembic migration. Never edit a table without one.
 - **Never run `alembic upgrade` / `downgrade` against the deployed database** unless asked.
   Migrations are tested against `docker-compose.test.yml`.

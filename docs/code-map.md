@@ -284,7 +284,6 @@ line of the module's docstring.
 | Module | Classes | What it does |
 |---|---|---|
 | `muse_voice_transcriber.py` | `TranscriberConfig`, `MuseVoiceTranscriber` | MuseVoiceTranscriber: a voice note's words, from Muse Voice Transcribe (s06 §4.5). |
-| `sidecar_synthesizer.py` | `SidecarConfig`, `SidecarSynthesizer` | SidecarSynthesizer: a reply's spoken text as a WhatsApp voice note (s06 §4.7). |
 
 ## `rag`
 

@@ -23,7 +23,7 @@ Oct 26 – Nov 4, 2026, by Santram Gurjar.
 |---|---|
 | **Impact** | Fewer than one in four Class 3 children in rural government schools can read a Class 2 story (ASER 2024), and 250 million children under five are at risk of not reaching their potential (The Lancet, 2017). Marg reaches families through the phone they already have: no app, just a voice note, at under one US cent a reply in model calls. → [Impact](#impact) |
 | **Meta AI tooling** | Six Meta models, each with one job: Muse Spark 1.3, Muse Spark Open (open weights), Muse Voice Transcribe, SAM 3.1, Muse Image and Llama Guard 4, plus measured feedback on where they fell short for Hindi and Braj. → [The models](#the-models-six-from-meta-each-with-one-job) · [feedback](docs/submission/submission-form.md#provide-feedback-from-your-experience-using-meta-products) |
-| **Technical depth** | Hexagonal (ports and adapters) architecture, enforced by an import-graph test; every message checked on the way in and out, failing closed, with Muse Spark backing up Llama Guard; 3,344 tests, including property-based ones; 96 eval cases through the real pipeline, with crisis and adversarial cases as hard gates (76% of the 82 scored pass on the latest full run); a design document and decisions log for every step. → [How it works](#how-it-works) · [Safety](#safety-and-childrens-privacy) · [Quality](#quality) |
+| **Technical depth** | Hexagonal (ports and adapters) architecture, enforced by an import-graph test; every message checked on the way in and out, failing closed, with Muse Spark backing up Llama Guard; 3,323 tests, including property-based ones; 96 eval cases through the real pipeline, with crisis and adversarial cases as hard gates (76% of the 82 scored pass on the latest full run); a design document and decisions log for every step. → [How it works](#how-it-works) · [Safety](#safety-and-childrens-privacy) · [Quality](#quality) |
 | **Demo** | A live web demo that shows a trace of every step behind each reply, and the three-minute video (English subtitles uploaded, not auto-generated). → [Try it](#try-it) |
 
 | | |
@@ -133,7 +133,7 @@ Everything that runs was built between **Oct 26 and Nov 4, 2026**. The git tag
 [`pre-kickoff`](../../tree/pre-kickoff) marks the line: before it, the repository held only
 **planning and design documents, the golden evaluation cases (test data) and a list of corpus
 sources**. All code, prompts, the activity catalogue, the corpus files, the web demo, the eval
-harness and the ML sidecar came after it; `git log pre-kickoff..main` shows each step.
+harness (and a voice sidecar, since removed) came after it; `git log pre-kickoff..main` shows each step.
 
 **Every model Marg calls is a Meta model**, as the organisers require, and everything Marg runs
 is in this repository. Two consequences, both decided on Oct 29:
@@ -142,8 +142,8 @@ is in this repository. Two consequences, both decided on Oct 29:
   CC-BY-NC 4.0 (non-commercial). The organisers leave each licence to the entrant, and a prize
   submission is hard to square with "non-commercial", so we keep it off. Voice notes *in* still
   work (Muse Voice Transcribe), and the web demo reads replies aloud with the browser's own voice,
-  which isn't a model call. The MMS voice is built in
-  [`services/ml_sidecar/`](services/ml_sidecar/) and stays off (`VOICE_REPLIES_ENABLED=false`),
+  which isn't a model call. An MMS voice was built during the hackathon and then removed from
+  this build (git tag `voice-sidecar-2026-11-02`); the reply path still speaks through a port,
   ready for a Meta speech model whose licence allows it.
 - **The source search is keyword search in Postgres**, with Muse Spark turning a Hindi or
   Hinglish question into English search terms first. An earlier version also used a non-Meta
@@ -155,7 +155,7 @@ Marg is a **compound AI system**: six Meta models and plain code working togethe
 deterministic router, rather than one chatbot.
 
 **Open Meta models, and where they run:** Muse Spark Open on Baseten and Llama Guard 4 on
-DeepInfra, both called at runtime; MMS-TTS on our own ML sidecar (built, switched off: see above).
+DeepInfra, both called at runtime.
 The rest run on the Meta Model API.
 
 | Model | Where it runs | What it does in Marg |
@@ -250,7 +250,7 @@ date; that is planned after the hackathon.
 
 | | |
 |---|---|
-| Tests | **3,344**: 3,130 unit and contract tests, plus 214 integration tests on Postgres; property-based tests (Hypothesis) for the state machine, message splitting, spoken-text rules, the chunker, signatures, payload parsing and the hazard matcher |
+| Tests | **3,323**: 3,110 unit and contract tests, plus 213 integration tests on Postgres; property-based tests (Hypothesis) for the state machine, message splitting, spoken-text rules, the chunker, signatures, payload parsing and the hazard matcher |
 | Checks | `ruff format`, `ruff check`, `mypy --strict` (no `Any`), `pytest`: all must pass before every commit |
 | Evals | `marg eval` plays **101** hand-written cases through the real pipeline and real models; code checks plus a judge model. Crisis and adversarial cases are hard gates |
 | Latest full scorecard | **76%** of the 82 scored cases pass (62); both hard gates pass; safety 5.00/5, reading level 4.73/5, cultural resonance 4.84/5 ([evals/results/](evals/results/)) |
@@ -300,16 +300,14 @@ make migrate                             # the schema
 open http://127.0.0.1:8000/demo
 ```
 
-The ML sidecar (`make sidecar`) is needed only with `VOICE_REPLIES_ENABLED=true`
-([guide, §2.1](docs/guides/debugging-and-architecture.md)). The checks: `make check` (format,
-lint, types and unit tests, the sidecar's included) and `make test-int` (Postgres).
+See the [guide, §2.1](docs/guides/debugging-and-architecture.md). The checks: `make check`
+(format, lint, types and unit tests) and `make test-int` (Postgres).
 
 ## Repository map
 
 | Path | What's there |
 |---|---|
 | [`app/`](app/) | The service: `api`, `channels`, `pipeline`, `layers`, `safety`, `domain`, `providers`, `store`, `worker`, `rag`, `evals`, `prompts`, `constants` |
-| [`services/ml_sidecar/`](services/ml_sidecar/) | The ML sidecar: Meta's MMS-TTS voice (`/tts`), off until the organisers rule on its licence; its own Python 3.12 environment |
 | [`content/activities/`](content/activities/) | The 10 reviewed discovery activities, their hazards and materials |
 | [`corpus/`](corpus/) | The official sources for the mentor, each with `source_url` and `retrieved_on` |
 | [`evals/`](evals/) | Golden cases and scorecards |
@@ -323,8 +321,6 @@ lint, types and unit tests, the sidecar's included) and `make test-int` (Postgre
 | Muse Spark, Muse Voice Transcribe, Muse Image, SAM 3.1 (Meta Model API) | Meta Model API terms |
 | Muse Spark Open | Muse Model License (Meta) |
 | Llama Guard 4 | Llama 4 Community License (Meta) |
-| MMS-TTS (`facebook/mms-tts-hin`, `-eng`): only with `VOICE_REPLIES_ENABLED=true`, off | CC-BY-NC 4.0 |
-| PyTorch, transformers, NumPy (the sidecar only) | BSD-3-Clause; Apache-2.0; BSD-3-Clause |
 | FastAPI, Pydantic, pydantic-settings, SQLAlchemy, Alembic, PyYAML, structlog | MIT (structlog MIT or Apache-2.0) |
 | asyncpg, openai, cryptography | Apache-2.0 (cryptography Apache-2.0 or BSD-3-Clause) |
 | httpx, Jinja2, uvicorn | BSD-3-Clause |

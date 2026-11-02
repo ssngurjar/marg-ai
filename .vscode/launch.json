@@ -1,8 +1,5 @@
 {
   // Run and debug Marg.ai from VS Code (Run and Debug panel, or F5).
-  // The ML sidecar (Meta's MMS-TTS voice, needed only with VOICE_REPLIES_ENABLED=true) lives in
-  // services/ml_sidecar with its own venv: run `make sidecar-setup` once. Both servers read this
-  // repo's .env (TTS_ENGINE and SIDECAR_TOKEN are shared).
   // Needs the "Python Debugger" extension (it brings debugpy; nothing to install in the venvs).
   "version": "0.2.0",
   "configurations": [
@@ -26,24 +23,6 @@
       "justMyCode": true
     },
     {
-      "name": "ML sidecar (MMS voice)",
-      "type": "debugpy",
-      "request": "launch",
-      "module": "uvicorn",
-      "args": [
-        "sidecar.server:build_app",
-        "--factory",
-        "--host", "127.0.0.1",
-        "--port", "8100",
-        "--no-access-log"
-      ],
-      "python": "${workspaceFolder}/services/ml_sidecar/.venv/bin/python",
-      "cwd": "${workspaceFolder}/services/ml_sidecar",
-      "envFile": "${workspaceFolder}/.env",
-      "console": "integratedTerminal",
-      "justMyCode": true
-    },
-    {
       "name": "Tests: current file",
       "type": "debugpy",
       "request": "launch",
@@ -53,13 +32,6 @@
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
       "justMyCode": false
-    }
-  ],
-  "compounds": [
-    {
-      "name": "Marg.ai: API + ML sidecar",
-      "configurations": ["ML sidecar (MMS voice)", "Marg.ai API + worker"],
-      "stopAll": true
     }
   ]
 }
