@@ -33,19 +33,19 @@ LABELS: Final[dict[Language, dict[str, str]]] = {
         "topic": "Chapter", "fields": "Yeh chapter in teen kshetron se judta hai",
         "why": "Kyun", "example": "Bharat se udaharan", "activity": "Activity (5 minute)",
         "materials": "Saamaan", "careers": "Kaam", "local": "Gaon se jod",
-        "another": "Ek aur activity",
+        "another": "Ek aur activity", "class": "class",
     },
     Language.HINDI: {
         "topic": "अध्याय", "fields": "यह अध्याय इन तीन क्षेत्रों से जुड़ता है",
         "why": "क्यों", "example": "भारत से उदाहरण", "activity": "गतिविधि (5 मिनट)",
         "materials": "सामान", "careers": "काम", "local": "गाँव से जुड़ाव",
-        "another": "एक और गतिविधि",
+        "another": "एक और गतिविधि", "class": "कक्षा",
     },
     Language.ENGLISH: {
         "topic": "Topic", "fields": "Three fields this chapter leads to",
         "why": "Why", "example": "Example from India", "activity": "Activity (5 minutes)",
         "materials": "Materials", "careers": "Careers", "local": "Local link",
-        "another": "Another activity",
+        "another": "Another activity", "class": "class",
     },
 }  # fmt: skip
 # A teaching answer's sections (owner, 2026-11-01: teachers asked how to start a chapter)
@@ -125,18 +125,29 @@ TEACHER_CONCERN: Final[dict[Language, str]] = {
     ),
 }
 # Not about teaching (critic review D2): an honest "this is what I do", and the way back in.
+# Owner, 2026-11-02: say Marg is just beginning and growing, not a flat "I can't help".
 TEACHER_OUT_OF_SCOPE: Final[dict[Language, str]] = {
     Language.HINGLISH: (
-        "Isme main madad nahi kar paunga: Marg padhane mein madad karta hai. Kisi chapter ko asli"
-        " kaam aur careers se jodna ho, ya use class mein kaise padhayein, yeh poochhiye. Kaunsa"
-        " chapter?"
+        "Marg abhi shuruaat mein hai, isliye yeh abhi nahi kar paata; hum ise lagataar behtar bana"
+        " rahe hain aur nayi cheezein jod rahe hain. Abhi Marg padhane mein madad karta hai: kisi"
+        " chapter ko asli kaam aur careers se jodna ho, ya use class mein kaise padhayein, yeh"
+        " poochhiye. Kaunsa chapter?"
     ),
     Language.HINDI: (
-        "इसमें मैं मदद नहीं कर पाऊँगा: मार्ग पढ़ाने में मदद करता है। किसी अध्याय को असली काम और"
-        " करियर से जोड़ना हो, या उसे कक्षा में कैसे पढ़ाएँ, यह पूछिए। कौन-सा अध्याय?"
+        "मार्ग अभी शुरुआत में है, इसलिए यह अभी नहीं कर पाता; हम इसे लगातार बेहतर बना रहे हैं और नई"
+        " चीज़ें जोड़ रहे हैं। अभी मार्ग पढ़ाने में मदद करता है: किसी अध्याय को असली काम और करियर से"
+        " जोड़ना हो, या उसे कक्षा में कैसे पढ़ाएँ, यह पूछिए। कौन-सा अध्याय?"
     ),
     Language.ENGLISH: (
-        "I can't help with that: Marg helps with teaching. Ask me to connect a chapter to real"
-        " work and careers, or how to teach it in class. Which chapter?"
+        "Marg is just getting started, so it can't do this yet; we're improving it all the time and"
+        " adding more. For now Marg helps with teaching: ask me to connect a chapter to real work"
+        " and careers, or how to teach it in class. Which chapter?"
     ),
+}
+# A teacher's "ok", thanks or emoji: answered at once (owner's field test, 2026-11-02: "Ok" got the
+# out-of-scope reply)
+TEACHER_ACKNOWLEDGED: Final[dict[Language, str]] = {
+    Language.HINGLISH: "Theek hai! Jab chahein, agla chapter batayiye.",
+    Language.HINDI: "ठीक है! जब चाहें, अगला अध्याय बताइए।",
+    Language.ENGLISH: "Okay! Tell me your next chapter whenever you like.",
 }

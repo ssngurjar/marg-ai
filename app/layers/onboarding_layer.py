@@ -405,7 +405,8 @@ class OnboardingLayer:
         short_graduate = words <= _P.SHORT_ANSWER_WORDS and "?" not in user_text
         if student and short_graduate and _P.is_graduate(user_text):
             return ProfileAnswered(ProfileUpdate(grade=GRADUATE))
-        if words > self.LONG_ANSWER_WORDS:
+        short_range = words <= _P.SHORT_ANSWER_WORDS and _P.names_a_class_range(user_text)
+        if words > self.LONG_ANSWER_WORDS and not short_range:
             return None
         grade = _P.parse_grade(user_text)
         if grade.problem is Found.OUT_OF_RANGE:

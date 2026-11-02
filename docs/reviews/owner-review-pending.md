@@ -546,4 +546,7 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
   `GENERAL` in `app/constants/fixed_replies.py`).
 - [ ] **Read the Braj answer** (`BRAJ_SUPPORT` in `app/constants/onboarding_copy.py`, and the
   "Braj" line in `MARG_FACTS`).
+- [ ] **Read the "just getting started" wording** (`TEACHER_OUT_OF_SCOPE`, `TEACHER_ACKNOWLEDGED` in
+  `app/constants/teacher_copy.py`; `DONT_KNOW_FALLBACK` in `app/constants/student_copy.py`) and the
+  matching lines in `parent_answer`, `about_marg` and `mentor`.
 

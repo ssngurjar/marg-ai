@@ -304,7 +304,7 @@ async def test_a_role_the_parser_cant_read_goes_to_the_model() -> None:
     )
     assert profile_change(result).role is Role.PARENT
     assert llm.prompts[0].prompt_id == "profile_extraction"
-    assert result.prompt_versions == {"profile_extraction": "1.4.0"}
+    assert result.prompt_versions == {"profile_extraction": "1.5.0"}
 
 
 async def test_a_prompt_injection_can_only_ever_produce_a_real_role_or_nothing() -> None:
@@ -801,6 +801,18 @@ async def test_a_graduate_student_is_stored_as_past_class_12(answer: str) -> Non
     )
     result, llm = await handle(student, text_message(answer))
     assert profile_change(result).grade == GRADUATE
+    assert llm.prompts == []
+
+
+@pytest.mark.parametrize(
+    ("answer", "grade"), [("दो से आठ।", 8), ("कक्षा तीन से नौ।", 9), ("2 se 9", 9)]
+)
+async def test_a_teachers_class_range_is_read_by_the_rules(answer: str, grade: int) -> None:
+    # owner's field test, 2026-11-02: a range in Hindi words got "samajh nahi aaya", and one in
+    # digits stored its first class
+    teacher = at(S.AWAITING_PROFILE, role=Role.TEACHER).model_copy(update={"subject": "Maths"})
+    result, llm = await handle(teacher, text_message(answer))
+    assert profile_change(result).grade == grade
     assert llm.prompts == []
 
 

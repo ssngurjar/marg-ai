@@ -188,6 +188,16 @@ class OnboardingAnswerParser:
         "saadhe": 0, "sadhe": 0, "saade": 0, "sade": 0, "sawa": 0, "sava": 0, "paune": -1,
         "pone": -1, "साढ़े": 0, "साढे": 0, "सवा": 0, "पौने": -1,
     }  # fmt: skip
+    # Class numbers said as words, for the class question only ("do" alone is a verb elsewhere)
+    _GRADE_NUMBER_WORDS: ClassVar[dict[str, int]] = {
+        "ek": 1, "one": 1, "एक": 1, "do": 2, "teen": 3, "chaar": 4, "char": 4, "paanch": 5,
+        "panch": 5, "chhah": 6, "chhe": 6, "saat": 7, "aath": 8, "nau": 9, "das": 10,
+        "gyarah": 11, "barah": 12, "दो": 2, "तीन": 3, "चार": 4, "पाँच": 5, "पांच": 5, "छह": 6,
+        "छः": 6, "सात": 7, "आठ": 8, "नौ": 9, "दस": 10, "ग्यारह": 11, "बारह": 12, "two": 2,
+        "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+        "eleven": 11, "twelve": 12,
+    }  # fmt: skip
+    RANGE_JOINERS: ClassVar[frozenset[str]] = frozenset({"se", "to", "tak", "से", "तक"})
     _HINDI_ORDINALS: ClassVar[dict[str, int]] = {
         "पहली": 1, "दूसरी": 2, "तीसरी": 3, "चौथी": 4, "पाँचवीं": 5, "पांचवीं": 5, "छठी": 6,
         "सातवीं": 7, "आठवीं": 8, "नौवीं": 9, "दसवीं": 10, "ग्यारहवीं": 11, "बारहवीं": 12,
@@ -320,17 +330,48 @@ class OnboardingAnswerParser:
 
     @staticmethod
     def parse_grade(text: str) -> GradeParse:
-        for word in PhraseFinder.words(text):
+        """A class: "8", "class 8", "आठवीं", "आठ", "kaksha das". A range a teacher teaches ("2 se
+        9", "दो से आठ", "6-8") is its highest class (owner's field test, 2026-11-02: a range in
+        Hindi words wasn't understood, and one in digits was stored as its first class)."""
+        words = PhraseFinder.words(text)
+        for word in words:
             ordinal = _ORDINALS.get(word)
             if ordinal is not None:
                 return GradeParse(ordinal, None)
-        numbers = OnboardingAnswerParser._numbers(text)
+        highest = OnboardingAnswerParser._range_top(text)
+        if highest is not None:
+            if highest not in OnboardingAnswerParser.GRADES:
+                return GradeParse(None, Found.OUT_OF_RANGE)
+            return GradeParse(highest, None)
+        numbers = OnboardingAnswerParser._numbers(text) or [
+            _GRADE_WORDS[word] for word in words if word in _GRADE_WORDS
+        ]
         if not numbers:
             return GradeParse(None, Found.ABSENT)
         grade = numbers[0]
         if grade not in OnboardingAnswerParser.GRADES:
             return GradeParse(None, Found.OUT_OF_RANGE)
         return GradeParse(grade, None)
+
+    @staticmethod
+    def names_a_class_range(text: str) -> bool:
+        return OnboardingAnswerParser._range_top(text) is not None
+
+    @staticmethod
+    def _range_top(text: str) -> int | None:
+        """The higher end of "2 se 9", "दो से आठ", "6-8", "6 to 8"; None when it isn't a range."""
+        spaced = text.replace("-", " - ").replace(_EN_DASH, " - ")
+        tokens = PhraseFinder.words(spaced) if "-" not in spaced else spaced.casefold().split()
+        values: list[int | None] = []
+        for token in tokens:
+            digits = OnboardingAnswerParser._numbers(token)
+            values.append(digits[0] if digits else _GRADE_WORDS.get(PhraseFinder.normalise(token)))
+        for index in range(1, len(tokens) - 1):
+            low, high = values[index - 1], values[index + 1]
+            joined = PhraseFinder.normalise(tokens[index]) in _RANGE_JOINERS or tokens[index] == "-"
+            if joined and low is not None and high is not None and low < high:
+                return high
+        return None
 
     @staticmethod
     def parse_child_age(text: str, current_year: int) -> ChildAgeParse:
@@ -456,6 +497,9 @@ def _normalised_keys(numbers: dict[str, int]) -> dict[str, int]:
 # Vocabulary as PhraseFinder.words sees it (nasal marks and nukta dropped: पाँच → पाच).
 _NUMBERS: Final = _normalised_keys(OnboardingAnswerParser._NUMBER_WORDS)
 _ORDINALS: Final = _normalised_keys(OnboardingAnswerParser._HINDI_ORDINALS)
+_GRADE_WORDS: Final = _normalised_keys(OnboardingAnswerParser._GRADE_NUMBER_WORDS)
+_RANGE_JOINERS: Final = _normalised_set(OnboardingAnswerParser.RANGE_JOINERS)
+_EN_DASH: Final = "\u2013"  # an en dash between two classes, as phone keyboards often type it
 _FRACTIONS: Final = _normalised_keys(OnboardingAnswerParser._FRACTION_WORDS)
 _NOT_A_NAME: Final = _normalised_set(OnboardingAnswerParser._NOT_A_NAME)
 _AGE_UNITS: Final = _normalised_set(OnboardingAnswerParser._AGE_UNITS)

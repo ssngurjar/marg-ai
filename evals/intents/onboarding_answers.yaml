@@ -110,6 +110,11 @@ cases:
   - {state: awaiting_profile, role: student, known: {grade: 10}, text: "jila Sitapur, UP", expect: {event: DistrictUnclear, offered: "Sitapur, Uttar Pradesh"}}
   - {state: awaiting_profile, role: student, known: {grade: 10}, text: "मैं धार ज़िले से हूँ", expect: {event: ProfileAnswered, district: "Dhar, Madhya Pradesh"}}
   - {state: awaiting_profile, role: student, known: {grade: 12}, text: "district kyun chahiye?", expect: {event: AboutMargAsked}}
+  # a class in words, or a range a teacher teaches: its highest class (field test, 2026-11-02)
+  - {state: awaiting_profile, role: teacher, known: {subject: maths}, text: "दो से आठ", expect: {event: ProfileAnswered, grade: 8}}
+  - {state: awaiting_profile, role: teacher, known: {subject: maths}, text: "kaksha teen se nau", expect: {event: ProfileAnswered, grade: 9}}
+  - {state: awaiting_profile, role: teacher, known: {subject: science}, text: "6-8", expect: {event: ProfileAnswered, grade: 8}}
+  - {state: awaiting_profile, role: teacher, known: {subject: hindi}, text: "आठ", expect: {event: ProfileAnswered, grade: 8}}
   # a student past class 12 (owner's field test, 2026-11-01): grade 13
   - {state: awaiting_profile, role: student, text: "mai graduate hun", expect: {event: ProfileAnswered, grade: 13}}
   - {state: awaiting_profile, role: student, text: "arey graduation ho gyi", expect: {event: ProfileAnswered, grade: 13}}

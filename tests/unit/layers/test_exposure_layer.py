@@ -10,6 +10,7 @@ from app.constants.teacher_copy import (
     ASK_CHAPTER,
     MORE_ACTIVITY,
     NEW_CHAPTER,
+    TEACHER_ACKNOWLEDGED,
     TEACHER_CONCERN,
     TEACHER_OUT_OF_SCOPE,
 )
@@ -328,7 +329,7 @@ async def test_a_teachers_question_about_marg_is_answered_not_turned_away() -> N
     result = await layer_with_reader.generate(teacher_ctx(text, [LAST_BRIDGE]), text, [], E)
     assert result.reply.body == ABOUT_MARG_REPLY["answer"]
     assert llm.by_prompt["exposure"].prompts == []
-    assert result.prompt_versions == {"teacher_intent": "1.2.0", "about_marg": "1.0.0"}
+    assert result.prompt_versions == {"teacher_intent": "1.2.0", "about_marg": "1.1.0"}
 
 
 def test_the_concern_reply_gives_the_sourced_helpline_in_every_language() -> None:
@@ -336,6 +337,15 @@ def test_the_concern_reply_gives_the_sourced_helpline_in_every_language() -> Non
     for register in Language:
         assert f"{CHILD_HELPLINE.number}" in TEACHER_CONCERN[register]
     assert CHILD_HELPLINE.source_url.endswith(".gov.in")
+
+
+@pytest.mark.parametrize("text", ["Ok", "ok ji", "thank you", "👍"])
+async def test_a_teachers_ok_is_answered_at_once_never_out_of_scope(text: str) -> None:
+    # owner's field test, 2026-11-02: "Ok" got "I can't help with that"
+    layer_with_reader, llm = reading_layer(teacher_reading("out_of_scope"))
+    result = await layer_with_reader.generate(teacher_ctx(text, [LAST_BRIDGE]), text, [], E)
+    assert result.reply.body == TEACHER_ACKNOWLEDGED[E]
+    assert llm.by_prompt["teacher_intent"].prompts == []
 
 
 async def test_buttons_never_call_the_reader() -> None:
@@ -350,6 +360,7 @@ async def test_buttons_never_call_the_reader() -> None:
         ("Topic: Newton's laws of motion (class 9)", "Newton's laws of motion"),
         ("Chapter: Bal aur dabav (class 8)", "Bal aur dabav"),
         ("अध्याय: बल और दाब", "बल और दाब"),
+        ("अध्याय: गणित (कक्षा 6)", "गणित"),
         ("Which chapter are you teaching next?", None),
     ],
 )

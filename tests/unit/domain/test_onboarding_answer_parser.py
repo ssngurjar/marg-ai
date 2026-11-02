@@ -1,7 +1,7 @@
 """OnboardingAnswerParser: common answers read without a model (s08 §4.4 step 4, §9)."""
 
 import pytest
-from hypothesis import given
+from hypothesis import assume, given
 from hypothesis import strategies as st
 
 from app.domain.enums import Language, Role
@@ -9,6 +9,7 @@ from app.domain.rules.onboarding_answer_parser import (
     ChildParse,
     ChildrenParse,
     Found,
+    GradeParse,
     OnboardingAnswerParser,
 )
 
@@ -369,3 +370,29 @@ def test_a_question_about_braj_is_recognised(text: str) -> None:
 @pytest.mark.parametrize("text", ["Hindi mein baat karo", "mera beta 5 saal ka hai", ""])
 def test_other_messages_are_not_about_braj(text: str) -> None:
     assert not P.asks_about_braj(text)
+
+
+# --- a class as a word, or a range a teacher teaches (owner's field test, 2026-11-02) ----------
+
+
+@pytest.mark.parametrize(
+    ("text", "grade"),
+    [
+        ("दो से आठ।", 8), ("कक्षा तीन से नौ।", 9), ("2 se 9", 9), ("6-8", 8), ("6 to 8", 8),
+        ("आठ", 8), ("kaksha das", 10), ("class 8 mein 40 bachche", 8), ("class 8", 8),
+    ],
+)  # fmt: skip
+def test_a_class_in_words_or_a_range_is_read(text: str, grade: int) -> None:
+    assert P.parse_grade(text) == GradeParse(grade, None)
+
+
+def test_a_range_past_class_12_is_out_of_range_not_cut_short() -> None:
+    assert P.parse_grade("1 se 15").problem is Found.OUT_OF_RANGE
+
+
+@given(
+    low=st.integers(1, 11), high=st.integers(2, 12), joiner=st.sampled_from([" se ", " to ", "-"])
+)
+def test_any_range_is_its_highest_class(low: int, high: int, joiner: str) -> None:
+    assume(low < high)  # "8 se 6" is not a range
+    assert P.parse_grade(f"{low}{joiner}{high}") == GradeParse(high, None)

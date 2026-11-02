@@ -17,6 +17,7 @@ from typing import Annotated, Final, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
+from app.constants.student_copy import STUDENT_GOOD_NIGHT
 from app.constants.teacher_copy import (
     ASK_CHAPTER,
     DEVICE_OR_PURCHASE_WORDS,
@@ -25,6 +26,7 @@ from app.constants.teacher_copy import (
     MONEY_WORDS,
     MORE_ACTIVITY,
     NEW_CHAPTER,
+    TEACHER_ACKNOWLEDGED,
     TEACHER_CONCERN,
     TEACHER_OUT_OF_SCOPE,
 )
@@ -35,6 +37,7 @@ from app.domain.models.turn import Exchange, TurnContext
 from app.domain.rules.chapter_matcher import ChapterMatcher
 from app.domain.rules.phrase_finder import PhraseFinder
 from app.domain.rules.register_detector import RegisterDetector
+from app.domain.rules.small_talk_rules import SmallTalkRules
 from app.layers.about_marg_layer import AboutMargLayer
 from app.layers.curriculum_catalogue import ChapterCatalogue
 from app.layers.layer_result import LayerResult
@@ -110,7 +113,8 @@ def _bridge_rules(bridge: ExposureBridge) -> None:
 
 
 THREE_FIELDS: Final = 3
-CLASS_NOTE: Final = re.compile(r"\s*\(class \d{1,2}\)$")
+# "(class 9)", or "(कक्षा 9)" in a Hindi bridge (owner's field test, 2026-11-02)
+CLASS_NOTE: Final = re.compile(r"\s*\((?:class|कक्षा) \d{1,2}\)$")
 EXPOSURE: Final = PromptSpec(prompt_id="exposure", output_type=ExposureBridge)
 CHAPTER_EXAMPLES: Final = 8
 
@@ -145,6 +149,11 @@ class ExposureLayer:
         wants_more = MORE_ACTIVITY in interactive_ids
         if NEW_CHAPTER in interactive_ids or (wants_more and previous is None):
             return ExposureLayer._ask_chapter(register)
+        small_talk = SmallTalkRules.kind(user_text) if not interactive_ids else None
+        if small_talk is not None:
+            # an "ok" or good night needs no model (owner's field test, 2026-11-02)
+            said = STUDENT_GOOD_NIGHT if small_talk == "good_night" else TEACHER_ACKNOWLEDGED
+            return ExposureLayer._said(said, register)
         if interactive_ids or not user_text.strip() or self._intents is None:
             return await self._bridge(ctx, user_text, interactive_ids, register, previous)
         last_topic = ExposureLayer.last_topic(ctx.recent_exchanges)
@@ -283,7 +292,8 @@ class ExposureLayer:
                 f"{bridge.extra_activity}\n{labels['materials']}: {materials or '-'}"
             )
         else:
-            class_note = f" (class {bridge.grade or grade})" if (bridge.grade or grade) else ""
+            shown_grade = bridge.grade or grade
+            class_note = f" ({labels['class']} {shown_grade})" if shown_grade else ""
             names = ", ".join(field.field for field in bridge.fields)
             sections = [
                 f"{labels['topic']}: {bridge.topic}{class_note}\n{labels['fields']}: {names}."

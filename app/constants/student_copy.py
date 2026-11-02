@@ -21,16 +21,18 @@ MAKE_A_PLAN_BUTTON: Final[dict[Language, ReplyButton]] = {
 }
 DONT_KNOW_FALLBACK: Final[dict[Language, str]] = {
     Language.HINGLISH: (
-        "Is baare mein abhi mere paas pakki jaankari nahi hai. Apne teacher se poochiye, aur "
-        "sirf sarkari website par hi bharosa kijiye."
+        "Is baare mein abhi mere paas pakki jaankari nahi hai; Marg abhi shuruaat mein hai aur hum"
+        " nayi jaankari jod rahe hain. Tab tak apne teacher se poochiye, aur sirf sarkari website"
+        " par hi bharosa kijiye."
     ),
     Language.HINDI: (
-        "इस बारे में अभी मेरे पास पक्की जानकारी नहीं है। अपने शिक्षक से पूछिए, और सिर्फ़ सरकारी "
-        "वेबसाइट पर ही भरोसा कीजिए।"
+        "इस बारे में अभी मेरे पास पक्की जानकारी नहीं है; मार्ग अभी शुरुआत में है और हम नई जानकारी"
+        " जोड़ रहे हैं। तब तक अपने शिक्षक से पूछिए, और सिर्फ़ सरकारी वेबसाइट पर ही भरोसा कीजिए।"
     ),
     Language.ENGLISH: (
-        "I don't have verified information on this yet. Please ask your teacher, and trust only "
-        "official government websites."
+        "I don't have verified information on this yet; Marg is just getting started and we're"
+        " adding more. Until then, please ask your teacher, and trust only official government"
+        " websites."
     ),
 }
 """Sent when the mentor's reply can't be made to cite only its sources (s12 §8)."""
