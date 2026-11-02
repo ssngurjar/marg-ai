@@ -304,7 +304,7 @@ class OnboardingLayer:
         if about_language is not None:
             return about_language
         if profile.state is _S.ACTIVE:
-            return self._active_event(profile, user_text)
+            return self._active_event(ctx, user_text, now.year)
         return self._answer_event(ctx, user_text, now)
 
     def _language_event(self, ctx: TurnContext, user_text: str) -> ConversationEvent | None:
@@ -360,12 +360,30 @@ class OnboardingLayer:
         return None
 
     @staticmethod
-    def _active_event(profile: UserProfile, user_text: str) -> ConversationEvent | None:
-        if profile.role is Role.TEACHER:
+    def _active_event(
+        ctx: TurnContext, user_text: str, current_year: int
+    ) -> ConversationEvent | None:
+        role = ctx.profile.role
+        if role is Role.TEACHER:
             return TeacherAsked()
-        if profile.role is Role.PARENT and _P.asks_to_add_child(user_text):
-            return AddChild()
+        if role is Role.PARENT and _P.asks_to_add_child(user_text):
+            return AddChild(OnboardingLayer._child_given_with(ctx, user_text, current_year))
         return None
+
+    @staticmethod
+    def _child_given_with(
+        ctx: TurnContext, user_text: str, current_year: int
+    ) -> ChildAnswered | ChildrenAnswered | None:
+        """The child in "another child, Riya 7", or None to ask for it as the button does (an
+        age out of range is asked again there too)."""
+        if not _P.adds_a_child_with_age(user_text):
+            return None
+        answer = _P.without_new_child_phrase(user_text)
+        match OnboardingLayer._child_event(ctx, answer, current_year):
+            case ChildAnswered() | ChildrenAnswered() as given:
+                return given
+            case _:
+                return None
 
     def _answer_event(  # one return per state's answer
         self, ctx: TurnContext, user_text: str, now: datetime

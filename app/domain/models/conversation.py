@@ -151,7 +151,11 @@ class ChildInvalid:
 
 @dataclass(frozen=True, slots=True)
 class AddChild:
-    pass
+    """ "Another child", by the button or in words. `answered`: the child given in the same
+    message ("another child, Riya 7"), added at once instead of asking again (second field
+    test, 2026-11-02)."""
+
+    answered: ChildAnswered | ChildrenAnswered | None = None
 
 
 @dataclass(frozen=True, slots=True)

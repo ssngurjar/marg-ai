@@ -406,6 +406,51 @@ def test_add_child_is_only_for_parents(role: Role) -> None:
         step(at(S.ACTIVE, role=role, **CONSENTED), AddChild())
 
 
+def test_another_child_alone_asks_for_the_child() -> None:
+    done = step(at(S.ACTIVE, role=Role.PARENT, **CONSENTED), AddChild(), learners=1)
+    assert done.profile.state is S.AWAITING_CHILD
+    assert copies(done) == [CopyKey.ASK_CHILD]
+
+
+def test_another_child_given_with_an_age_is_added_at_once() -> None:
+    # second field test, 2026-11-02: "Another child, Riya 7" got "tap 'Another child'"
+    done = step(
+        at(S.ACTIVE, role=Role.PARENT, **CONSENTED),
+        AddChild(ChildAnswered(2019, "Riya")),
+        learners=1,
+    )
+    assert done.profile.state is S.ACTIVE
+    assert done.effects == (
+        UpsertLearner(LearnerRelation.PARENT, 2019, "Riya"),
+        SendCopy(CopyKey.CHILD_ADDED),
+        SendCopy(CopyKey.ASK_CHILD_TALK),
+    )
+
+
+def test_two_children_given_with_another_child_are_both_added() -> None:
+    children = ChildrenAnswered((ChildAnswered(2021, "Munni"), ChildAnswered(2019, "Golu")))
+    done = step(at(S.ACTIVE, role=Role.PARENT, **CONSENTED), AddChild(children), learners=1)
+    upserts = [effect for effect in done.effects if isinstance(effect, UpsertLearner)]
+    assert [upsert.nickname for upsert in upserts] == ["Munni", "Golu"]
+    assert done.profile.state is S.ACTIVE
+
+
+def test_a_child_given_past_the_limit_is_not_added() -> None:
+    profile = at(S.ACTIVE, role=Role.PARENT, **CONSENTED)
+    done = step(profile, AddChild(ChildAnswered(2019, "Riya")), learners=MAX_LEARNERS)
+    assert copies(done) == [CopyKey.MAX_CHILDREN]
+    assert not any(isinstance(effect, UpsertLearner) for effect in done.effects)
+
+
+def test_a_child_given_out_of_range_raises() -> None:
+    with pytest.raises(InvalidProfileValue, match="outside 2-19"):
+        step(
+            at(S.ACTIVE, role=Role.PARENT, **CONSENTED),
+            AddChild(ChildAnswered(NOW.year - 1, "Golu")),
+            learners=1,
+        )
+
+
 def test_teacher_asked_is_only_for_teachers() -> None:
     with pytest.raises(InvalidTransition, match="TeacherAsked"):
         step(at(S.ACTIVE, role=Role.PARENT, **CONSENTED), TeacherAsked(), learners=1)
@@ -607,6 +652,12 @@ EVENTS: st.SearchStrategy[ConversationEvent] = st.one_of(
         reason=st.sampled_from([CopyKey.CHILD_INVALID_AGE, CopyKey.CHILD_NICKNAME_TOO_LONG]),
     ),
     st.just(AddChild()),
+    st.builds(
+        AddChild,
+        answered=st.builds(
+            ChildAnswered, birth_year=st.integers(NOW.year - 19, NOW.year - 2), nickname=NICKNAMES
+        ),
+    ),
     st.builds(ChildTalkAnswered, learner_id=st.just(LEARNER), allowed=st.booleans()),
     st.just(TeacherAsked()),
     st.builds(LanguageSwitched, language=st.sampled_from(Language)),

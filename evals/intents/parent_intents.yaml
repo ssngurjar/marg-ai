@@ -309,3 +309,11 @@ cases:
   - {text: "How can you help?", open_khoj: false, intent: about_marg, lang: english}
   - {text: "aap mere bachche ki kaise madad karoge", open_khoj: false, intent: about_marg, lang: hinglish}
   - {text: "what can you do for my child", open_khoj: true, intent: about_marg, lang: english}
+
+  # --- the khoj wasn't done yet, or Done was tapped by mistake (second field test, 2026-11-02) --
+  - {text: "we have not done it yet", open_khoj: false, intent: not_done_yet, lang: english}
+  - {text: "I tapped done by mistake, we will do it in the evening", open_khoj: false, intent: not_done_yet, lang: english}
+  - {text: "abhi tak nahi kiya humne", open_khoj: false, intent: not_done_yet, lang: hinglish}
+  - {text: "galti se done ho gaya, abhi karenge", open_khoj: false, intent: not_done_yet, lang: hinglish}
+  - {text: "हमने अभी नहीं किया", open_khoj: false, intent: not_done_yet, lang: hindi}
+  - {text: "usne abhi nahi kiya, kal karenge", open_khoj: true, intent: report, lang: hinglish}

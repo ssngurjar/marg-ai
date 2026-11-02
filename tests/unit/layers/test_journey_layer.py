@@ -19,11 +19,14 @@ from app.constants.journey_copy import (
     HELLO_NOTHING_OPEN,
     KHOJ_DONE,
     KHOJ_OTHER,
+    KHOJ_REOPENED,
     KHOJ_STILL_OPEN,
     KHOJ_TODAY,
     NICKNAME_ONLY,
     NICKNAME_SAVED,
     NO_DETAILS_SUMMARY,
+    NOT_DONE_NOTHING_RECENT,
+    NOT_DONE_STILL_OPEN,
     NUDGE_ASK,
     NUDGE_OFF_REPLY,
     PROGRESS_HEADER,
@@ -44,6 +47,7 @@ from app.domain.models.photo import ObjectCount, PhotoFindings
 from app.domain.models.turn import Exchange
 from app.domain.models.writes import (
     ActivityOffered,
+    ActivityReopened,
     ActivityReported,
     LearnerUpsert,
     NudgePreference,
@@ -651,7 +655,7 @@ async def test_a_report_read_as_a_report_gets_the_reflection() -> None:
         text="usne patte gine", button=None, open_activity=offer(FIRST, MUNNI), layer=layer
     )
     assert result.reply.body.startswith(REFLECTION_PRAISE)
-    assert result.prompt_versions["parent_intent"] == "1.15.0"
+    assert result.prompt_versions["parent_intent"] == "1.16.0"
     [prompt] = llm.by_prompt["parent_intent"].prompts
     assert "usne patte gine" in prompt.user
 
@@ -1277,3 +1281,67 @@ async def test_asking_how_the_child_is_doing_gets_the_record_and_todays_khoj() -
     assert [button.id for button in result.reply.buttons] == ["jrn:today"]
     assert llm.by_prompt["parent_answer"].prompts == []
     assert result.writes == []
+
+
+# --- "not done yet" after Done (second field test, 2026-11-02) ---------------------------------
+
+
+async def not_done(
+    history: list[OfferRecord], *, open_activity: OfferRecord | None = None
+) -> LayerResult:
+    layer, _ = layer_with(intent=reading("not_done_yet"))
+    text = "abhi tak nahi kiya humne"
+    ctx = turn_context(
+        text_message(text), learners=[MUNNI], open_activity=open_activity, activity_history=history
+    )
+    return await layer.handle(ctx, ParentMessage(text, []), NOW, H)
+
+
+async def test_a_khoj_closed_by_done_is_opened_again() -> None:
+    # Done was tapped by mistake; the parent then said it wasn't done, and got the child-talk reply
+    closed = offer(FIRST, MUNNI, hours_ago=1, status=ActivityStatus.DONE, number=70)
+    result = await not_done([closed])
+    assert result.writes == [ActivityReopened(learner_activity_id=closed.learner_activity_id)]
+    assert result.reply.body == KHOJ_REOPENED[H].format(child="Munni")
+    assert [button.id for button in result.reply.buttons] == [KHOJ_DONE, KHOJ_OTHER]
+
+
+async def test_a_khoj_still_open_is_not_reopened_only_named() -> None:
+    open_one = offer(FIRST, MUNNI, hours_ago=1, number=71)
+    result = await not_done([open_one], open_activity=open_one)
+    assert result.writes == []
+    assert result.reply.body == NOT_DONE_STILL_OPEN[H].format(child="Munni")
+
+
+@pytest.mark.parametrize(
+    "history",
+    [
+        [],
+        [offer(FIRST, MUNNI, hours_ago=49, status=ActivityStatus.DONE, number=72)],
+        [offer(FIRST, MUNNI, hours_ago=1, status=ActivityStatus.SKIPPED, number=73)],
+    ],
+    ids=["no khoj", "older than 48 hours", "skipped"],
+)
+async def test_nothing_to_reopen_offers_todays_khoj(history: list[OfferRecord]) -> None:
+    result = await not_done(history)
+    assert result.writes == []
+    assert result.reply.body == NOT_DONE_NOTHING_RECENT[H]
+    assert [button.id for button in result.reply.buttons] == [KHOJ_TODAY]
+
+
+@pytest.mark.parametrize(
+    ("hours_ago", "reopened"),
+    [(48.0, True), (48.0 + 1 / 3600, False)],
+    ids=["exactly 48 hours", "one second over"],
+)
+def test_a_khoj_can_be_reopened_for_as_long_as_a_khoj_stays_open(
+    hours_ago: float, *, reopened: bool
+) -> None:
+    closed = offer(FIRST, MUNNI, hours_ago=hours_ago, status=ActivityStatus.DONE, number=74)
+    assert (JourneyLayer.reopenable([closed], NOW) is closed) is reopened
+
+
+def test_only_the_newest_khoj_is_reopened() -> None:
+    newest = offer(FIRST, MUNNI, hours_ago=1, status=ActivityStatus.SKIPPED, number=75)
+    older = offer(FIRST, MUNNI, hours_ago=3, status=ActivityStatus.DONE, number=76)
+    assert JourneyLayer.reopenable([newest, older], NOW) is None

@@ -364,7 +364,13 @@ def _child_invalid(step: _Step, event: ChildInvalid) -> Transition:
 def _add_child(step: _Step, event: AddChild) -> Transition:
     if step.learner_count >= MAX_LEARNERS:
         return step.moved(_S.ACTIVE, SendCopy(CopyKey.MAX_CHILDREN))
-    return step.moved(_S.AWAITING_CHILD, SendCopy(CopyKey.ASK_CHILD))
+    match event.answered:
+        case ChildrenAnswered() as children:
+            return _children_answered(step, children)
+        case ChildAnswered() as child:
+            return _child_answered(step, child)
+        case None:
+            return step.moved(_S.AWAITING_CHILD, SendCopy(CopyKey.ASK_CHILD))
 
 
 def _child_talk_answered(step: _Step, event: ChildTalkAnswered) -> Transition:

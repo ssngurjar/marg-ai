@@ -1,6 +1,6 @@
 +++
 id = "exposure"
-version = "1.2.0"
+version = "1.3.0"
 model_setting = "MODEL_TEXT"
 max_output_tokens = 3000
 output_model = "ExposureBridge"
@@ -21,6 +21,10 @@ Choose the outcome:
   question{% if system.chapter_titles %}; you may offer two or three of these as examples: {{ system.chapter_titles }}{% endif %}.
 - more_activity: the teacher asked for another activity ({{ system.requested_mode }}). Give one
   new activity for the same topic, different from those in the previous reply below.
+
+Length: the teacher reads this on a phone, so keep every part short: why_it_connects and
+example_from_india one sentence each; five_minute_activity at most three short sentences; local_hook one sentence;
+careers two or three short names.
 
 Activity rules: five minutes; works for 40 or more students in one room or outdoors; no
 electricity, no devices, nothing bought; only what a village school has (chalk, stones, rope,

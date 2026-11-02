@@ -406,6 +406,9 @@ replies on, so the spoken path stays tested even while real users get text.
 
 | Symptom | First check | Usual cause |
 |---|---|---|
+| "Another child, Riya 7" asked for the age again | the turn's ROUTE detail: "new child with age" (onboarding) or "parent default" (journey) | the message had more than five other words, or no new-child phrase ("for the other child" is a khoj for a child already added); `OnboardingAnswerParser.adds_a_child_with_age` |
+| "Not done yet" after Done didn't reopen the khoj | `learner_activities.status` for the child's newest khoj | it was offered more than 48 h ago, was skipped rather than done, or the intent wasn't read as `not_done_yet` |
+| A teacher's chapter answer is slow | the GENERATE step's `duration_ms` and `output_tokens` | Hindi in Devanagari costs about 2.7 times the tokens of English; `exposure` 1.3.0 keeps each part short |
 | No reply at all | `inbox_messages` for the message; the logs for `webhook_*` | tunnel URL changed and Meta still posts to the old one; signature fails (`401`); app not running |
 | A reply, but "try again later" | the turn's `failure_step` / `failure_kind` | a model timed out or the turn budget ran out |
 | "Abhi aapka message dekhne mein dikkat…" (HOLDING) | `safety_in` / `safety_out` rows FAILED | Llama Guard **and** the Muse Spark check both failed (fail closed, by design) |

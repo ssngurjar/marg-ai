@@ -38,6 +38,7 @@ from app.domain.models.message import InboundMessage, MediaRef
 from app.domain.models.turn import Exchange, QueuedMessage, TurnContext, UserProfile
 from app.domain.models.writes import (
     ActivityOffered,
+    ActivityReopened,
     ActivityReported,
     ChildSessionEnd,
     ChildSessionLanguage,
@@ -446,6 +447,7 @@ async def _apply(session: AsyncSession, started: StartedTurn, write: TurnWrite) 
         case (
             ActivityOffered()
             | ActivityReported()
+            | ActivityReopened()
             | ChildSessionStart()
             | ChildTalkTurn()
             | ChildSessionEnd()
@@ -461,6 +463,7 @@ async def _apply(session: AsyncSession, started: StartedTurn, write: TurnWrite) 
 type _LearningWrite = (
     ActivityOffered
     | ActivityReported
+    | ActivityReopened
     | ChildSessionStart
     | ChildTalkTurn
     | ChildSessionEnd
@@ -480,6 +483,8 @@ async def _apply_learning(
             await JourneyRepository.record_offer(session, owner, started.turn_id, write)
         case ActivityReported():
             await JourneyRepository.record_report(session, owner, write)
+        case ActivityReopened():
+            await JourneyRepository.reopen(session, owner, write)
         case ChildSessionStart():
             await ChildSessionRepository.start(session, owner, write)
         case ChildTalkTurn():

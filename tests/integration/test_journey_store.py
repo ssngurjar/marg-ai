@@ -18,7 +18,7 @@ from app.domain.models.learner import LearnerId
 from app.domain.models.message import InboundMessage
 from app.domain.models.photo import ObjectCount
 from app.domain.models.turn import QueuedMessage
-from app.domain.models.writes import ActivityOffered, ActivityReported
+from app.domain.models.writes import ActivityOffered, ActivityReopened, ActivityReported
 from app.store.db import create_engine, create_session_factory
 from app.store.repositories.turn_repository import FinishedTurn, StartedTurn, TurnRepository
 from tests.support.app_factory import make_settings
@@ -198,6 +198,56 @@ async def test_a_report_on_someone_elses_activity_changes_nothing(
     )
     await turns.finalize(await started(engine), FINISHED, None, [report])
     assert await scalar(engine, "SELECT status FROM learner_activities") == "offered"
+
+
+async def closed_by_done(engine: AsyncEngine, turns: TurnRepository) -> ActivityOffered:
+    offer = offered()
+    await turns.finalize(await started(engine), FINISHED, None, [offer])
+    done = ActivityReported(
+        learner_activity_id=offer.learner_activity_id, status=ActivityStatus.DONE, summary="x"
+    )
+    await turns.finalize(await started(engine), FINISHED, None, [done])
+    return offer
+
+
+async def test_a_reopened_khoj_is_open_again_with_its_report_cleared(
+    engine: AsyncEngine, turns: TurnRepository
+) -> None:
+    # second field test, 2026-11-02: Done tapped by mistake
+    offer = await closed_by_done(engine, turns)
+    reopen = ActivityReopened(learner_activity_id=offer.learner_activity_id)
+    await turns.finalize(await started(engine), FINISHED, None, [reopen])
+    assert await scalar(engine, "SELECT status FROM learner_activities") == "offered"
+    assert await scalar(engine, "SELECT reported_at IS NULL FROM learner_activities") is True
+    assert await scalar(engine, "SELECT child_response_summary FROM learner_activities") is None
+    ctx = await turns.load_context(await started(engine, message("ho gaya")), recent_exchanges=0)
+    assert ctx.open_activity is not None
+    assert ctx.open_activity.learner_activity_id == offer.learner_activity_id
+
+
+async def test_reopening_someone_elses_khoj_changes_nothing(
+    engine: AsyncEngine, turns: TurnRepository
+) -> None:
+    offer = await closed_by_done(engine, turns)
+    async with engine.begin() as connection:
+        await connection.execute(
+            text("UPDATE learner_activities SET learner_id = :other"), {"other": STRANGER_CHILD}
+        )
+    reopen = ActivityReopened(learner_activity_id=offer.learner_activity_id)
+    await turns.finalize(await started(engine), FINISHED, None, [reopen])
+    assert await scalar(engine, "SELECT status FROM learner_activities") == "done"
+
+
+async def test_a_skipped_khoj_is_not_reopened(engine: AsyncEngine, turns: TurnRepository) -> None:
+    offer = offered()
+    await turns.finalize(await started(engine), FINISHED, None, [offer])
+    skipped = ActivityReported(
+        learner_activity_id=offer.learner_activity_id, status=ActivityStatus.SKIPPED, summary=None
+    )
+    await turns.finalize(await started(engine), FINISHED, None, [skipped])
+    reopen = ActivityReopened(learner_activity_id=offer.learner_activity_id)
+    await turns.finalize(await started(engine), FINISHED, None, [reopen])
+    assert await scalar(engine, "SELECT status FROM learner_activities") == "skipped"
 
 
 async def test_the_context_knows_the_child_from_the_latest_offer_and_its_open_activity(

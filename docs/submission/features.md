@@ -126,7 +126,8 @@ Tested on 156 real-style messages in Hinglish, Hindi, Braj and English (99.7%).
 2. **Muse Spark Open** (open weights) replies: praise for what the child noticed, one question to
    extend the idea, one short tip. A "Done" tap with nothing said gets a short thanks and one
    question ("What did Munni say or notice?"), and a photo without words is never described:
-   nothing is guessed about what happened.
+   nothing is guessed about what happened. If Done was tapped by mistake, "we haven't done it
+   yet" opens the khoj again.
 3. If another khoj from the last two days is still waiting, a report goes to the khoj it's about
    ("he jumped like a frog" → the animal walk). A photo without words, or words that don't say
    which, gets **Which khoj is this about?** with a button per khoj. If the child's idea isn't true (the sun doesn't move; the Earth
@@ -160,8 +161,8 @@ built from the record by code: the khojs done and skipped in the last 30 days, w
 explored, and what they asked Marg about in their own talks (topics only, never their words).
 
 ### Children and their names
-Up to three children. Another child is added with "Another child" (or in words): Marg confirms
-by name and asks whether they may talk to Marg too, without sending a khoj until asked. Several
+Up to three children. Another child is added with "Another child" (or in words, with the name
+and age in the same message: "another child, Riya 7"): Marg confirms by name and asks whether they may talk to Marg too, without sending a khoj until asked. Several
 children can be given in one answer ("Munni 5 aur Golu 7"): each is added and gets their own
 child-talk question. With
 several children, Marg asks which child today's khoj is for. A home name can be

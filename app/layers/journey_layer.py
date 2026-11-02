@@ -48,6 +48,7 @@ from app.constants.journey_copy import (
     KHOJ_BUTTONS,
     KHOJ_DONE,
     KHOJ_OTHER,
+    KHOJ_REOPENED,
     KHOJ_STILL_OPEN,
     KHOJ_TODAY,
     LISTEN_LABEL,
@@ -55,6 +56,8 @@ from app.constants.journey_copy import (
     NICKNAME_SAVED,
     NO_ACTIVITY_LEFT,
     NO_DETAILS_SUMMARY,
+    NOT_DONE_NOTHING_RECENT,
+    NOT_DONE_STILL_OPEN,
     NUDGE_ASK,
     NUDGE_AT_8,
     NUDGE_AT_18,
@@ -86,7 +89,7 @@ from app.domain.enums import (
     ParentIntent,
     StepOutcome,
 )
-from app.domain.models.activity import Activity, OfferedActivity, PastActivity
+from app.domain.models.activity import Activity, OfferedActivity, OfferRecord, PastActivity
 from app.domain.models.curiosity import CuriositySource, CuriositySourceKind
 from app.domain.models.learner import Learner
 from app.domain.models.photo import PhotoFindings
@@ -95,6 +98,7 @@ from app.domain.models.turn import TurnContext
 from app.domain.models.usage import StepUsage
 from app.domain.models.writes import (
     ActivityOffered,
+    ActivityReopened,
     ActivityReported,
     LearnerUpsert,
     NudgePreference,
@@ -319,8 +323,8 @@ class JourneyLayer:
                 )
             case ParentIntent.SOMEONE_ELSE:
                 return JourneyLayer._who_is_writing(ctx, now, register)
-            case ParentIntent.PROGRESS:
-                return self._progress(ctx, now, register)
+            case ParentIntent.PROGRESS | ParentIntent.NOT_DONE_YET:
+                return self._khojs_so_far(intent, ctx, now, register)
             case ParentIntent.DELETE_DATA | ParentIntent.STOP_ALL:
                 return JourneyLayer._stop_or_delete(intent, register)
             case ParentIntent.ABOUT_MARG:
@@ -632,6 +636,45 @@ class JourneyLayer:
             named_kid_button(str(learner.id), str(learner.nickname)) for learner in young
         )
         return _fixed(WHO_IS_WRITING[register].format(names=names), register, buttons)
+
+    def _khojs_so_far(
+        self, intent: ParentIntent, ctx: TurnContext, now: datetime, register: Language
+    ) -> LayerResult:
+        """The child's khojs so far: how they've gone, or one not done yet after all."""
+        if intent is ParentIntent.PROGRESS:
+            return self._progress(ctx, now, register)
+        return JourneyLayer._not_done_yet(ctx, now, register)
+
+    @staticmethod
+    def _not_done_yet(ctx: TurnContext, now: datetime, register: Language) -> LayerResult:
+        """ "We didn't do it yet": a khoj closed as done in the last RECENT_KHOJ is open again
+        (second field test, 2026-11-02: after Done was tapped by mistake, the parent got the
+        child-talk reply)."""
+        child = ctx.active_learner
+        name = child.nickname if child and child.nickname else CHILD_FALLBACK[register]
+        if ctx.open_activity is not None:
+            return _fixed(
+                NOT_DONE_STILL_OPEN[register].format(child=name), register, KHOJ_BUTTONS[register]
+            )
+        closed = JourneyLayer.reopenable(ctx.activity_history, now)
+        if closed is None:
+            return _fixed(
+                NOT_DONE_NOTHING_RECENT[register], register, (TODAY_KHOJ_BUTTON[register],)
+            )
+        reopened = _fixed(
+            KHOJ_REOPENED[register].format(child=name), register, KHOJ_BUTTONS[register]
+        )
+        write = ActivityReopened(learner_activity_id=closed.learner_activity_id)
+        return reopened.model_copy(update={"writes": [write]})
+
+    @staticmethod
+    def reopenable(history: Sequence[OfferRecord], now: datetime) -> OfferRecord | None:
+        """The child's newest khoj, if it was closed as done and offered within RECENT_KHOJ."""
+        if not history:
+            return None
+        newest = history[0]
+        recent = now - newest.offered_at <= JourneyLayer.RECENT_KHOJ
+        return newest if newest.status is ActivityStatus.DONE and recent else None
 
     @staticmethod
     def _add_child(ctx: TurnContext, register: Language) -> LayerResult:

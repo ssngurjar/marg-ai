@@ -167,6 +167,15 @@ class OnboardingAnswerParser:
             "add another child", "another child", "दूसरे बच्चे के लिए", "एक और बच्चा",
         }
     )  # fmt: skip
+    # a new child, never "for the other child" (a khoj for one already added): with an age in
+    # the same message, the child is added at once (second field test, 2026-11-02)
+    NEW_CHILD_ANSWER_MAX_WORDS: ClassVar[int] = 5  # "Riya, 7", "hai Golu 4 saal ka"
+    NEW_CHILD_PHRASES: ClassVar[frozenset[str]] = frozenset(
+        {
+            "add another child", "another child", "ek aur bachcha", "ek aur bachchi",
+            "एक और बच्चा", "एक और बच्ची",
+        }
+    )  # fmt: skip
     _AGE_UNITS: ClassVar[frozenset[str]] = frozenset(
         {"saal", "sal", "saal ka", "years", "year", "yrs", "yr", "baras", "साल", "वर्ष", "बरस"}
     )
@@ -326,6 +335,30 @@ class OnboardingAnswerParser:
     def asks_to_add_child(text: str) -> bool:
         return PhraseFinder.contains_any(text, OnboardingAnswerParser.ADD_CHILD_PHRASES)
 
+    @staticmethod
+    def adds_a_child_with_age(text: str) -> bool:
+        """ "Another child, Riya 7": a new child and an age in one message, and nothing else
+        ("my son, 6, keeps hitting another child" is a worry, not a request)."""
+        if not PhraseFinder.contains_any(text, OnboardingAnswerParser.NEW_CHILD_PHRASES):
+            return False
+        rest = OnboardingAnswerParser.without_new_child_phrase(text)
+        if len(PhraseFinder.words(rest)) > OnboardingAnswerParser.NEW_CHILD_ANSWER_MAX_WORDS:
+            return False
+        return bool(
+            OnboardingAnswerParser._numbers(rest) or OnboardingAnswerParser._spelled_ages(rest)
+        )
+
+    @staticmethod
+    def without_new_child_phrase(text: str) -> str:
+        """The message with "another child" (or its Hindi forms) taken out: the child's answer."""
+        rest = text
+        for phrase in sorted(OnboardingAnswerParser.NEW_CHILD_PHRASES, key=len, reverse=True):
+            pattern = (
+                r"(?<!\w)" + r"\s+".join(re.escape(word) for word in phrase.split()) + r"(?!\w)"
+            )
+            rest = re.sub(pattern, " ", rest, flags=re.IGNORECASE)
+        return " ".join(rest.split())
+
     # --- values ------------------------------------------------------------------------------
 
     @staticmethod
@@ -401,7 +434,7 @@ class OnboardingAnswerParser:
         """The short home name left after ages, numbers and relation words are taken out."""
         candidates: list[str] = []
         for token in re.split(r"[\s,.;:!?।()\-]+", unicodedata.normalize("NFC", text)):
-            word = token.strip("'\"")
+            word = token.strip("'\"\u201c\u201d\u2018\u2019")  # straight and curly quotes
             if not word or any(character.isdigit() for character in word):
                 continue
             normalised = PhraseFinder.normalise(word)

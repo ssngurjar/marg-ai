@@ -15,7 +15,7 @@ from app.domain.enums import ActivityStatus
 from app.domain.models.activity import OfferRecord
 from app.domain.models.base import TurnId, UserHash
 from app.domain.models.learner import LearnerId
-from app.domain.models.writes import ActivityOffered, ActivityReported
+from app.domain.models.writes import ActivityOffered, ActivityReopened, ActivityReported
 from app.store.tables import learner_activities, learners
 
 
@@ -63,6 +63,28 @@ class JourneyRepository:
                     else None
                 ),
                 reported_at=func.now(),
+            )
+        )
+
+    @staticmethod
+    async def reopen(session: AsyncSession, owner: UserHash, write: ActivityReopened) -> None:
+        """A khoj closed as done is offered again, its report cleared: only the user's own, and
+        only one that is done (a skipped one stays skipped)."""
+        owned_learners = select(learners.c.id).where(learners.c.owner_user_hash == owner)
+        await session.execute(
+            update(learner_activities)
+            .where(
+                and_(
+                    learner_activities.c.id == write.learner_activity_id,
+                    learner_activities.c.learner_id.in_(owned_learners),
+                    learner_activities.c.status == ActivityStatus.DONE.value,
+                )
+            )
+            .values(
+                status=ActivityStatus.OFFERED.value,
+                child_response_summary=None,
+                photo_findings=None,
+                reported_at=None,
             )
         )
 

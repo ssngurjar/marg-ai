@@ -5,6 +5,7 @@ from hypothesis import assume, given
 from hypothesis import strategies as st
 
 from app.domain.enums import ConversationState, Role, Route
+from app.domain.models.turn import UserProfile
 from app.pipeline.turn_router import TurnFacts, TurnRouter
 from tests.support.child_talk import consented_child
 from tests.support.turn_context import user_profile
@@ -293,3 +294,27 @@ def test_a_teacher_asking_for_the_dashboard_gets_a_link(text: str) -> None:
 def test_only_a_teachers_whole_message_is_a_dashboard_request(profile: str, text: str) -> None:
     who = PARENT if profile == "parent" else TEACHER
     assert TurnRouter.decide(who, text, []).route is not Route.DASHBOARD_LINK
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["Another child Riya, 7", "ek aur bachcha hai Golu 4 saal ka", "एक और बच्चा मुन्नी 5 साल"],
+)
+def test_another_child_with_its_age_goes_to_onboarding_to_be_added(text: str) -> None:
+    # second field test, 2026-11-02: the name and age had to be typed again after a button
+    decision = TurnRouter.decide(PARENT, text, [])
+    assert decision.route is Route.ONBOARDING
+    assert decision.reason == "new child with age"
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["my son, 6, keeps hitting another child at school", "doosre bachche ke liye khoj, 5 saal"],
+)
+def test_an_age_in_words_about_another_child_still_goes_to_the_journey(text: str) -> None:
+    assert TurnRouter.decide(PARENT, text, []).route is Route.JOURNEY
+
+
+@pytest.mark.parametrize("profile", [TEACHER, STUDENT_PROFILE], ids=["teacher", "student"])
+def test_only_a_parent_adds_a_child_by_words(profile: UserProfile) -> None:
+    assert TurnRouter.decide(profile, "another child Riya 7", []).route is not Route.ONBOARDING

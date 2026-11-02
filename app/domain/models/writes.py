@@ -93,6 +93,14 @@ class ActivityReported(DomainModel):
     photo_counts: list[ObjectCount] | None = None
 
 
+class ActivityReopened(DomainModel):
+    """s10b: a khoj closed as done is open again: the parent says it wasn't done yet (second
+    field test, 2026-11-02: Done tapped by mistake). Its report, if any, is cleared."""
+
+    kind: Literal["activity_reopened"] = "activity_reopened"
+    learner_activity_id: UUID
+
+
 class ChildSessionStart(DomainModel):
     """s10b (C13): the child started talking. The id is chosen by the layer, so this turn's
     ChildTalkTurn can refer to it."""
@@ -171,6 +179,7 @@ type TurnWrite = Annotated[
     | ChildTalkConsent
     | ActivityOffered
     | ActivityReported
+    | ActivityReopened
     | ChildSessionStart
     | ChildTalkTurn
     | ChildSessionEnd

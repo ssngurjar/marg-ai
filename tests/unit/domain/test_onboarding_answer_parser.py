@@ -12,6 +12,7 @@ from app.domain.rules.onboarding_answer_parser import (
     GradeParse,
     OnboardingAnswerParser,
 )
+from app.domain.rules.phrase_finder import PhraseFinder
 
 pytestmark = pytest.mark.unit
 
@@ -396,3 +397,61 @@ def test_a_range_past_class_12_is_out_of_range_not_cut_short() -> None:
 def test_any_range_is_its_highest_class(low: int, high: int, joiner: str) -> None:
     assume(low < high)  # "8 se 6" is not a range
     assert P.parse_grade(f"{low}{joiner}{high}") == GradeParse(high, None)
+
+
+# --- another child, given with its age (second field test, 2026-11-02) ----------------------------
+
+
+@pytest.mark.parametrize(
+    ("text", "answer"),
+    [
+        ("Another child “Riya, 7”", "“Riya, 7”"),
+        ("another child, 4 years old", ", 4 years old"),
+        ("ek aur bachcha hai Golu 4 saal ka", "hai Golu 4 saal ka"),
+        ("एक और बच्चा मुन्नी 5 साल", "मुन्नी 5 साल"),
+        ("Munni 5 aur Golu 7, another child", "Munni 5 aur Golu 7,"),
+    ],
+)
+def test_another_child_with_an_age_is_read_and_the_phrase_taken_out(text: str, answer: str) -> None:
+    assert P.adds_a_child_with_age(text)
+    assert P.without_new_child_phrase(text) == answer
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "another child",  # no age: the button's question asks for it
+        "Another child please",
+        "doosre bachche ke liye khoj, 5 saal",  # for a child already added
+        "my son, 6, keeps hitting another child at school",  # a worry, not a request
+        "another child: Golu 4 saal aur Pinki 6 saal ke saath khelta hai",  # more than an answer
+        "Riya 7",  # an age with no new-child phrase
+        "",
+        "   ",
+    ],
+)
+def test_a_message_that_isnt_a_new_child_with_its_age_is_not_read_as_one(text: str) -> None:
+    assert not P.adds_a_child_with_age(text)
+
+
+LEFT_QUOTE, RIGHT_QUOTE = "\N{LEFT SINGLE QUOTATION MARK}", "\N{RIGHT SINGLE QUOTATION MARK}"
+LEFT_DOUBLE, RIGHT_DOUBLE = "\N{LEFT DOUBLE QUOTATION MARK}", "\N{RIGHT DOUBLE QUOTATION MARK}"
+
+
+@pytest.mark.parametrize(
+    "quoted",
+    [
+        f"{LEFT_DOUBLE}Riya{RIGHT_DOUBLE}, 7",
+        f"{LEFT_QUOTE}Riya{RIGHT_QUOTE} 7",
+        "'Riya' 7",
+        '"Riya" 7',
+    ],
+)
+def test_a_home_name_in_quotes_is_kept_without_them(quoted: str) -> None:
+    assert P.parse_nickname(quoted).nickname == "Riya"
+
+
+@given(st.text(max_size=60))
+def test_a_child_is_only_read_as_added_when_a_new_child_phrase_is_there(text: str) -> None:
+    if P.adds_a_child_with_age(text):
+        assert PhraseFinder.contains_any(text, P.NEW_CHILD_PHRASES)

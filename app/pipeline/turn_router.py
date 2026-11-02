@@ -108,6 +108,8 @@ class TurnRouter:
             return _to(Route.JOURNEY, "parent photo")
         if not user_text.strip():
             return _to(Route.REPEAT_PLEASE, "blank message")
+        if OnboardingAnswerParser.adds_a_child_with_age(user_text):
+            return _to(Route.ONBOARDING, "new child with age")  # added at once (2026-11-02)
         return _to(Route.JOURNEY, "parent default")
 
     @staticmethod

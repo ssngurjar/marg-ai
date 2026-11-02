@@ -33,6 +33,7 @@ from app.domain.models.writes import (
     MarkPurgeAfterDelivery,
     ProfileChange,
 )
+from app.domain.rules.conversation_machine import MAX_LEARNERS
 from app.layers.onboarding_layer import (
     OnboardingLayer,
     OnboardingResult,
@@ -40,6 +41,7 @@ from app.layers.onboarding_layer import (
     ProfileExtraction,
 )
 from tests.fakes.language_model import FakeLanguageModel, ScriptedOutput
+from tests.support.journey import child
 from tests.support.prompts import shipped_registry
 from tests.support.turn_context import (
     NOW,
@@ -649,6 +651,41 @@ async def test_a_child_talk_button_for_someone_elses_child_is_ignored() -> None:
     )
     assert not any(isinstance(write, ChildTalkConsent) for write in result.writes)
     assert result.reply.body == body(CopyKey.NOT_UNDERSTOOD)
+
+
+async def test_another_child_with_its_age_is_added_and_asked_about_child_talk() -> None:
+    # second field test, 2026-11-02: "Another child, Riya 7" had to be typed again
+    parent = at(S.ACTIVE, role=Role.PARENT)
+    result, llm = await handle(
+        parent,
+        text_message(
+            "Another child \N{LEFT DOUBLE QUOTATION MARK}Riya, 7\N{RIGHT DOUBLE QUOTATION MARK}"
+        ),
+        learners=[MUNNI],
+    )
+    [added] = [write for write in result.writes if isinstance(write, LearnerUpsert)]
+    assert (added.nickname, added.birth_year) == ("Riya", NOW.year - 7)
+    assert profile_change(result).new_state is S.ACTIVE
+    assert "Riya" in result.reply.body
+    assert llm.prompts == []  # read by rule, no model call
+
+
+async def test_another_child_without_an_age_asks_for_it() -> None:
+    result, _ = await handle(
+        at(S.ACTIVE, role=Role.PARENT), text_message("another child please"), learners=[MUNNI]
+    )
+    assert profile_change(result).new_state is S.AWAITING_CHILD
+    assert result.reply.body == body(CopyKey.ASK_CHILD)
+    assert not any(isinstance(write, LearnerUpsert) for write in result.writes)
+
+
+async def test_another_child_at_the_limit_is_not_added() -> None:
+    children = [child(number, f"Kid{number}", 5) for number in range(1, MAX_LEARNERS + 1)]
+    result, _ = await handle(
+        at(S.ACTIVE, role=Role.PARENT), text_message("another child Riya 7"), learners=children
+    )
+    assert not any(isinstance(write, LearnerUpsert) for write in result.writes)
+    assert result.reply.body.startswith(body(CopyKey.MAX_CHILDREN))
 
 
 async def test_an_old_button_pressed_in_the_wrong_state_is_not_understood() -> None:

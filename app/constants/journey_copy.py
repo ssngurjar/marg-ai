@@ -211,6 +211,34 @@ AGE_COMING_SOON: Final[dict[Language, str]] = {
         "closely."
     ),
 }
+# "We didn't do it yet" (second field test, 2026-11-02: after a Done tapped by mistake, the
+# parent got the child-talk reply). {child}: the nickname, or a fallback.
+KHOJ_REOPENED: Final[dict[Language, str]] = {
+    _HINGLISH: (
+        "Koi baat nahi! {child} ki khoj phir se khuli hai: jab do minute milein, saath mein"
+        " kijiye, phir 'Ho gaya ✓' dabaiye ya bataiye kaisa raha."
+    ),
+    _HINDI: (
+        "कोई बात नहीं! {child} की खोज फिर से खुली है: जब दो मिनट मिलें, साथ में कीजिए, फिर"
+        " 'हो गया ✓' दबाइए या बताइए कैसा रहा।"
+    ),
+    _ENGLISH: (
+        "No problem! {child}'s khoj is open again: do it together when you have two minutes,"
+        " then tap Done or tell me how it went."
+    ),
+}
+NOT_DONE_STILL_OPEN: Final[dict[Language, str]] = {
+    _HINGLISH: (
+        "Koi baat nahi! {child} ki khoj abhi khuli hai: jab do minute milein, saath mein kijiye."
+    ),
+    _HINDI: "कोई बात नहीं! {child} की खोज अभी खुली है: जब दो मिनट मिलें, साथ में कीजिए।",
+    _ENGLISH: "No problem! {child}'s khoj is still open: do it together when you have two minutes.",
+}
+NOT_DONE_NOTHING_RECENT: Final[dict[Language, str]] = {
+    _HINGLISH: "Koi baat nahi! Jab do minute milein, aaj ki khoj maang lijiye.",
+    _HINDI: "कोई बात नहीं! जब दो मिनट मिलें, आज की खोज माँग लीजिए।",
+    _ENGLISH: "No problem! Ask for today's khoj whenever you have two minutes.",
+}
 # A greeting or a thank-you while a khoj is open: not a report (owner, 2026-10-29).
 KHOJ_STILL_OPEN: Final[dict[Language, str]] = {
     _HINGLISH: (

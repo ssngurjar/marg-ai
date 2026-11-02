@@ -352,6 +352,8 @@ class ParentIntent(StrEnum):
     STOP_ALL = "stop_all"
     # asks about Marg itself: safety, privacy, trust, using it without reading (2026-11-01)
     ABOUT_MARG = "about_marg"
+    # the khoj wasn't done yet, or Done was tapped by mistake (second field test, 2026-11-02)
+    NOT_DONE_YET = "not_done_yet"
 
 
 class StudentIntent(StrEnum):
