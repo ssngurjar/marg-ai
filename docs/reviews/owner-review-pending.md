@@ -553,4 +553,6 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
   and the child's `CHILD_ACKNOWLEDGED` in `app/constants/child_talk_copy.py`).
 - [ ] **Read the goodbye and silent-voice-note replies** (`GOODBYE` in
   `app/constants/small_talk_copy.py`; `REPEAT_PLEASE` / `SILENT` in `app/constants/fixed_replies.py`).
-
+- [ ] **Read the new hello, where Marg gives itself no title** (`_INTRO` and `_INTRO_WEB` in
+  `app/constants/onboarding_copy.py`: "…padhai, career aur bachchon ki seekh mein madad karta hoon")
+  and the "what Marg is" fact in `app/constants/marg_facts.py`.

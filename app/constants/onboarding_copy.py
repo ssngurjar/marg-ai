@@ -114,21 +114,21 @@ CHILD_FALLBACK: Final = {
 
 _INTRO: Final = {
     _HINGLISH: (
-        "Namaste! Main Marg hoon — padhai, career aur bachchon ki seekh mein aapka saathi. Aap "
+        "Namaste! Main Marg hoon — padhai, career aur bachchon ki seekh mein madad karta hoon. Aap "
         "bolkar ya likhkar kuch bhi pooch sakte hain. Aapki madad ke liye hum sirf zaroori "
         "jaankari save karenge (jaise class, zila, ya bachche ki umar). Naam ya number kisi ko "
         "nahi diya jayega. Kabhi bhi 'mera data hatao' bolkar sab delete kar sakte hain. Kya aap "
         "sahmat hain? (English ya हिंदी mein baat karni ho toh bas wahi likhiye.)"
     ),
     _HINDI: (
-        "नमस्ते! मैं मार्ग हूँ — पढ़ाई, करियर और बच्चों की सीख में आपका साथी। आप बोलकर या लिखकर "
+        "नमस्ते! मैं मार्ग हूँ — पढ़ाई, करियर और बच्चों की सीख में मदद करता हूँ। आप बोलकर या लिखकर "
         "कुछ भी पूछ सकते हैं। आपकी मदद के लिए हम सिर्फ़ ज़रूरी जानकारी सेव करेंगे (जैसे कक्षा, "
         "ज़िला, या बच्चे की उम्र)। नाम या नंबर किसी को नहीं दिया जाएगा। कभी भी 'मेरा डेटा हटाओ' "
         "बोलकर सब डिलीट कर सकते हैं। क्या आप सहमत हैं? (Hinglish या English में बात करनी हो तो "
         "बस वही लिखिए।)"
     ),
     _ENGLISH: (
-        "Hi! I'm Marg — your guide for studies, careers and children's learning. You can ask "
+        "Hi! I'm Marg — I help with studies, careers and children's learning. You can ask "
         "anything by voice or text. To help you, we only save what's needed (like class, "
         "district, or a child's age). Your name and number are never shared. Say 'delete my "
         "data' any time to erase everything. Do you agree? (To talk in Hindi or Hinglish, just "
@@ -137,21 +137,21 @@ _INTRO: Final = {
 }
 _INTRO_WEB: Final = {
     _HINGLISH: (
-        "Namaste! Main Marg hoon — padhai, career aur bachchon ki seekh mein aapka saathi. Yeh ek "
-        "demo hai: is browser ko sirf ek cookie se pehchana jata hai, aapka naam ya phone number "
-        "nahi liya jata. Aapki madad ke liye hum sirf zaroori jaankari save karenge (jaise class, "
-        "zila, ya bachche ki umar). Upar 'Reset' dabakar kabhi bhi sab delete kar sakte hain. Kya "
-        "aap sahmat hain? (English ya हिंदी mein baat karni ho toh bas wahi likhiye.)"
+        "Namaste! Main Marg hoon — padhai, career aur bachchon ki seekh mein madad karta hoon. "
+        "Yeh ek demo hai: is browser ko sirf ek cookie se pehchana jata hai, aapka naam ya phone "
+        "number nahi liya jata. Aapki madad ke liye hum sirf zaroori jaankari save karenge (jaise"
+        " class, zila, ya bachche ki umar). Upar 'Reset' dabakar kabhi bhi sab delete kar sakte "
+        "hain. Kya aap sahmat hain? (English ya हिंदी mein baat karni ho toh bas wahi likhiye.)"
     ),
     _HINDI: (
-        "नमस्ते! मैं मार्ग हूँ — पढ़ाई, करियर और बच्चों की सीख में आपका साथी। यह एक डेमो है: इस "
+        "नमस्ते! मैं मार्ग हूँ — पढ़ाई, करियर और बच्चों की सीख में मदद करता हूँ। यह एक डेमो है: इस "
         "ब्राउज़र को सिर्फ़ एक कुकी से पहचाना जाता है, आपका नाम या फ़ोन नंबर नहीं लिया जाता। आपकी "
         "मदद के लिए हम सिर्फ़ ज़रूरी जानकारी सेव करेंगे (जैसे कक्षा, ज़िला, या बच्चे की उम्र)। ऊपर "
         "'Reset' दबाकर कभी भी सब डिलीट कर सकते हैं। क्या आप सहमत हैं? (Hinglish या English में "
         "बात करनी हो तो बस वही लिखिए।)"
     ),
     _ENGLISH: (
-        "Hi! I'm Marg — your guide for studies, careers and children's learning. This is a demo: "
+        "Hi! I'm Marg — I help with studies, careers and children's learning. This is a demo: "
         "a cookie identifies this browser, and no name or phone number is collected. To help you, "
         "we only save what's needed (like class, district, or a child's age). Press 'Reset' at "
         "the top any time to erase everything. Do you agree? (To talk in Hindi or Hinglish, just "

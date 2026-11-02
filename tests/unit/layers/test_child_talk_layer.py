@@ -163,7 +163,7 @@ async def test_the_first_answer_says_tell_your_parents() -> None:
     assert result.reply.spoken_text.endswith(TELL_YOUR_PARENTS[Language.HINDI])
     assert result.writes == [ChildTalkTurn(session_id=SESSION_ID, topic=CuriosityDomain.EARTH_SKY)]
     assert result.hazard_rule == TALKABLE_HAZARDS
-    assert result.prompt_versions == {"child_talk": "1.3.0"}
+    assert result.prompt_versions == {"child_talk": "1.3.1"}
     assert "The child is 5 years old" in llm.prompts[0].system
     assert "at most 8 words" in llm.prompts[0].system
     assert ChildTalkLayer.LAST_ANSWER_RULE not in llm.prompts[0].system  # more may follow

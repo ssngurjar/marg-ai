@@ -706,3 +706,17 @@
     must_not:
       - asks how old the child is
       - asks the child's name
+
+- id: parent-journey-039
+  title: Asked who it is, Marg says what it does and gives itself no title
+  profile: {role: parent, language: hinglish}
+  learner: {relation: parent, nickname: Munni, age: 5}
+  turns:
+    - user: "Aap kaun ho? Kya karte ho?"
+  expect:
+    route: journey
+    register: hinglish
+    must:
+      - says plainly what Marg does for a parent and their child
+    must_not:
+      - calls Marg a guide, coach, teacher, friend or companion (or margdarshak, saathi, dost)

@@ -1,7 +1,7 @@
 [project]
 name = "marg-ai"
 version = "0.1.0"
-description = "Voice-first WhatsApp coach that helps rural parents nurture their 3-8-year-old's curiosity."
+description = "Voice-first WhatsApp service that helps rural parents nurture their 3-8-year-old's curiosity."
 readme = "README.md"
 requires-python = ">=3.13,<3.14"
 dependencies = [

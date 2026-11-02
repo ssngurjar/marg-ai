@@ -330,7 +330,7 @@ async def test_a_teachers_question_about_marg_is_answered_not_turned_away() -> N
     result = await layer_with_reader.generate(teacher_ctx(text, [LAST_BRIDGE]), text, [], E)
     assert result.reply.body == ABOUT_MARG_REPLY["answer"]
     assert llm.by_prompt["exposure"].prompts == []
-    assert result.prompt_versions == {"teacher_intent": "1.2.0", "about_marg": "1.1.0"}
+    assert result.prompt_versions == {"teacher_intent": "1.2.0", "about_marg": "1.2.0"}
 
 
 def test_the_concern_reply_gives_the_sourced_helpline_in_every_language() -> None:

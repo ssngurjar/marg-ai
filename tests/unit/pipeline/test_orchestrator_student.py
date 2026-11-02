@@ -404,7 +404,7 @@ async def test_a_students_question_about_marg_is_answered_from_the_facts_not_the
     assert str(ABOUT_MARG_REPLY["answer"]) in result.delivered
     generate = [step for step in result.recorder.steps if step.step is StepName.GENERATE]
     assert [step.detail for step in generate] == ["about_marg=true"]
-    assert result.outcome.prompt_versions["about_marg"] == "1.1.0"
+    assert result.outcome.prompt_versions["about_marg"] == "1.2.0"
 
 
 @pytest.mark.parametrize("text", ["okay okay", "okk okk 🤣", "acha good night", "🥰"])

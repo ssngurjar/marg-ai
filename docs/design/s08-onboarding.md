@@ -425,16 +425,16 @@ journey replies; this layer only interprets it.
 
 **Intro and consent text (the legally important copy, written out in all three languages):**
 
-- *Hinglish:* "Namaste! Main Marg hoon — padhai, career aur bachchon ki seekh mein aapka saathi.
-  Aap bolkar ya likhkar kuch bhi pooch sakte hain. Aapki madad ke liye hum sirf zaroori jaankari
+- *Hinglish:* "Namaste! Main Marg hoon — padhai, career aur bachchon ki seekh mein madad karta
+  hoon. Aap bolkar ya likhkar kuch bhi pooch sakte hain. Aapki madad ke liye hum sirf zaroori jaankari
   save karenge (jaise class, zila, ya bachche ki umar). Naam ya number kisi ko nahi diya jayega.
   Kabhi bhi 'mera data hatao' bolkar sab delete kar sakte hain. Kya aap sahmat hain? (English ya
   हिंदी mein baat karni ho toh bas wahi likhiye.)"
-- *Hindi:* "नमस्ते! मैं मार्ग हूँ — पढ़ाई, करियर और बच्चों की सीख में आपका साथी। आप बोलकर या लिखकर
+- *Hindi:* "नमस्ते! मैं मार्ग हूँ — पढ़ाई, करियर और बच्चों की सीख में मदद करता हूँ। आप बोलकर या लिखकर
   कुछ भी पूछ सकते हैं। आपकी मदद के लिए हम सिर्फ़ ज़रूरी जानकारी सेव करेंगे (जैसे कक्षा, ज़िला, या
   बच्चे की उम्र)। नाम या नंबर किसी को नहीं दिया जाएगा। कभी भी 'मेरा डेटा हटाओ' बोलकर सब डिलीट कर
   सकते हैं। क्या आप सहमत हैं? (Hinglish या English में बात करनी हो तो बस वही लिखिए।)"
-- *English:* "Hi! I'm Marg — your guide for studies, careers and children's learning. You can ask
+- *English:* "Hi! I'm Marg — I help with studies, careers and children's learning. You can ask
   anything by voice or text. To help you, we only save what's needed (like class, district, or a
   child's age). Your name and number are never shared. Say 'delete my data' any time to erase
   everything. Do you agree? (To talk in Hindi or Hinglish, just type it.)"
@@ -724,3 +724,4 @@ On a real phone, from a number with no `users` row:
 | 2026-11-01 | **"Can you talk in Braj?" gets a true answer during onboarding** (`OnboardingAnswerParser.asks_about_braj`; `AboutMargAsked.braj`; `CopyKey.BRAJ_SUPPORT`; `COPY_VERSION` onb-2026-11-01.6), then the waiting question. After onboarding, the same comes from a new `MARG_FACTS` line, "Braj". The claim matches `LocalVoice`: Braj is understood typed or spoken, and a Braj speaker's Hindi or Hinglish replies take light Braj | The owner's field test: "kya aap braj bhasha mein baat kar sakte ho" got the general "what Marg does" paragraph | owner |
 | 2026-11-02 | **A class said as a word, or a range a teacher teaches, is read** (`OnboardingAnswerParser.parse_grade`, `_GRADE_NUMBER_WORDS`, `RANGE_JOINERS`, `names_a_class_range`; `profile_extraction` 1.5.0). "आठ", "kaksha das" are classes; "2 se 9", "दो से आठ", "6-8" are their highest class; a short range uses the rules, not the model | The owner's second field test: a teacher's range in Hindi words got "samajh nahi aaya" twice, and the same range in digits was stored as its first class | owner |
 | 2026-11-02 | **A question about Marg during onboarding is answered from the reviewed facts, as after it** (`OnboardingLayer._with_facts_answer` uses `AboutMargLayer`; `OnboardingResult.about_marg`, checked by `safety-out` in the orchestrator, then the waiting question; the fixed `ABOUT_MARG` paragraph is its fallback and the answer when the model fails). In the account's language, so one reply has one language. Braj keeps its fixed answer. Golden case onboarding-005 | The owner: "is about Marg global?" It wasn't: before setup, "do you sell my data?" got the general paragraph | owner |
+| 2026-11-02 | **Marg gives itself no title** (no guide, coach, saathi, friend): it says what it does. The hello in all three languages ("…bachchon ki seekh mein madad karta hoon", "I help with studies, careers and children's learning"), the "what Marg is" fact ("a WhatsApp service that helps"), the role line of every prompt that writes to users (`about_marg` 1.2.0, `parent_answer` 1.7.0, both with a rule against titles; `activity_personalise` 1.1.1, `curiosity_moment` 1.0.6, `parent_reflection` 1.3.1, `child_talk` 1.3.1, `child_redirect` 1.0.1, `mentor` 1.4.1) and the web demo tagline. Real-world words stay (a sports coach, coaching classes, a school's career guide), as do internal names (`Speaker.GUIDE`) and the public line "the world is the curriculum; Marg is the guide", already recorded for the video (golden parent-journey-039) | Owner, after replies such as "I am Marg, a warm guide for parents" | owner |

@@ -26,8 +26,9 @@ MARG_FACTS: Final[tuple[MargFact, ...]] = (
     # --- what Marg is ------------------------------------------------------------------------
     MargFact(
         "what Marg is",
-        "Marg is a WhatsApp guide: for parents of children aged 3 to 8 a two-minute discovery to"
-        " do together each day and answers about their child; for students in classes 6 to 12"
+        "Marg is a WhatsApp service that helps: for parents of children aged 3 to 8 a two-minute"
+        " discovery to do together each day and answers about their child; for students in"
+        " classes 6 to 12"
         " career answers from official sources and a step-by-step plan; for teachers, their"
         " chapter connected to real work.",
         "app/layers/",

@@ -315,7 +315,7 @@ chapter** (start over).
   API, safety and ffmpeg are checked too.
 - **Admin dashboard** (15-minute signed link from the CLI): young learners' curiosity over time
   and students' aims, anonymous.
-- **`marg eval`**: 99 hand-written cases through the real pipeline, scored by code and by a judge
+- **`marg eval`**: 100 hand-written cases through the real pipeline, scored by code and by a judge
   model; crisis and adversarial cases are hard gates.
 - **Understanding banks**, run live in one command each: 156 parent messages
   (`scripts.intent_bank`), 72 onboarding answers (`scripts.onboarding_bank`) and 37 student
