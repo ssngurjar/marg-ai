@@ -1,7 +1,10 @@
 # Marg.ai
 
-**Marg helps the people around a rural Indian child (parents, teachers, and older children
-themselves) raise a curious child, on WhatsApp, in Hindi, Hinglish, English or Braj.**
+**Talent is everywhere; exposure isn't. Marg brings children the exposure they're missing
+through the people already around them: parents, teachers, and older children themselves.**
+
+Today it serves rural India: on WhatsApp, in Hindi, Hinglish, English and Braj, for parents of
+3–8-year-olds, teachers, and students.
 
 Built for the Meta Global AI Developer Hackathon (Indie track, **Build for Your World**),
 Oct 26 – Nov 4, 2026, by Santram Gurjar.
