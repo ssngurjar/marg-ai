@@ -15,7 +15,7 @@ Oct 26 – Nov 4, 2026, by Santram Gurjar.
 
 | Section | In brief |
 |---|---|
-| [What Marg is](#what-marg-is) | A two-minute daily discovery for parents, chapters linked to real work for teachers, a sourced mentor for students |
+| [What Marg is](#what-marg-is) | Exposure through the people around a child: a two-minute discovery a day with the parent, school chapters linked to real work for teachers, and a mentor that answers from official sources for students |
 | [At a glance](#at-a-glance) | The four judging criteria, with where to check each |
 | [Why](#why) | A village in Rajasthan, and children who lack exposure, not talent |
 | [Impact](#impact) | Reach through the phone already in the house, what it costs, and how it travels |
