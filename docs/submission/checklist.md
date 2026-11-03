@@ -50,8 +50,8 @@ platform by **Wed Nov 4, 9:00 PM ET = Thu Nov 5, 07:30 IST**. Our target: **Nov 
       reserved until 2026-11-03; then **Apache-2.0** (`LICENSE`, `NOTICE`), because the organisers
       require an open-source repository (owner's choice). The MMS-TTS sidecar was
       removed on 2026-11-02 (tag `voice-sidecar-2026-11-02`).
-- [ ] How to try it: the WhatsApp number / QR and the `/demo` link. *(2026-10-30: the demo link
-      <https://marg-ai.fly.dev/demo> is in; the WhatsApp number waits for Meta's new token)*
+- [x] How to try it: the `/demo` link for judging; WhatsApp runs on a Meta test number (allow-list
+      only), so judges send their number to the owner to be added (2026-11-03).
 
 ## Demo video (3 minutes; the final round watches it live)
 

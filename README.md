@@ -337,10 +337,10 @@ Each one is fixed and kept as a regression test.
 - **Watch:** the three-minute demo video, <https://youtu.be/FA76IDr_IqY> (English subtitles on by default).
 - **Try it on the web:** <https://marg-ai.fly.dev/demo>, in English by default; write in
   Hindi or Hinglish and Marg answers in that.
-- **Try it on WhatsApp:** this link opens a chat with "Hi Marg, English please" ready to send,
-  so Marg answers in English: `https://wa.me/<number>?text=Hi%20Marg%2C%20English%20please`
-  *(number added at submission)*. Families in the village write in Hindi or Hinglish and get
-  that.
+- **Try it on WhatsApp:** shown in the video. Marg runs on a Meta test number, which only
+  replies to phone numbers on its allow-list; to try it on your own WhatsApp, send your number to
+  the author through the hackathon's submission page and it will be added. The web demo runs the
+  same pipeline.
 - **Run it locally:** see [Run it locally](#run-it-locally); the web demo at `/demo` needs no WhatsApp account.
 
 ## Repository map

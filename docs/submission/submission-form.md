@@ -259,7 +259,10 @@ To fill after posting the demo video on X (engagement counts until Nov 8).
 
 ## How judges try it (put in the description or wherever the form allows a link)
 
-- Web: <https://marg-ai.fly.dev/demo>. It answers in English by default; Hindi or Hinglish get the same.
-- WhatsApp: `https://wa.me/<number>?text=Hi%20Marg%2C%20English%20please` (the chat opens with
-  "Hi Marg, English please" typed, so Marg answers in English). Check it opens the right number
-  (pre-demo checklist).
+- **Web demo (for judging):** <https://marg-ai.fly.dev/demo>. The same pipeline as WhatsApp, with a
+  trace of every step behind each reply. It answers in English by default; Hindi or Hinglish get
+  the same.
+- **WhatsApp:** shown in the video. Marg runs on a Meta test number, which only replies to phone
+  numbers on its allow-list. To try it on your own WhatsApp, send your number to Santram
+  (WhatsApp and email: typed into the form itself, never into this repository) and it will be
+  added.
