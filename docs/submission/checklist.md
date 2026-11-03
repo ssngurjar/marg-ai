@@ -46,7 +46,8 @@ platform by **Wed Nov 4, 9:00 PM ET = Thu Nov 5, 07:30 IST**. Our target: **Nov 
       Spark Open" and "Built with Llama" attributions. Muse Spark Open: Muse Model License; Llama
       Guard 4: Llama 4 Community License (from their Hugging Face model cards, 2026-10-29; the
       licence texts themselves are gated, read them once when logged in). Marg's own code: all rights
-      reserved, viewing and running to evaluate the entry allowed (`LICENSE`, 2026-10-29). The MMS-TTS sidecar was
+      reserved until 2026-11-03; then **Apache-2.0** (`LICENSE`, `NOTICE`), because the organisers
+      require an open-source repository (owner's choice). The MMS-TTS sidecar was
       removed on 2026-11-02 (tag `voice-sidecar-2026-11-02`).
 - [ ] How to try it: the WhatsApp number / QR and the `/demo` link. *(2026-10-30: the demo link
       <https://marg-ai.fly.dev/demo> is in; the WhatsApp number waits for Meta's new token)*

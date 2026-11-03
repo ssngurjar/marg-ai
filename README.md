@@ -4,7 +4,8 @@
 through the people already around them: parents, teachers, and older children themselves.**
 
 Today it serves rural India: on WhatsApp, in Hindi, Hinglish, English and Braj, for parents of
-3–8-year-olds, teachers, and students.
+3–8-year-olds, teachers, and students. Next, anywhere families share one phone and speak a
+language at home that school doesn't.
 
 Built for the Meta Global AI Developer Hackathon (Indie track, **Build for Your World**),
 Oct 26 – Nov 4, 2026, by Santram Gurjar.
@@ -15,10 +16,10 @@ Oct 26 – Nov 4, 2026, by Santram Gurjar.
 
 | Section | In brief |
 |---|---|
-| [What Marg is](#what-marg-is) | Exposure through the people around a child: a two-minute discovery a day with the parent, school chapters linked to real work for teachers, and a mentor that answers from official sources for students |
+| [What Marg is](#what-marg-is) | Through the people around a child: a two-minute discovery a day with the parent, school chapters linked to real work for teachers, and a mentor that answers from official sources for students |
 | [At a glance](#at-a-glance) | The four judging criteria, with where to check each |
-| [Why](#why) | A village in Rajasthan, and children who lack exposure, not talent |
-| [Impact](#impact) | Reach through the phone already in the house, what it costs, and how it travels |
+| [Why](#why) | A village in Rajasthan, and why fewer than one in four rural Class 3 children can read a Class 2 story |
+| [Impact](#impact) | No app, only WhatsApp on the phone already at home; under one US cent a reply; and only language, sources and helplines change for a new region |
 | [Run it locally](#run-it-locally) | Python, Docker and one Meta Model API key: the whole system on your machine, web demo included |
 | [Field tests](#field-tests) | Eight real people, unscripted: 31 things broke, every one fixed the same day |
 | [What it does](#what-it-does) | Parents, the child's own questions, teachers, students, one growing record |
@@ -27,10 +28,10 @@ Oct 26 – Nov 4, 2026, by Santram Gurjar.
 | [How it works](#how-it-works) | The pipeline, ports and adapters, and why no message is lost or doubled |
 | [Safety and children's privacy](#safety-and-childrens-privacy) | Two checks on every message, fixed crisis replies, child rules, data minimisation |
 | [What's next](#whats-next) | A daily limit for child talk, reading children's words, anganwadi workers, more sources |
-| [Quality](#quality) | 3,352 tests, 101 eval cases, the latest scorecard, and what hands-on testing found |
+| [Quality](#quality) | 3,354 tests, 101 eval cases, the latest scorecard, and what hands-on testing found |
 | [Try it](#try-it) | The video, the web demo and WhatsApp |
 | [Repository map](#repository-map) | Where everything lives |
-| [Licences](#licences) | Every model and library, and the attributions they ask for |
+| [Licences](#licences) | Marg is open source (Apache-2.0); every model and library it uses, and the attributions they ask for |
 
 More detail: what each feature does, step by step, in
 [docs/submission/features.md](docs/submission/features.md); how the system works and how to debug
@@ -41,10 +42,9 @@ design, one document per build step, in [docs/design/](docs/design/README.md).
 
 ## What Marg is
 
-Marg closes the exposure gap for rural Indian children by equipping the people already around
-them. Parents of 3–8-year-olds get a two-minute discovery to do offline with things at home;
-teachers get today's chapter connected to real work; students get a mentor that states facts only
-from official sources. It isn't a tutor, and it isn't screen time for children: the world is the
+Marg works through the people already around rural Indian children. Parents of 3–8-year-olds
+get a two-minute discovery to do offline with things at home; teachers get today's chapter
+connected to real work; students get a mentor that states facts only from official sources. It isn't a tutor, and it isn't screen time for children: the world is the
 curriculum, the parent is the teacher, and Marg is the guide.
 
 The way it teaches is the one India's national curriculum for ages 3–8 sets out: children
@@ -63,7 +63,7 @@ Families talk to Marg the way they already talk on WhatsApp: by voice note or te
 |---|---|
 | **Impact** | Fewer than one in four Class 3 children in rural government schools can read a Class 2 story (ASER 2024), and 250 million children under five are at risk of not reaching their potential (The Lancet, 2017). Marg reaches families through the phone they already have: no app, just a voice note, at under one US cent a reply in model calls. → [Impact](#impact) |
 | **Meta AI tooling** | Six Meta models, each with one job: Muse Spark 1.3, Muse Spark Open (open weights), Muse Voice Transcribe, SAM 3.1, Muse Image and Llama Guard 4, plus measured feedback on where they fell short for Hindi and Braj. → [The models](#the-models) · [feedback](docs/submission/submission-form.md#provide-feedback-from-your-experience-using-meta-products) |
-| **Technical depth** | Hexagonal (ports and adapters) architecture, enforced by an import-graph test; every message checked on the way in and out, failing closed, with Muse Spark backing up Llama Guard; 3,352 tests, including property-based ones; 101 eval cases through the real pipeline, with crisis and adversarial cases as hard gates (76% of the 82 scored pass on the latest full run); a design document and decisions log for every step. → [How it works](#how-it-works) · [Safety](#safety-and-childrens-privacy) · [Quality](#quality) |
+| **Technical depth** | Hexagonal (ports and adapters) architecture, enforced by an import-graph test; every message checked on the way in and out, failing closed, with Muse Spark backing up Llama Guard; 3,354 tests, including property-based ones; 101 eval cases through the real pipeline, with crisis and adversarial cases as hard gates (76% of the 82 scored pass on the latest full run); a design document and decisions log for every step. → [How it works](#how-it-works) · [Safety](#safety-and-childrens-privacy) · [Quality](#quality) |
 | **Demo** | A live web demo that shows a trace of every step behind each reply, and the three-minute video (English subtitles uploaded, not auto-generated). → [Try it](#try-it) |
 
 ## Why
@@ -89,10 +89,8 @@ Marg needs no app, only WhatsApp, and anyone can ask by voice note.
   class; one learner record is built to carry a child from their first *why* toward their first
   career decision.
 - **It travels.** A new language or dialect is word lists and prompt work, not a rebuild: Braj
-  was added in a day. Nothing in the design is only for one village, and the need is global:
-  "250 million children (43%) younger than 5 years in low-income and middle-income countries
-  are at risk of not reaching their developmental potential" ([The Lancet, 2017](https://pubmed.ncbi.nlm.nih.gov/27717614/)).
-  Marg fits anywhere families share one phone and speak a language at home that school doesn't.
+  was added in a day. Nothing in the design is only for one village: Marg fits anywhere
+  families share one phone and speak a language at home that school doesn't.
   Per region, three things change, each reviewed locally: the language word lists, the official
   sources, and the crisis helplines. Channels and models sit behind ports, so the core stays the
   same.
@@ -100,9 +98,14 @@ Marg needs no app, only WhatsApp, and anyone can ask by voice note.
   eval run ($0.65 for 111 replies), so about 3 US cents a day for an active family (around five
   replies), not counting WhatsApp fees and hosting. The whole build, with every test and
   evaluation, used about $32 of Model API credits (Baseten and DeepInfra are billed separately).
-- **The need is large.** An estimated 250 million children under five in low- and middle-income
-  countries are at risk of not reaching their developmental potential
-  ([Lancet series, 2016](https://pmc.ncbi.nlm.nih.gov/articles/PMC5884058); 2010 data).
+- **The need runs from the first years to the first career choice.** "250 million children
+  (43%) younger than 5 years in low-income and middle-income countries are at risk of not
+  reaching their developmental potential"
+  ([The Lancet, 2017](https://pubmed.ncbi.nlm.nih.gov/27717614/); 2010 data). In rural
+  India, "about 25%" of 14–18-year-olds "still cannot read a Std II level text fluently in their
+  regional language", 32.6% of 18-year-olds are no longer enrolled, and only 5.6% are taking
+  vocational training or a related course
+  ([ASER 2023 Beyond Basics, pp. 34–35](https://asercentre.org/wp-content/uploads/2022/12/ASER-2023_Main-findings-1.pdf)).
 
 What Marg has **not** shown yet is that it changes outcomes: that needs families using it for
 months.
@@ -177,10 +180,12 @@ Consent comes first, and a user's data is deleted with one message ("mera data h
 Full walkthrough: [docs/submission/features.md](docs/submission/features.md).
 
 **What Marg is not.** Not an "AI for education" chatbot: it equips adults, and a young child's
-learning happens offline with their hands. Not a basic RAG app: retrieval serves one part of the
-system, with structured claims, citations and an honest "I don't know", inside a pipeline with
-safety on both sides. Not medical advice: health and medicine questions are referred to the
-anganwadi worker, the ASHA didi or a doctor, never answered.
+learning happens offline with their hands. Not a basic RAG app: searching official sources is
+one part of the system, the student mentor. There every fact is a separate claim tied to its
+source, code rejects a claim with no source, and when nothing is found Marg says it doesn't
+know; all inside a pipeline with safety checks on the way in and out. Not medical advice:
+health and medicine questions are referred to the anganwadi worker, the ASHA didi or a doctor,
+never answered.
 
 ## Built during the hackathon
 
@@ -304,7 +309,7 @@ and every module and class in [docs/code-map.md](docs/code-map.md).
 
 | | |
 |---|---|
-| Tests | **3,352**: 3,139 unit and contract tests, plus 213 integration tests on Postgres; property-based tests (Hypothesis) for the state machine, message splitting, spoken-text rules, the chunker, signatures, payload parsing and the hazard matcher |
+| Tests | **3,354**: 3,141 unit and contract tests, plus 213 integration tests on Postgres; property-based tests (Hypothesis) for the state machine, message splitting, spoken-text rules, the chunker, signatures, payload parsing and the hazard matcher |
 | Checks | `ruff format`, `ruff check`, `mypy --strict` (no `Any`), `pytest`: all must pass before every commit |
 | Evals | `marg eval` plays **101** hand-written cases through the real pipeline and real models; code checks plus a judge model. Crisis and adversarial cases are hard gates |
 | Latest full scorecard | **76%** of the 82 scored cases pass (62); both hard gates pass; safety 5.00/5, reading level 4.73/5, cultural resonance 4.84/5 ([evals/results/](evals/results/)) |
@@ -364,5 +369,7 @@ Each one is fixed and kept as a regression test.
 **Built with Muse Spark Open. Built with Llama.** (The attributions the Muse Model License and
 the Llama 4 Community License ask for.)
 
-Marg's own code: **all rights reserved** ([LICENSE](LICENSE)). You may view it and run it to
-evaluate this hackathon entry; any other use needs the author's written permission.
+Marg's own code and content are **open source under the Apache License 2.0**
+([LICENSE](LICENSE), [NOTICE](NOTICE)): anyone, including Meta, the hackathon's organisers and
+judges, may use, change and share them, keeping the copyright notice. This adds to every right
+the hackathon's Official Rules give the organisers.

@@ -3,6 +3,8 @@ name = "marg-ai"
 version = "0.1.0"
 description = "Voice-first WhatsApp service that helps rural parents nurture their 3-8-year-old's curiosity."
 readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
 requires-python = ">=3.13,<3.14"
 dependencies = [
     "alembic==1.20.1",
