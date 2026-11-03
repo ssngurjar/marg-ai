@@ -64,7 +64,7 @@ Families talk to Marg the way they already talk on WhatsApp: by voice note or te
 | **Impact** | Fewer than one in four Class 3 children in rural government schools can read a Class 2 story (ASER 2024), and 250 million children under five are at risk of not reaching their potential (The Lancet, 2017). Marg reaches families through the phone they already have: no app, just a voice note, at under one US cent a reply in model calls. → [Impact](#impact) |
 | **Meta AI tooling** | Six Meta models, each with one job: Muse Spark 1.3, Muse Spark Open (open weights), Muse Voice Transcribe, SAM 3.1, Muse Image and Llama Guard 4, plus measured feedback on where they fell short for Hindi and Braj. → [The models](#the-models) · [feedback](docs/submission/submission-form.md#provide-feedback-from-your-experience-using-meta-products) |
 | **Technical depth** | Hexagonal (ports and adapters) architecture, enforced by an import-graph test; every message checked on the way in and out, failing closed, with Muse Spark backing up Llama Guard; 3,354 tests, including property-based ones; 101 eval cases through the real pipeline, with crisis and adversarial cases as hard gates (76% of the 82 scored pass on the latest full run); a design document and decisions log for every step. → [How it works](#how-it-works) · [Safety](#safety-and-childrens-privacy) · [Quality](#quality) |
-| **Demo** | A live web demo that shows a trace of every step behind each reply, and the three-minute video (English subtitles uploaded, not auto-generated). → [Try it](#try-it) |
+| **Demo** | A live web demo that shows a trace of every step behind each reply, and the [three-minute video](https://youtu.be/FA76IDr_IqY) (English subtitles uploaded, not auto-generated). → [Try it](#try-it) |
 
 ## Why
 
@@ -334,7 +334,7 @@ Each one is fixed and kept as a regression test.
 
 ## Try it
 
-- **Watch:** the demo video *(link added at submission)*.
+- **Watch:** the three-minute demo video, <https://youtu.be/FA76IDr_IqY> (English subtitles on by default).
 - **Try it on the web:** <https://marg-ai.fly.dev/demo>, in English by default; write in
   Hindi or Hinglish and Marg answers in that.
 - **Try it on WhatsApp:** this link opens a chat with "Hi Marg, English please" ready to send,

@@ -9,17 +9,19 @@ or with an AI tool, reads the transcript.
 **Final cut: v28 (2:58), 3 Nov.** The subtitles and the chapters below match it. Upload
 `full_v28_clean.mp4` with this subtitle file, or `full_v28.mp4`, whose subtitles are burned in.
 If the cut changes again, regenerate both from the new cut.
+Thumbnail: `~/marg-video/thumbnail_v2.png` (1280×720): the village path, the real khoj card
+Muse Image drew from a child's question, and "Talent is everywhere. Exposure isn't."
 
 ## Title
 
-Marg.ai: a voice guide on WhatsApp for the people around a rural child (Meta hackathon, Indie track)
+Marg.ai: exposure for every child, through the people around them (Meta hackathon, Indie track)
 
 ## Description
 
 ```text
-Children in my village don't lack talent. They lack exposure: someone to ask them why.
+Talent is everywhere; exposure isn't. In my village, few children have anyone to ask them why.
 
-Marg.ai is a voice-first guide on WhatsApp. It equips the people already around a child, in Hindi, Hinglish, English or Braj, to help children learn the way children learn best: through play, talk and the world around them (NCF Foundational Stage 2022, NCERT).
+Marg.ai is a voice-first guide on WhatsApp. It brings children that exposure through the people already around them (parents, teachers, and older children themselves) the way children learn best: through play, talk and the world around them (NCF Foundational Stage 2022, NCERT). Today it serves rural India, in Hindi, Hinglish, English and Braj.
 
 • Parents of 3–8-year-olds get Aaj ki Khoj, a two-minute discovery to do offline with things at home. They tell Marg what the child said, and Marg answers the child's idea with one question back.
 • Children, once a parent says yes, can send Marg their own "why" by voice, in short sessions with strict child-safety rules.

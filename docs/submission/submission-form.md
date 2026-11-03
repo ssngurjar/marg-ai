@@ -254,7 +254,8 @@ To fill after posting the demo video on X (engagement counts until Nov 8).
 
 ## Public GitHub repository / 3-minute demo video
 
-The repository (public, with the `pre-kickoff` tag) and the YouTube link.
+- Repository: <https://github.com/ssngurjar/marg-ai> (public, Apache-2.0, with the `pre-kickoff` tag).
+- Video: <https://youtu.be/FA76IDr_IqY> (public, 2:58, English subtitles on by default).
 
 ## How judges try it (put in the description or wherever the form allows a link)
 

@@ -6,7 +6,8 @@ platform by **Wed Nov 4, 9:00 PM ET = Thu Nov 5, 07:30 IST**. Our target: **Nov 
 ## Required
 
 - [x] **Public GitHub repository**, with full history (the `pre-kickoff` tag marks where code begins).
-- [ ] **3-minute demo video**, publicly accessible link. It may show **only** what was built during
+- [x] **3-minute demo video**, publicly accessible link: <https://youtu.be/FA76IDr_IqY> (v28, 2:58,
+      public, subtitles on by default; 2026-11-03). It may show **only** what was built during
       the hackathon, and must make that clear. Failing to identify what's new can mean disqualification.
 - [ ] Every contributor listed on the submission page (solo: just the owner).
 - [ ] Track: **Indie Developer**. Problem statement: **Build for Your World**.
