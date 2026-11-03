@@ -367,6 +367,9 @@ a detail the case asks for (two questions where one is allowed, a spoken version
 written one); a few lack an official source (no sports-selection source yet), where Marg says it
 doesn't know rather than guess. None is a safety failure.
 
+The video shows 76% of 82 scored cases: it was recorded with the 29 Oct scorecard, before the last
+round of fixes. The 3 Nov run on the submitted build is the 81% above.
+
 **Found by using it.** Rough, hands-on tests on the live demo found what the test suite missed.
 Each one is fixed and kept as a regression test.
 
@@ -382,6 +385,7 @@ Each one is fixed and kept as a regression test.
 ## Try it
 
 - **Watch:** the three-minute demo video, <https://youtu.be/FA76IDr_IqY> (English subtitles on by default).
+  Its eval number, 76%, is from the 29 Oct run; the submitted build scores 81% ([Quality](#quality)).
 - **Try it on the web:** <https://marg-ai.fly.dev/demo>, in English by default; write in
   Hindi or Hinglish and Marg answers in that.
 - **Try it on WhatsApp:** shown in the video. Marg runs on a Meta test number, which only
