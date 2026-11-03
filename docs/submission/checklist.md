@@ -67,7 +67,8 @@ Superseded by [video-script.md](video-script.md) for the structure and timings; 
 
 ## Bonus prizes
 
-- [ ] **Most Viral:** post the demo on X; submit the post link on the platform; engagement counts until Nov 8.
+- [x] **Most Viral:** posted on X with the video, <https://x.com/santramMargAi/status/2117575321893626055>
+      (2026-11-03); the link goes in the form; engagement counts until Nov 8.
 - [ ] **Community Vote:** share the gallery link with our network (one vote per verified account); winner announced Nov 16.
 - [x] **Best Creative Build:** the khoj card uses Muse Image; mention it in the submission.
 - [x] **Best Build on Meta Open Weight Models:** C9 runs the reflection and curiosity extraction on Muse Spark Open on Baseten.

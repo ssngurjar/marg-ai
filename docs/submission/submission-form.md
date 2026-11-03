@@ -25,7 +25,7 @@ Two rules shape every answer:
 | 2 | Team Members | Santram Gurjar (filled in by the form) |
 | 3 | Which track * | **Indie** |
 | 4 | Which problem statement * | **Build for Your World** (below) |
-| 5 | Most Viral Track: X post link | after posting the video (below) |
+| 5 | Most Viral Track: X post link | <https://x.com/santramMargAi/status/2117575321893626055> |
 | 6 | Project Description * | below |
 | 7 | Public GitHub Repository * | below |
 | 8 | 3-Minute Demo Video * | below |
@@ -248,7 +248,8 @@ behind them.)*
 
 ## Most Viral Track (X post link)
 
-To fill after posting the demo video on X (engagement counts until Nov 8).
+<https://x.com/santramMargAi/status/2117575321893626055> (posted 2026-11-03 with the video; engagement
+counts until Nov 8).
 
 ---
 
