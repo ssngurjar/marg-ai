@@ -16,6 +16,7 @@ Oct 26 – Nov 4, 2026, by Santram Gurjar.
 | [At a glance](#at-a-glance) | The four judging criteria, with where to check each |
 | [Why](#why) | A village in Rajasthan, and children who lack exposure, not talent |
 | [Impact](#impact) | Reach through the phone already in the house, what it costs, and how it travels |
+| [Run it locally](#run-it-locally) | Python, Docker and three keys: the whole system on your machine, web demo included |
 | [Field tests](#field-tests) | Eight real people, unscripted: 31 things broke, every one fixed the same day |
 | [What it does](#what-it-does) | Parents, the child's own questions, teachers, students, one growing record |
 | [Built during the hackathon](#built-during-the-hackathon) | What existed before kickoff, and why replies are text |
@@ -24,7 +25,7 @@ Oct 26 – Nov 4, 2026, by Santram Gurjar.
 | [Safety and children's privacy](#safety-and-childrens-privacy) | Two checks on every message, fixed crisis replies, child rules, data minimisation |
 | [What's next](#whats-next) | A daily limit for child talk, reading children's words, anganwadi workers, more sources |
 | [Quality](#quality) | 3,323 tests, 101 eval cases, the latest scorecard, and what hands-on testing found |
-| [Try it](#try-it) | The video, the web demo, WhatsApp, and running it locally |
+| [Try it](#try-it) | The video, the web demo and WhatsApp |
 | [Repository map](#repository-map) | Where everything lives |
 | [Licences](#licences) | Every model and library, and the attributions they ask for |
 
@@ -102,6 +103,25 @@ Marg needs no app, only WhatsApp, and anyone can ask by voice note.
 
 What Marg has **not** shown yet is that it changes outcomes: that needs families using it for
 months.
+
+## Run it locally
+
+Needs Python 3.13, [uv](https://docs.astral.sh/uv/), Docker and ffmpeg, plus keys for the Meta
+Model API, Baseten and DeepInfra (every setting is listed, without values, in
+[`.env.example`](.env.example)).
+
+```sh
+make setup                               # the environment from its lockfile
+cp .env.example .env                     # then fill in the keys
+docker compose up -d postgres            # the database
+make migrate                             # the schema
+.venv/bin/python -m app.cli ingest-corpus   # the official sources, for the mentor
+.venv/bin/uvicorn app.main:create_app --factory --port 8000
+open http://127.0.0.1:8000/demo
+```
+
+See the [guide, §2](docs/guides/debugging-and-architecture.md). The checks: `make check`
+(format, lint, types and unit tests) and `make test-int` (Postgres).
 
 ## Field tests
 
@@ -310,26 +330,7 @@ Each one is fixed and kept as a regression test.
   so Marg answers in English: `https://wa.me/<number>?text=Hi%20Marg%2C%20English%20please`
   *(number added at submission)*. Families in the village write in Hindi or Hinglish and get
   that.
-- **Run it locally:** see below; the web demo at `/demo` needs no WhatsApp account.
-
-### Run it locally
-
-Needs Python 3.13, [uv](https://docs.astral.sh/uv/), Docker and ffmpeg, plus keys for the Meta
-Model API, Baseten and DeepInfra (every setting is listed, without values, in
-[`.env.example`](.env.example)).
-
-```sh
-make setup                               # the environment from its lockfile
-cp .env.example .env                     # then fill in the keys
-docker compose up -d postgres            # the database
-make migrate                             # the schema
-.venv/bin/python -m app.cli ingest-corpus   # the official sources, for the mentor
-.venv/bin/uvicorn app.main:create_app --factory --port 8000
-open http://127.0.0.1:8000/demo
-```
-
-See the [guide, §2](docs/guides/debugging-and-architecture.md). The checks: `make check`
-(format, lint, types and unit tests) and `make test-int` (Postgres).
+- **Run it locally:** see [Run it locally](#run-it-locally); the web demo at `/demo` needs no WhatsApp account.
 
 ## Repository map
 
