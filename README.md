@@ -64,7 +64,7 @@ Families talk to Marg the way they already talk on WhatsApp: by voice note or te
 |---|---|
 | **Impact** | Fewer than one in four Class 3 children in rural government schools can read a Class 2 story (ASER 2024), and 250 million children under five are at risk of not reaching their potential (The Lancet, 2017). Marg reaches families through the phone they already have: no app, just a voice note, at under one US cent a reply in model calls. → [Impact](#impact) |
 | **Meta AI tooling** | Six Meta models, each with one job: Muse Spark 1.3, Muse Spark Open (open weights), Muse Voice Transcribe, SAM 3.1, Muse Image and Llama Guard 4, plus measured feedback on where they fell short for Hindi and Braj. → [The models](#the-models) · [feedback](docs/feedback/meta-models.md) |
-| **Technical depth** | Hexagonal (ports and adapters) architecture, enforced by an import-graph test; every message checked on the way in and out, failing closed, with Muse Spark backing up Llama Guard; 3,354 tests, including property-based ones; 101 eval cases through the real pipeline, with crisis and adversarial cases as hard gates (76% of the 82 scored pass on the latest full run); a design document and decisions log for every step. → [How it works](#how-it-works) · [Safety](#safety-and-childrens-privacy) · [Quality](#quality) |
+| **Technical depth** | Hexagonal (ports and adapters) architecture, enforced by an import-graph test; every message checked on the way in and out, failing closed, with Muse Spark backing up Llama Guard; 3,354 tests, including property-based ones; 101 eval cases through the real pipeline, with crisis and adversarial cases as hard gates (81% of the 97 scored pass on the latest full run); a design document and decisions log for every step. → [How it works](#how-it-works) · [Safety](#safety-and-childrens-privacy) · [Quality](#quality) |
 | **Demo** | A live web demo that shows a trace of every step behind each reply, and the [three-minute video](https://youtu.be/FA76IDr_IqY) (English subtitles uploaded, not auto-generated). → [Try it](#try-it) |
 
 ## A five-minute tour
@@ -358,13 +358,14 @@ and every module and class in [docs/code-map.md](docs/code-map.md).
 | Tests | **3,354**: 3,141 unit and contract tests, plus 213 integration tests on Postgres; property-based tests (Hypothesis) for the state machine, message splitting, spoken-text rules, the chunker, signatures, payload parsing and the hazard matcher |
 | Checks | `ruff format`, `ruff check`, `mypy --strict` (no `Any`), `pytest`: all must pass before every commit |
 | Evals | `marg eval` plays **101** hand-written cases through the real pipeline and real models; code checks plus a judge model. Crisis and adversarial cases are hard gates |
-| Latest full scorecard | **76%** of the 82 scored cases pass (62); both hard gates pass; safety 5.00/5, reading level 4.73/5, cultural resonance 4.84/5 ([evals/results/](evals/results/)) |
-| Latency | p50 6.1 s, p95 11.1 s per reply (eval run); a 10-person smoke test lost, doubled or silenced nothing ([docs/load/](docs/load/2026-10-28-smoke-test.md)) |
+| Latest full scorecard | **81%** of the 97 scored cases pass (79), on 3 Nov, the submitted build; both hard gates pass; safety 5.00/5, reading level 4.87/5, cultural resonance 4.77/5, actionability 4.63/5 ([evals/results/](evals/results/)) |
+| Latency | p50 8.2 s, p95 15.5 s per reply, averaged over the last three full eval runs (p50 6.1–12.0 s, p95 11.1–23.4 s, depending on how fast the models answer that day); real families in the 2 Nov field test waited 4.1 s on average for a parent reply. A 10-person smoke test lost, doubled or silenced nothing ([docs/load/](docs/load/2026-10-28-smoke-test.md)) |
 
-76% is honest, not perfect: the judge is strict, and single runs move by several points (two
-full runs on the same day gave 73% and 76%). The failing cases are listed in each scorecard;
-about a quarter of them lack an official source (no sports-selection or state police source yet),
-where Marg says it doesn't know rather than guess.
+81% is honest, not perfect: the judge is strict, and single runs move by several points (two
+full runs on 29 Oct gave 73% and 76%). The 19 failing cases are listed in the scorecard. Most miss
+a detail the case asks for (two questions where one is allowed, a spoken version shorter than the
+written one); a few lack an official source (no sports-selection source yet), where Marg says it
+doesn't know rather than guess. None is a safety failure.
 
 **Found by using it.** Rough, hands-on tests on the live demo found what the test suite missed.
 Each one is fixed and kept as a regression test.

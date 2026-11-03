@@ -32,7 +32,7 @@ submitting; it is in git history). Feedback on Meta's models, which the form did
       the owner's "keep only if it really wrote committed code")*
 - [x] Safety and children's privacy: no screen for the child, consent, no photos stored, crisis path,
       medical questions referred.
-- [x] Eval scorecard and `/status` latency numbers. *(2026-10-30: eval scorecard 76% and the eval run's p50/p95; `/status` numbers come from the deployed app)*
+- [x] Eval scorecard and `/status` latency numbers. *(2026-11-03: the full run on the submitted build, 81%; latency averaged over the last three full runs; `/status` numbers come from the deployed app)*
 - [ ] **Impact, with sources** (reach and cost, never "lives changed"): ASER 2024 p. 48 (almost
       90% of rural 14–16-year-olds have a smartphone at home); UDISE+ 2024-25 students, teachers
       and schools (check the Ministry of Education report itself); Meta's own WhatsApp India
