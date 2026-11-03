@@ -60,7 +60,7 @@ class Settings(DatabaseSettings):
     # The business's public number, digits only: the teacher invite's wa.me link (s08). Public.
     whatsapp_display_number: str = Field(pattern=r"^\d{10,15}$")
     webhook_max_body_bytes: int = Field(default=5_000_000, gt=0)
-    timeout_whatsapp_s: float = Field(default=5.0, gt=0)
+    timeout_whatsapp_s: float = Field(default=15.0, gt=0)
 
     # Added in S4 for the turn engine (contracts §7; exception E1: one process, no leases)
     turn_debounce_ms: int = Field(default=1000, ge=0)
@@ -68,7 +68,10 @@ class Settings(DatabaseSettings):
     max_turn_attempts: int = Field(default=3, ge=1)
     stale_message_hours: int = Field(default=23, ge=1)
     recent_exchanges: int = Field(default=6, ge=0)
-    turn_budget_s: float = Field(default=35.0, gt=0)
+    # Owner, 2026-11-03: a late reply is better than one that seems to fail. Every limit that
+    # decides whether the reply goes out is generous; only limits that switch to a backup stay
+    # short (TIMEOUT_GUARD_S, TIMEOUT_OPEN_MODEL_S, TIMEOUT_ROUTE_S).
+    turn_budget_s: float = Field(default=90.0, gt=0)
     outbox_max_attempts: int = Field(default=5, ge=1)
     maintenance_interval_s: float = Field(default=30.0, gt=0)
     shutdown_grace_s: float = Field(default=20.0, ge=0)
@@ -77,7 +80,7 @@ class Settings(DatabaseSettings):
     purge_sweep_after_s: int = Field(default=600, ge=60)  # s08 §4.10: purge even if undelivered
 
     # Added with E1's upgrade (s04 §4.3 to §4.11): several workers share the queue through leases
-    lease_duration_s: float = Field(default=75.0, gt=0)  # at least twice TURN_BUDGET_S
+    lease_duration_s: float = Field(default=180.0, gt=0)  # at least twice TURN_BUDGET_S
     worker_concurrency: int = Field(default=8, ge=1)
     outbox_concurrency: int = Field(default=4, ge=1)
     outbox_sending_stuck_s: float = Field(default=60.0, gt=0)
@@ -109,18 +112,21 @@ class Settings(DatabaseSettings):
     safety_model: str = Field(min_length=1)
     safety_policy_model_enabled: bool = True  # s07 C16: the Muse Spark policy check on input
     user_slot_max_chars: int = Field(default=4000, ge=100)
-    # 5 s: the policy check is a Muse Spark call (spike E: 2.3 s p50, 3.2 s p95 at minimal)
-    timeout_safety_in_s: float = Field(default=5.0, gt=0)
+    # 20 s (was 5): the policy check is a Muse Spark call (spike E: 2.3 s p50, 3.2 s p95); a photo
+    # waits for Llama Guard (1.5 s), then the Muse Spark image check, which took 4-5 s on
+    # 2026-11-03 and dropped a parent's photo at 5 s
+    timeout_safety_in_s: float = Field(default=20.0, gt=0)
     timeout_route_s: float = Field(default=4.0, gt=0)
-    timeout_generate_s: float = Field(default=20.0, gt=0)
+    timeout_generate_s: float = Field(default=45.0, gt=0)
     # A teacher's bridge (three fields, each with an activity) gets longer: teachers can wait
-    timeout_exposure_s: float = Field(default=24.0, gt=0)
+    timeout_exposure_s: float = Field(default=60.0, gt=0)
     # A student's mentor answer or plan (retrieval, then a cited reply) gets the same (owner)
-    timeout_mentor_s: float = Field(default=24.0, gt=0)
+    timeout_mentor_s: float = Field(default=60.0, gt=0)
     # Llama Guard's own limit inside a safety check: past it, the Muse Spark backup decides.
     timeout_guard_s: float = Field(default=1.5, gt=0)
-    # 6 s: Llama Guard (≤ 1.5 s), then the Muse Spark backup reply check when it's down (~2.5 s)
-    timeout_safety_out_s: float = Field(default=6.0, gt=0)
+    # 20 s (was 6): Llama Guard (≤ 1.5 s), then the Muse Spark reply check when it's down or
+    # flags the reply (2026-11-03: a false S12 on a khoj reflection ran past 6 s)
+    timeout_safety_out_s: float = Field(default=20.0, gt=0)
     # The breakers in front of Llama Guard and Muse Spark Open (owner, 2026-11-01): after
     # BREAKER_FAILURES failures in a row within BREAKER_WINDOW_S, the provider is skipped (its
     # backup answers at once) for up to BREAKER_OPEN_S; meanwhile a probe every BREAKER_PROBE_S
@@ -141,8 +147,8 @@ class Settings(DatabaseSettings):
     # VOICE_REPLIES_ENABLED=true stops the app at startup.
     model_stt: str = Field(default="muse-voice-transcribe-1.0", min_length=1)
     voice_replies_enabled: bool = False
-    timeout_fetch_media_s: float = Field(default=5.0, gt=0)
-    timeout_transcribe_s: float = Field(default=10.0, gt=0)
+    timeout_fetch_media_s: float = Field(default=15.0, gt=0)
+    timeout_transcribe_s: float = Field(default=30.0, gt=0)
     timeout_synthesize_s: float = Field(default=8.0, gt=0)
     max_inbound_audio_bytes: int = Field(default=5_242_880, gt=0)
     min_voice_note_ms: int = Field(default=700, ge=0)
@@ -163,14 +169,14 @@ class Settings(DatabaseSettings):
     khoj_card_enabled: bool = True
     model_image: str = Field(default="muse-image-1.0", min_length=1)
     image_reasoning_strength: Literal["low", "high"] = "low"
-    timeout_make_card_s: float = Field(default=30.0, gt=0)
+    timeout_make_card_s: float = Field(default=90.0, gt=0)
 
     # Added in S10b for activity photos (C7): SAM 3.1 checks for people, then counts (spike F)
     photo_input_enabled: bool = True
     model_segment: str = Field(default="sam-3.1", min_length=1)
     max_inbound_image_bytes: int = Field(default=5_242_880, gt=0)
-    timeout_fetch_image_s: float = Field(default=5.0, gt=0)
-    timeout_analyze_image_s: float = Field(default=6.0, gt=0)
+    timeout_fetch_image_s: float = Field(default=15.0, gt=0)
+    timeout_analyze_image_s: float = Field(default=20.0, gt=0)
 
     # Added in S14 for the web demo (s14; exception E2: polling, no SSE)
     session_signing_key: SecretStr

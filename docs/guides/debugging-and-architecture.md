@@ -84,7 +84,7 @@ the app at startup with a `ConfigError`. The web demo offers the browser's own v
 | `NUDGES_ENABLED` | daily khoj messages; **off** until Meta approves the templates |
 | `KHOJ_CARD_ENABLED` | illustrated cards after a good report |
 | `SAFETY_POLICY_MODEL_ENABLED` | the Muse Spark safety check that runs with Llama Guard |
-| `TIMEOUT_*` | per-step limits; `TURN_BUDGET_S` (35 s) caps the whole turn; teachers' bridges and students' answers get 24 s (`TIMEOUT_EXPOSURE_S`, `TIMEOUT_MENTOR_S`); reading a student's message gets `TIMEOUT_ROUTE_S` (4 s) |
+| `TIMEOUT_*` | per-step limits; `TURN_BUDGET_S` (90 s) caps the whole turn; a parent's reply gets 45 s (`TIMEOUT_GENERATE_S`), teachers' bridges and students' answers 60 s (`TIMEOUT_EXPOSURE_S`, `TIMEOUT_MENTOR_S`); reading a student's message gets `TIMEOUT_ROUTE_S` (4 s, then the mentor answers); each safety check gets 20 s (`TIMEOUT_SAFETY_IN_S`, `TIMEOUT_SAFETY_OUT_S`), Llama Guard 1.5 s of it (`TIMEOUT_GUARD_S`) |
 | `RUN_WORKER_IN_API`, `WORKER_CONCURRENCY`, `LEASE_DURATION_S`, `DATABASE_LISTEN_URL` | where the worker runs, how many users at once, how long a lease lasts, the unpooled connection for LISTEN |
 | `RETRIEVAL_TOP_K`, `RETRIEVAL_MIN_SIMILARITY` | how many corpus chunks the mentor sees, and the cut-off for "I don't know" |
 | `EVAL_DATABASE_ADMIN_URL` | lets `marg eval` create and drop its own `marg_eval_*` database |
@@ -414,12 +414,13 @@ replies on, so the spoken path stays tested even while real users get text.
 | A child's question gets "chalo, saath mein pata lagaate hain" and nothing else | `generate` `detail` `curiosity_fallback=…` / `child_fallback=…` | the answer failed its checks twice: a hazard in the find-out activity, anything about medicine, or a danger only in the voice note (d7, owner 2026-10-28: answers may name or explain a danger, never invite the child to do it) |
 | A child's blocked question still got a model reply | `safety_in` `decision=block categories=s9` then `generate` `child_redirect` | by design: S1/S9/S2 blocks in child talk get a redirect (CLAUDE.md §11 exception); any other block, or a failed redirect, sends the fixed child refusal for its reason |
 | A student is told "no verified details yet" | `generate` `detail` (retrieval), `corpus_chunks` | nothing above `RETRIEVAL_MIN_SIMILARITY`; the corpus has no source on it (NEET, JEE…), or `ingest-corpus` wasn't run |
-| A teacher's or student's reply is "try again later" | `generate` FAILED `timeout` | over 18 s (`TIMEOUT_EXPOSURE_S` / `TIMEOUT_MENTOR_S`) |
+| A teacher's or student's reply is "try again later" | `generate` FAILED `timeout` | over 60 s (`TIMEOUT_EXPOSURE_S` / `TIMEOUT_MENTOR_S`) |
 | A career question refused as self-harm | `safety_in` `detail` `guard_flagged=s11` | Llama Guard's S11 alone no longer counts; if refused, the Muse Spark check agreed: look at its reason |
 | Voice note → "samajh nahi aaya" | `fetch_media` detail (`voiced_ms`), `transcribe` FAILED kind | silent or under 0.7 s; speech-to-text down; only "umm" |
 | Photo → "kisi ka chehra dikh raha hai" | `analyze_image` detail `person_check=reject` | a face in the frame (hands are fine: owner, 2026-11-01) |
 | Photo → "Photo ke liye shukriya!…" | `analyze_image` SKIPPED `photo_not_needed` | no khoj open (none offered, already reported, or older than 48 h) |
-| A photo report with no number in the reply | `fetch_image` / `analyze_image` / `safety_in` FAILED `photo_dropped`, `counts_dropped` | a failure dropped the photo; or the activity counts nothing |
+| A photo report with no number in the reply | `fetch_image` / `analyze_image` / `safety_in` FAILED `photo_dropped`, `counts_dropped` | a failure dropped the photo (a `safety_in` timeout: Llama Guard and then the Muse Spark image check took over 20 s together); or the activity counts nothing |
+| The holding reply after an ordinary message or report | `safety_out` FAILED `timeout` `fallback=holding` | Llama Guard was down or flagged the reply, and the Muse Spark reply check didn't finish within `TIMEOUT_SAFETY_OUT_S` (20 s); look for `llama_guard_down` in the log |
 | A parent's message went to the wrong flow (a question taken as the report, "send it again" offered a new khoj) | the `generate` row: `parent_intent` in the prompt versions, the reply | `INTENT_READING_ENABLED` off, or the reading failed (`intent_read_failed=…`, the rules decided); otherwise the reading itself (`parent_intent.md.j2`): add the message to the intent bank, fix, rerun the bank |
 | A student's plan request got a mentor answer | the `route` row's `detail` | plan words missed and the reading said `question (read)`, or it failed or was slow; "how do I become X?" is a question by design |
 | A child's nickname is wrong ("baccha", "mein Lala bolte hain") | `learners.nickname`; the onboarding turn | a word the nickname rule didn't know; the parent can correct it any time ("bacche ka naam Prisa hai") |

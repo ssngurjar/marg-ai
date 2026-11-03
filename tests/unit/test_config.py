@@ -277,3 +277,41 @@ def test_a_listen_url_must_use_asyncpg(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("DATABASE_LISTEN_URL", "postgresql://marg:marg@localhost/marg")
     with pytest.raises(ConfigError, match=r"DATABASE_LISTEN_URL \(must use the postgresql"):
         load_settings()
+
+
+def test_a_safety_check_has_room_for_the_backup_after_llama_guard(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # owner, 2026-11-03: at 5 s and 6 s a slow Llama Guard left the Muse Spark backup too
+    # little time; a parent's photo was dropped and their reply became the holding text
+    monkeypatch.setenv("DATABASE_URL", VALID_URL)
+    settings = load_settings()
+    assert settings.timeout_safety_in_s == 20.0
+    assert settings.timeout_safety_out_s == 20.0
+    assert settings.timeout_safety_in_s - settings.timeout_guard_s >= 7.0
+    assert settings.turn_budget_s > settings.timeout_safety_out_s + 2  # s16 §4.5
+
+
+def test_a_reply_waits_rather_than_fails_and_only_backup_switches_stay_short(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # owner, 2026-11-03: "better to reply a little late than seem to fail"
+    monkeypatch.setenv("DATABASE_URL", VALID_URL)
+    settings = load_settings()
+    reply_limits = [
+        settings.timeout_generate_s,
+        settings.timeout_exposure_s,
+        settings.timeout_mentor_s,
+        settings.timeout_safety_in_s,
+        settings.timeout_safety_out_s,
+        settings.timeout_transcribe_s,
+    ]
+    assert min(reply_limits) >= 20.0
+    assert max(reply_limits) < settings.turn_budget_s
+    assert settings.lease_duration_s >= 2 * settings.turn_budget_s
+    backup_switches = [
+        settings.timeout_guard_s,
+        settings.timeout_open_model_s,
+        settings.timeout_route_s,
+    ]
+    assert max(backup_switches) <= 7.0
