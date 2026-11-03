@@ -6,9 +6,9 @@ Subtitles → Add language: English → Upload file → With timing). Don't rely
 mishear the accent ("don't like talent", "Lalmagard"), and anyone summarising the video, by hand
 or with an AI tool, reads the transcript.
 
-**Before uploading the final cut:** the subtitle times and the chapters below are for cut v16
-(2:43). When the field-test footage replaces part 2, everything after 0:57 moves; regenerate the
-subtitles from the final cut (`gen_srt.py` in the video build) and update the chapter times.
+**Final cut: v28 (2:58), 3 Nov.** The subtitles and the chapters below match it. Upload
+`full_v28_clean.mp4` with this subtitle file, or `full_v28.mp4`, whose subtitles are burned in.
+If the cut changes again, regenerate both from the new cut.
 
 ## Title
 
@@ -42,11 +42,11 @@ Chapters
 0:00 A mother's voice note
 0:11 My village
 0:30 What Marg is
-0:57 Field test: real families, a real voice note, a real khoj card
-1:31 What broke, and was fixed the same day
-1:45 How it works
-2:27 Impact
-2:47 What's not in this video
+0:57 Field test: real families, a real voice note, a real photo and khoj card
+1:32 What broke, and was fixed the same day
+1:47 How it works
+2:29 Impact
+2:49 What's not in this video
 
 Sources: ASER 2024 National findings (pp. 47–48); NCF Foundational Stage 2022, NCERT (pp. 38, 76); Black et al., The Lancet 2017 (250 million children under five at risk of not reaching their developmental potential).
 
