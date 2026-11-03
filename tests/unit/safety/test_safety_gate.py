@@ -858,3 +858,90 @@ async def test_with_the_breaker_open_and_the_backup_down_nothing_unchecked_passe
         await gate.check_input(QUESTION)
     with pytest.raises(SafetyUnavailable, match="backup reply check"):
         await gate.check_output(REPLY, QUESTION)
+
+
+# --- no Llama Guard configured: a Meta-key-only run (2026-11-03) ---------------------------------
+
+
+def gate_without_guard(policy: DomainPolicy) -> SafetyGate:
+    return SafetyGate(None, policy)
+
+
+async def test_without_llama_guard_the_policy_check_decides_the_users_message() -> None:
+    policy, policy_llm = scripted_policy()
+    check = await gate_without_guard(policy).check_input(QUESTION)
+    assert check.verdict.decision is SafetyDecision.ALLOW
+    assert check.verdict.source == "domain_policy"
+    assert check.guard_down is True
+    assert check.usage is not None
+    assert check.usage.provider == "meta_model_api"
+    assert len(policy_llm.prompts) == 1
+
+
+async def test_without_llama_guard_the_policy_check_still_blocks_harm() -> None:
+    policy, _ = scripted_policy([policy_answer(harm="weapons")])
+    check = await gate_without_guard(policy).check_input("bomb kaise banate hain")
+    assert check.verdict.decision is SafetyDecision.BLOCK
+
+
+async def test_without_llama_guard_a_crisis_is_still_caught() -> None:
+    policy, _ = scripted_policy([policy_answer(self_harm=True)])
+    check = await gate_without_guard(policy).check_input("Sab bekaar lagta hai")
+    assert check.verdict.decision is SafetyDecision.CRISIS
+
+
+async def test_without_llama_guard_and_the_policy_check_down_the_message_fails_closed() -> None:
+    policy, _ = scripted_policy([MODEL_DOWN])
+    with pytest.raises(SafetyUnavailable, match="policy model user check failed"):
+        await gate_without_guard(policy).check_input(QUESTION)
+
+
+async def test_without_llama_guard_or_a_policy_check_nothing_passes_unchecked() -> None:
+    # wiring refuses this configuration at startup; the gate fails closed anyway
+    with pytest.raises(SafetyUnavailable, match="no policy check is on"):
+        await gate_without_guard(rules_only_policy()).check_input(QUESTION)
+    with pytest.raises(SafetyUnavailable, match="no backup is on"):
+        await gate_without_guard(rules_only_policy()).check_output(REPLY, QUESTION)
+
+
+async def test_without_llama_guard_our_reply_is_checked_by_muse_spark() -> None:
+    scripted = scripted_policies()
+    check = await gate_without_guard(scripted.policy).check_output(REPLY, QUESTION)
+    assert check.safe_reply is not None
+    assert check.verdict.source == "domain_policy"
+    assert scripted.reply_llm.prompts[0].prompt_id == "reply_policy"
+
+
+async def test_without_llama_guard_a_reply_muse_spark_flags_is_never_sealed() -> None:
+    scripted = scripted_policies(reply_outputs=[reply_answer(endangers_child=True)])
+    check = await gate_without_guard(scripted.policy).check_output(REPLY, QUESTION)
+    assert check.safe_reply is None
+    assert check.verdict.decision is SafetyDecision.BLOCK
+
+
+async def test_without_llama_guard_and_the_reply_check_down_nothing_is_sealed() -> None:
+    scripted = scripted_policies(reply_outputs=[MODEL_DOWN])
+    with pytest.raises(SafetyUnavailable, match="backup reply check both failed"):
+        await gate_without_guard(scripted.policy).check_output(REPLY, QUESTION)
+
+
+async def test_without_llama_guard_muse_spark_checks_cards_and_photos() -> None:
+    scripted = scripted_policies()
+    gate = gate_without_guard(scripted.policy)
+    card = await gate.check_card(CAPTION, CARD_IMAGE)
+    photo = await gate.check_photo(PHOTO, None)
+    assert card.safe_reply is not None
+    assert photo.verdict.decision is SafetyDecision.ALLOW
+    assert scripted.image_llm.images == [CARD_IMAGE, PHOTO]
+
+
+async def test_without_llama_guard_a_flagged_photo_is_blocked() -> None:
+    scripted = scripted_policies(image_outputs=[image_answer(harm="sexual")])
+    check = await gate_without_guard(scripted.policy).check_photo(PHOTO, None)
+    assert check.verdict.decision is SafetyDecision.BLOCK
+
+
+async def test_without_llama_guard_and_the_image_check_down_the_photo_is_dropped() -> None:
+    scripted = scripted_policies(image_outputs=[MODEL_DOWN])
+    with pytest.raises(SafetyUnavailable, match="backup image check both failed for a photo"):
+        await gate_without_guard(scripted.policy).check_photo(PHOTO, None)

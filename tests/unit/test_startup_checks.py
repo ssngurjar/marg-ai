@@ -38,3 +38,31 @@ def test_voice_replies_with_no_speech_model_in_the_build_refuse_to_start() -> No
     settings = make_settings().model_copy(update={"voice_replies_enabled": True})
     with pytest.raises(ConfigError, match="VOICE_REPLIES_ENABLED=true needs a speech model"):
         check_startup(settings)
+
+
+def test_only_a_meta_key_passes() -> None:
+    # 2026-11-03: a judge runs Marg with the Meta Model API key alone
+    settings = make_settings().model_copy(
+        update={
+            "safety_base_url": None,
+            "safety_api_key": None,
+            "open_model_base_url": None,
+            "open_model_api_key": None,
+        }
+    )
+    check_startup(settings)
+
+
+def test_no_llama_guard_and_no_policy_check_refuses_to_start() -> None:
+    settings = make_settings().model_copy(
+        update={"safety_api_key": None, "safety_policy_model_enabled": False}
+    )
+    with pytest.raises(ConfigError, match="nothing would check messages in and out"):
+        check_startup(settings)
+
+
+def test_an_unpriced_safety_model_is_fine_without_llama_guard() -> None:
+    settings = make_settings().model_copy(
+        update={"safety_api_key": None, "safety_model": "llama-guard-3-8b"}
+    )
+    check_startup(settings)

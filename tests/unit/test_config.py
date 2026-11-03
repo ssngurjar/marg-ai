@@ -32,6 +32,15 @@ S3_SETTINGS = {
 }
 
 
+OPTIONAL_PROVIDERS = (
+    "OPEN_MODEL_BASE_URL",
+    "OPEN_MODEL_API_KEY",
+    "SAFETY_BASE_URL",
+    "SAFETY_API_KEY",
+)
+"""Baseten and DeepInfra: a local run needs only the Meta Model API key (2026-11-03)."""
+
+
 @pytest.fixture(autouse=True)
 def isolated_environment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """No .env file and no inherited settings; the S3 settings are valid unless a test says not."""
@@ -122,10 +131,65 @@ def test_database_url_is_hidden_in_repr(monkeypatch: pytest.MonkeyPatch) -> None
     assert "marg:marg" not in repr(Settings())
 
 
-@pytest.mark.parametrize("name", sorted(S3_SETTINGS))
+@pytest.mark.parametrize("name", sorted(set(S3_SETTINGS) - set(OPTIONAL_PROVIDERS)))
 def test_missing_s3_setting_is_named(monkeypatch: pytest.MonkeyPatch, name: str) -> None:
     monkeypatch.setenv("DATABASE_URL", VALID_URL)
     monkeypatch.delenv(name)
+    with pytest.raises(ConfigError, match=name):
+        load_settings()
+
+
+@pytest.mark.parametrize("blank", [None, "", "   "])
+def test_only_the_meta_key_is_needed_for_the_models(
+    monkeypatch: pytest.MonkeyPatch, blank: str | None
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", VALID_URL)
+    for name in OPTIONAL_PROVIDERS:
+        if blank is None:
+            monkeypatch.delenv(name)
+        else:
+            monkeypatch.setenv(name, blank)
+    settings = load_settings()
+    assert not settings.llama_guard_configured
+    assert not settings.open_model_configured
+    assert settings.open_model_in_use == settings.model_text
+
+
+def test_with_both_hosts_set_llama_guard_and_the_open_model_are_used(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", VALID_URL)
+    settings = load_settings()
+    assert settings.llama_guard_configured
+    assert settings.open_model_configured
+    assert settings.open_model_in_use == "meta-models/muse-spark-open"
+
+
+@pytest.mark.parametrize(
+    ("missing", "guard", "open_model"),
+    [
+        ("SAFETY_API_KEY", False, True),
+        ("SAFETY_BASE_URL", False, True),
+        ("OPEN_MODEL_API_KEY", True, False),
+        ("OPEN_MODEL_BASE_URL", True, False),
+    ],
+)
+def test_a_host_without_its_key_or_a_key_without_its_host_is_not_used(
+    monkeypatch: pytest.MonkeyPatch, missing: str, *, guard: bool, open_model: bool
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", VALID_URL)
+    monkeypatch.delenv(missing)
+    settings = load_settings()
+    assert settings.llama_guard_configured is guard
+    assert settings.open_model_configured is open_model
+
+
+@pytest.mark.parametrize("name", ["SAFETY_BASE_URL", "OPEN_MODEL_BASE_URL"])
+def test_an_optional_host_that_isnt_a_url_is_refused_by_name(
+    monkeypatch: pytest.MonkeyPatch, name: str
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", VALID_URL)
+    monkeypatch.setenv(name, "not a url")
     with pytest.raises(ConfigError, match=name):
         load_settings()
 

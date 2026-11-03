@@ -131,7 +131,7 @@ class EvalRunner:
             partial=self._config.case_filter.partial,
             models={
                 "text": self._settings.model_text,
-                "open": self._settings.open_model,
+                "open": self._settings.open_model_in_use,
                 "judge": self._settings.model_judge,
                 "safety": self._settings.safety_model,
                 "stt": self._settings.model_stt,

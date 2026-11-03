@@ -332,12 +332,14 @@ GROUP BY 1, 2, 3 ORDER BY 5 DESC;
 
 ### 7.3 Health and readiness
 
-- `GET /healthz`: the process is up. `GET /readyz`: `database`, `schema` (migrations at head)
-  and `queue` (no message waiting too long, so a worker is alive) are critical; `model_api`,
-  `safety` and `ffmpeg` aren't (the reply degrades), and `sidecar` (the voice server) is probed
-  only with voice replies on. Provider probes
-  are cached 60 s. WhatsApp has no probe: the messaging token can't read the phone number.
-- Voice server: `GET 127.0.0.1:8100/healthz` shows the engine and models loaded.
+- `GET /healthz`: the process is up. `GET /readyz`: `database`, `schema` (migrations at head),
+  `queue` (no message waiting too long, so a worker is alive), `model_api` and `safety` are
+  critical; `ffmpeg` isn't (voice notes degrade). `safety` (Llama Guard) is probed only when
+  `SAFETY_BASE_URL` and `SAFETY_API_KEY` are set. Provider probes are cached 60 s. WhatsApp has
+  no probe: the messaging token can't read the phone number.
+- At startup, `providers_configured` logs `llama_guard` and `open_model` (true or false). With
+  only a Meta Model API key both are false: every safety step's `detail` says `guard=down`
+  (the Muse Spark checks decided, by design) and reflections run on Muse Spark 1.3.
 
 ### 7.4 Tests
 
@@ -406,6 +408,8 @@ replies on, so the spoken path stays tested even while real users get text.
 | A parent got "Marg can't help with that" | the GENERATE step's `detail` is `off_topic=true` (`parent_answer` 1.3.0); count them with `SELECT count(*) FROM turn_steps WHERE step = 'generate' AND detail = 'off_topic=true'` | the message wasn't about their child or Marg; a government paper or scheme gets a pointer to the gram panchayat, anganwadi or CSC. Add real ones to the parent bank's off-topic section |
 | A refusal for a harmless question | `safety_in` `detail` categories | Llama Guard flag confirmed by the policy check; tune the prompt or word list, never bypass. A follow-up read alone used to be flagged; Llama Guard now sees the turn before |
 | Replies slow, `guard=down` on many steps | the log's `breaker_opened` / `llama_guard_down` | DeepInfra slow or down: the breaker skips Llama Guard for up to 5 minutes and Muse Spark checks alone |
+| `guard=down` on every step, with no `llama_guard_down` in the log | `providers_configured` at startup: `llama_guard=false` | no Llama Guard is configured (`SAFETY_API_KEY` empty): the Muse Spark checks decide by design (s07, 2026-11-03) |
+| Startup fails: "nothing would check messages in and out" | `.env` | no Llama Guard and `SAFETY_POLICY_MODEL_ENABLED=false`; set the key or turn the policy check on |
 | The reviewed activity text instead of the personalised one | `generate` `detail` `catalogue_fallback=…` | personalisation failed its checks twice; `safety_out` blocked it (d7: the khoj, reflection and parent answers keep the strict word rule) |
 | A child's question gets "chalo, saath mein pata lagaate hain" and nothing else | `generate` `detail` `curiosity_fallback=…` / `child_fallback=…` | the answer failed its checks twice: a hazard in the find-out activity, anything about medicine, or a danger only in the voice note (d7, owner 2026-10-28: answers may name or explain a danger, never invite the child to do it) |
 | A child's blocked question still got a model reply | `safety_in` `decision=block categories=s9` then `generate` `child_redirect` | by design: S1/S9/S2 blocks in child talk get a redirect (CLAUDE.md §11 exception); any other block, or a failed redirect, sends the fixed child refusal for its reason |

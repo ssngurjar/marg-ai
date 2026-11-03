@@ -626,9 +626,9 @@ and a unit test enforce. When the user's language is unknown, the Hinglish versi
 | `MODEL_API_KEY` | `SecretStr` | — |
 | `MODEL_TEXT` / `MODEL_AUDIO` / `MODEL_JUDGE` | `str` | `muse-spark-1.3` / `muse-spark-1.2` / `muse-spark-1.3` |
 | `MODEL_STT` | `str` | `muse-voice-transcribe-1.0` |
-| `OPEN_MODEL_BASE_URL` / `OPEN_MODEL_API_KEY` / `OPEN_MODEL` | `HttpUrl` / `SecretStr` / `str` | Baseten / — / `meta-models/muse-spark-open-1026` (C9) |
+| `OPEN_MODEL_BASE_URL` / `OPEN_MODEL_API_KEY` / `OPEN_MODEL` | `HttpUrl \| None` / `SecretStr \| None` / `str` | Baseten / — / `meta-models/muse-spark-open-1026` (C9). Empty host or key: no Muse Spark Open, `MODEL_TEXT` runs its prompts |
 | `OPEN_MODEL_ROUTES` | `frozenset[str]` | `{"parent_reflection", "curiosity_extract"}`: prompt ids served by Muse Spark Open; any failure falls back to `MODEL_TEXT` |
-| `SAFETY_BASE_URL` / `SAFETY_API_KEY` / `SAFETY_MODEL` | `HttpUrl` / `SecretStr` / `str` | host decided in S2 |
+| `SAFETY_BASE_URL` / `SAFETY_API_KEY` / `SAFETY_MODEL` | `HttpUrl \| None` / `SecretStr \| None` / `str` | DeepInfra (S2). Empty host or key: no Llama Guard, the Muse Spark checks decide (s07) |
 | `SAFETY_POLICY_MODEL_ENABLED` | `bool` | `true` |
 | `STT_FALLBACK_ENABLED` | `bool` | `false` |
 | `SEARCH_GROUNDING_ENABLED` | `bool` | `false` (stays off for the MVP) |
@@ -736,3 +736,4 @@ Per-step timeouts `TIMEOUT_<STEP>_S`: `FETCH_MEDIA` 5, `TRANSCRIBE` 8, `SAFETY_I
 | 2026-11-02 | `CopyKey.CONSENT_REASK`; `Unrecognised.consent_note_shown: bool = False`; `OnboardingLayer.CONSENT_NOTE_FRESH`, `CONSENT_QUESTIONS`, `consent_note_sent_since(exchanges, since)` | Web tester | owner |
 | 2026-11-02 | `ParentIntent.OTHER_ROLE`, `StudentIntent.OTHER_ROLE`, `TeacherIntent.OTHER_ROLE`; `OTHER_ROLE_REPLY`, `ACKNOWLEDGED_AGAIN` (`small_talk_copy`); `ACKNOWLEDGED_AFTER_KHOJ`; `CHILD_ACKNOWLEDGED_AGAIN`; `SmallTalkRules.repeats(reply, previous_reply)`; `RegisterChooser.choose(text, usual, conversation=None)`; `MentorLayer.other_role_reply(register)`; log event `generation_repaired`; route reason "other role (read)" | Owner's to-fix list from the 2 Nov testing | owner |
 | 2026-11-02 | Removed: `SIDECAR_BASE_URL`, `SIDECAR_TOKEN`, `TTS_ENGINE`, `TTS_PITCH`, `TtsEngine`, `SidecarSynthesizer`, `HealthChecks.sidecar`; `VoiceSteps.synthesizer: Synthesizer \| None` | MMS-TTS sidecar removed (s06 log) | owner |
+| 2026-11-03 | `SAFETY_BASE_URL`, `SAFETY_API_KEY`, `OPEN_MODEL_BASE_URL`, `OPEN_MODEL_API_KEY` optional; `Settings.llama_guard_configured`, `open_model_configured`, `open_model_in_use`; `SafetyGate(classifier: SafetyClassifier \| None)`; `OrchestratorPorts.safety_classifier: SafetyClassifier \| None`; `Providers.open_model`, `safety_classifier` optional, `Providers.language_models` | A local run with only a Meta Model API key (s07, s10b logs) | owner |

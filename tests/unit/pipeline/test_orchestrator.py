@@ -57,6 +57,7 @@ from tests.fakes.domain_policy import (
     REPLY_CLEAR,
     policy_answer,
     reply_answer,
+    scripted_policies,
     scripted_policy,
 )
 from tests.fakes.language_model import FakeLanguageModel, ScriptedOutput
@@ -136,7 +137,7 @@ def journey_for(llm: FakeLanguageModel) -> JourneyLayer:
 
 
 def orchestrator_for(
-    classifier: FakeSafetyClassifier,
+    classifier: FakeSafetyClassifier | None,
     llm: FakeLanguageModel,
     policy: DomainPolicy,
     settings: OrchestratorSettings,
@@ -342,6 +343,35 @@ async def test_a_flag_cleared_by_the_second_opinion_is_answered_and_recorded() -
     result = await run(asking(), classifier=flagging(reply=[SafetyCategory.NON_VIOLENT_CRIMES]))
     assert GENERATED in result.delivered
     assert result.recorder.steps[-1].detail == "decision=allow guard_flagged=s2"
+
+
+async def test_with_no_llama_guard_configured_muse_spark_checks_both_ways_and_answers() -> None:
+    """A run with only a Meta Model API key (2026-11-03): no Llama Guard, the answer still goes
+    out, and only after the Muse Spark checks on the message and on the reply."""
+    scripted = scripted_policies()
+    llm = FakeLanguageModel([HINGLISH_ANSWER])
+    orchestrator = orchestrator_for(None, llm, scripted.policy, SETTINGS, FakeVoice())
+    recorder = MemoryStepRecorder()
+    outcome = await orchestrator.run_turn(asking(), recorder, NullTurnObserver())
+    delivered = "\n".join(part.text or "" for part in outcome.delivery.parts)
+    assert GENERATED in delivered
+    assert outcome.fixed_reply_kind is None
+    assert len(scripted.input_llm.prompts) == 1
+    assert len(scripted.reply_llm.prompts) == 1
+    assert recorder.steps[-1].detail == "decision=allow guard=down"
+
+
+async def test_with_no_llama_guard_and_the_reply_check_down_nothing_generated_is_sent() -> None:
+    scripted = scripted_policies(reply_outputs=[MODEL_DOWN])
+    llm = FakeLanguageModel([HINGLISH_ANSWER])
+    orchestrator = orchestrator_for(None, llm, scripted.policy, SETTINGS, FakeVoice())
+    outcome = await orchestrator.run_turn(asking(), MemoryStepRecorder(), NullTurnObserver())
+    delivered = "\n".join(part.text or "" for part in outcome.delivery.parts)
+    assert GENERATED not in delivered
+    assert outcome.fixed_reply_kind is FixedReplyKind.HOLDING
+    failure = outcome.first_failure
+    assert failure is not None
+    assert failure.step is StepName.SAFETY_OUT
 
 
 # --- failures and their fallbacks -----------------------------------------------------------------

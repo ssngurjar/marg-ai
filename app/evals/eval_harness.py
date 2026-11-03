@@ -152,7 +152,7 @@ class EvalHarness:
             settings=PromptSettings(
                 models={
                     "MODEL_TEXT": self._settings.model_text,
-                    "OPEN_MODEL": self._settings.open_model,
+                    "OPEN_MODEL": self._settings.open_model_in_use,
                     "MODEL_JUDGE": self._settings.model_judge,
                 },
                 reasoning_effort="high",

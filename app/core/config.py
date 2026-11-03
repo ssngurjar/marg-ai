@@ -93,15 +93,19 @@ class Settings(DatabaseSettings):
     model_api_key: SecretStr
     model_text: str = Field(default="muse-spark-1.3", min_length=1)
     model_reasoning_effort: ReasoningEffort = "minimal"
-    # Muse Spark Open on Baseten (C9): the reflection prompt; Spark 1.3 is its fallback.
-    open_model_base_url: HttpUrl
-    open_model_api_key: SecretStr
+    # Muse Spark Open on Baseten (C9): the reflection prompt; Spark 1.3 is its fallback. Both
+    # optional (2026-11-03): without them, Spark 1.3 does those prompts, as when Baseten is down,
+    # so a judge can run Marg with only a Meta Model API key.
+    open_model_base_url: HttpUrl | None = None
+    open_model_api_key: SecretStr | None = None
     open_model: str = Field(min_length=1)
     # then fall back to Spark 1.3 (owner, 2026-10-27); spike E: 2-4 s, no quality loss
     timeout_open_model_s: float = Field(default=7.0, gt=0)
     activity_repeat_days: int = Field(default=30, ge=1)  # s10b §4.6
-    safety_base_url: HttpUrl
-    safety_api_key: SecretStr
+    # Llama Guard 4 (DeepInfra). Both optional (2026-11-03): without them, the Muse Spark checks
+    # decide every message in and out, as when Llama Guard is down; the policy check must be on.
+    safety_base_url: HttpUrl | None = None
+    safety_api_key: SecretStr | None = None
     safety_model: str = Field(min_length=1)
     safety_policy_model_enabled: bool = True  # s07 C16: the Muse Spark policy check on input
     user_slot_max_chars: int = Field(default=4000, ge=100)
@@ -248,17 +252,39 @@ class Settings(DatabaseSettings):
             return LOCAL_BASE_URL
         return value
 
-    @field_validator(
-        "model_api_key",
-        "safety_api_key",
-        "open_model_api_key",
-        "session_signing_key",
-    )
+    @field_validator("model_api_key", "session_signing_key")
     @classmethod
     def _require_a_key(cls, key: SecretStr) -> SecretStr:
         if not key.get_secret_value().strip():
             raise ValueError("must not be empty")
         return key
+
+    @field_validator(
+        "safety_base_url",
+        "safety_api_key",
+        "open_model_base_url",
+        "open_model_api_key",
+        mode="before",
+    )
+    @classmethod
+    def _absent_when_blank(cls, value: object) -> object:
+        """An empty optional host or key (`SAFETY_API_KEY=` in .env) means it isn't configured."""
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
+    @property
+    def llama_guard_configured(self) -> bool:
+        return self.safety_base_url is not None and self.safety_api_key is not None
+
+    @property
+    def open_model_configured(self) -> bool:
+        return self.open_model_base_url is not None and self.open_model_api_key is not None
+
+    @property
+    def open_model_in_use(self) -> str:
+        """The model the OPEN_MODEL prompts run on: Muse Spark Open, or Spark 1.3 without it."""
+        return self.open_model if self.open_model_configured else self.model_text
 
 
 def load_settings() -> Settings:

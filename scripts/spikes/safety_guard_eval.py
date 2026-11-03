@@ -45,10 +45,11 @@ from openai.types.chat import (
     ChatCompletionContentPartTextParam,
     ChatCompletionUserMessageParam,
 )
+from pydantic import SecretStr
 
 from app.core.clock import SystemClock
 from app.core.config import Settings
-from app.core.errors import ProviderError, SafetyUnavailable
+from app.core.errors import ConfigError, ProviderError, SafetyUnavailable
 from app.domain.enums import SafetyDecision
 from app.prompts.prompt_registry import PromptRegistry, PromptSettings
 from app.providers.http import AsyncioSleeper, RetryPolicy, RetryTiming
@@ -248,6 +249,13 @@ class Outcome:
     error: str | None
 
 
+def guard_key(settings: Settings) -> SecretStr:
+    """This spike measures Llama Guard itself, so it needs its host and key."""
+    if settings.safety_base_url is None or settings.safety_api_key is None:
+        raise ConfigError("the Llama Guard spike needs SAFETY_BASE_URL and SAFETY_API_KEY")
+    return settings.safety_api_key
+
+
 def build_classifier(settings: Settings) -> LlamaGuardClassifier:
     clock = SystemClock()
     retry = RetryPolicy(
@@ -256,7 +264,7 @@ def build_classifier(settings: Settings) -> LlamaGuardClassifier:
     return LlamaGuardClassifier(
         config=SafetyHostConfig(
             base_url=str(settings.safety_base_url),
-            api_key=settings.safety_api_key,
+            api_key=guard_key(settings),
             model=settings.safety_model,
             timeout_s=10.0,  # generous for the spike; latency is measured, not enforced
         ),
@@ -324,7 +332,7 @@ async def probe_image(settings: Settings, *, with_text: bool) -> ImageProbe:
     message: ChatCompletionUserMessageParam = {"role": "user", "content": content}
     client = AsyncOpenAI(
         base_url=str(settings.safety_base_url),
-        api_key=settings.safety_api_key.get_secret_value(),
+        api_key=guard_key(settings).get_secret_value(),
         timeout=20.0,
         max_retries=0,
     )

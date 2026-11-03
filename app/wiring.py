@@ -34,6 +34,7 @@ from app.core.circuit_breaker import BreakerLimits
 from app.core.clock import Clock, SystemClock
 from app.core.config import Settings
 from app.core.errors import ConfigError, ProviderUnavailable, StoreError
+from app.core.logging import get_logger
 from app.core.provider_breaker import ProviderBreaker
 from app.core.signed_token_codec import SignedTokenCodec
 from app.core.user_identity import UserIdentity
@@ -153,6 +154,8 @@ from app.worker.turn_processor import TurnDeps, TurnProcessor, TurnSettings
 WORKER_ERROR_BACKOFF = timedelta(seconds=5)
 PROVIDER_PROBE_TTL = timedelta(seconds=60)
 QUEUE_STALL = timedelta(seconds=60)
+logger = get_logger(__name__)
+
 READINESS_GREETING: Final = "Namaste, aaj ki khoj kya hai?"
 ALEMBIC_INI: Final = Path(__file__).resolve().parents[1] / "alembic.ini"
 LISTENER_HEALTH_CHECK = timedelta(seconds=15)
@@ -202,8 +205,8 @@ class Container:
     whatsapp_sender: WhatsAppSender
     inbox_repository: InboxRepository
     outbox_repository: OutboxRepository
-    language_models: tuple[MetaModelApiLanguageModel, ...]  # Spark and Muse Spark Open
-    safety_classifier: LlamaGuardClassifier
+    language_models: tuple[MetaModelApiLanguageModel, ...]  # Spark, and Muse Spark Open if set
+    safety_classifier: LlamaGuardClassifier | None  # None: no Llama Guard configured
     guard_breaker: ProviderBreaker  # skips Llama Guard while it keeps failing
     voice_adapters: "VoiceAdapters"
     image_generator: MuseImageGenerator
@@ -223,7 +226,7 @@ class Container:
 @dataclass(frozen=True, slots=True)
 class OrchestratorPorts:
     language_model: LanguageModel
-    safety_classifier: SafetyClassifier
+    safety_classifier: SafetyClassifier | None  # None: the Muse Spark checks decide
     voice: VoiceSteps
     photos: PhotoSteps | None = None  # None while PHOTO_INPUT_ENABLED is false
     retriever: Retriever | None = None  # None: students get no mentor (tests that don't need it)
@@ -303,7 +306,7 @@ def build_container(settings: Settings) -> Container:
         whatsapp_sender=whatsapp_sender,
         inbox_repository=inbox,
         outbox_repository=outbox,
-        language_models=(providers.spark, providers.open_model),
+        language_models=providers.language_models,
         safety_classifier=providers.safety_classifier,
         guard_breaker=providers.guard_breaker,
         voice_adapters=providers.voice_adapters,
@@ -375,24 +378,29 @@ def provider_probes(
     settings: Settings, providers: "Providers", checks: HealthChecks, clock: Clock
 ) -> tuple[ReadinessProbe, ...]:
     """s16 §4.3: the model API and safety are critical (without safety every reply is a holding
-    reply); the ML sidecar isn't (text still goes out), and it is probed only when voice
-    replies are on, since nothing else calls it. Each is cached so `/readyz` polling never
-    hammers a paid or rate-limited API. WhatsApp has no probe: the messaging token can't read
-    any object (owner checks a real reply instead, pre-demo checklist)."""
+    reply); Llama Guard is probed only when it is configured. Each is cached so `/readyz`
+    polling never hammers a paid or rate-limited API. WhatsApp has no probe: the messaging token
+    can't read any object (owner checks a real reply instead, pre-demo checklist)."""
+
+    model_api = ReadinessProbe(
+        name="model_api",
+        critical=True,
+        check=CachedCheck(checks.model_api.check, PROVIDER_PROBE_TTL, clock),
+    )
+    classifier = providers.safety_classifier
+    if classifier is None:
+        # no Llama Guard configured: the Muse Spark checks run on the model API probed above
+        return (model_api,)
 
     async def safety_allows_a_greeting() -> None:
-        verdict, _ = await providers.safety_classifier.classify(
+        verdict, _ = await classifier.classify(
             SafetyRequest(speaker="user", text=READINESS_GREETING, prior_user_text=None)
         )
         if verdict.categories:
             raise ProviderUnavailable("safety host flags a greeting", provider="llama_guard")
 
     return (
-        ReadinessProbe(
-            name="model_api",
-            critical=True,
-            check=CachedCheck(checks.model_api.check, PROVIDER_PROBE_TTL, clock),
-        ),
+        model_api,
         ReadinessProbe(
             name="safety",
             critical=True,
@@ -592,8 +600,15 @@ def breaker_limits(settings: Settings) -> BreakerLimits:
 def check_startup(settings: Settings) -> None:
     """Fail the deploy, not a turn: raises ConfigError naming what's wrong."""
     ModelPricing.require_allowed_for_user_content(settings.model_text, "MODEL_TEXT")
-    ModelPricing.require_allowed_for_user_content(settings.open_model, "OPEN_MODEL")
-    ModelPricing.price_of(settings.safety_model)
+    if settings.open_model_configured:
+        ModelPricing.require_allowed_for_user_content(settings.open_model, "OPEN_MODEL")
+    if settings.llama_guard_configured:
+        ModelPricing.price_of(settings.safety_model)
+    elif not settings.safety_policy_model_enabled:
+        raise ConfigError(
+            "no Llama Guard (SAFETY_BASE_URL, SAFETY_API_KEY) and"
+            " SAFETY_POLICY_MODEL_ENABLED=false: nothing would check messages in and out (s07)"
+        )
     FixedReplyService.check_all_languages()
     OnboardingLayer.check_copy()
     if settings.voice_replies_enabled:
@@ -678,7 +693,7 @@ def prompt_registry(settings: Settings) -> PromptRegistry:
             voice_replies=settings.voice_replies_enabled,
             models={
                 "MODEL_TEXT": settings.model_text,
-                "OPEN_MODEL": settings.open_model,
+                "OPEN_MODEL": settings.open_model_in_use,
                 "MODEL_JUDGE": settings.model_judge,
             },
             reasoning_effort=settings.model_reasoning_effort,
@@ -720,14 +735,20 @@ class Providers:
     """The adapters behind every port: the same for the app and for `marg eval`."""
 
     spark: MetaModelApiLanguageModel
-    open_model: MetaModelApiLanguageModel
-    language_model: FallbackLanguageModel  # Muse Spark Open, falling back to Spark
-    safety_classifier: LlamaGuardClassifier
+    open_model: MetaModelApiLanguageModel | None  # None: no Baseten configured
+    language_model: LanguageModel  # Muse Spark Open falling back to Spark, or Spark alone
+    safety_classifier: LlamaGuardClassifier | None  # None: no Llama Guard configured
     guard_breaker: ProviderBreaker
     voice_adapters: VoiceAdapters
     rag: RagParts
     image_generator: MuseImageGenerator
     image_segmenter: SamImageSegmenter
+
+    @property
+    def language_models(self) -> tuple[MetaModelApiLanguageModel, ...]:
+        if self.open_model is None:
+            return (self.spark,)
+        return (self.spark, self.open_model)
 
 
 @dataclass(frozen=True, slots=True)
@@ -761,34 +782,24 @@ def build_providers(
         retry=retry,
         clock=clock,
     )
-    open_model = MetaModelApiLanguageModel(
-        config=ModelApiConfig(
-            base_url=str(settings.open_model_base_url),
-            api_key=settings.open_model_api_key,
-            timeout_s=settings.timeout_open_model_s,
-        ),
-        retry=retry,
-        clock=clock,
-    )
-    language_model = FallbackLanguageModel(
-        open_model,
-        spark,
-        FallbackRoute(
-            primary_model=settings.open_model,
-            fallback_model=settings.model_text,
-            primary_timeout=timedelta(seconds=settings.timeout_open_model_s),
-        ),
-        ProviderBreaker("open_model", breaker_limits(settings), clock),
-    )
-    safety_classifier = LlamaGuardClassifier(
-        config=SafetyHostConfig(
-            base_url=str(settings.safety_base_url),
-            api_key=settings.safety_api_key,
-            model=settings.safety_model,
-            timeout_s=settings.timeout_guard_s,
-        ),
-        retry=retry,
-        clock=clock,
+    open_model = build_open_model(settings, retry, clock)
+    language_model: LanguageModel = spark
+    if open_model is not None:
+        language_model = FallbackLanguageModel(
+            open_model,
+            spark,
+            FallbackRoute(
+                primary_model=settings.open_model,
+                fallback_model=settings.model_text,
+                primary_timeout=timedelta(seconds=settings.timeout_open_model_s),
+            ),
+            ProviderBreaker("open_model", breaker_limits(settings), clock),
+        )
+    safety_classifier = build_safety_classifier(settings, retry, clock)
+    logger.info(
+        "providers_configured",
+        llama_guard=safety_classifier is not None,
+        open_model=open_model is not None,
     )
     voice_adapters = build_voice_adapters(settings, session_factory, retry, clock)
     rag = build_rag(settings, session_factory)
@@ -824,6 +835,41 @@ def build_providers(
         rag=rag,
         image_generator=image_generator,
         image_segmenter=image_segmenter,
+    )
+
+
+def build_open_model(
+    settings: Settings, retry: RetryPolicy, clock: Clock
+) -> MetaModelApiLanguageModel | None:
+    """Muse Spark Open on Baseten, or None without its host and key (Spark does its prompts)."""
+    if settings.open_model_base_url is None or settings.open_model_api_key is None:
+        return None
+    return MetaModelApiLanguageModel(
+        config=ModelApiConfig(
+            base_url=str(settings.open_model_base_url),
+            api_key=settings.open_model_api_key,
+            timeout_s=settings.timeout_open_model_s,
+        ),
+        retry=retry,
+        clock=clock,
+    )
+
+
+def build_safety_classifier(
+    settings: Settings, retry: RetryPolicy, clock: Clock
+) -> LlamaGuardClassifier | None:
+    """Llama Guard 4, or None without its host and key (the Muse Spark checks decide)."""
+    if settings.safety_base_url is None or settings.safety_api_key is None:
+        return None
+    return LlamaGuardClassifier(
+        config=SafetyHostConfig(
+            base_url=str(settings.safety_base_url),
+            api_key=settings.safety_api_key,
+            model=settings.safety_model,
+            timeout_s=settings.timeout_guard_s,
+        ),
+        retry=retry,
+        clock=clock,
     )
 
 
@@ -1078,10 +1124,11 @@ def build_judge_model(
 
 async def close_providers(providers: Providers) -> None:
     """Release the HTTP clients `build_providers` opened (`marg eval`)."""
-    for language_model in (providers.spark, providers.open_model):
+    for language_model in providers.language_models:
         await language_model.aclose()
     await providers.guard_breaker.aclose()
-    await providers.safety_classifier.aclose()
+    if providers.safety_classifier is not None:
+        await providers.safety_classifier.aclose()
     await providers.voice_adapters.fetcher.aclose()
     await providers.voice_adapters.transcriber.aclose()
     await providers.image_generator.aclose()
@@ -1094,7 +1141,8 @@ async def close_container(container: Container) -> None:
     for language_model in container.language_models:
         await language_model.aclose()
     await container.guard_breaker.aclose()
-    await container.safety_classifier.aclose()
+    if container.safety_classifier is not None:
+        await container.safety_classifier.aclose()
     await container.voice_adapters.fetcher.aclose()
     await container.voice_adapters.transcriber.aclose()
     await container.image_generator.aclose()

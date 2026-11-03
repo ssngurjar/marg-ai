@@ -23,6 +23,9 @@ Llama Guard down (owner, 2026-10-27, after DeepInfra overloads): each Llama Guar
 own short limit (TIMEOUT_GUARD_S). If it fails, the user's message is decided by the phrase rules
 and the policy check, which ran anyway, and our reply by the Muse Spark reply check. Text is never
 sent unchecked: SafetyUnavailable (and the HOLDING reply) only when the backup fails too.
+
+No Llama Guard at all (2026-11-03: a local run with only a Meta Model API key): the same as
+Llama Guard down, on every message, with no wait; wiring refuses it with the policy check off.
 """
 
 import asyncio
@@ -164,13 +167,14 @@ class SafetyGate:
 
     def __init__(
         self,
-        classifier: SafetyClassifier,
+        classifier: SafetyClassifier | None,
         policy: DomainPolicy,
         *,
         guard_timeout: timedelta = DEFAULT_GUARD_TIMEOUT,
         breaker: ProviderBreaker | None = None,
     ) -> None:
-        """`breaker`: skips Llama Guard while it keeps failing (owner, 2026-11-01)."""
+        """`classifier`: Llama Guard, or None when it isn't configured (the backups decide).
+        `breaker`: skips Llama Guard while it keeps failing (owner, 2026-11-01)."""
         self._classifier = classifier
         self._policy = policy
         self._guard_timeout = guard_timeout
@@ -363,7 +367,8 @@ class SafetyGate:
             ) from exc
         if findings is None:
             raise SafetyUnavailable(f"llama_guard is down for a {what}; no backup is on")
-        logger.warning("image_backup_used", what=what)
+        if self._classifier is not None:
+            logger.warning("image_backup_used", what=what)
         categories = sorted(findings.categories)
         decision = SafetyDecision.BLOCK if categories else SafetyDecision.ALLOW
         verdict = SafetyVerdict(decision=decision, categories=categories, source="domain_policy")
@@ -441,7 +446,10 @@ class SafetyGate:
 
     async def _guard(self, request: SafetyRequest) -> _GuardAnswer | None:
         """Llama Guard within its own limit; None when it fails, so the backup decides. While
-        its breaker is open, None at once (no wait) and, when due, a probe in the background."""
+        its breaker is open, None at once (no wait) and, when due, a probe in the background.
+        None at once when no Llama Guard is configured."""
+        if self._classifier is None:
+            return None
         if self._breaker is not None and self._breaker.is_open():
             self._breaker.probe_if_due(self._probe)
             return None
@@ -459,6 +467,8 @@ class SafetyGate:
 
     async def _probe(self) -> bool:
         """Is Llama Guard answering again? A harmless greeting, within the usual limit."""
+        if self._classifier is None:
+            return False
         request = SafetyRequest(speaker="user", text=GUARD_PROBE_TEXT, prior_user_text=None)
         try:
             async with asyncio.timeout(self._guard_timeout.total_seconds()):
