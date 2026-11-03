@@ -32,7 +32,7 @@ STT_USAGE = StepUsage(
 )
 TTS_USAGE = StepUsage(
     provider="ml_sidecar",
-    model="facebook/mms-tts-hin",
+    model="fake-tts",  # no speech model in this build; the voice-reply path is tested with a fake
     input_tokens=None,
     output_tokens=None,
     audio_seconds=Decimal("4.5"),

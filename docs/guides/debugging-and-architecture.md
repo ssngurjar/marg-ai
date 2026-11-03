@@ -74,7 +74,7 @@ the app at startup with a `ConfigError`. The web demo offers the browser's own v
 
 | Setting | Effect |
 |---|---|
-| `VOICE_REPLIES_ENABLED` | voice replies on or off (**off**: text only, until the organisers rule on MMS-TTS) |
+| `VOICE_REPLIES_ENABLED` | must stay **false**: this build has no speech model (`true` stops the app at startup) |
 | `TTS_ENGINE`, `SIDECAR_BASE_URL`, `SIDECAR_TOKEN` | which voice the replies use, and where (only when voice replies are on) |
 | `QUERY_REWRITE_ENABLED`, `RETRIEVAL_MIN_TEXT_RANK` | the mentor's search: Muse Spark's English rewrite (on), and how strong a text match must be to count without an exact exam or scheme name (1.3) |
 | `REPLY_AUDIO_FOR_TEXT_INPUT` | `true`: typed messages also get a voice reply (default: only voice notes do) |
@@ -461,7 +461,7 @@ replies on, so the spoken path stays tested even while real users get text.
 Everything in the build plan is built; the feature freeze started 2026-10-28 (only fixes, data
 and prompt work since, plus the reliability work of 2026-11-01). Off by default: daily nudges
 (`NUDGES_ENABLED`, until Meta approves the templates) and voice replies (`VOICE_REPLIES_ENABLED`,
-until the organisers rule on MMS-TTS). Deployed on Fly (`marg-ai.fly.dev`, `fly.toml`) with Neon
+this build has no speech model). Deployed on Fly (`marg-ai.fly.dev`, `fly.toml`) with Neon
 Postgres; locally it runs behind the tunnel.
 
 Pending decisions and everything awaiting review: `docs/reviews/owner-review-pending.md`.

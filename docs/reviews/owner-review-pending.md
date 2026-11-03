@@ -122,16 +122,16 @@ Last updated: 2026-10-27 (after the S5 and S8 phone checks; both ticked in plan.
   curiosity_moment 1.0.4 open the spoken text with real wonder ("वाह! … कमाल कर दिया!", "अरे
   वाह, क्या बढ़िया सवाल है!"), short sentences and "!", calm for anything dangerous. Listen on
   the phone.
-- [ ] **Ask the organisers** (open again 2026-10-29: Kokoro is ruled out, MMS is the only Meta voice) in #office-hours whether MMS-TTS (CC-BY-NC 4.0) is fine in a
-  hackathon submission, and keep the answer (C8).
+- [x] **Ask the organisers** (open again 2026-10-29: Kokoro is ruled out, MMS is the only Meta voice) in #office-hours whether MMS-TTS (CC-BY-NC 4.0) is fine in a
+  hackathon submission, and keep the answer (C8). **Answered 2026-11-02/03:** licences are the
+  entrant's call; if it doesn't fit, ship text only, and the video may show only what runs.
   - 2026-10-28, #office-hours auto-reply: an Apache-2.0 TTS model alongside the Meta models is
     fine ("None of the listed Meta models do text-to-speech"); whether CC-BY-NC fits a
     prize-winning submission "is for the organizers to rule on", question passed to them.
     Pending their answer.
 
-- [ ] **When the organisers rule on MMS-TTS:** if allowed, set `VOICE_REPLIES_ENABLED=true`,
-  run `make sidecar`, listen to a few replies on the phone, and restore the voice lines in the
-  video script and form; if not, nothing to do.
+- [x] **When the organisers rule on MMS-TTS:** decided 2026-11-02 (owner): replies stay text, and
+  the MMS-TTS sidecar is removed from the build (tag `voice-sidecar-2026-11-02`).
 - [ ] **Keyword-only mentor search** (2026-10-29, s11 log): check a few real student questions;
   a question the corpus covers but Marg says it doesn't know needs that document's exam or
   scheme name added to its `keywords`. LASER (Meta, BSD) is the next step if quality drops.

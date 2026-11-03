@@ -214,8 +214,8 @@ content is redone per place. The end card holds 2 s (the cut is 2:59.6).*
 - [ ] The numbers card matches `pytest --collect-only` and the newest scorecard in `evals/results/`.
 - [ ] The Braj clause in the impact part ("the way it learned Braj") stays only if the field
       test or a recorded demo shows a Braj reply; otherwise end that sentence at "language".
-- [ ] Replies are text (`VOICE_REPLIES_ENABLED=false`): every model called must be a Meta model,
-      and Meta's only speech model, MMS-TTS, waits on the organisers' licence ruling (C8). No
+- [x] Replies are text: every model called must be a Meta model, and Meta's only speech model,
+      MMS-TTS, is CC-BY-NC, so it is not in the build (s06 log, 2026-11-02). No
       shot plays a spoken Marg reply: voice replies are off (organisers, 2-3 Nov: the video may only show features that are built and run, never a staged clip).
 - [ ] Nothing on screen or in a caption calls Marg a chatbot, a tutor or "AI for education",
       and the student mentor never leads a scene: the rules ban basic RAG apps and AI-for-
@@ -223,8 +223,8 @@ content is redone per place. The end card holds 2 s (the cut is 2:59.6).*
 - [ ] Never call Marg "AI for education" or a tutor on screen or in captions: it closes the
       exposure gap by equipping the adults around a child.
 - [ ] "Six Meta models" stays true: Muse Spark, Muse Spark Open, Muse Voice Transcribe, Muse
-      Image, SAM 3.1 and Llama Guard 4 (see [features.md](features.md)). Add "MMS-TTS" only if
-      voice replies are cleared and on.
+      Image, SAM 3.1 and Llama Guard 4 (see [features.md](features.md)). MMS-TTS is not one of
+      them: it is not in the build.
 - [ ] **No admin dashboard on screen** unless blurred: it shows counts from a single child, and the
       video names the village. `/status` and the `/demo` trace are safe to show.
 

@@ -1,7 +1,8 @@
 # S6 — Voice: media, transcoding, speech-to-text, text-to-speech
 
-> **2026-11-02: no voice replies in this build.** The MMS-TTS sidecar and its adapter were removed
-> (tag `voice-sidecar-2026-11-02`); voice notes in are unchanged. Below, §4.7, §4.9 and the TTS
+> **2026-11-02: no voice replies in this build.** MMS-TTS was never used in the submitted product:
+> its licence (CC-BY-NC 4.0) doesn't fit a prize submission. The sidecar and its adapter were removed
+> (tag `voice-sidecar-2026-11-02`); voice notes in (Muse Voice Transcribe) are unchanged. Below, §4.7, §4.9 and the TTS
 > settings describe what that tag holds. See the decisions log.
 
 > **Hackathon build level: Full.** We build the full design by default; lite only as the listed exceptions in [mvp-scope.md](mvp-scope.md), which wins for the hackathon where it differs.

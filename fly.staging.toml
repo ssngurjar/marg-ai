@@ -15,7 +15,7 @@ primary_region = "iad"  # Ashburn: next to the model APIs; one round trip to Ind
 [env]
   ENVIRONMENT = "staging"
   RUN_WORKER_IN_API = "true"
-  VOICE_REPLIES_ENABLED = "false"  # until the organisers rule on MMS-TTS's licence
+  VOICE_REPLIES_ENABLED = "false"  # no speech model in this build: true stops the app
   PUBLIC_BASE_URL = "https://marg-ai-staging.fly.dev"
 
 [http_service]

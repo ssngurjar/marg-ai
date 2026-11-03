@@ -5,6 +5,12 @@
 > We build to full enterprise grade by default; lite steps only where the 10 days demand it
 > (listed exceptions with upgrade triggers). Phase 2 completes the rest of the product.
 
+> **Text-to-speech, as built (2026-11-02):** replies are **text**. Meta's MMS-TTS was evaluated
+> and built behind a switch during the hackathon, never used in the submitted product, and then
+> removed, because its licence (CC-BY-NC 4.0, non-commercial) doesn't fit a prize submission.
+> Mentions of MMS-TTS below are the original plan. The models Marg actually uses are listed in
+> the README; voice notes *in* use Muse Voice Transcribe.
+
 > Status: **draft v1**, written 2026-10-24, before kickoff. Revisit at the end of every build day.
 > Engineering rules are in [CLAUDE.md](CLAUDE.md). This file covers *what* gets built and *when*.
 
@@ -47,7 +53,7 @@ waiver at <https://cerebralvalley.ai/e/meta-ai-developer-hackathon/waiver> (read
 | Reasoning, curriculum mapping, mentoring, vernacular adaptation | `muse-spark-1.3` (text), `muse-spark-1.2` (when audio input is used) | OpenAI-compatible at `https://api.meta.ai/v1`. 1M context, tool calling, **structured output**, search grounding. $1.25 / $4.25 per 1M tokens. 3,000 RPM. |
 | Speech-to-text | `muse-voice-transcribe-1.0` | `POST /v1/asr/transcribe`, $0.18/hr, WAV only. 25 languages with code-switching, **including Hindi, Bengali, Marathi, Tamil, Telugu and Kannada** (confirmed 2026-10-26). S2 still measures Hinglish code-switching and village-accent accuracy. Phase 2 can add those five languages without new infrastructure. |
 | Cheap high-volume calls | `muse-spark-1.x-contributor` | 10–20× cheaper, but Meta trains on the content. **Never use it for student data** (minors). Fine for evals over synthetic prompts. |
-| Text-to-speech | **None on Model API** | Use open-weights **Meta MMS-TTS** (`facebook/mms-tts-hin`), so the stack stays Meta. Fallback: AI4Bharat Indic Parler-TTS. |
+| Text-to-speech | **None on Model API** | *Planned:* open-weights Meta MMS-TTS. *As built:* none; replies are text (MMS-TTS is CC-BY-NC, see the note at the top). |
 | Safety classifier | **Not on Model API** | Use open-weights **Llama Guard 4** on a partner host (Baseten / Fireworks / Groq) or Modal. Day-1 spike. |
 | Embeddings | **None on Model API** | Use an open multilingual embedding model (`intfloat/multilingual-e5-small` or BGE-M3) |
 | Llama 3 | **Not on Model API** | See decision D1 |
@@ -103,7 +109,7 @@ The original three-axis summary from the event page, kept for reference:
 | Axis | What we show | Where it lives |
 |---|---|---|
 | **Creativity** | A journey from age 3, not a Q&A bot: daily parent-child *khoj* with serve-and-return coaching. Voice-first WhatsApp for low-literacy users. Curriculum-to-career "exposure bridges" for teachers. Hinglish adaptation with local cultural references (cricket, kabaddi, the mandi, the panchayat). A trajectory that spans childhood to career choice. | §4.3–4.8, §4.11 |
-| **Technical ambition** | Four Meta models in one pipeline: Muse Spark, Muse Voice Transcribe, Llama Guard 4, MMS-TTS. A learner-centred data model, proactive opt-in nudges, structured output everywhere, RAG with citations, durable inbox/outbox processing, a sealed safety gate on input and output, and an LLM-judge eval harness with published scores. | §3, §4, §5.4 |
+| **Technical ambition** | Meta models in one pipeline (as built, six: Muse Spark 1.3, Muse Spark Open, Muse Voice Transcribe, Muse Image, SAM 3.1, Llama Guard 4; MMS-TTS was planned and dropped, see the note at the top). A learner-centred data model, proactive opt-in nudges, structured output everywhere, RAG with citations, durable inbox/outbox processing, a sealed safety gate on input and output, and an LLM-judge eval harness with published scores. | §3, §4, §5.4 |
 | **Whether it works** | A public web simulator running the same pipeline. A live WhatsApp number on the demo video. Real voice notes from real parents, students and teachers (field test from Day 6). Latency and success-rate numbers on a `/status` page. | §4.7, §7 |
 
 **Scope rule:** a feature that earns no points on the four criteria doesn't get built. A half-finished
@@ -130,7 +136,7 @@ WhatsApp Cloud API ──POST /webhooks/whatsapp──▶ [API]  verify X-Hub-Si
    ├─ 5. layer      Exposure | Mentor (RAG) | Roadmap | Onboarding
    ├─ 6. translate  Translation layer → user's register (Hindi / Hinglish / English)
    ├─ 7. safety-out Llama Guard 4 on the generated reply ── unsafe ─▶ fallback reply
-   ├─ 8. synthesize MMS-TTS → wav → ogg/opus
+   ├─ 8. synthesize (planned: MMS-TTS; as built: none, replies are text)
    ├─ 9. outbox     INSERT outbox row (text + audio) → sender delivers with retries
    └─10. telemetry  TurnEvent + AspirationSignals → trajectory
 ```
@@ -195,8 +201,8 @@ app/store/      Postgres repositories. The only place SQL lives.
 - **STT:** Muse Voice Transcribe, with keyword biasing for Indian exam and scheme names (NEET,
   JEE, NMMS, Khelo India). Fallback adapter: open-weights Whisper (`large-v3-turbo`) on the
   sidecar if the Hindi spike fails.
-- **TTS:** MMS-TTS Hindi on the sidecar (licence CC-BY-NC: hackathon only, replaced before any
-  commercial use). The translation layer writes `spoken_text` in Devanagari for Hindi and Hinglish,
+- **TTS (planned, not built into the submission):** MMS-TTS Hindi on a sidecar; dropped because
+  its licence is CC-BY-NC (see the note at the top). The translation layer writes `spoken_text` in Devanagari for Hindi and Hinglish,
   and `app/audio/tts_text.py` checks it before synthesis (docs/design/s06-voice.md §4.6).
 - **STT input:** Muse Voice Transcribe accepts only WAV, so ogg/opus and webm are converted first.
   It returns no language or confidence; the register is detected locally.

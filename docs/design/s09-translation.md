@@ -128,7 +128,7 @@ noisy. The enforced checks are in §4.6.
 
 ### 4.4 Spoken text rules
 
-`spoken_text` is what MMS-TTS reads out. Rules, given to the model and then enforced in code
+`spoken_text` is what a speech model would read out (none in this build: replies are text, s06 log 2026-11-02). Rules, given to the model and then enforced in code
 where possible:
 
 - No URLs, markdown, bullet glyphs, emoji or citation markers. **Enforced:** `sanitize_spoken` removes them.
@@ -137,7 +137,7 @@ where possible:
 - Numbers as they'd be said: "₹12,000" → "बारह हज़ार रुपये" / "baarah hazaar rupaye" / "twelve
   thousand rupees"; dates in words. Model rule, checked by the rubric.
 - **Script:** for `HINDI` and `HINGLISH` registers, `spoken_text` is written entirely in
-  **Devanagari**, even when `text` is romanised Hinglish (contracts §2.6). MMS-TTS reads
+  **Devanagari**, even when `text` is romanised Hinglish (contracts §2.6). The planned MMS-TTS read
   Devanagari, and s06's `tts_text.py` rejects Latin letters. English loanwords are written
   phonetically ("डॉक्टर"). For `ENGLISH`, `spoken_text` is plain English.
 - Exam and scheme acronyms stay as Latin capitals in `text` (`NEET`, `JEE`, `NMMS`). In

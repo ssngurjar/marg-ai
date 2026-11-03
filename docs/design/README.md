@@ -104,7 +104,7 @@ that step, in the "design first" part of the loop in plan.md §11, before any co
 | B7 | mypy `disallow_any_decorated` stays off (FastAPI); a staging deployment exists for load tests. | s01, s16 |
 | B8 | Search grounding off; teachers get memory; `/status` public with cost and crisis counts admin-only; no nightly evals before the deadline; targets ≥ 85% overall, 100% crisis and adversarial. | s10, s12, s13, s15 |
 | B9 | Trimmed for time: classroom codes, roadmap progress and check-ins, query rewriting (off unless the retrieval eval shows ≥ +0.05 recall@5). | s11, s12, s13 |
-| B10 | MMS-TTS (CC-BY-NC) is used for the hackathon and replaced before any commercial use. | s06 |
+| B10 | ~~MMS-TTS (CC-BY-NC) is used for the hackathon.~~ Superseded 2026-11-02: replies are text and MMS-TTS is not in the build (its licence doesn't fit a prize submission). | s06 |
 | B11 | Layers write canonical replies in English, and a separate translation step localises them. **Phase 2; for the MVP, revised by C3.** | s09 |
 | C1 | **Hackathon MVP = the parent journey.** Teacher exposure-lite is a stretch after the Day 8 checkpoint; student mentor, RAG and roadmaps are Phase 2. | mvp-scope.md |
 | C2 | Simplified durable processing for the MVP (single process, inbox dedupe, per-user lock, direct send, startup recovery, polling web demo). Full s04/s14 design is Phase 2. | mvp-scope.md §4.1, §4.6 |

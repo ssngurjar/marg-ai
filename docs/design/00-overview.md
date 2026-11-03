@@ -31,8 +31,8 @@ signals for students, keyed by learner so one child's record can span the years 
                  (signed)   ▼        │ templates        │
   Browser ──HTTPS──▶ ┌────────────┐  │           ┌──────┴─────┐      ┌──────────────────┐
   (/demo, SSE)       │  api       │  │           │  worker    │─────▶│ ml-sidecar       │
-                     │  FastAPI   │  └───────────│  (asyncio) │      │ (Modal, CPU)     │
-                     │            │              │            │      │ MMS-TTS, e5      │
+                     │  FastAPI   │  └───────────│  (asyncio) │      │ (removed: replies│
+                     │            │              │            │      │ are text, s06)   │
                      └─────┬──────┘              └─────┬──────┘      └──────────────────┘
                            │      ┌──────────────┐     │             ┌──────────────────┐
                            └─────▶│ PostgreSQL   │◀────┘────────────▶│ Llama Guard 4    │
