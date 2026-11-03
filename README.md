@@ -16,10 +16,10 @@ Oct 26 – Nov 4, 2026, by Santram Gurjar.
 | [At a glance](#at-a-glance) | The four judging criteria, with where to check each |
 | [Why](#why) | A village in Rajasthan, and children who lack exposure, not talent |
 | [Impact](#impact) | Reach through the phone already in the house, what it costs, and how it travels |
-| [Run it locally](#run-it-locally) | Python, Docker and three keys: the whole system on your machine, web demo included |
+| [Run it locally](#run-it-locally) | Python, Docker and one Meta Model API key: the whole system on your machine, web demo included |
 | [Field tests](#field-tests) | Eight real people, unscripted: 31 things broke, every one fixed the same day |
 | [What it does](#what-it-does) | Parents, the child's own questions, teachers, students, one growing record |
-| [Built during the hackathon](#built-during-the-hackathon) | What existed before kickoff, and why replies are text |
+| [Built during the hackathon](#built-during-the-hackathon) | Everything that runs was built Oct 26 – Nov 4, 2026; what existed before kickoff, and why replies are text |
 | [The models](#the-models) | Six Meta models, each with one job, and where they run |
 | [How it works](#how-it-works) | The pipeline, ports and adapters, and why no message is lost or doubled |
 | [Safety and children's privacy](#safety-and-childrens-privacy) | Two checks on every message, fixed crisis replies, child rules, data minimisation |
