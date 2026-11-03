@@ -2,7 +2,7 @@
 2026-11-01). Every line was checked against the code on that date; the owner chose the two lines
 about who sees the data. AboutMargLayer answers only from these, and says it doesn't know
 anything else. Change a line only when the code (or the owner's decision) changes with it, and
-add the change to docs/reviews/owner-review-pending.md. Pending the owner's review.
+add the change to docs/reviews/owner-review-pending.md. Reviewed by the owner (2026-11-03).
 """
 
 from dataclasses import dataclass

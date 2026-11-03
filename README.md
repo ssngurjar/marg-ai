@@ -341,6 +341,8 @@ Each one is fixed and kept as a regression test.
   replies to phone numbers on its allow-list; to try it on your own WhatsApp, send your number to
   the author through the hackathon's submission page and it will be added. The web demo runs the
   same pipeline.
+- **Live service health:** <https://marg-ai.fly.dev/status>: the last 24 hours on the hosted app,
+  with replies served, reply times, and how each pipeline step is doing.
 - **Run it locally:** see [Run it locally](#run-it-locally); the web demo at `/demo` needs no WhatsApp account.
 
 ## Repository map
