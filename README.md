@@ -1,10 +1,47 @@
 # Marg.ai
 
-**A voice-first WhatsApp guide that closes the exposure gap for rural Indian children, by
-equipping the people already around them.** Parents of 3–8-year-olds get a two-minute discovery to
-do offline with things at home; teachers get today's chapter connected to real work; students get
-a mentor that states facts only from official sources. It isn't a tutor, and it isn't screen time
-for children: the world is the curriculum, the parent is the teacher, and Marg is the guide.
+**Marg helps the people around a rural Indian child (parents, teachers, and older children
+themselves) raise a curious child, on WhatsApp, in Hindi, Hinglish, English or Braj.**
+
+Built for the Meta Global AI Developer Hackathon (Indie track, **Build for Your World**),
+Oct 26 – Nov 4, 2026, by Santram Gurjar.
+
+---
+
+## Contents
+
+| Section | In brief |
+|---|---|
+| [What Marg is](#what-marg-is) | A two-minute daily discovery for parents, chapters linked to real work for teachers, a sourced mentor for students |
+| [At a glance](#at-a-glance) | The four judging criteria, with where to check each |
+| [Why](#why) | A village in Rajasthan, and children who lack exposure, not talent |
+| [Impact](#impact) | Reach through the phone already in the house, what it costs, and how it travels |
+| [Field tests](#field-tests) | Eight real people, unscripted: 31 things broke, every one fixed the same day |
+| [What it does](#what-it-does) | Parents, the child's own questions, teachers, students, one growing record |
+| [Built during the hackathon](#built-during-the-hackathon) | What existed before kickoff, and why replies are text |
+| [The models](#the-models) | Six Meta models, each with one job, and where they run |
+| [How it works](#how-it-works) | The pipeline, ports and adapters, and why no message is lost or doubled |
+| [Safety and children's privacy](#safety-and-childrens-privacy) | Two checks on every message, fixed crisis replies, child rules, data minimisation |
+| [What's next](#whats-next) | A daily limit for child talk, reading children's words, anganwadi workers, more sources |
+| [Quality](#quality) | 3,323 tests, 101 eval cases, the latest scorecard, and what hands-on testing found |
+| [Try it](#try-it) | The video, the web demo, WhatsApp, and running it locally |
+| [Repository map](#repository-map) | Where everything lives |
+| [Licences](#licences) | Every model and library, and the attributions they ask for |
+
+More detail: what each feature does, step by step, in
+[docs/submission/features.md](docs/submission/features.md); how the system works and how to debug
+it in [docs/guides/debugging-and-architecture.md](docs/guides/debugging-and-architecture.md); the
+design, one document per build step, in [docs/design/](docs/design/README.md).
+
+---
+
+## What Marg is
+
+Marg closes the exposure gap for rural Indian children by equipping the people already around
+them. Parents of 3–8-year-olds get a two-minute discovery to do offline with things at home;
+teachers get today's chapter connected to real work; students get a mentor that states facts only
+from official sources. It isn't a tutor, and it isn't screen time for children: the world is the
+curriculum, the parent is the teacher, and Marg is the guide.
 
 The way it teaches is the one India's national curriculum for ages 3–8 sets out: children
 "learn best through play", and "most learning occurs through play, listening, and talking",
@@ -14,26 +51,16 @@ Marg's replies follow *serve and return*: "responsive, back-and-forth exchanges 
 child and a caring adult" that "play a key role in shaping brain architecture"
 ([Harvard Center on the Developing Child](https://developingchild.harvard.edu/science/key-concepts/serve-and-return/)).
 
-Built for the Meta Global AI Developer Hackathon (Indie track, **Build for Your World**),
-Oct 26 – Nov 4, 2026, by Santram Gurjar.
+Families talk to Marg the way they already talk on WhatsApp: by voice note or text.
 
-### At a glance
+## At a glance
 
 | Criterion | The evidence, and where to check it |
 |---|---|
 | **Impact** | Fewer than one in four Class 3 children in rural government schools can read a Class 2 story (ASER 2024), and 250 million children under five are at risk of not reaching their potential (The Lancet, 2017). Marg reaches families through the phone they already have: no app, just a voice note, at under one US cent a reply in model calls. → [Impact](#impact) |
-| **Meta AI tooling** | Six Meta models, each with one job: Muse Spark 1.3, Muse Spark Open (open weights), Muse Voice Transcribe, SAM 3.1, Muse Image and Llama Guard 4, plus measured feedback on where they fell short for Hindi and Braj. → [The models](#the-models-six-from-meta-each-with-one-job) · [feedback](docs/submission/submission-form.md#provide-feedback-from-your-experience-using-meta-products) |
-| **Technical depth** | Hexagonal (ports and adapters) architecture, enforced by an import-graph test; every message checked on the way in and out, failing closed, with Muse Spark backing up Llama Guard; 3,323 tests, including property-based ones; 96 eval cases through the real pipeline, with crisis and adversarial cases as hard gates (76% of the 82 scored pass on the latest full run); a design document and decisions log for every step. → [How it works](#how-it-works) · [Safety](#safety-and-childrens-privacy) · [Quality](#quality) |
+| **Meta AI tooling** | Six Meta models, each with one job: Muse Spark 1.3, Muse Spark Open (open weights), Muse Voice Transcribe, SAM 3.1, Muse Image and Llama Guard 4, plus measured feedback on where they fell short for Hindi and Braj. → [The models](#the-models) · [feedback](docs/submission/submission-form.md#provide-feedback-from-your-experience-using-meta-products) |
+| **Technical depth** | Hexagonal (ports and adapters) architecture, enforced by an import-graph test; every message checked on the way in and out, failing closed, with Muse Spark backing up Llama Guard; 3,323 tests, including property-based ones; 101 eval cases through the real pipeline, with crisis and adversarial cases as hard gates (76% of the 82 scored pass on the latest full run); a design document and decisions log for every step. → [How it works](#how-it-works) · [Safety](#safety-and-childrens-privacy) · [Quality](#quality) |
 | **Demo** | A live web demo that shows a trace of every step behind each reply, and the three-minute video (English subtitles uploaded, not auto-generated). → [Try it](#try-it) |
-
-| | |
-|---|---|
-| Demo video | *(link added at submission)* |
-| What each feature does, step by step | [docs/submission/features.md](docs/submission/features.md) |
-| How the system works, and how to debug it | [docs/guides/debugging-and-architecture.md](docs/guides/debugging-and-architecture.md) |
-| The design, step by step | [docs/design/](docs/design/README.md) |
-
----
 
 ## Why
 
@@ -62,12 +89,13 @@ Marg needs no app, only WhatsApp, and anyone can ask by voice note.
   "250 million children (43%) younger than 5 years in low-income and middle-income countries
   are at risk of not reaching their developmental potential" ([The Lancet, 2017](https://pubmed.ncbi.nlm.nih.gov/27717614/)).
   Marg fits anywhere families share one phone and speak a language at home that school doesn't.
-  Per region, three things change, each reviewed locally: the language word lists, the official sources, and the crisis
-  helplines. Channels and models sit behind ports, so the core stays the same.
-- **Affordable at village scale.** About 0.6 US cents per reply in model calls, measured in a full eval run
-  ($0.65 for 111 replies), so about 3 US cents a day for an active family (around five replies),
-  not counting WhatsApp fees and hosting. The whole build, with every test and evaluation, used
-  about $32 of Model API credits (Baseten and DeepInfra are billed separately).
+  Per region, three things change, each reviewed locally: the language word lists, the official
+  sources, and the crisis helplines. Channels and models sit behind ports, so the core stays the
+  same.
+- **Affordable at village scale.** About 0.6 US cents per reply in model calls, measured in a full
+  eval run ($0.65 for 111 replies), so about 3 US cents a day for an active family (around five
+  replies), not counting WhatsApp fees and hosting. The whole build, with every test and
+  evaluation, used about $32 of Model API credits (Baseten and DeepInfra are billed separately).
 - **The need is large.** An estimated 250 million children under five in low- and middle-income
   countries are at risk of not reaching their developmental potential
   ([Lancet series, 2016](https://pmc.ncbi.nlm.nih.gov/articles/PMC5884058); 2010 data).
@@ -75,21 +103,23 @@ Marg needs no app, only WhatsApp, and anyone can ask by voice note.
 What Marg has **not** shown yet is that it changes outcomes: that needs families using it for
 months.
 
+## Field tests
+
 **Unscripted field tests with 8 real people: a teacher, students and a mother.** 31 things broke,
 and every one was fixed and tested the same day.
 
-**The first field test** (1 November, in my village, on WhatsApp, unscripted): one person, two
-sessions, 0 failed turns. It found eleven things no test had: a child's name given without the
-age, a graduate who couldn't get past "class 1 to 12", a question about Braj, frustration shown
-with an emoji after the same reply three times. All eleven were fixed and tested the same night
-([report](docs/field-tests/2026-11-01-village-whatsapp.md)).
-
-**The second field test** (2 November, on the web demo and WhatsApp, unscripted): a
-government-school teacher speaking Hindi by voice, parents and students: seven people (ten
-accounts, since a browser reset starts a new one), 82 turns, 0 failed. It found twenty more: a class range in Hindi words, a mistaken Done on a khoj, a school
-topic refused as homework, a Hindi chapter answer that took 22 s, a student's "hi" that took 10 s.
-All twenty were fixed and tested the same day; one more (an exam Marg has no source for) waits
-for official sources ([report](docs/field-tests/2026-11-02-web-demo.md)).
+- **The first field test** (1 November, in my village, on WhatsApp, unscripted): one person, two
+  sessions, 0 failed turns. It found eleven things no test had: a child's name given without the
+  age, a graduate who couldn't get past "class 1 to 12", a question about Braj, frustration shown
+  with an emoji after the same reply three times. All eleven were fixed and tested the same night
+  ([report](docs/field-tests/2026-11-01-village-whatsapp.md)).
+- **The second field test** (2 November, on the web demo and WhatsApp, unscripted): a
+  government-school teacher speaking Hindi by voice, parents and students: seven people (ten
+  accounts, since a browser reset starts a new one), 82 turns, 0 failed. It found twenty more: a
+  class range in Hindi words, a mistaken Done on a khoj, a school topic refused as homework, a
+  Hindi chapter answer that took 22 s, a student's "hi" that took 10 s. All twenty were fixed and
+  tested the same day; one more (an exam Marg has no source for) waits for official sources
+  ([report](docs/field-tests/2026-11-02-web-demo.md)).
 
 ## What it does
 
@@ -105,8 +135,9 @@ Consent comes first, and a user's data is deleted with one message ("mera data h
   faces, then counted. Good discoveries become a shareable card.
 - **The child's own questions.** A parent can pass on a question ("chaand roz shape kyun badalta
   hai?"), or, with one-time consent, the child asks Marg directly by voice note, in short
-  sessions with strict child-safety rules (the parent reads the reply aloud). When Marg won't answer something directly (how a gun works),
-  it says why, kindly, and turns the curiosity to something safe.
+  sessions with strict child-safety rules (the parent reads the reply aloud). When Marg won't
+  answer something directly (how a gun works), it says why, kindly, and turns the curiosity to
+  something safe.
 - **Teachers.** "Kal class 8 mein Force and Pressure padhana hai" → three real fields the chapter
   leads to (at least one outside science, one reachable without a degree), each with a
   five-minute activity for 40 students and nothing to buy.
@@ -125,22 +156,21 @@ system, with structured claims, citations and an honest "I don't know", inside a
 safety on both sides. Not medical advice: health and medicine questions are referred to the
 anganwadi worker, the ASHA didi or a doctor, never answered.
 
----
-
 ## Built during the hackathon
 
 Everything that runs was built between **Oct 26 and Nov 4, 2026**. The git tag
 [`pre-kickoff`](../../tree/pre-kickoff) marks the line: before it, the repository held only
 **planning and design documents, the golden evaluation cases (test data) and a list of corpus
 sources**. All code, prompts, the activity catalogue, the corpus files, the web demo, the eval
-harness (and a voice sidecar, since removed) came after it; `git log pre-kickoff..main` shows each step.
+harness (and a voice sidecar, since removed) came after it; `git log pre-kickoff..main` shows each
+step.
 
 **Every model Marg calls is a Meta model**, as the organisers require, and everything Marg runs
-is in this repository. Two consequences, both decided on Oct 29:
+is in this repository. Two consequences:
 
 - **Replies are text.** Meta's MMS-TTS is the only Meta speech-output model, and its licence is
   CC-BY-NC 4.0 (non-commercial). The organisers leave each licence to the entrant, and a prize
-  submission is hard to square with "non-commercial", so we keep it off. Voice notes *in* still
+  submission is hard to square with "non-commercial", so it isn't used. Voice notes *in* still
   work (Muse Voice Transcribe), and the web demo reads replies aloud with the browser's own voice,
   which isn't a model call. An MMS voice was built during the hackathon and then removed from
   this build (git tag `voice-sidecar-2026-11-02`); the reply path still speaks through a port,
@@ -149,14 +179,13 @@ is in this repository. Two consequences, both decided on Oct 29:
   Hinglish question into English search terms first. An earlier version also used a non-Meta
   embedding model; it was removed.
 
-## The models: six from Meta, each with one job
+## The models
 
 Marg is a **compound AI system**: six Meta models and plain code working together behind a
-deterministic router, rather than one chatbot.
+deterministic router, rather than one chatbot, each model with one job.
 
 **Open Meta models, and where they run:** Muse Spark Open on Baseten and Llama Guard 4 on
-DeepInfra, both called at runtime.
-The rest run on the Meta Model API.
+DeepInfra, both called at runtime. The rest run on the Meta Model API.
 
 | Model | Where it runs | What it does in Marg |
 |---|---|---|
@@ -181,21 +210,21 @@ repair retry carrying the validation error; model ids, timeouts and cost caps li
    worker/   claim the user under a lease → one turn at a time per person, any number of workers
    pipeline/ fetch media → transcribe → route (rules: buttons, safety, consent; Muse Spark reads a student's plan request)
              → safety in ‖ generate (a parent's free text: Muse Spark reads its intent first)
-             → safety out → speak → send; every step recorded with its time and cost
+             → safety out → send; every step recorded with its time and cost
    layers/   journey · curiosity · child talk · teacher bridges · mentor · plans · memory
    safety/   crisis phrases → Llama Guard 4 ‖ Muse Spark policy → child rules (d1, d7, d8)
    store/    Postgres: inbox, turns, steps, outbox (sent once per part), learners, signals
 ```
 
-- **Ports and adapters.** Domain rules are pure and have no I/O; every SDK sits behind a protocol in
-  [`app/providers/ports.py`](app/providers/ports.py); only `channels/` knows a WhatsApp payload.
+- **Ports and adapters.** Domain rules are pure and have no I/O; every SDK sits behind a protocol
+  in [`app/providers/ports.py`](app/providers/ports.py); only `channels/` knows a WhatsApp payload.
   An import-graph test enforces the direction.
 - **Reliable by construction.** The webhook only stores and acknowledges; turns run in the worker.
   A redelivered webhook or a retried worker never produces a second reply. A worker that dies
   mid-turn loses its lease and another takes over. Every external call has a timeout, bounded
   retries with backoff and `Retry-After`, and a documented fallback.
 - **The web demo** runs the same pipeline and shows a live trace of every step (safety, routing,
-  which model, voice) as it happens.
+  which model) as it happens.
 
 More: [docs/guides/debugging-and-architecture.md](docs/guides/debugging-and-architecture.md),
 and every module and class in [docs/code-map.md](docs/code-map.md).
@@ -225,26 +254,25 @@ and every module and class in [docs/code-map.md](docs/code-map.md).
   nickname and a birth year. Phone numbers are salted hashes; raw audio is deleted after
   transcription; photos are never stored; logs hold only ids and hashes.
 
-**Next safety check (not built yet): a daily limit on a child's time with Marg.** Today a child
-session ends after 6 questions or 10 minutes, and the next can start 30 minutes later, so
-nothing caps a child's total for the day. Planned: a daily cap the parent can set, with the
-time shown in the parent's summary, so Marg stays a short daily spark, not screen time.
+## What's next
 
-**Next: reading what a child means, too.** Muse Spark reads what a parent's words mean (a report,
-a question, someone else writing). A child's messages in child talk still go through fixed rules
-for things like "Hindi" or "bye", which miss some ways children write. Planned: the same reading
-for children, once its extra second per reply is worth it.
-
-**Next: Anganwadi and ASHA workers.** They already see the families Marg serves, and a role
-for them (a few families' khojs and questions, with each family's consent) would carry Marg to
-parents without a phone of their own. Not built for the hackathon.
-
-**Next: a wider library of sources.** The mentor answers only from 53 official documents (exams,
-scholarships, sports, skilling, public service, health courses), so a goal they don't cover,
-such as sports selection trials or a state's police recruitment, gets an honest "I don't have
-verified details" instead of a guess. Covering every exam, scheme and state rule takes an
-extensive search of official sources and their ingestion, each fact copied with its link and
-date; that is planned after the hackathon.
+- **A daily limit on a child's time with Marg.** Today a child session ends after 6 questions or
+  10 minutes, and the next can start 30 minutes later, so nothing caps a child's total for the
+  day. Planned: a daily cap the parent can set, with the time shown in the parent's summary, so
+  Marg stays a short daily spark, not screen time.
+- **Reading what a child means, too.** Muse Spark reads what a parent's words mean (a report, a
+  question, someone else writing). A child's messages in child talk still go through fixed rules
+  for things like "Hindi" or "bye", which miss some ways children write. Planned: the same reading
+  for children, once its extra second per reply is worth it.
+- **Anganwadi and ASHA workers.** They already see the families Marg serves, and a role for them
+  (a few families' khojs and questions, with each family's consent) would carry Marg to parents
+  without a phone of their own. Not built for the hackathon.
+- **A wider library of sources.** The mentor answers only from 53 official documents (exams,
+  scholarships, sports, skilling, public service, health courses), so a goal they don't cover,
+  such as sports selection trials or a state's police recruitment, gets an honest "I don't have
+  verified details" instead of a guess. Covering every exam, scheme and state rule takes an
+  extensive search of official sources and their ingestion, each fact copied with its link and
+  date; that is planned after the hackathon.
 
 ## Quality
 
@@ -258,8 +286,8 @@ date; that is planned after the hackathon.
 
 76% is honest, not perfect: the judge is strict, and single runs move by several points (two
 full runs on the same day gave 73% and 76%). The failing cases are listed in each scorecard;
-about a quarter of them lack an official source (no sports-selection or state police source yet), where Marg says
-it doesn't know rather than guess.
+about a quarter of them lack an official source (no sports-selection or state police source yet),
+where Marg says it doesn't know rather than guess.
 
 **Found by using it.** Rough, hands-on tests on the live demo found what the test suite missed.
 Each one is fixed and kept as a regression test.
@@ -291,7 +319,7 @@ Model API, Baseten and DeepInfra (every setting is listed, without values, in
 [`.env.example`](.env.example)).
 
 ```sh
-make setup                               # both environments from their lockfiles
+make setup                               # the environment from its lockfile
 cp .env.example .env                     # then fill in the keys
 docker compose up -d postgres            # the database
 make migrate                             # the schema
@@ -300,7 +328,7 @@ make migrate                             # the schema
 open http://127.0.0.1:8000/demo
 ```
 
-See the [guide, §2.1](docs/guides/debugging-and-architecture.md). The checks: `make check`
+See the [guide, §2](docs/guides/debugging-and-architecture.md). The checks: `make check`
 (format, lint, types and unit tests) and `make test-int` (Postgres).
 
 ## Repository map
@@ -312,6 +340,7 @@ See the [guide, §2.1](docs/guides/debugging-and-architecture.md). The checks: `
 | [`corpus/`](corpus/) | The official sources for the mentor, each with `source_url` and `retrieved_on` |
 | [`evals/`](evals/) | Golden cases and scorecards |
 | [`docs/design/`](docs/design/README.md) | The design, one document per build step, each with its decisions log |
+| [`docs/field-tests/`](docs/field-tests/) | The two field-test reports |
 | [`tests/`](tests/) | Unit, contract, property and integration tests |
 
 ## Licences
