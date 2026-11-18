@@ -109,6 +109,8 @@ from app.domain.rules.activity_chooser import ActivityChooser
 from app.domain.rules.activity_validator import ActivityValidator
 from app.domain.rules.child_hazard_matcher import ChildHazardMatcher
 from app.domain.rules.child_question_detector import ChildQuestionDetector
+from app.domain.rules.child_session_rules import ChildSessionLimits
+from app.domain.rules.child_talk_limit_parser import ChildTalkLimitParser
 from app.domain.rules.conversation_machine import MAX_LEARNERS
 from app.domain.rules.onboarding_answer_parser import OnboardingAnswerParser
 from app.domain.rules.phrase_finder import PhraseFinder
@@ -117,6 +119,7 @@ from app.domain.rules.small_talk_rules import SmallTalkRules
 from app.domain.rules.stage_rules import StageRules
 from app.layers.about_marg_layer import AboutMargLayer
 from app.layers.activity_catalogue import CatalogueActivitySource
+from app.layers.child_talk_settings_layer import ChildTalkSettingsLayer, ParentTurnFacts
 from app.layers.curiosity_moment_layer import CuriosityMomentLayer, NotAChildQuestion
 from app.layers.hazard_word_checks import HazardWordChecks
 from app.layers.intent_reader import IntentRead, IntentReader
@@ -173,6 +176,7 @@ class ParentMessage:
 @dataclass(frozen=True, slots=True)
 class JourneySettings:
     repeat_window: timedelta  # ACTIVITY_REPEAT_DAYS
+    talk_limits: ChildSessionLimits  # CHILD_SESSION_*: the 10-minute cap, for the time left
     child_talk_enabled: bool = True  # CHILD_TALK_ENABLED: offer the "Main bachcha hoon" button
     read_intent: bool = False  # INTENT_READING_ENABLED: Muse Spark reads a parent's free text
 
@@ -217,11 +221,19 @@ class JourneyLayer:
     ) -> LayerResult:
         """Raises ProviderError only from flow D (the parent question); A to C fall back to
         reviewed text instead. Free text (no button, no photo) is read by Muse Spark into a
-        ParentIntent when INTENT_READING_ENABLED; buttons, a bare greeting or thanks, and a
-        failed reading go by the rules below."""
+        ParentIntent when INTENT_READING_ENABLED; buttons, a bare greeting or thanks, a message
+        clearly about a child's daily talk limit (a setting, read by fixed rules: owner,
+        2026-11-13; any other "limit" is read as usual), and a failed reading go by the rules
+        below."""
         open_activity = self._offered(ctx)
         free_text = not message.interactive_ids and message.photo is None and message.text.strip()
-        if not (free_text and self._settings.read_intent) or JourneyLayer.small_talk(message.text):
+        by_rules = (
+            not (free_text and self._settings.read_intent)
+            or JourneyLayer.small_talk(message.text)
+            or ChildTalkLimitParser.is_about_the_limit(message.text, ctx.learners)
+            or ChildTalkLimitParser.asks_time_left(message.text, ctx.learners)
+        )
+        if by_rules:
             return await self._by_rules(ctx, message, open_activity, now, register)
         others = self._other_recent_khojs(ctx, open_activity, now)
         read = await self._intents.read(
@@ -277,8 +289,8 @@ class JourneyLayer:
         user_text, photo = message.text, message.photo
         interactive_ids = message.interactive_ids
         button = interactive_ids[-1] if interactive_ids else None
-        settings = self._nudge_settings(
-            button, user_text, register, khoj_open=open_activity is not None
+        settings = self._settings_asked(
+            ctx, button, user_text, now, register, khoj_open=open_activity is not None
         )
         if (
             settings is None
@@ -588,11 +600,7 @@ class JourneyLayer:
         if child.child_talk_consented_at is not None:
             how_to_start = COPY[(CopyKey.CHILD_TALK_ENABLED, register)].body.format_map(values)
             return _fixed(how_to_start, register, _kid_buttons(child, register))
-        ask = COPY[(CopyKey.ASK_CHILD_TALK, register)]
-        buttons = tuple(
-            ReplyButton(id=f"{button.id}:{child.id}", title=button.title) for button in ask.buttons
-        )
-        return _fixed(ask.body.format_map(values), register, buttons)
+        return ChildTalkSettingsLayer.consent_question(child, register)
 
     def _small_talk_reply(
         self, ctx: TurnContext, register: Language, user_text: str, now: datetime
@@ -771,6 +779,32 @@ class JourneyLayer:
     ) -> LayerResult:
         """The handoff right after onboarding (s08 §4.7): today's khoj for the new child."""
         return await self._today(ctx, learner, now, register, skipped=None)
+
+    def _settings_asked(  # noqa: PLR0913  # the message, then the turn's facts
+        self,
+        ctx: TurnContext,
+        button: str | None,
+        user_text: str,
+        now: datetime,
+        register: Language,
+        *,
+        khoj_open: bool,
+    ) -> LayerResult | None:
+        """A setting the parent changes or asks about by a button or fixed words: a child's
+        daily talk limit and the time left today (owner, 2026-11-13), or the daily message
+        (flow E). None: neither."""
+        if self._settings.child_talk_enabled:
+            facts = ParentTurnFacts(
+                learners=ctx.learners,
+                child_talk_today=ctx.child_talk_today,
+                now=now,
+                limits=self._settings.talk_limits,
+                khoj_open=khoj_open,
+            )
+            limit = ChildTalkSettingsLayer.daily_limit(facts, button, user_text, register)
+            if limit is not None:
+                return limit
+        return self._nudge_settings(button, user_text, register, khoj_open=khoj_open)
 
     def _nudge_settings(
         self, button: str | None, user_text: str, register: Language, *, khoj_open: bool

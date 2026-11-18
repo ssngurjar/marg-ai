@@ -6,11 +6,13 @@ never typed here. Spoken text for Hinglish uses the Hindi (Devanagari) version, 
 reply. v1, written 2026-10-27: pending the owner's review (ideally a counsellor's too).
 """
 
+from datetime import timedelta
 from typing import Final
 
 from app.constants.crisis_replies import CHILD_HELPLINE, TELE_MANAS
-from app.domain.enums import CuriosityDomain, FixedReplyVariant, Language
+from app.domain.enums import CuriosityDomain, DailyTalkLimit, FixedReplyVariant, Language
 from app.domain.models.reply import ReplyButton
+from app.domain.rules.child_daily_limit_rules import ChildDailyLimitRules
 
 _HINGLISH = Language.HINGLISH
 _HINDI = Language.HINDI
@@ -47,6 +49,20 @@ CHILD_TALK_COOLDOWN: Final[dict[Language, str]] = {
     _HINGLISH: "Thodi der baad phir baat karenge! Tab tak jaao, ghar mein kuch naya dhoondho.",
     _HINDI: "थोड़ी देर बाद फिर बात करेंगे! तब तक जाओ, घर में कुछ नया ढूँढो।",
     _ENGLISH: "Let's talk again a little later! Until then, go and find something new at home.",
+}
+# The child's time for today is used up (s10b §4.16; owner, 2026-11-13): instead of starting a
+# session, and after the last answer when it runs out mid-session. Approved by the owner,
+# 2026-11-13.
+CHILD_DAILY_LIMIT_REACHED: Final[dict[Language, str]] = {
+    _HINGLISH: (
+        "Aaj ki baatein poori ho gayi! Kal phir baat karenge. Tab tak ghar mein kuch naya"
+        " dhoondho, aur Mummy-Papa ko batao!"
+    ),
+    _HINDI: "आज की बातें पूरी हो गईं! कल फिर बात करेंगे। तब तक घर में कुछ नया ढूँढो, और मम्मी-पापा को बताओ!",
+    _ENGLISH: (
+        "That's all our talking for today! Let's talk again tomorrow. Until then, find something"
+        " new at home, and tell Mummy and Papa!"
+    ),
 }
 WHICH_CHILD_IS_TALKING: Final[dict[Language, str]] = {
     _HINGLISH: 'Namaste! Apna naam bolo: "Main ... hoon".',
@@ -345,3 +361,174 @@ def named_kid_button(learner_id: str, nickname: str) -> ReplyButton:
 
 def kid_start_button(learner_id: str, language: Language) -> ReplyButton:
     return ReplyButton(id=f"kid:start:{learner_id}", title=KID_START_TITLE[language])
+
+
+# --- The parent's daily limit for each child (s10b §4.16; owner, 2026-11-13) ----------------------
+# Approved by the owner, 2026-11-13. 20, 30 and 60 minutes are buttons; no limit is typed
+# (WhatsApp allows three buttons). "10 minute" and "aadha ghanta" are the session limits.
+
+CHILD_TALK_LIMIT_BUTTON: Final = "jrn:limit"
+"""+ ":<DailyTalkLimit value>:<learner id>" sets it; + ":ask:<learner id>" asks for that child."""
+LIMITS_ON_BUTTONS: Final = (
+    DailyTalkLimit.MINUTES_20,
+    DailyTalkLimit.MINUTES_30,
+    DailyTalkLimit.MINUTES_60,
+)
+DAILY_LIMIT_NAMES: Final[dict[DailyTalkLimit, dict[Language, str]]] = {
+    DailyTalkLimit.MINUTES_20: {_HINGLISH: "20 minute", _HINDI: "20 मिनट", _ENGLISH: "20 minutes"},
+    DailyTalkLimit.MINUTES_30: {_HINGLISH: "30 minute", _HINDI: "30 मिनट", _ENGLISH: "30 minutes"},
+    DailyTalkLimit.MINUTES_60: {_HINGLISH: "1 ghanta", _HINDI: "1 घंटा", _ENGLISH: "1 hour"},
+    DailyTalkLimit.NO_LIMIT: {
+        _HINGLISH: "koi limit nahi",
+        _HINDI: "कोई लिमिट नहीं",
+        _ENGLISH: "no limit",
+    },
+}
+# To the parent: after their yes to child talk, and whenever they ask about the limit.
+CHILD_TALK_LIMIT_ASK: Final[dict[Language, str]] = {
+    _HINGLISH: (
+        "{child} roz kitni der Marg se baat karein: 20 minute, 30 minute ya 1 ghanta? Abhi:"
+        ' {current}. Koi limit nahi chahiye toh likhiye: "limit hata do".'
+    ),
+    _HINDI: (
+        "{child} रोज़ कितनी देर मार्ग से बात करें: 20 मिनट, 30 मिनट या 1 घंटा? अभी: {current}। कोई"
+        ' लिमिट नहीं चाहिए तो लिखिए: "लिमिट हटा दो"।'
+    ),
+    _ENGLISH: (
+        "How long may {child} talk to Marg each day: 20 minutes, 30 minutes or 1 hour? Now:"
+        ' {current}. For no limit, type: "no limit".'
+    ),
+}
+CHILD_TALK_LIMIT_SET: Final[dict[Language, str]] = {
+    _HINGLISH: (
+        "Theek hai! Ab {child} roz {limit} tak Marg se baat kar sakte hain. Kabhi bhi badal"
+        ' sakte hain: likhiye "limit badlo".'
+    ),
+    _HINDI: (
+        "ठीक है! अब {child} रोज़ {limit} तक मार्ग से बात कर सकते हैं। कभी भी बदल सकते हैं: लिखिए"
+        ' "लिमिट बदलो"।'
+    ),
+    _ENGLISH: (
+        "Done! {child} can now talk to Marg for {limit} a day. You can change it any time:"
+        ' type "change limit".'
+    ),
+}
+CHILD_TALK_NO_LIMIT_SET: Final[dict[Language, str]] = {
+    _HINGLISH: (
+        "Theek hai, {child} ke liye roz ki koi limit nahi. Har baat phir bhi 10 minute tak hi"
+        " chalegi, aur do baaton ke beech aadha ghanta aaram. Limit phir lagani ho toh likhiye"
+        ' "limit badlo".'
+    ),
+    _HINDI: (
+        "ठीक है, {child} के लिए रोज़ की कोई लिमिट नहीं। हर बात फिर भी 10 मिनट तक ही चलेगी, और दो"
+        ' बातों के बीच आधा घंटा आराम। लिमिट फिर लगानी हो तो लिखिए "लिमिट बदलो"।'
+    ),
+    _ENGLISH: (
+        "Done, no daily limit for {child}. Each talk still lasts at most 10 minutes, with half"
+        ' an hour\'s break between talks. To set a limit again, type "change limit".'
+    ),
+}
+CHILD_TALK_LIMIT_WHICH_CHILD: Final[dict[Language, str]] = {
+    _HINGLISH: "Kis bachche ki limit?",
+    _HINDI: "किस बच्चे की लिमिट?",
+    _ENGLISH: "Which child's limit?",
+}
+
+
+def limit_buttons(learner_id: str, language: Language) -> tuple[ReplyButton, ...]:
+    """The three limits on buttons, for one child."""
+    return tuple(
+        ReplyButton(
+            id=f"{CHILD_TALK_LIMIT_BUTTON}:{limit.value}:{learner_id}",
+            title=DAILY_LIMIT_NAMES[limit][language],
+        )
+        for limit in LIMITS_ON_BUTTONS
+    )
+
+
+# --- Time used, in the parent's summary (s10b §4.16; owner, 2026-11-13) ---------------------------
+# Approved by the owner, 2026-11-13. One line under the topics: the child's time that day
+# across all their talks, and their daily limit. Never in a crisis summary (C15).
+
+PARENT_TALK_TIME: Final[dict[Language, str]] = {
+    _HINGLISH: "⏱️ Aaj kul baat: {used}. Roz ki limit: {limit}.",
+    _HINDI: "⏱️ आज कुल बात: {used}। रोज़ की लिमिट: {limit}।",
+    _ENGLISH: "⏱️ Talk today: {used} in all. Daily limit: {limit}.",
+}
+PARENT_TALK_TIME_NO_LIMIT: Final[dict[Language, str]] = {
+    _HINGLISH: "⏱️ Aaj kul baat: {used}. Roz ki koi limit nahi.",
+    _HINDI: "⏱️ आज कुल बात: {used}। रोज़ की कोई लिमिट नहीं।",
+    _ENGLISH: "⏱️ Talk today: {used} in all. No daily limit.",
+}
+PARENT_TALK_TIME_USED_UP: Final[dict[Language, str]] = {
+    _HINGLISH: (
+        "⏱️ Aaj kul baat: {used}. Roz ki {limit} ki limit poori ho gayi; kal phir baat kar sakte"
+        " hain."
+    ),
+    _HINDI: "⏱️ आज कुल बात: {used}। रोज़ की {limit} की लिमिट पूरी हो गई; कल फिर बात कर सकते हैं।",
+    _ENGLISH: (
+        "⏱️ Talk today: {used} in all, so today's limit ({limit}) is used up; they can talk again"
+        " tomorrow."
+    ),
+}
+TALK_MINUTES: Final[dict[Language, str]] = {
+    _HINGLISH: "{minutes} minute",
+    _HINDI: "{minutes} मिनट",
+    _ENGLISH: "{minutes} minutes",
+}
+TALK_ONE_MINUTE: Final[dict[Language, str]] = {
+    _HINGLISH: "1 minute",
+    _HINDI: "1 मिनट",
+    _ENGLISH: "1 minute",
+}
+TALK_UNDER_A_MINUTE: Final[dict[Language, str]] = {
+    _HINGLISH: "1 minute se kam",
+    _HINDI: "1 मिनट से कम",
+    _ENGLISH: "less than a minute",
+}
+
+
+def minutes_said(duration: timedelta, language: Language) -> str:
+    """ "14 minute", "1 minute", "1 minute se kam": whole minutes rounded half up."""
+    whole = ChildDailyLimitRules.whole_minutes(duration)
+    if whole == 0:
+        return TALK_UNDER_A_MINUTE[language]
+    if whole == 1:
+        return TALK_ONE_MINUTE[language]
+    return TALK_MINUTES[language].format(minutes=whole)
+
+
+# --- Time left today, when the parent asks (s10b §4.16; owner, 2026-11-13) ------------------------
+# Approved by the owner, 2026-11-13. Two sentences: the child's time today, then
+# what's left of their limit (or that it's used up, or that there is none), and how to change it.
+
+TALKED_TODAY: Final[dict[Language, str]] = {
+    _HINGLISH: "⏱️ Aaj {child} ne Marg se {used} baat ki.",
+    _HINDI: "⏱️ आज {child} ने मार्ग से {used} बात की।",
+    _ENGLISH: "⏱️ {child} has talked with Marg for {used} today.",
+}
+NOT_TALKED_TODAY: Final[dict[Language, str]] = {
+    _HINGLISH: "⏱️ {child} ne aaj abhi tak Marg se baat nahi ki.",
+    _HINDI: "⏱️ {child} ने आज अभी तक मार्ग से बात नहीं की।",
+    _ENGLISH: "⏱️ {child} hasn't talked with Marg yet today.",
+}
+TIME_LEFT_TODAY: Final[dict[Language, str]] = {
+    _HINGLISH: "Roz ki limit {limit} hai, toh aaj {left} aur baaki hain.",
+    _HINDI: "रोज़ की लिमिट {limit} है, तो आज {left} और बाकी हैं।",
+    _ENGLISH: "The daily limit is {limit}, so there's {left} left today.",
+}
+TIME_USED_UP_TODAY: Final[dict[Language, str]] = {
+    _HINGLISH: "Roz ki {limit} ki limit poori ho gayi; kal phir baat kar sakte hain.",
+    _HINDI: "रोज़ की {limit} की लिमिट पूरी हो गई; कल फिर बात कर सकते हैं।",
+    _ENGLISH: "Today's limit ({limit}) is used up; they can talk again tomorrow.",
+}
+NO_DAILY_LIMIT: Final[dict[Language, str]] = {
+    _HINGLISH: "Roz ki koi limit nahi hai.",
+    _HINDI: "रोज़ की कोई लिमिट नहीं है।",
+    _ENGLISH: "There's no daily limit.",
+}
+CHANGE_LIMIT_HINT: Final[dict[Language, str]] = {
+    _HINGLISH: 'Limit badalni ho toh likhiye "limit badlo".',
+    _HINDI: 'लिमिट बदलनी हो तो लिखिए "लिमिट बदलो"।',
+    _ENGLISH: 'To change it, type "change limit".',
+}

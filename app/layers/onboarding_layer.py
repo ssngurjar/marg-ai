@@ -16,6 +16,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict
 
+from app.constants.child_talk_copy import DAILY_LIMIT_NAMES
 from app.constants.lgd_districts import DISTRICTS
 from app.constants.onboarding_copy import (
     ADD_CHILD,
@@ -98,6 +99,7 @@ from app.domain.models.writes import (
     ProfileChange,
     TurnWrite,
 )
+from app.domain.rules.child_daily_limit_rules import ChildDailyLimitRules
 from app.domain.rules.conversation_machine import ConversationMachine
 from app.domain.rules.district_matcher import DistrictMatcher
 from app.domain.rules.onboarding_answer_parser import ChildrenParse, Found, OnboardingAnswerParser
@@ -595,6 +597,7 @@ class OnboardingLayer:
     ) -> OnboardingResult:
         writes: list[TurnWrite] = [_profile_change(ctx.profile, transition)]
         new_learner: Learner | None = None
+        talk_allowed_for: Learner | None = None  # the child whose talk the parent said yes to
         handoff: FirstKhojHandoff | PendingQuestionHandoff | None = None
         copies: list[_Copy] = []
         # a name given alone is said back in the age question (field test, 2026-11-01)
@@ -602,7 +605,7 @@ class OnboardingLayer:
         for effect in transition.effects:
             match effect:
                 case SendCopy(key=key):
-                    copies.append(_Copy(key, child_named, new_learner))
+                    copies.append(_Copy(key, child_named, new_learner or talk_allowed_for))
                 case UpsertLearner():
                     new_learner = Learner(
                         id=LearnerId(uuid4()),
@@ -623,6 +626,7 @@ class OnboardingLayer:
                 case SetChildTalk(learner_id=learner_id, granted=granted):
                     writes.append(ChildTalkConsent(learner_id=learner_id, granted=granted))
                     child_named = _nickname_of(ctx.learners, learner_id)
+                    talk_allowed_for = _learner_of(ctx.learners, learner_id) if granted else None
                 case PurgeAfterDelivery():
                     writes.append(MarkPurgeAfterDelivery())
                 case HandoffFirstKhoj():
@@ -673,16 +677,22 @@ class OnboardingLayer:
         bodies: list[str] = []
         buttons: tuple[ReplyButton, ...] = ()
         for copy in copies:
+            current_limit = (
+                ChildDailyLimitRules.chosen(copy.learner)
+                if copy.learner is not None
+                else ChildDailyLimitRules.DEFAULT
+            )
             values = {
                 "child": copy.child or CHILD_FALLBACK[language],
                 "invite_link": self._invite_link,
+                "current": DAILY_LIMIT_NAMES[current_limit][language],
                 **_DistrictReader.values(district),
             }
             entry = COPY[(copy.key, language)]
             bodies.append(entry.body.format_map(values))
             if entry.buttons:
                 buttons = entry.buttons
-                if copy.key is CopyKey.ASK_CHILD_TALK and copy.learner is not None:
+                if copy.key in _PER_CHILD_BUTTONS and copy.learner is not None:
                     learner_id = copy.learner.id
                     buttons = tuple(
                         ReplyButton(id=f"{button.id}:{learner_id}", title=button.title)
@@ -996,7 +1006,16 @@ def _profile_change(before: UserProfile, transition: Transition) -> ProfileChang
 
 
 def _nickname_of(learners: Sequence[Learner], learner_id: UUID) -> str | None:
+    learner = _learner_of(learners, learner_id)
+    return learner.nickname if learner is not None else None
+
+
+def _learner_of(learners: Sequence[Learner], learner_id: UUID) -> Learner | None:
     for learner in learners:
         if learner.id == learner_id:
-            return learner.nickname
+            return learner
     return None
+
+
+_PER_CHILD_BUTTONS: Final = frozenset({CopyKey.ASK_CHILD_TALK, CopyKey.ASK_CHILD_TALK_LIMIT})
+"""Copy whose buttons name the child (":<learner id>" added to each)."""

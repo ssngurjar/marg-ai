@@ -329,7 +329,7 @@ delivery, not a stub.
 | `ONBOARDING`, `DATA_DELETION` | s08 `OnboardingLayer.handle` | its `OnboardingResult` is adapted into `LayerResult`: `writes` = its `ProfileChange`, any `LearnerUpsert`, and `MarkPurgeAfterDelivery` when deletion or a declined consent was confirmed; `fixed_kind` set, so translation is skipped |
 | `EXPOSURE` | s10 `ExposureLayer` | |
 | `JOURNEY` | s10b `JourneyLayer.handle` | flows A–E, plus the **curiosity moment** (s10b §4.15, C11) when the parent relays the child's own question; gentle "who explores this" exposure allowed (C12) |
-| `CHILD_TALK` | s10b `JourneyLayer.child_turn` | child mode (s10b §4.16): `ChildReply` in the child register; on the limit (turn count or minutes), a kind fixed goodbye + a find-out activity + "Mummy-Papa ko bhi batao" and a `ChildSessionEnd(TURN_LIMIT \| TIME_LIMIT)` write; a crisis verdict on a learner turn ends the session with `ChildSessionEnd(CRISIS)` |
+| `CHILD_TALK` | s10b `JourneyLayer.child_turn` | child mode (s10b §4.16): `ChildReply` in the child register; on the limit (turn count or minutes), a kind fixed goodbye + a find-out activity + "Mummy-Papa ko bhi batao" and a `ChildSessionEnd(TURN_LIMIT \| TIME_LIMIT)` write; when the child's time for the day is used up, no session starts (fixed `CHILD_DAILY_LIMIT_REACHED`), and in a session the message is answered in full, then that text and `ChildSessionEnd(DAILY_LIMIT)` (s10b §4.16); a crisis verdict on a learner turn ends the session with `ChildSessionEnd(CRISIS)` |
 | `MENTOR`, `ROADMAP`, `OFF_TOPIC` | s12 `MentorLayer` / `RoadmapLayer` / `OffTopicLayer` | mentor-lite at S5 (§3) |
 | `DASHBOARD_LINK` | s13 dashboard-link handler | |
 

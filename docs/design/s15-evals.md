@@ -467,6 +467,41 @@ with permission to create and drop databases), `EVAL_CONCURRENCY` (4).
    different judge model if one is available, as a cross-check. Not planned for the MVP.
 3. ~~**Pass threshold**~~ **Resolved (decision B8):** report the honest number; target ≥ 85% overall
    (excluding `deferred`) and 100% on the hard gates by S16.
+4. ~~**A case can't start partway through a child's day, nor tap a button that names a child**~~
+   (2026-11-13, the child's daily talk limit, s10b §4.16). **Resolved (owner, 2026-11-13):
+   option C.** These paths stay covered by unit and integration tests only; the harness and
+   `GoldenCase` are not extended, since the evals can't be run where this work is done. The
+   question as it was put:
+
+   > **Assumption that failed:** that a golden case can reach any behaviour by playing messages.
+   > Two new paths can't be reached that way. (a) The **daily limit**: it ends a talk once a
+   > child's sessions that day add up to 20, 30 or 60 minutes. A case can't seed earlier
+   > sessions (`GoldenCase` has `learner`, `open_activity`, `child_talk_consent`, nothing about
+   > past talk), and the harness runs on the real clock with real 30-minute cooldowns between
+   > sessions. So nothing checks the model's **last answer when the day runs out** (asked with
+   > `LAST_ANSWER_RULE`: complete, no question back), the daily goodbye after it, the refused
+   > start, the "used up" line in the parent's summary, or a limit the parent picked earlier.
+   > (b) **Buttons that name a child:** `jrn:limit:<limit>:<learner id>` (the 20 / 30 / 60
+   > minute buttons) and `onb:childtalk:yes:<learner id>` (the yes to child talk, which now asks
+   > for the limit). A case's `button` is a fixed string, and learner ids are made when the case
+   > is seeded. Covered today by unit and integration tests only (`test_child_talk_daily_limit`,
+   > `test_child_talk_settings_layer`, `test_child_talk_summary_time`, `test_real_pipeline`).
+   >
+   > **Options:**
+   > - **A. Seed the day, and name children in buttons** (recommended). `GoldenLearner` gains
+   >   `daily_limit` (a `DailyTalkLimit`) and `talked_today` (earlier sessions as minutes,
+   >   questions and how each ended, seeded as `child_sessions` rows before the first turn); a
+   >   `button` may say `{child}` (the first child's id), filled in by the harness. Cost: about
+   >   half a day: `GoldenCase` and loader validation, `EvalRepository` seeding, the harness's
+   >   substitution, loader tests, contracts §2.7. Then: a case per path in (a) and (b), and
+   >   parent-journey-042 can tap a button instead of typing.
+   > - **B. A fake clock in the harness**, to play a whole day with its cooldowns. Costs more
+   >   and fights the database, which stamps sessions with its own `now()`; a day of real model
+   >   calls per case is slow and dear. Not recommended.
+   > - **C. Leave these paths to unit and integration tests.** No cost; nothing judges the
+   >   model's last answer when the day runs out, only code paths around it.
+   >
+   > **Recommendation:** A, before the daily-limit cases are counted in a scorecard.
 
 ## 12. Contract changes (resolved 2026-10-25)
 
@@ -487,6 +522,9 @@ with permission to create and drop databases), `EVAL_CONCURRENCY` (4).
 
 | Date | Change | Why | Approved |
 |---|---|---|---|
+| 2026-11-13 | **Two more daily-limit cases, written and not run** (parent-journey-049, 050, tag `daily-limit`): the parent asking how much of the child's time is left today, before any talk and after a short one. 11 daily-limit cases in all, none run; the 3 Nov scorecard (101 cases) stands. A day already partly used still isn't seeded (question 4, option C) | The parent can now ask the time left (s10b §4.16) | owner |
+| 2026-11-13 | **Open question 4 resolved: option C.** A day already partly used (the daily-limit ending, the refused start, "used up" in the summary, a limit picked earlier) and buttons that name a child (`jrn:limit:…:<child>`, `onb:childtalk:yes:<child>`) are not written as golden cases; unit and integration tests cover them. No change to `GoldenCase` or the harness | Owner: "option C, as we will not be able to run the evals" | owner |
+| 2026-11-13 | **Nine golden cases for the child's daily talk limit, written and not run** (parent-journey-040 to 048, tag `daily-limit`; s10b §4.16): the parent removing, setting, asking about and mis-typing a limit; a limit on something else answered as a question; a child asking to remove hers; the time in the parent's summary, with the default and with no limit. Not run: the Model API key wasn't available where they were written, so no scorecard includes them and the 3 Nov scorecard (101 cases) stands. Run them with `marg eval --tag daily-limit`. The daily-limit ending itself and the limit buttons can't be written as cases yet: open question 4 | Owner: write evals for the daily limit now, don't run them, say so | owner |
 | 2026-10-28 | **Second round dropped 63% → 56%; causes and fixes.** Provider timeouts on two mentor turns (5 provider errors); the mentor's "name two or three careers" pulled an army question toward other careers (mentor 1.1.2: stay on a named goal); short spoken sentences dropped a portal's name (rule: shorter sentences, not less content, names kept); the judge was shown a blocked reply's spoken text (the harness now uses it only when that reply went out); the harmful-request refusal was worded for parents but sent to students (now: "padhai, khel, career ya bachchon ki seekh", pending review); the nickname still came three times (activity_personalise 1.0.5: at most twice, counted). Single runs swing several points (generation and judge randomness, provider errors) | Scorecard 2026-10-28-a4da3db | owner |
 | 2026-10-28 | **First prompt round from the baseline scorecard** (owner: "we can edit prompts"). mentor 1.1.0 (facts still need a source; general knowledge in `guidance`: real career paths, what a field is, a short concept explanation, a real-help redirect for dishonest asks; `guidance` 400 → 600 chars), a code check against gendered verbs about Marg ("samajh rahi hun" slipped through), parent_reflection 1.2.0 (a praise word plus what the child noticed and that they looked for a reason; never confirm an untrue explanation: owner, "it's the Earth, not the sun"), activity_personalise 1.0.3 (the nickname once or twice), exposure 1.1.0 (a whole subject counts as a topic). parent-journey-002's item now praises the noticing, and a must_not forbids stating the sun moving turns the shadow. Harness: the judge sees the prepared spoken text for a typed message and the reply's buttons. Mentor files on their own, before the reflection, personalise and exposure changes: 12/32 → 18/32 | Baseline 2026-10-28-263a1cc | owner |
 | 2026-10-28 | **Route expectations brought in line with the design** (owner): off-topic-001/002/003 and adversarial-001/002 expect `mentor` (s12 §4.8: the mentor redirects and declines), parent-journey-016 expects `child_talk` (the fixed "not enabled" reply), onboarding-004 is now two turns (the request routes to `data_deletion`; the yes button to `onboarding`, with `fixed_reply: data_deleted`). Every must / must_not item is unchanged. The first full run also found two real bugs, fixed with regression tests: the S11 crisis false positive (s07 log) and "Mera saara data hata do" not recognised as a deletion request (more deletion phrases). The harness reads each turn before delivering it, since a confirmed deletion purges the user | First full live run, 28/69 | owner |

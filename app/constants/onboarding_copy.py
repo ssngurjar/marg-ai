@@ -12,15 +12,23 @@ v onb-2026-10-28.1: the student role opens (S12): ASK_ROLE names students, a thi
 v onb-2026-10-28.2: teachers get the Exposure layer (S10): PROFILE_DONE_TEACHER asks for a chapter.
 v onb-2026-10-28.3: the web demo's own consent wording (s14 §4.9): a demo, a cookie, no name or
   number, Reset deletes everything. WhatsApp's wording is unchanged.
+v onb-2026-11-13.1: after a yes to child talk, the child's daily limit is asked
+  (ASK_CHILD_TALK_LIMIT, 20 / 30 / 60 minute buttons; owner, 2026-11-13).
 """
 
 from dataclasses import dataclass
 from typing import Final
 
+from app.constants.child_talk_copy import (
+    CHILD_TALK_LIMIT_ASK,
+    CHILD_TALK_LIMIT_BUTTON,
+    DAILY_LIMIT_NAMES,
+    LIMITS_ON_BUTTONS,
+)
 from app.domain.enums import Channel, CopyKey, Language
 from app.domain.models.reply import ReplyButton
 
-COPY_VERSION: Final = "onb-2026-11-01.6"
+COPY_VERSION: Final = "onb-2026-11-13.1"
 
 _HINGLISH = Language.HINGLISH
 _HINDI = Language.HINDI
@@ -104,6 +112,15 @@ _CHILD_TALK_BUTTONS: Final = {
     _HINDI: _buttons((CHILD_TALK_YES, "हाँ, बात करे"), (CHILD_TALK_NO, "अभी नहीं")),
     _ENGLISH: _buttons((CHILD_TALK_YES, "Yes, they can"), (CHILD_TALK_NO, "Not now")),
 }
+_CHILD_TALK_LIMIT_BUTTONS: Final = {
+    language: tuple(
+        ReplyButton(
+            id=f"{CHILD_TALK_LIMIT_BUTTON}:{limit.value}", title=DAILY_LIMIT_NAMES[limit][language]
+        )
+        for limit in LIMITS_ON_BUTTONS
+    )
+    for language in Language
+}  # + ":<learner id>", added with the child (OnboardingLayer._reply)
 NO_BUTTONS: Final[dict[Language, tuple[ReplyButton, ...]]] = dict.fromkeys(Language, ())
 
 CHILD_FALLBACK: Final = {
@@ -485,6 +502,7 @@ _TEXTS: Final[dict[CopyKey, dict[Language, str]]] = {
             "summary after every talk."
         ),
     },
+    CopyKey.ASK_CHILD_TALK_LIMIT: CHILD_TALK_LIMIT_ASK,
     CopyKey.CHILD_TALK_OFF: {
         _HINGLISH: "Theek hai, bachche se seedhi baat band hai. Kabhi bhi chalu kar sakte hain.",
         _HINDI: "ठीक है, बच्चे से सीधी बात बंद है। कभी भी चालू कर सकते हैं।",
@@ -534,6 +552,7 @@ _BUTTONS_FOR: Final[dict[CopyKey, dict[Language, tuple[ReplyButton, ...]]]] = {
     CopyKey.GUARDIAN_NEEDED: _GUARDIAN_BUTTONS,
     CopyKey.CONFIRM_DELETE: _DELETE_BUTTONS,
     CopyKey.ASK_CHILD_TALK: _CHILD_TALK_BUTTONS,
+    CopyKey.ASK_CHILD_TALK_LIMIT: _CHILD_TALK_LIMIT_BUTTONS,
     CopyKey.KHOJ_OR_QUESTION: _TODAY_KHOJ_BUTTONS,
 }
 

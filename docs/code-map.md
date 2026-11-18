@@ -108,7 +108,7 @@ line of the module's docstring.
 
 | Module | Classes | What it does |
 |---|---|---|
-| `enums.py` | `Channel`, `MessageKind`, `ConversationState`, `InboxStatus`, `OutboxStatus`, `AudioVerdict`, `Speaker`, `ChildSessionEndReason`, `MediaPurpose`, `PartKind`, `Language`, `Route`, `StepName`, `StepOutcome`, `FailureKind`, `TurnStatus`, `SafetyDecision`, `SafetyCategory`, `FixedReplyKind`, `FixedReplyVariant`, `Mode`, `Role`, `ConsentEventKind`, `LearnerRelation`, `CopyKey`, `CuriosityDomain`, `ActivityStatus`, `AgeBand`, `ParentIntent`, `StudentIntent`, `TeacherIntent`, `CorpusTopic`, `RoadmapStatus`, `RoadmapStepStatus`, `AspirationField`, `ConstraintKind`, `Sentiment` | Closed sets of values shared across the app (contracts.md §1). |
+| `enums.py` | `Channel`, `MessageKind`, `ConversationState`, `InboxStatus`, `OutboxStatus`, `AudioVerdict`, `Speaker`, `ChildSessionEndReason`, `DailyTalkLimit`, `MediaPurpose`, `PartKind`, `Language`, `Route`, `StepName`, `StepOutcome`, `FailureKind`, `TurnStatus`, `SafetyDecision`, `SafetyCategory`, `FixedReplyKind`, `FixedReplyVariant`, `Mode`, `Role`, `ConsentEventKind`, `LearnerRelation`, `CopyKey`, `CuriosityDomain`, `ActivityStatus`, `AgeBand`, `ParentIntent`, `StudentIntent`, `TeacherIntent`, `CorpusTopic`, `RoadmapStatus`, `RoadmapStepStatus`, `AspirationField`, `ConstraintKind`, `Sentiment` | Closed sets of values shared across the app (contracts.md §1). |
 
 ## `domain/models`
 
@@ -117,7 +117,7 @@ line of the module's docstring.
 | `activity.py` | `Activity`, `OfferRecord`, `PastActivity`, `OfferedActivity` | Activities: reviewed catalogue entries and what was offered to a learner (s10b §4.3, §5). |
 | `aspiration.py` | `AspirationSignals`, `ExtractAspiration` | What a student's own words say about where they're heading (s13 §4.3). Never a label. |
 | `base.py` | `DomainModel` | Identifiers and the base every domain model shares (contracts.md §2.1). |
-| `child_session.py` | `ChildSession` | A child talking to Marg.ai directly on the parent's phone (s10b §4.16, C13). |
+| `child_session.py` | `ChildSession`, `ChildSessionSpan`, `DailyTalkTime` | A child talking to Marg.ai directly on the parent's phone (s10b §4.16, C13). |
 | `conversation.py` | `ProfileUpdate`, `FirstContact`, `ConsentGiven`, `ConsentDeclined`, `RoleChosen`, `RoleUnavailable`, `GuardianConfirmed`, `GuardianDeclined`, `ProfileAnswered`, `ChildAnswered`, `ChildNamed`, `DistrictUnclear`, `ChildrenAnswered`, `ChildInvalid`, `AddChild`, `ChildTalkAnswered`, `TeacherAsked`, `LanguageSwitched`, `QuestionNoted`, `AboutMargAsked`, `Unrecognised`, `DeletionRequested`, `DeletionConfirmed`, `DeletionCancelled`, `SendCopy`, `RecordConsent`, `UpsertLearner`, `SetChildTalk`, `PurgeAfterDelivery`, `HandoffPendingQuestion`, `HandoffFirstKhoj`, `Transition` | The onboarding conversation's events and effects (s08 §4.2). Pure data. |
 | `curiosity.py` | `CuriositySignals`, `CuriositySource`, `ExtractSignals`, `MakeKhojCard`, `UpdateMemory` | What a child engaged with, for the young-learner trajectory (s13 §4.4). Never a label. |
 | `curriculum.py` | `Chapter`, `CatalogueBook`, `ChapterMatch` | The textbook chapter catalogue (s10 §4.5): official NCERT titles, used only as a hint. |
@@ -136,7 +136,7 @@ line of the module's docstring.
 | `turn.py` | `UserProfile`, `Exchange`, `TurnContext`, `QueuedMessage` | A turn and what it knows about the user (contracts.md §2.2; s04 §4.4, §4.5). |
 | `usage.py` | `StepUsage` | What a provider call cost (contracts §2.3). Attached to every turn_steps row. |
 | `voice.py` | `AudioStats`, `VoiceLimits` | What a voice note measures, and the limits it's checked against (s06 §4.4). |
-| `writes.py` | `ProfileChange`, `LearnerUpsert`, `MarkPurgeAfterDelivery`, `ChildTalkConsent`, `ActivityOffered`, `ActivityReported`, `ActivityReopened`, `ChildSessionStart`, `ChildSessionLanguage`, `ChildTalkTurn`, `ChildSessionEnd`, `NudgePreference`, `ResolvedRoadmapStep`, `SaveRoadmap`, `DeleteInboundMedia` | State changes that commit with the reply (contracts §2.4). |
+| `writes.py` | `ProfileChange`, `LearnerUpsert`, `MarkPurgeAfterDelivery`, `ChildTalkConsent`, `ChildTalkDailyLimit`, `ActivityOffered`, `ActivityReported`, `ActivityReopened`, `ChildSessionStart`, `ChildSessionLanguage`, `ChildTalkTurn`, `ChildSessionEnd`, `NudgePreference`, `ResolvedRoadmapStep`, `SaveRoadmap`, `DeleteInboundMedia` | State changes that commit with the reply (contracts §2.4). |
 
 ## `domain/rules`
 
@@ -148,10 +148,12 @@ line of the module's docstring.
 | `audio_analyser.py` | `AudioAnalyser` | AudioAnalyser: is a voice note worth transcribing? (s06 §4.4). Pure, standard library only. |
 | `braj_detector.py` | `BrajDetector` | BrajDetector: does this person speak Braj (owner, 2026-10-28)? Pure; the word and district |
 | `chapter_matcher.py` | `ChapterMatcher` | ChapterMatcher: which official chapter a teacher means, if any (s10 §4.5). Pure, deterministic. |
+| `child_daily_limit_rules.py` | `ChildDailyLimitRules` | ChildDailyLimitRules: each child's daily talk limit, across all their sessions (s10b §4.16). |
 | `child_hazard_matcher.py` | `ChildHazardMatcher` | ChildHazardMatcher: which physical hazards a text mentions (d7, s10b §4.10). Pure. |
 | `child_question_detector.py` | `ChildQuestionDetector` | ChildQuestionDetector: is the parent passing on the child's own question? (s10b §4.15). Pure. |
 | `child_reply_matcher.py` | `ChildReplyMatcher` | ChildReplyMatcher: what a reply to a child must never say (s07 d8 and the d1 child rule, |
 | `child_session_rules.py` | `ChildSessionLimits`, `ChildSessionRules` | ChildSessionRules: when a child's own conversation starts, ends, and may start again |
+| `child_talk_limit_parser.py` | `ChildTalkLimitParser` | ChildTalkLimitParser: a parent asking about a child's daily talk limit (s10b §4.16). Pure. |
 | `conversation_machine.py` | `ConversationMachine` | ConversationMachine: the onboarding state machine (s08 §4.1 to §4.3). Pure and deterministic. |
 | `crisis_phrase_matcher.py` | `CrisisPhraseMatcher` | CrisisPhraseMatcher: the crisis rules that need no provider (s07 §4.5 rule 1, §4.6). Pure. |
 | `curiosity_trajectory.py` | `CuriosityPoint`, `YoungLearnerTrajectory`, `CuriosityTrajectory` | CuriosityTrajectory: how a young child's curiosity grows over sessions (s13 §4.5). Pure. |
@@ -200,6 +202,7 @@ line of the module's docstring.
 | `about_marg_layer.py` | `AboutMargAnswer`, `AboutMargLayer` | AboutMargLayer: a question about Marg itself (how it keeps people safe, what it keeps, who |
 | `activity_catalogue.py` | `ActivityCatalogue`, `CatalogueActivitySource` | ActivityCatalogue: the reviewed khoj catalogue, loaded and checked at startup (s10b §4.3). |
 | `child_talk_layer.py` | `ChildReply`, `ChildTalkLayer` | ChildTalkLayer: a child talks to Marg.ai directly, with the parent's consent (s10b §4.16, C13). |
+| `child_talk_settings_layer.py` | `ParentTurnFacts`, `ChildTalkSettingsLayer` | ChildTalkSettingsLayer: a parent's settings for their children's own talk (s10b §4.16). |
 | `curiosity_moment_layer.py` | `CuriosityMoment`, `NotAChildQuestion`, `CuriosityMomentLayer` | CuriosityMomentLayer: the child's own question, answered through the parent (s10b §4.15, C11). |
 | `curriculum_catalogue.py` | `ChapterCatalogue` | ChapterCatalogue: the NCERT chapter titles, validated at startup (s10 §4.5). |
 | `exposure_layer.py` | `ExposureField`, `ExposureBridge`, `ExposureLayer` | ExposureLayer: a teacher's chapter connected to three real-world fields (s10, the Exposure |

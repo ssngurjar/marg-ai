@@ -64,6 +64,7 @@ from tests.fakes.language_model import FakeLanguageModel, ScriptedOutput
 from tests.fakes.safety_classifier import FakeSafetyClassifier, Speaker
 from tests.fakes.step_recorder import MemoryStepRecorder
 from tests.fakes.voice import FakeTranscriber, FakeVoice
+from tests.support.child_talk import LIMITS
 from tests.support.journey import (
     PERSONALISED_INTRO,
     REFLECTION,
@@ -132,7 +133,7 @@ def journey_for(llm: FakeLanguageModel) -> JourneyLayer:
         registry,
         CatalogueActivitySource(CATALOGUE),
         ParentQuestionLayer(llm, registry),
-        JourneySettings(repeat_window=timedelta(days=30)),
+        JourneySettings(repeat_window=timedelta(days=30), talk_limits=LIMITS),
     )
 
 

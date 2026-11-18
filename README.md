@@ -29,7 +29,7 @@ Oct 26 – Nov 4, 2026, by Santram Gurjar.
 | [How it works](#how-it-works) | The pipeline, ports and adapters, and why no message is lost or doubled |
 | [Safety and children's privacy](#safety-and-childrens-privacy) | Two checks on every message, fixed crisis replies, child rules, data minimisation |
 | [What's next](#whats-next) | A daily limit for child talk, reading children's words, anganwadi workers, more sources, and khoj spaces where children try things for real |
-| [Quality](#quality) | 3,354 tests, 101 eval cases, the latest scorecard, and what hands-on testing found |
+| [Quality](#quality) | 3,741 tests, 112 eval cases (11 new ones not run yet), the latest scorecard, and what hands-on testing found |
 | [Try it](#try-it) | The video, the web demo and WhatsApp |
 | [Repository map](#repository-map) | Where everything lives |
 | [Licences](#licences) | Marg is open source (Apache-2.0); every model and library it uses, and the attributions they ask for |
@@ -64,7 +64,7 @@ Families talk to Marg the way they already talk on WhatsApp: by voice note or te
 |---|---|
 | **Impact** | Fewer than one in four Class 3 children in rural government schools can read a Class 2 story (ASER 2024), and 250 million children under five are at risk of not reaching their potential (The Lancet, 2017). Marg reaches families through the phone they already have: no app, just a voice note, at under one US cent a reply in model calls. → [Impact](#impact) |
 | **Meta AI tooling** | Six Meta models, each with one job: Muse Spark 1.3, Muse Spark Open (open weights), Muse Voice Transcribe, SAM 3.1, Muse Image and Llama Guard 4, plus measured feedback on where they fell short for Hindi and Braj. → [The models](#the-models) · [feedback](docs/feedback/meta-models.md) |
-| **Technical depth** | Hexagonal (ports and adapters) architecture, enforced by an import-graph test; every message checked on the way in and out, failing closed, with Muse Spark backing up Llama Guard; 3,354 tests, including property-based ones; 101 eval cases through the real pipeline, with crisis and adversarial cases as hard gates (81% of the 97 scored pass on the latest full run); a design document and decisions log for every step. → [How it works](#how-it-works) · [Safety](#safety-and-childrens-privacy) · [Quality](#quality) |
+| **Technical depth** | Hexagonal (ports and adapters) architecture, enforced by an import-graph test; every message checked on the way in and out, failing closed, with Muse Spark backing up Llama Guard; 3,741 tests, including property-based ones; 112 eval cases through the real pipeline, with crisis and adversarial cases as hard gates (81% of the 97 scored pass on the latest full run, from before the 11 newest cases, which haven't been run yet); a design document and decisions log for every step. → [How it works](#how-it-works) · [Safety](#safety-and-childrens-privacy) · [Quality](#quality) |
 | **Demo** | A live web demo that shows a trace of every step behind each reply, and the [three-minute video](https://youtu.be/FA76IDr_IqY) (English subtitles uploaded, not auto-generated). → [Try it](#try-it) |
 
 ## A five-minute tour
@@ -355,10 +355,10 @@ and every module and class in [docs/code-map.md](docs/code-map.md).
 
 | | |
 |---|---|
-| Tests | **3,354**: 3,141 unit and contract tests, plus 213 integration tests on Postgres; property-based tests (Hypothesis) for the state machine, message splitting, spoken-text rules, the chunker, signatures, payload parsing and the hazard matcher |
+| Tests | **3,741**: 3,506 unit and contract tests, plus 235 integration tests on Postgres; property-based tests (Hypothesis) for the state machine, message splitting, spoken-text rules, the chunker, signatures, payload parsing, the hazard matcher and the child's daily talk limit |
 | Checks | `ruff format`, `ruff check`, `mypy --strict` (no `Any`), `pytest`: all must pass before every commit |
-| Evals | `marg eval` plays **101** hand-written cases through the real pipeline and real models; code checks plus a judge model. Crisis and adversarial cases are hard gates |
-| Latest full scorecard | **81%** of the 97 scored cases pass (79), on 3 Nov, the submitted build; both hard gates pass; safety 5.00/5, reading level 4.87/5, cultural resonance 4.77/5, actionability 4.63/5 ([evals/results/](evals/results/)) |
+| Evals | `marg eval` plays **112** hand-written cases through the real pipeline and real models; code checks plus a judge model. Crisis and adversarial cases are hard gates. **11 of the 112** (parent-journey-040 to 050, the child's daily talk limit, added 13 Nov) **are written but have not been run yet**: no scorecard includes them. Two parts of that feature (a day already partly used, and buttons that name a child) are covered by unit and integration tests only, by the owner's decision ([s15 §11, question 4](docs/design/s15-evals.md#11-open-questions)) |
+| Latest full scorecard | **81%** of the 97 scored cases pass (79), on 3 Nov, the submitted build, before the 11 daily-limit cases existed; both hard gates pass; safety 5.00/5, reading level 4.87/5, cultural resonance 4.77/5, actionability 4.63/5 ([evals/results/](evals/results/)) |
 | Latency | p50 8.2 s, p95 15.5 s per reply, averaged over the last three full eval runs (p50 6.1–12.0 s, p95 11.1–23.4 s, depending on how fast the models answer that day); real families in the 2 Nov field test waited 4.1 s on average for a parent reply. A 10-person smoke test lost, doubled or silenced nothing ([docs/load/](docs/load/2026-10-28-smoke-test.md)) |
 
 81% is honest, not perfect: the judge is strict, and single runs move by several points (two

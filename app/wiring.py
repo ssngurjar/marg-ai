@@ -646,6 +646,7 @@ def build_orchestrator(
                 ParentQuestionLayer(language_model, registry),
                 JourneySettings(
                     repeat_window=timedelta(days=settings.activity_repeat_days),
+                    talk_limits=child_session_limits(settings),
                     child_talk_enabled=settings.child_talk_enabled,
                     read_intent=settings.intent_reading_enabled,
                 ),
@@ -1013,6 +1014,7 @@ def build_worker(
                     sessions=ChildSessionRepository(session_factory),
                     gate=engine_parts.orchestrator.steps.gate,
                     deliverer=deliverer,
+                    limits=child_session_limits(settings),
                 ),
                 worker_id,
             ),

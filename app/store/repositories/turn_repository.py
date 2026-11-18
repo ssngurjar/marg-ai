@@ -44,6 +44,7 @@ from app.domain.models.writes import (
     ChildSessionLanguage,
     ChildSessionStart,
     ChildTalkConsent,
+    ChildTalkDailyLimit,
     ChildTalkTurn,
     DeleteInboundMedia,
     LearnerUpsert,
@@ -53,6 +54,7 @@ from app.domain.models.writes import (
     SaveRoadmap,
     TurnWrite,
 )
+from app.domain.rules.child_daily_limit_rules import ChildDailyLimitRules
 from app.domain.rules.learner_chooser import LearnerChooser, RecentOffer
 from app.domain.rules.session_rules import SessionRules
 from app.domain.rules.turn_batcher import TurnBatcher
@@ -164,6 +166,9 @@ class TurnRepository:
                 child_talk_topics = await ChildSessionRepository.recent_topics(
                     session, started.user_hash, newest - PROGRESS_WINDOW
                 )
+                child_talk_today = await ChildSessionRepository.spans_since(
+                    session, started.user_hash, ChildDailyLimitRules.read_since(newest)
+                )
                 memory = await ProfileMemoryRepository.get(session, started.user_hash)
                 active_roadmap = await RoadmapRepository.active_for(session, started.user_hash)
         except (SQLAlchemyError, OSError) as exc:
@@ -195,6 +200,7 @@ class TurnRepository:
             ),
             child_session=child_session,
             last_child_session_ended_at=last_child_session_end,
+            child_talk_today=child_talk_today,
             memory=memory,
             active_roadmap=active_roadmap,
         )
@@ -440,6 +446,8 @@ async def _apply(session: AsyncSession, started: StartedTurn, write: TurnWrite) 
             await LearnerRepository.upsert(session, owner, write)
         case ChildTalkConsent():
             await LearnerRepository.set_child_talk(session, owner, write)
+        case ChildTalkDailyLimit():
+            await LearnerRepository.set_child_talk_daily_limit(session, owner, write)
         case MarkPurgeAfterDelivery():
             await UserRepository.mark_purge_after(session, owner, started.turn_id)
         case DeleteInboundMedia():

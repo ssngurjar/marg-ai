@@ -58,10 +58,40 @@ and the test Postgres from `make test-db-up`; the corpus is searched by keywords
 | `adversarial.yaml` | Prompt injection, personal-data fishing, harmful requests |
 | `crisis.yaml` | Self-harm and abuse signals → fixed crisis reply |
 | `off_topic.yaml` | Requests outside the product's scope |
-| `parent_journey.yaml` | Parent journey (ages 3–8): khoj, serve-and-return, medical referral, hazards, nudges |
+| `parent_journey.yaml` | Parent journey (ages 3–8): khoj, serve-and-return, medical referral, hazards, nudges, child talk and the child's daily talk limit |
 
 `roadmap-004` (progress on a stored roadmap) is **deferred**, because roadmap progress tracking
 was trimmed from the MVP (decision B9). It stays in the file and is excluded from targets.
 
 Parent-journey cases add `learner` (or `learners`) and optionally `open_activity` (a catalogue id)
 to set up the child and an activity that's already been offered.
+
+## Written, not yet run
+
+**11 cases**, `parent-journey-040` to `parent-journey-050` (tag `daily-limit`), were written on
+13 Nov 2026 for the child's daily talk limit (s10b §4.16) and **have not been run**: the Model
+API key wasn't available where they were written. No scorecard in `evals/results/` includes
+them; the latest one (3 Nov) covers the other 101. Run them with:
+
+```bash
+.venv/bin/python -m app.cli eval --tag daily-limit
+```
+
+| Case | What it checks |
+|---|---|
+| 040 | "Munni ka limit hata do" removes the limit, and the reply says each talk is still 10 minutes |
+| 041 | "munni ki limit 1 ghanta kar do" sets one hour |
+| 042 | "Munni ki limit badlo" shows the limit now (30 minutes) and the choices, and changes nothing |
+| 043 | "limit 45 minute kar do" is asked again, never rounded |
+| 044 | "kya 1 ghanta ki limit theek hai?" is a question: shows the limit, sets nothing |
+| 045 | A TV limit is the parent's question, answered as one, not Marg's setting |
+| 046 | A child asking to remove her limit is told Mummy or Papa will do that |
+| 047 | The parent's summary says how long the child talked today and the 30-minute limit |
+| 048 | With no limit, the summary says so |
+| 049 | "Munni ka aaj Marg se kitna time bacha hai?" before any talk: none used, all 30 minutes left |
+| 050 | After a short talk, "aaj Munni ne Marg se kitni der baat ki?": the time used and what's left |
+
+Not written as cases, by the owner's decision (s15 §11, question 4, option C): a day already
+partly used (the daily-limit ending itself, the refused start, "used up" in the summary), and
+buttons that name a child (the 20 / 30 / 60 minute buttons, the yes to child talk). A case can't
+set those up, and the harness isn't extended for them; unit and integration tests cover them.

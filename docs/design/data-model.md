@@ -85,6 +85,7 @@ partial `WHERE purge_after_turn_id IS NOT NULL`.
 | `nickname` | `text` NULL | ≤ 20 chars, optional; never a full name (s10b §4.2) |
 | `birth_year` | `smallint` | `CHECK (birth_year BETWEEN 2000 AND 2100)` as a sanity bound; the real range (age 2–19 today) is validated in code (`InvalidProfileValue`) |
 | `child_talk_consented_at` | `timestamptz` NULL | the parent's one-time consent for direct child talk (C13); NULL = child talk off |
+| `child_talk_daily_limit` | `text` NULL | the parent's daily limit on this child's own talk, across all their sessions (`DailyTalkLimit`: `20_minutes`, `30_minutes`, `60_minutes`, `no_limit`); NULL: not picked, `ChildDailyLimitRules.DEFAULT` (30 minutes) applies (s10b §4.16) |
 | `created_at` / `updated_at` | `timestamptz` | |
 
 Constraints: at most 3 learners per owner, enforced by the repository inside the finalize
@@ -246,10 +247,11 @@ Index: `(learner_id, offered_at DESC)`.
 | `user_hash` | `text` FK → users CASCADE | the parent's account the child is using |
 | `started_at` / `ended_at` | `timestamptz` | `ended_at` NULL while open |
 | `turns_count` | `smallint` | |
-| `end_reason` | `text` NULL | `ChildSessionEndReason` |
+| `end_reason` | `text` NULL | `ChildSessionEndReason` (`daily_limit`: the child's time for the day ran out) |
 | `topics` | `text[]` | `CuriosityDomain` values touched, for the parent summary (no transcripts) |
 | `summary_sent_at` | `timestamptz` NULL | |
 | `language` | `text` NULL | `Language` the child asked for ("Hindi") for the rest of this session; NULL: not asked. Never the account's |
+| `last_answered_at` | `timestamptz` NULL | when the child's last question was answered (set by each `ChildTalkTurn`); the daily limit counts a session the child left without a goodbye until then, plus at least a minute. NULL: nothing answered, or the session predates it |
 
 Indexes: `(learner_id, started_at DESC)`; at most one open session per learner (partial unique
 index `WHERE ended_at IS NULL`).
@@ -383,3 +385,4 @@ upgrade → downgrade → upgrade against `docker-compose.test.yml`.
 | 2026-10-28 | `s11_corpus_tables` (pgvector, HNSW cosine + GIN tsv; keywords upper-cased) and `s12_roadmaps_memory` (one active roadmap per user by a partial unique index; cascades) | S11, S12 build | pending owner review |
 | 2026-10-28 | `s13_aspiration_signals`: one row per student mentor or roadmap turn (unique `turn_id`), enum and range CHECKs, cascades with the learner | S13 build | pending owner review |
 | 2026-10-29 | `s10b_child_session_language`: `child_sessions.language` (NULL, CHECK `Language`) | A child's language request changes only their session (owner, 2026-10-29) | owner |
+| 2026-11-13 | `s10b_child_talk_daily_limit`: `learners.child_talk_daily_limit` (NULL, CHECK `DailyTalkLimit`), `child_sessions.last_answered_at` (NULL), `child_sessions.end_reason` may be `daily_limit` (downgrade maps it to `turn_limit`). The day's time is read from `child_sessions` (no new table) | Owner: a daily limit per child that the parent picks and can change (s10b §4.16, decisions log) | owner |

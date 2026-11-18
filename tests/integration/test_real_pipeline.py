@@ -498,6 +498,18 @@ async def test_a_new_parent_is_onboarded_with_consent_recorded_and_one_child(
         pipeline,
         wa.button_reply(f"onb:childtalk:yes:{munni_id[0]}", "Haan", message_id="wamid.O4b"),
     )
+    # the yes asks Munni's daily limit (owner, 2026-11-13); picking one offers the khoj
+    limit_question = pipeline.sender.sent[-1].part
+    assert [button.id for button in limit_question.buttons] == [
+        f"jrn:limit:20_minutes:{munni_id[0]}",
+        f"jrn:limit:30_minutes:{munni_id[0]}",
+        f"jrn:limit:60_minutes:{munni_id[0]}",
+    ]
+    await send(
+        pipeline,
+        wa.button_reply(f"jrn:limit:60_minutes:{munni_id[0]}", "1 ghanta", message_id="wamid.O4l"),
+    )
+    assert await rows(engine, "SELECT child_talk_daily_limit FROM learners") == [("60_minutes",)]
     khoj_or_question = pipeline.sender.sent[-1].part
     assert [button.id for button in khoj_or_question.buttons] == ["jrn:today"]
     await send(pipeline, wa.button_reply("jrn:today", "Aaj ki khoj", message_id="wamid.O4c"))

@@ -380,7 +380,9 @@ def _child_talk_answered(step: _Step, event: ChildTalkAnswered) -> Transition:
             SetChildTalk(event.learner_id, granted=True),
             RecordConsent(ConsentEventKind.CHILD_TALK_CONSENT),
             SendCopy(CopyKey.CHILD_TALK_ENABLED),
-            SendCopy(CopyKey.KHOJ_OR_QUESTION),
+            # the daily limit next, with its buttons (owner, 2026-11-13); its answer offers the
+            # khoj
+            SendCopy(CopyKey.ASK_CHILD_TALK_LIMIT),
         )
     return step.moved(
         _S.ACTIVE,

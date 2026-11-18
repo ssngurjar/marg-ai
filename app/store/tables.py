@@ -37,6 +37,7 @@ from app.domain.enums import (
     ConsentEventKind,
     ConversationState,
     CorpusTopic,
+    DailyTalkLimit,
     FailureKind,
     FixedReplyKind,
     InboxStatus,
@@ -134,11 +135,14 @@ learners = Table(
     Column("nickname", Text, nullable=True),  # ≤ 20 chars; never a full name
     Column("birth_year", SmallInteger, nullable=False),
     Column("child_talk_consented_at", DateTime(timezone=True), nullable=True),  # C13
+    # DailyTalkLimit, the parent's pick; NULL: not picked, ChildDailyLimitRules.DEFAULT applies
+    Column("child_talk_daily_limit", Text, nullable=True),
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
     Column("updated_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
     CheckConstraint("birth_year BETWEEN 2000 AND 2100", name="birth_year_sanity"),
     CheckConstraint("char_length(nickname) <= 20", name="nickname_length"),
     allowed_values("relation", LearnerRelation),
+    allowed_values("child_talk_daily_limit", DailyTalkLimit),
     Index(None, "owner_user_hash"),
     Index(
         "uq_learners_one_self_per_owner",
@@ -348,6 +352,9 @@ child_sessions = Table(
     Column("summary_sent_at", DateTime(timezone=True), nullable=True),
     # The language the child asked for in this session (Language); NULL: they haven't asked
     Column("language", Text, nullable=True),
+    # When the child's last question was answered (the daily limit counts an abandoned session
+    # only until then); NULL: nothing answered yet
+    Column("last_answered_at", DateTime(timezone=True), nullable=True),
     allowed_values("end_reason", ChildSessionEndReason),
     allowed_values("language", Language),
     Index("ix_child_sessions_learner_id_started_at", "learner_id", text("started_at DESC")),

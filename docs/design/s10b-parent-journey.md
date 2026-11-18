@@ -481,6 +481,8 @@ during: speaker = LEARNER; every turn → child_talk prompt → ChildReply; voic
 end: after CHILD_SESSION_MAX_TURNS (6) or CHILD_SESSION_MAX_MINUTES (10), or "bye"/"bas":
    a kind fixed goodbye + one "go find out" activity + "Mummy-Papa ko bhi batao!"
    → ChildSessionEnd write; then a summary for the parent (post-turn): "Aaj Munni ne poochha: …"
+   or when the child's time for the day runs out: their message is answered in full, then the
+   fixed CHILD_DAILY_LIMIT_REACHED and the summary → ChildSessionEnd(DAILY_LIMIT)
 ```
 
 **`ChildReply`** (strict schema, child register: very short sentences, ≤ 8 words each for ages 3–5,
@@ -503,6 +505,73 @@ question), `who_explores_this` (optional, C12).
 - **Time limits** as above; no new session for 30 minutes after one ends (`CHILD_SESSION_COOLDOWN_MINUTES`).
   A session in which the child asked nothing starts no wait and sends the parent no summary
   (owner, 2026-10-29): the wait limits screen time, and "Munni talked with Marg" wouldn't be true.
+- **A daily limit per child** (owner, 2026-11-13), on top of the session limits: after each
+  cooldown a child could otherwise start another session, all day. The parent picks it for each
+  child: 20, 30 or 60 minutes a day, or no limit (`DailyTalkLimit`), and can change it any time
+  (`ChildTalkDailyLimit` → `learners.child_talk_daily_limit`). Until they pick, 30 minutes
+  (`ChildDailyLimitRules.DEFAULT`). It counts **all** of that child's sessions started in the
+  India day (from midnight IST, as for the daily khoj; a session belongs to the day it
+  started), the open one included; a sibling's time is their own. **Counting:** each session
+  from its start to its end (while open, to now), **never more than `CHILD_SESSION_MAX_MINUTES`
+  (10)**. A session the child walked away from (closed as EXPIRED by maintenance later) counts
+  only until its last answered question (`child_sessions.last_answered_at`) **plus at least a
+  minute** for that answer (`LAST_ANSWER_COUNTS`): otherwise one question and walking away,
+  again and again, would never use up the day. A session ended by a message counts to that
+  message, even right after a question ("bye" 20 seconds later counts 20 seconds; owner,
+  2026-11-13: no minute there). A session in which nothing was asked counts nothing, as for the
+  cooldown. **Enforced** in `ChildTalkLayer`, from
+  `TurnContext.child_talk_today`:
+  - *Start:* after the consent check and before the cooldown (both apply: "tomorrow" is what's
+    true), a child whose time is used up gets the fixed `CHILD_DAILY_LIMIT_REACHED`; no session
+    opens and nothing is answered.
+  - *In a session:* the parent's "Yes, I'm the parent", an account action, the session limits
+    and a goodbye are checked first, unchanged (the sixth question still ends on TURN_LIMIT).
+    Then, if the time is used up, the child's message is **answered in full** as the last answer
+    (no question back, `LAST_ANSWER_RULE`), followed by `CHILD_DAILY_LIMIT_REACHED` and the
+    parent's summary: `ChildSessionEnd(DAILY_LIMIT)`. An "ok" or a hello has nothing to answer,
+    so it gets that goodbye at once. A redirect (S1/S9/S2) ends the same way. A final answer
+    `safety_out` blocks writes nothing, so the next message ends the session.
+  - **The parent picks it** (`ChildTalkSettingsLayer`, fixed copy, no model): right after the
+    yes to child talk, onboarding asks `ASK_CHILD_TALK_LIMIT` ("Munni roz kitni der…? Abhi: 30
+    minute") with three buttons, `jrn:limit:<20_minutes|30_minutes|60_minutes>:<child>`, and says
+    how to type no limit ("limit hata do"); WhatsApp allows three buttons. Any time later, a
+    message **clearly about Marg's limit** (`ChildTalkLimitParser.is_about_the_limit`; owner,
+    2026-11-13: not everything that says "limit") sets it if it names one choice ("Munni ka limit
+    hata do", "limit 1 ghanta kar do", "लिमिट आधा घंटा"), or shows the child's limit now with the
+    three buttons if not ("limit badlo", "Munni ki limit kitni hai"). Clearly about it: it says
+    "limit", names nothing else a limit could be on (TV, mobile, age, income, food…), and either
+    mentions Marg or talking, or carries a value (a time or no limit), or is one of the short
+    commands Marg's replies teach (a child's name and "ki"/"ka" aside). Any other "limit" ("NMMS
+    ki age limit", "kya bachchon ki koi limit honi chahiye?") is read by intent reading as
+    before. A question never sets one ("kya 1 ghanta ki limit theek hai?" shows the limit and the
+    choices). Such a message skips intent reading (the model could hear "limit hata do" as "stop
+    the daily message"). A time that isn't a choice ("45 minute", "1 ghanta 15 minute") is never
+    rounded: the question comes again.
+    With several children who may talk and none named, "Kis bachche ki limit?" with a button per
+    child carrying the limit asked for. A child the parent hasn't said yes for gets the consent
+    question first. A button naming no child of this parent sets nothing. Inside a child
+    session any `jrn:limit` button or message about the limit gets "Yeh Mummy-Papa se karwana":
+    a child can't change it.
+  - **The parent can ask the time left** (owner, 2026-11-13; `ChildTalkLimitParser.asks_time_left`,
+    `ChildTalkSettingsLayer`, fixed copy, writes nothing): "Munni ka aaj Marg se kitna time bacha
+    hai?", "aaj Munni ne kitni der baat ki?" → "⏱️ Aaj Munni ne Marg se 14 minute baat ki. Roz ki
+    limit 30 minute hai, toh aaj 16 minute aur baaki hain." (or not talked yet today, or used up,
+    or no limit), and how to change it. As precise as the limit: it asks about time left (or time
+    used today), is about Marg (the limit, Marg or talking, or one of the parent's children with a
+    time word), and names nothing else the time could be for ("exam mein kitna time bacha",
+    "school jaane mein…" are the parent's questions). Minutes left are counted from the minutes
+    shown as used, so the two add up to the limit. With several children, "Kis bachche ki
+    limit?" with `jrn:limit:time:<child>` buttons. It skips intent reading, like the limit.
+  - **The parent's summary gives the time** (`ChildTalkLayer.parent_summary`, `DailyTalkTime`):
+    one line under the topics, "⏱️ Aaj kul baat: 14 minute. Roz ki limit: 30 minute." (or "Roz
+    ki koi limit nahi", or "…limit poori ho gayi; kal phir baat kar sakte hain" when used up):
+    the child's time across all their talks on the day the session started, up to its end, in
+    whole minutes rounded half up ("1 minute se kam" under one). At every summary: a goodbye,
+    the turn or time limit, the daily limit, the parent taking the phone back, and maintenance's
+    summary of a session left (`ChildSessionSummarySender`, which reads that child's sessions
+    for the day). Never in a crisis note (C15). A turn reads its sessions from yesterday's
+    midnight (`ChildDailyLimitRules.read_since`), so a session over midnight is summed up with
+    its own day.
 - **Voice-first:** replies are voice notes plus very short text; no links, no images other than the khoj card.
 - **Nothing stored beyond the normal turn data;** the child's voice is never stored. `turns.user_text`
   retention is the same as for parents, and crisis turns store none.
@@ -755,3 +824,9 @@ specificity, no careers for a 5-year-old, medical refusal, register).
 | 2026-11-02 | **An ok or thanks names the child, fits the moment, and is never sent twice in a row** (`ACKNOWLEDGED` with `{child}`; `ACKNOWLEDGED_AFTER_KHOJ` when the child's khoj was just done; `SmallTalkRules.repeats` and the shared `ACKNOWLEDGED_AGAIN` for every persona, the child's `CHILD_ACKNOWLEDGED_AGAIN` in child words). `parent_intent` 1.17.0: how Marg works (typing, reply speed, whether a person reads) is about Marg; `other_role` (the parent wants to use Marg as a teacher or student) gets `OTHER_ROLE_REPLY`: explained, and the way to start again, never changed from words. `activity_personalise` 1.2.0: every word in full and spelt right, Hindi grammar kept in Roman letters | Web testers: "bachche" for a named child, "enjoy it together" after a done khoj, the same reply to "later" as to "thanks", an invented claim about typing, a cut word in a khoj | owner |
 | 2026-11-02 | **A report that only says it's done is treated like the Done button** (`JourneyLayer.says_only_done`, `DONE_ONLY_WORDS`; the child's own name counts as no detail): thanks and one question by code, no model, and the prompt's `reported` flag off. "ho gaya, usne 5 patte gine" is still a real report | A field tester's voice note said only "done"; after they tapped which khoj, the reply praised what the child did with stones and leaves, which nobody had said | owner |
 | 2026-11-03 | **Muse Spark Open is optional** (`OPEN_MODEL_BASE_URL` / `OPEN_MODEL_API_KEY` may be empty; `Settings.open_model_configured`, `open_model_in_use`). Without them, the `OPEN_MODEL` prompts (reflection, curiosity and aspiration extraction) run on `MODEL_TEXT` directly, with no fallback wrapper: what C9's fallback does when Baseten is down. The hosted app keeps Muse Spark Open | Judges running Marg locally won't have a Baseten key. Owner chose "Meta key only" | owner |
+| 2026-11-13 | **A daily limit on each child's own talk (§4.16): stored, counted and enforced.** Choices 20, 30 or 60 minutes a day or no limit (`DailyTalkLimit`), default 30; each session counts from its start to its end, at most the 10-minute session limit; a session the child walked away from counts until its last answered question plus at least a minute (`child_sessions.last_answered_at`, `ChildDailyLimitRules.LAST_ANSWER_COUNTS`); sessions with nothing asked count nothing; the day is India's and a session belongs to the day it started. At the start the child gets the fixed `CHILD_DAILY_LIMIT_REACHED` (checked before the cooldown); mid-session the message is answered in full, then that text and the parent's summary, `ChildSessionEnd(DAILY_LIMIT)`; an ok or hello gets it at once. Session limits, cooldown and the parent taking the phone back are checked first and unchanged. Migration `s10b_child_talk_daily_limit` | Owner: a child could talk all day, one session after another, which defeats learning from their surroundings and risks habit. Owner decisions 2026-11-13: 30 by default, 20/30/1 hour on buttons and no limit typed; keep the 10-minute cap; a conversation abandoned midway counts only till the last answered question, which counts at least a minute (one question and walking away must not be free); end mid-way but complete the answer | owner (copy approved 2026-11-13) |
+| 2026-11-13 | **The parent picks each child's limit** (`ChildTalkSettingsLayer`, `ChildTalkLimitParser`; `CopyKey.ASK_CHILD_TALK_LIMIT`, `COPY_VERSION` onb-2026-11-13.1; copy `CHILD_TALK_LIMIT_ASK`, `CHILD_TALK_LIMIT_SET`, `CHILD_TALK_NO_LIMIT_SET`, `CHILD_TALK_LIMIT_WHICH_CHILD`, `DAILY_LIMIT_NAMES`). After the yes to child talk the limit is asked with three buttons (it replaces "today's khoj or a question?", whose khoj button now follows the pick); "limit" in a message sets or shows it. Read by fixed word rules, not by intent reading: no `parent_intent` change, so the intent bank (live model) needs no rerun; a message about the limit that doesn't say "limit" ("Munni ko 1 ghanta baat karne do") still goes to intent reading, where it is answered as before. A child's "limit hata do" is an account action (C16) | Owner: the parent picks 20, 30 or 1 hour, or types no limit, when adding a child and any time later. Rules over a new intent: a setting changed from words should be exact, and the intent bank needs the live model | owner (copy approved 2026-11-13) |
+| 2026-11-13 | **Limit messages read precisely; the time used in the parent's summary.** `ChildTalkLimitParser.is_about_the_limit(text, learners)`: "limit" plus Marg/talk words, or a value, or a taught command; never with another subject (TV, mobile, age…); `asks_a_question`: a question never sets a limit. Summary line `PARENT_TALK_TIME` / `_NO_LIMIT` / `_USED_UP` (`DailyTalkTime`; `ChildDailyLimitRules.used_that_day`, `talk_time`, `is_used_up`, `whole_minutes`, `read_since`); the maintenance summary reads the child's day (`ChildSessionRepository.learner_sessions_since`, `ExpiredSession` learner, times and limit; `SummaryDeps.limits`). Not in crisis notes. A "bye" right after a question counts its real seconds | Owner: "not everything containing limit goes to the limit layer; use whether there is a value"; "let it be 20 sec for bye"; the parent gets the summary of time used | owner (copy approved 2026-11-13) |
+| 2026-11-13 | **Owner's review: the three texts approved as written** (the child's daily-limit message, the parent's limit texts, the time line in the summary). **Eval cases written, not run:** parent-journey-040 to 048 (tag `daily-limit`, `evals/golden/parent_journey.yaml`). The daily-limit ending and the limit buttons can't be cases yet (s15 §11, open question 4) | Owner approved items 1 to 3; asked for evals written now and not run | owner |
+| 2026-11-13 | **The daily-limit ending and the limit buttons stay out of the evals** (s15 §11, question 4, option C): covered by unit and integration tests (`test_child_talk_daily_limit`, `test_child_talk_settings_layer`, `test_child_talk_summary_time`, `test_orchestrator_child_daily_limit`, `test_real_pipeline`). `MARG_FACTS` "a child talking to Marg" now names the daily limit and the time in the summary | Owner: option C, the evals can't be run here; features doc brought up to date | owner (fact approved 2026-11-13) |
+| 2026-11-13 | **The parent can ask how much of a child's time is left today** (`ChildTalkLimitParser.asks_time_left`; `ChildTalkSettingsLayer.daily_limit(ParentTurnFacts, …)`; `ChildDailyLimitRules.minutes_left_shown`; `JourneySettings.talk_limits`; copy `TALKED_TODAY`, `NOT_TALKED_TODAY`, `TIME_LEFT_TODAY`, `TIME_USED_UP_TODAY`, `NO_DAILY_LIMIT`, `CHANGE_LIMIT_HINT`; `minutes_said` shared with the summary). Before, such a question reached intent reading, and nothing the model saw held the child's time: it couldn't be answered, and a number could be made up. Eval cases parent-journey-049, 050, written and not run | Owner: check whether a parent can ask the child's remaining limit, and build it if not | owner (copy approved 2026-11-13) |

@@ -69,6 +69,18 @@ class ChildSessionEndReason(StrEnum):
     CHILD_ENDED = "child_ended"
     CRISIS = "crisis"
     EXPIRED = "expired"  # the child stopped mid-session; closed by maintenance
+    DAILY_LIMIT = "daily_limit"  # the child's time for the day ran out; their message answered
+
+
+class DailyTalkLimit(StrEnum):
+    """How long a parent lets one child talk to Marg.ai in a day, across all their sessions
+    (s10b §4.16; owner, 2026-11-13). Three fit WhatsApp's reply buttons; no limit is asked for
+    in words ("Munni ka limit hata do")."""
+
+    MINUTES_20 = "20_minutes"
+    MINUTES_30 = "30_minutes"
+    MINUTES_60 = "60_minutes"
+    NO_LIMIT = "no_limit"
 
 
 class MediaPurpose(StrEnum):
@@ -292,6 +304,7 @@ class CopyKey(StrEnum):
     PROFILE_DONE_PARENT_OTHER_AGE = "profile_done_parent_other_age"
     ASK_CHILD_TALK = "ask_child_talk"
     CHILD_TALK_ENABLED = "child_talk_enabled"
+    ASK_CHILD_TALK_LIMIT = "ask_child_talk_limit"  # the daily limit, right after the yes
     CHILD_TALK_OFF = "child_talk_off"
     TEACHER_WAITING = "teacher_waiting"
     LANGUAGE_CHANGED = "language_changed"

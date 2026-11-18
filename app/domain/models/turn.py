@@ -8,7 +8,7 @@ from pydantic import Field
 from app.domain.enums import Channel, ConversationState, Language, Role, Route, Speaker
 from app.domain.models.activity import OfferRecord
 from app.domain.models.base import DomainModel, TurnId, UserHash
-from app.domain.models.child_session import ChildSession
+from app.domain.models.child_session import ChildSession, ChildSessionSpan
 from app.domain.models.learner import Learner
 from app.domain.models.message import InboundMessage
 from app.domain.models.progress import ChildTalkTopics
@@ -65,6 +65,10 @@ class TurnContext(DomainModel):
     # is open.
     child_session: ChildSession | None = None
     last_child_session_ended_at: datetime | None = None
+    # Every session the user's children started today or yesterday (India days), open ones
+    # included: the daily limit per child, and the time in the parent's summary of a session
+    # that ran over midnight (ChildDailyLimitRules.read_since; owner, 2026-11-13)
+    child_talk_today: list[ChildSessionSpan] = Field(default_factory=list)
     # The parent's words read as Braj by intent reading, this turn only (owner, 2026-10-29):
     # LocalVoice then answers in light Braj even when no Braj marker word was matched.
     heard_braj: bool = False

@@ -157,17 +157,19 @@ def test_a_parents_pending_question_is_answered_once_the_child_is_added() -> Non
     assert HandoffFirstKhoj() not in done.effects
 
 
-@pytest.mark.parametrize(
-    "answered",
-    [ChildTalkAnswered(LEARNER, allowed=True), ChildTalkAnswered(LEARNER, allowed=False)],
-    ids=["yes", "not_now"],
-)
-def test_after_the_child_talk_answer_the_parent_is_asked_khoj_or_question(
-    answered: ChildTalkAnswered,
-) -> None:
+def test_after_not_now_to_child_talk_the_parent_is_asked_khoj_or_question() -> None:
     profile = at(S.ACTIVE, role=Role.PARENT, **CONSENTED)
-    done = step(profile, answered, learners=1)
+    done = step(profile, ChildTalkAnswered(LEARNER, allowed=False), learners=1)
     assert copies(done)[-1] is CopyKey.KHOJ_OR_QUESTION
+
+
+def test_after_yes_to_child_talk_the_parent_is_asked_the_childs_daily_limit() -> None:
+    """Owner, 2026-11-13: the limit is picked when the child is allowed to talk; its answer
+    then offers the khoj."""
+    profile = at(S.ACTIVE, role=Role.PARENT, **CONSENTED)
+    done = step(profile, ChildTalkAnswered(LEARNER, allowed=True), learners=1)
+    assert copies(done) == [CopyKey.CHILD_TALK_ENABLED, CopyKey.ASK_CHILD_TALK_LIMIT]
+    assert done.profile.state is S.ACTIVE
 
 
 @pytest.mark.parametrize("state", [S.AWAITING_CONSENT, S.AWAITING_ROLE, S.AWAITING_CHILD])

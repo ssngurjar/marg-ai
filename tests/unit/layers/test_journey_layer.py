@@ -69,7 +69,7 @@ from app.layers.journey_layer import (
 from app.layers.layer_result import LayerResult
 from app.layers.parent_question_layer import ParentQuestionLayer
 from tests.fakes.language_model import FakeLanguageModel, PromptRoutedLanguageModel, ScriptedOutput
-from tests.support.child_talk import consented_child
+from tests.support.child_talk import LIMITS, consented_child
 from tests.support.journey import (
     CURIOSITY_MOMENT,
     MOMENT_SAY,
@@ -101,15 +101,17 @@ ABOUT_MARG_REPLY: Final = {
 }
 
 
-def layer_with(
+def layer_with(  # noqa: PLR0913  # one keyword per fake a test scripts, and the switch
     personalise: ScriptedOutput | None = None,
     reflect: ScriptedOutput = REFLECTION,
     answer: ScriptedOutput = HINGLISH_ANSWER,
     curiosity: ScriptedOutput = CURIOSITY_MOMENT,
     *,
     intent: ScriptedOutput | None = None,
+    child_talk: bool = True,
 ) -> tuple[JourneyLayer, PromptRoutedLanguageModel]:
-    """`intent`: turns intent reading on, with this as Muse Spark's reading."""
+    """`intent`: turns intent reading on, with this as Muse Spark's reading. `child_talk`:
+    CHILD_TALK_ENABLED."""
     llm = PromptRoutedLanguageModel(
         {
             "activity_personalise": FakeLanguageModel([personalise or personalisation_for(FIRST)]),
@@ -126,7 +128,12 @@ def layer_with(
         registry,
         CatalogueActivitySource(shipped_catalogue()),
         ParentQuestionLayer(llm, registry),
-        JourneySettings(repeat_window=timedelta(days=30), read_intent=intent is not None),
+        JourneySettings(
+            repeat_window=timedelta(days=30),
+            talk_limits=LIMITS,
+            child_talk_enabled=child_talk,
+            read_intent=intent is not None,
+        ),
     )
     return layer, llm
 
@@ -486,7 +493,9 @@ async def test_with_child_talk_switched_off_there_is_no_childs_button() -> None:
         registry,
         CatalogueActivitySource(shipped_catalogue()),
         ParentQuestionLayer(llm, registry),
-        JourneySettings(repeat_window=timedelta(days=30), child_talk_enabled=False),
+        JourneySettings(
+            repeat_window=timedelta(days=30), talk_limits=LIMITS, child_talk_enabled=False
+        ),
     )
     result = await khoj(learners=[consented_child()], layer=layer)
     assert all(not button.id.startswith("kid:") for button in result.reply.buttons)
@@ -1171,7 +1180,10 @@ async def test_with_child_talk_switched_off_the_question_is_answered_instead() -
         CatalogueActivitySource(shipped_catalogue()),
         ParentQuestionLayer(llm, shipped_registry()),
         JourneySettings(
-            repeat_window=timedelta(days=30), child_talk_enabled=False, read_intent=True
+            repeat_window=timedelta(days=30),
+            talk_limits=LIMITS,
+            child_talk_enabled=False,
+            read_intent=True,
         ),
     )
     result = await khoj(text="can my child talk to you", button=None, layer=switched_off)

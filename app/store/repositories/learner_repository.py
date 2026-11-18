@@ -5,10 +5,10 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import InvalidProfileValue
-from app.domain.enums import LearnerRelation
+from app.domain.enums import DailyTalkLimit, LearnerRelation
 from app.domain.models.base import UserHash
 from app.domain.models.learner import Learner, LearnerId
-from app.domain.models.writes import ChildTalkConsent, LearnerUpsert
+from app.domain.models.writes import ChildTalkConsent, ChildTalkDailyLimit, LearnerUpsert
 from app.domain.rules.conversation_machine import MAX_LEARNERS
 from app.store.tables import learners, users
 
@@ -69,6 +69,18 @@ class LearnerRepository:
         )
 
     @staticmethod
+    async def set_child_talk_daily_limit(
+        session: AsyncSession, owner: UserHash, write: ChildTalkDailyLimit
+    ) -> None:
+        """Inside finalize: the parent's daily limit for one child's talk, or no limit (s10b
+        §4.16). Only the parent's own child; another account's learner id changes nothing."""
+        await session.execute(
+            update(learners)
+            .where(and_(learners.c.id == write.learner_id, learners.c.owner_user_hash == owner))
+            .values(child_talk_daily_limit=write.limit.value, updated_at=func.now())
+        )
+
+    @staticmethod
     async def list_for(session: AsyncSession, owner: UserHash) -> list[Learner]:
         rows = (
             await session.execute(
@@ -84,6 +96,11 @@ class LearnerRepository:
                 nickname=row.nickname,
                 birth_year=row.birth_year,
                 child_talk_consented_at=row.child_talk_consented_at,
+                child_talk_daily_limit=(
+                    DailyTalkLimit(row.child_talk_daily_limit)
+                    if row.child_talk_daily_limit is not None
+                    else None
+                ),
             )
             for row in rows
         ]

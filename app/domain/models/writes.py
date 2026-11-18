@@ -18,6 +18,7 @@ from app.domain.enums import (
     ConsentEventKind,
     ConversationState,
     CuriosityDomain,
+    DailyTalkLimit,
     Language,
     LearnerRelation,
     Role,
@@ -69,6 +70,15 @@ class ChildTalkConsent(DomainModel):
     kind: Literal["child_talk_consent"] = "child_talk_consent"
     learner_id: LearnerId
     granted: bool
+
+
+class ChildTalkDailyLimit(DomainModel):
+    """s10b (§4.16): a parent picks how long one child may talk to Marg.ai a day, across all
+    their sessions, or no limit. The parent can change it any time."""
+
+    kind: Literal["child_talk_daily_limit"] = "child_talk_daily_limit"
+    learner_id: LearnerId
+    limit: DailyTalkLimit
 
 
 class ActivityOffered(DomainModel):
@@ -177,6 +187,7 @@ type TurnWrite = Annotated[
     | LearnerUpsert
     | MarkPurgeAfterDelivery
     | ChildTalkConsent
+    | ChildTalkDailyLimit
     | ActivityOffered
     | ActivityReported
     | ActivityReopened

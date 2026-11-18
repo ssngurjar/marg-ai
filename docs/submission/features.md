@@ -11,8 +11,8 @@ The four journeys at a glance:
 
 | Who | How it starts | What they get | How a conversation ends |
 |---|---|---|---|
-| **Parent** of a 3–8-year-old | consent → "parent" → the child's age (and a home name) → may the child talk to Marg? → today's khoj, or a question | today's khoj, a reply to how it went, answers to the child's questions and their own, a khoj card, a progress summary | each khoj ends with one question back to the child; the next one comes when asked |
-| **Child** (3–8), with the parent's yes | "Main bachcha hoon" button, or "Main Munni hoon" | short true answers (asked by voice; the reply is read aloud by the parent, or on the web demo by the browser), and something to go and find | after 6 exchanges or 10 minutes, with something to look for; the parent gets a summary |
+| **Parent** of a 3–8-year-old | consent → "parent" → the child's age (and a home name) → may the child talk to Marg? → if yes, how long a day (20 min, 30 min, 1 hour, or no limit) → today's khoj, or a question | today's khoj, a reply to how it went, answers to the child's questions and their own, a khoj card, a progress summary, and a say in how long each child may talk to Marg a day | each khoj ends with one question back to the child; the next one comes when asked |
+| **Child** (3–8), with the parent's yes | "Main bachcha hoon" button, or "Main Munni hoon" | short true answers (asked by voice; the reply is read aloud by the parent, or on the web demo by the browser), and something to go and find | after 6 exchanges or 10 minutes, with something to look for; the parent gets a summary of the topics and the child's time that day. At most 30 minutes a day per child, or the parent's pick (20 min, 1 hour, no limit); when the day's time runs out, the last question is still answered |
 | **Student** (classes 6–12) | consent → "student" → a parent or teacher knows → class → district | answers that cite official sources, and a step-by-step plan | each answer ends with its sources and, where it fits, a "Make a plan" button |
 | **Teacher** | consent → "teacher" → subject → class → district | tomorrow's chapter connected to three real kinds of work, each with a classroom activity | "Another activity" or "New chapter" buttons |
 
@@ -96,7 +96,9 @@ months ("6 mahine") is under two, and Marg asks for an age from 2 to 19. The way
 ### How it starts
 After choosing "parent", the parent gives the child's age and, if they like, a home name ("Munni,
 5 saal"). Marg confirms the child and asks whether they may talk to Marg directly (**Yes / Not
-now**), then: **today's khoj, or a question?** Nothing is sent unasked. A question about Marg
+now**). After a yes, Marg asks how long the child may talk a day (**20 minute / 30 minute / 1
+ghanta**, or type "limit hata do" for no limit; 30 minutes if the parent doesn't pick), then
+offers today's khoj; after "Not now": **today's khoj, or a question?** Nothing is sent unasked. A question about Marg
 itself during onboarding ("what can you do?", "why do you need this?") is answered at once.
 
 ### Marg understands what the parent means
@@ -104,7 +106,9 @@ Muse Spark reads every free message into one of a fixed set of intents, and code
 report on the khoj, the parent's own question, the child's question, small talk, today's khoj, a
 different khoj, the same khoj again (also in another language), adding a child, the child's home
 name, the daily time, stopping daily messages, someone else writing on the parent's phone, child
-talk, or deleting their data. Buttons, plain greetings and crisis phrases never need the model.
+talk, or deleting their data. Buttons, plain greetings, crisis phrases and messages about a
+child's daily talk limit ("Munni ka limit hata do", "Munni ka kitna time bacha hai?") never need
+the model: a setting is changed, and the time left is read, only by fixed rules.
 An "ok" or "thanks" in the middle of a conversation gets a short encouraging reply, not the menu
 again; a complaint about Marg's last reply is answered as one. A parent's own question is
 answered knowing their children's ages and what was just said, so "what else can I teach
@@ -206,7 +210,7 @@ mujhe ye nahi chahiye", which could mean either, gets both as buttons (**Stop da
 
 ### How it starts
 1. The parent says yes once per child (after the first khoj, or by asking "can my child talk to
-   you?").
+   you?"), then picks how long that child may talk a day (see **A daily limit per child** below).
 2. The child taps **Main bachcha hoon 🙋**, or says "Main Munni hoon". If a child or student seems
    to be writing on the parent's phone without that, Marg asks who is writing and answers no one
    the parent hasn't added.
@@ -225,7 +229,41 @@ mujhe ye nahi chahiye", which could mean either, gets both as buttons (**Stop da
 After **6 exchanges or 10 minutes**, when the child says bye or walks away, or when a parent
 takes the phone back ("I am the parent", then the **Yes, I'm the parent** button): a kind goodbye with
 something to go and find, then a 30-minute break before the next talk. The parent gets a summary
-of the **topics**, never the child's words, and never what a child disclosed.
+of the **topics** and the child's **time that day**, never the child's words, and never what a
+child disclosed.
+
+### A daily limit per child
+Short talks with a break between them could still add up to a whole day, which is not what a
+child aged 3 to 8 needs: the point is to go and find things out around them. So every child has
+a daily limit, set by the parent.
+
+- **The limit:** all of a child's talks in a day (India time, from midnight) add up to at most
+  **30 minutes**, unless the parent picks otherwise. Each child has their own limit, so a
+  sibling's talking doesn't use it up.
+- **The parent picks it:** right after saying yes to child talk, with a button: **20 minute, 30
+  minute or 1 ghanta**; or types **"limit hata do"** for no limit (WhatsApp allows three
+  buttons). Any time later, a message about Marg's limit changes it ("Munni ki limit 1 ghanta
+  kar do") or shows it with the choices ("limit badlo", "Munni ki limit kitni hai?"). A time
+  that isn't a choice ("45 minute") is asked again, never rounded; a question ("kya 1 ghanta ki
+  limit theek hai?") never changes it; other limits ("NMMS ki age limit kya hai?", "TV ki limit
+  kitni ho?") are answered as ordinary questions.
+- **How time is counted:** each talk from its start to its end, at most its 10 minutes. A talk
+  the child walked away from counts until their last answered question plus a minute, so asking
+  one question and leaving still uses time; a talk where nothing was asked counts nothing.
+- **When it runs out:** mid-talk, the child's question is still answered in full, then Marg says
+  that's all for today, see you tomorrow. A child whose time is used up can't start a new talk
+  until the next day. The 6-question and 10-minute limits, the 30-minute break and the parent
+  taking the phone back work as before.
+- **A child can't change it:** a child asking to ("mera limit hata do") hears "Yeh Mummy-Papa se
+  karwana".
+- **The parent sees the time:** every summary ends with the child's time that day and their
+  limit: "⏱️ Aaj kul baat: 14 minute. Roz ki limit: 30 minute." (or "koi limit nahi", or
+  "limit poori ho gayi; kal phir baat kar sakte hain"). Not in a crisis note.
+- **The parent can ask any time:** "Munni ka aaj Marg se kitna time bacha hai?" or "aaj Munni ne
+  kitni der baat ki?" gets "⏱️ Aaj Munni ne Marg se 14 minute baat ki. Roz ki limit 30 minute
+  hai, toh aaj 16 minute aur baaki hain.", or that she hasn't talked yet today, or that the
+  time is used up, and how to change the limit. With several children, Marg asks which. Other
+  time questions ("exam mein kitna time bacha hai?") are answered as ordinary questions.
 
 ---
 

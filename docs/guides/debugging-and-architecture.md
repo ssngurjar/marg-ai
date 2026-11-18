@@ -48,7 +48,7 @@ Order matters: database, migrations, API, tunnel.
 | # | What | Command | Check |
 |---|---|---|---|
 | 1 | Postgres | `docker compose up -d postgres` | `docker compose ps` shows healthy |
-| 2 | Migrations | `make migrate` | `.venv/bin/alembic current` → `s10b_child_session_language (head)` |
+| 2 | Migrations | `make migrate` | `.venv/bin/alembic current` → `s10b_child_talk_daily_limit (head)` |
 | 3b | Corpus (once, and after any change under `corpus/`) | `.venv/bin/python -m app.cli ingest-corpus` | the mentor cites sources |
 | 4 | API + worker | `.venv/bin/uvicorn app.main:create_app --factory --host 127.0.0.1 --port 8000 --no-access-log` | `curl -s 127.0.0.1:8000/readyz` → `ready`, every probe `ok` (§7.3) |
 | 5 | Public tunnel | `scripts/dev_tunnel.sh 8000` | prints a `https://…trycloudflare.com` URL |
@@ -177,7 +177,7 @@ Post-turn steps: `extract_signals`, `make_card` (recorded on the same turn).
    its own ("mera data hatao", "please delete my data"); a longer message goes to the journey,
    where the `delete_data` intent offers a button that starts the same confirmation.
 3. Not yet `ACTIVE` (consent, role, child) → `ONBOARDING`.
-4. A parent's `kid:start` or "Main Munni hoon" → `CHILD_TALK` (consent and cooldown checked in the layer).
+4. A parent's `kid:start` or "Main Munni hoon" → `CHILD_TALK` (consent, the child's daily limit, then the cooldown, checked in the layer).
 5. `onb:` buttons → `ONBOARDING`; `jrn:` and `nudge:` buttons → `JOURNEY`; any other button → REPEAT_PLEASE.
 6. A language name → `ONBOARDING`. Then by role:
    - **Parent:** `jrn:`/`nudge:` buttons → `JOURNEY`; a photo alone → `JOURNEY`; blank →
@@ -432,6 +432,10 @@ replies on, so the spoken path stays tested even while real users get text.
 | A report went to the wrong khoj, or "Which khoj is this about?" appeared | the turn's reply buttons (`jrn:about:<id>`); `learner_activities` for the child in the last 48 h | another khoj was still offered or skipped: a photo alone or words that don't say which khoj ask; the reading's `report_about` places clear reports |
 | No khoj card after a report | `make_card` row `detail` | engagement under 2, a card already today, safety blocked, `KHOJ_CARD_ENABLED=false`, the window closed |
 | "Main bachcha hoon" does nothing | `route` row; `learners.child_talk_consented_at` | no consent (the parent gets the switch-on message), the 30-minute cooldown, `CHILD_TALK_ENABLED=false` |
+| Child told "Aaj ki baatein poori ho gayi" (today's talking is over) | `learners.child_talk_daily_limit` (NULL = 30 minutes); `SELECT started_at, ended_at, end_reason, last_answered_at, turns_count FROM child_sessions WHERE learner_id = … AND started_at >= <midnight IST>` | the child's talks today add up to the limit (`ChildDailyLimitRules`): each from start to end, at most 10 minutes; one left without "bye" until `last_answered_at` plus a minute; a session ended by it has `end_reason = daily_limit`. Resets at midnight IST. The parent changes it in words about Marg's limit ("limit hata do", "limit 1 ghanta") |
+| A parent's limit message got an ordinary answer, or the wrong child's limit changed | the turn's `route`/`step_note`; `learners.child_talk_daily_limit` | only a message clearly about Marg's limit is read as one (`ChildTalkLimitParser.is_about_the_limit`): "limit" with Marg/talk words, a value, or a taught command ("limit badlo"), and no other subject (TV, mobile, age…); anything else goes to the intent model. A question shows the limit, never sets it. A time that isn't 20/30/60 minutes asks again. With several children, a name picks one; otherwise "Kis bachche ki limit?". A limit button naming no child of this parent sets nothing |
+| A parent's "kitna time bacha hai?" got an ordinary answer, or the wrong time | the turn's `route`; `child_sessions` for that learner today; `learners.child_talk_daily_limit` | only a question clearly about Marg's time is read (`ChildTalkLimitParser.asks_time_left`): time left ("bacha", "baaki", "left") or time used today ("kitna … aaj"), with the limit, Marg or talking, or a child's name and a time word, and no other subject (exam, school, TV…); anything else goes to the intent model. The time is `ChildDailyLimitRules.used_today` (each session up to 10 minutes, one left without "bye" to its last answer plus a minute); minutes left = the limit minus the minutes shown |
+| The time in a parent's summary looks wrong | `child_sessions` for that learner that day (`started_at`, `ended_at`, `end_reason`, `last_answered_at`, `turns_count`) | `ChildDailyLimitRules.used_that_day`: sessions started that India day, each start to end up to 10 minutes, one left without "bye" to `last_answered_at` + 1 minute, none without a question; rounded half up; a session over midnight counts for the day it started |
 | Child stuck in child talk | `child_sessions` with `ended_at IS NULL` | the child left without "bye"; maintenance closes it after 10 minutes. A parent can end it at once: "I am the parent", "mein parent hoon", "switch to parent", "Munni ki summary do"…, then the `kid:parent` button (`ChildSessionRules.claims_to_be_parent`) |
 | No daily nudge | `nudge_subscriptions.next_due_at`, `NUDGES_ENABLED` | off until templates are approved; quiet hours; a khoj already today; the daily cap |
 | `delivery_failed window_closed` | `users.last_inbound_at` | the parent's last message was over 24 h ago; only templates can be sent |

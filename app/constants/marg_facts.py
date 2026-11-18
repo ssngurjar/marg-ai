@@ -2,7 +2,8 @@
 2026-11-01). Every line was checked against the code on that date; the owner chose the two lines
 about who sees the data. AboutMargLayer answers only from these, and says it doesn't know
 anything else. Change a line only when the code (or the owner's decision) changes with it, and
-add the change to docs/reviews/owner-review-pending.md. Reviewed by the owner (2026-11-03).
+add the change to docs/reviews/owner-review-pending.md. Reviewed by the owner (2026-11-03);
+"a child talking to Marg" gained the daily limit on 2026-11-13, reviewed by the owner that day.
 """
 
 from dataclasses import dataclass
@@ -68,10 +69,14 @@ MARG_FACTS: Final[tuple[MargFact, ...]] = (
     MargFact(
         "a child talking to Marg",
         "A child aged 3 to 8 can talk to Marg directly only after the parent says yes, and the"
-        " parent can turn it off. A talk ends after 6 questions or 10 minutes. Marg never asks a"
+        " parent can turn it off. A talk ends after 6 questions or 10 minutes. All of a child's"
+        " talks in a day add up to at most 30 minutes, unless the parent picks 20 minutes, 1 hour"
+        " or no limit; the parent can change it any time, and the child can't. Marg never asks a"
         " child for personal details, tells the child to share things with Mummy and Papa, and"
-        " sends the parent a short summary of the topics, never the child's own words.",
-        "ChildTalkLayer, ChildSessionRules, app/core/config.py child_session_* defaults",
+        " sends the parent a short summary of the topics and the child's time that day, never"
+        " the child's own words.",
+        "ChildTalkLayer, ChildSessionRules, ChildDailyLimitRules, ChildTalkSettingsLayer,"
+        " app/core/config.py child_session_* defaults",
     ),
     MargFact(
         "photos",

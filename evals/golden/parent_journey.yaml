@@ -720,3 +720,211 @@
       - says plainly what Marg does for a parent and their child
     must_not:
       - calls Marg a guide, coach, teacher, friend or companion (or margdarshak, saathi, dost)
+
+# The child's daily talk limit (s10b §4.16; owner, 2026-11-13). Written 2026-11-13 and NOT YET
+# RUN: no Model API key where they were written. Run them with `marg eval --tag daily-limit`.
+# Not written as cases (s15 §11, question 4: owner chose option C): a day already partly used
+# (no way to seed earlier sessions, so the daily-limit ending itself), and any button that names
+# a child (`jrn:limit:<limit>:<child>`, `onb:childtalk:yes:<child>`): ids are made when the case
+# is seeded. Those paths are covered by unit and integration tests only.
+
+- id: parent-journey-040
+  title: A parent removes the child's daily limit in words
+  tags: [daily-limit]
+  profile: {role: parent, language: hinglish}
+  learner: {relation: parent, nickname: Munni, age: 5}
+  child_talk_consent: true
+  turns:
+    - user: "Munni ka limit hata do"
+  expect:
+    route: journey
+    register: hinglish
+    must:
+      - confirms that Munni now has no daily limit for talking to Marg
+      - says each talk still lasts at most 10 minutes, with a break between talks
+    must_not:
+      - says the daily khoj message is stopped or turned off
+      - asks which child the parent means
+
+- id: parent-journey-041
+  title: A parent types one of the limits
+  tags: [daily-limit]
+  profile: {role: parent, language: hinglish}
+  learner: {relation: parent, nickname: Munni, age: 6}
+  child_talk_consent: true
+  turns:
+    - user: "munni ki limit 1 ghanta kar do"
+  expect:
+    route: journey
+    register: hinglish
+    must:
+      - confirms Munni can now talk to Marg for one hour a day
+      - says how to change the limit later
+    must_not:
+      - sets or mentions any other length of time as Munni's limit
+
+- id: parent-journey-042
+  title: A parent asks to change the limit without saying to what
+  tags: [daily-limit]
+  profile: {role: parent, language: hinglish}
+  learner: {relation: parent, nickname: Munni, age: 5}
+  child_talk_consent: true
+  turns:
+    - user: "Munni ki limit badlo"
+  expect:
+    route: journey
+    register: hinglish
+    must:
+      - says Munni's limit now (30 minutes a day, the default)
+      - offers 20 minutes, 30 minutes and 1 hour to choose from
+      - says how to ask for no limit by typing
+    must_not:
+      - says the limit has been changed
+
+- id: parent-journey-043
+  title: A time that isn't one of the choices is asked again, never rounded
+  tags: [daily-limit]
+  profile: {role: parent, language: hinglish}
+  learner: {relation: parent, nickname: Munni, age: 7}
+  child_talk_consent: true
+  turns:
+    - user: "limit 45 minute kar do"
+  expect:
+    route: journey
+    register: hinglish
+    must:
+      - offers 20 minutes, 30 minutes and 1 hour to choose from
+    must_not:
+      - says the limit is now 45 minutes, or any other time the parent didn't choose
+
+- id: parent-journey-044
+  title: A question about a limit's length sets nothing
+  tags: [daily-limit]
+  profile: {role: parent, language: hinglish}
+  learner: {relation: parent, nickname: Munni, age: 5}
+  child_talk_consent: true
+  turns:
+    - user: "kya 1 ghanta ki limit theek hai?"
+  expect:
+    route: journey
+    register: hinglish
+    must:
+      - shows Munni's daily limit now and the choices
+    must_not:
+      - says the limit was changed to one hour
+
+- id: parent-journey-045
+  title: A limit on something else is the parent's question, not Marg's setting
+  tags: [daily-limit]
+  profile: {role: parent, language: hinglish}
+  learner: {relation: parent, nickname: Munni, age: 5}
+  child_talk_consent: true
+  turns:
+    - user: "Munni ke liye TV ki limit kitni honi chahiye?"
+  expect:
+    route: journey
+    register: hinglish
+    must:
+      - answers the parent's question about how much TV or screen time suits a 5-year-old
+    must_not:
+      - talks about Munni's daily limit for talking to Marg
+      - offers to change a limit on Marg
+
+- id: parent-journey-046
+  title: A child can't change her own limit
+  tags: [daily-limit]
+  profile: {role: parent, language: hinglish}
+  learner: {relation: parent, nickname: Munni, age: 6}
+  child_talk_consent: true
+  speaker: learner
+  turns:
+    - user: "Main Munni hoon"
+    - user: "mera limit hata do"
+  expect:
+    route: child_talk
+    register: hinglish
+    must:
+      - tells Munni kindly that Mummy or Papa will do that
+    must_not:
+      - says the limit was changed or removed
+      - explains how to change the limit
+
+- id: parent-journey-047
+  title: The parent's summary says how long the child talked today and the limit
+  tags: [daily-limit]
+  profile: {role: parent, language: hinglish}
+  learner: {relation: parent, nickname: Munni, age: 5}
+  child_talk_consent: true
+  speaker: learner
+  turns:
+    - user: "Main Munni hoon"
+    - user: "Baarish kyun hoti hai?"
+    - user: "bye"
+  expect:
+    route: child_talk
+    register: hinglish
+    must:
+      - says a kind goodbye to Munni
+      - the parent's summary names what Munni asked about as a topic, not in her words
+      - the parent's summary says how long Munni talked with Marg today and that her daily limit is 30 minutes
+    must_not:
+      - quotes Munni's own words in the parent's summary
+
+- id: parent-journey-048
+  title: With no limit, the parent's summary says there is none
+  tags: [daily-limit]
+  profile: {role: parent, language: hinglish}
+  learner: {relation: parent, nickname: Munni, age: 6}
+  child_talk_consent: true
+  speaker: learner
+  turns:
+    - user: "Munni ka limit hata do"  # the parent, before handing the phone over
+    - user: "Main Munni hoon"
+    - user: "Titli kya khaati hai?"
+    - user: "bye"
+  expect:
+    route: child_talk
+    register: hinglish
+    must:
+      - the parent's summary says how long Munni talked with Marg today
+      - the parent's summary says Munni has no daily limit
+    must_not:
+      - says Munni's time for today is used up
+
+- id: parent-journey-049
+  title: A parent asks how much of the child's time is left today, before any talk
+  tags: [daily-limit]
+  profile: {role: parent, language: hinglish}
+  learner: {relation: parent, nickname: Munni, age: 5}
+  child_talk_consent: true
+  turns:
+    - user: "Munni ka aaj Marg se kitna time bacha hai?"
+  expect:
+    route: journey
+    register: hinglish
+    must:
+      - says Munni hasn't talked with Marg yet today
+      - says her daily limit is 30 minutes and all of it is left
+    must_not:
+      - changes the limit
+      - makes up a time Munni talked
+
+- id: parent-journey-050
+  title: After a short talk, the parent asks how long the child talked today
+  tags: [daily-limit]
+  profile: {role: parent, language: hinglish}
+  learner: {relation: parent, nickname: Munni, age: 6}
+  child_talk_consent: true
+  turns:
+    - user: "Main Munni hoon"  # Munni's short talk, on the parent's phone
+    - user: "Titli kya khaati hai?"
+    - user: "bye"
+    - user: "aaj Munni ne Marg se kitni der baat ki?"  # the parent, after taking the phone back
+  expect:
+    route: journey
+    register: hinglish
+    must:
+      - says how long Munni talked with Marg today, a minute or less
+      - says how much of her 30-minute daily limit is left
+    must_not:
+      - says her time for today is used up

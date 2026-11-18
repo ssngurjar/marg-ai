@@ -1,11 +1,14 @@
 """ChildTalkLayer: a child talks to Marg.ai directly, with the parent's consent (s10b §4.16, C13).
 
-    start    `kid:start[:<child>]` or "Main Munni hoon": consent and the cooldown are checked;
-             a session opens (ChildSessionStart). A question in the same message is answered.
+    start    `kid:start[:<child>]` or "Main Munni hoon": consent, the child's daily limit and
+             the cooldown are checked; a session opens (ChildSessionStart). A question in the
+             same message is answered.
     turn     the child's message → child_talk prompt → a very short, true, kind reply in the
              child's register, ending "Mummy-Papa ko bhi batana" (added by code), voice always
     end      at the turn or time limit, or "bye"/"bas": a kind goodbye with a find-out activity,
-             ChildSessionEnd, and a short summary for the parent (topics, never the child's words)
+             ChildSessionEnd, and a short summary for the parent (topics, never the child's words).
+             When the child's time for the day runs out (ChildDailyLimitRules), their message is
+             still answered in full, then the day's goodbye and the summary (DAILY_LIMIT)
 
 Inside a session nothing changes the account: deletion, adding a child and any other button get
 "Mummy-Papa karenge" (C16). Asking for a language ("Hindi") changes only this session's replies.
@@ -38,6 +41,7 @@ from app.constants.child_talk_copy import (
     ASK_A_GROWNUP,
     CHILD_ACKNOWLEDGED,
     CHILD_ACKNOWLEDGED_AGAIN,
+    CHILD_DAILY_LIMIT_REACHED,
     CHILD_FALLBACK,
     CHILD_GOODBYE,
     CHILD_GREETED,
@@ -49,16 +53,21 @@ from app.constants.child_talk_copy import (
     CHILD_TALK_COOLDOWN,
     CHILD_TALK_NOT_ENABLED,
     CHILD_TALK_ON_BUTTON,
+    DAILY_LIMIT_NAMES,
     PARENT_SUMMARY,
     PARENT_SUMMARY_NO_TOPICS,
     PARENT_TAKEOVER_ASK,
     PARENT_TAKEOVER_BUTTON,
     PARENT_TAKEOVER_DONE,
+    PARENT_TALK_TIME,
+    PARENT_TALK_TIME_NO_LIMIT,
+    PARENT_TALK_TIME_USED_UP,
     TELL_YOUR_PARENTS,
     TOPIC_LABELS,
     UNNAMED_CHILD_NAME,
     WHICH_CHILD_IS_TALKING,
     WHO_IS_WRITING,
+    minutes_said,
 )
 from app.constants.journey_words import CAREER_WORDS, EXPOSURE_PUSH_WORDS, LABEL_WORDS
 from app.constants.onboarding_copy import CHILD_TALK_YES
@@ -66,11 +75,12 @@ from app.core.errors import ProviderResponseInvalid
 from app.domain.enums import (
     ChildSessionEndReason,
     CuriosityDomain,
+    DailyTalkLimit,
     Language,
     SafetyCategory,
     StepOutcome,
 )
-from app.domain.models.child_session import ChildSession
+from app.domain.models.child_session import ChildSession, DailyTalkTime
 from app.domain.models.curiosity import CuriositySource
 from app.domain.models.learner import Learner
 from app.domain.models.reply import CanonicalReply, ReplyButton
@@ -83,6 +93,7 @@ from app.domain.models.writes import (
     ChildTalkTurn,
 )
 from app.domain.rules.activity_validator import ActivityValidator
+from app.domain.rules.child_daily_limit_rules import ChildDailyLimitRules
 from app.domain.rules.child_hazard_matcher import ChildHazardMatcher
 from app.domain.rules.child_question_detector import ChildQuestionDetector
 from app.domain.rules.child_reply_matcher import ChildReplyMatcher
@@ -92,6 +103,7 @@ from app.domain.rules.child_session_rules import (
     ChildSessionLimits,
     ChildSessionRules,
 )
+from app.domain.rules.child_talk_limit_parser import ChildTalkLimitParser
 from app.domain.rules.onboarding_answer_parser import OnboardingAnswerParser
 from app.domain.rules.parent_mention import ParentMention
 from app.domain.rules.phrase_finder import PhraseFinder
@@ -133,6 +145,15 @@ class _Answer:
     usages: list[StepUsage]
     prompt_versions: dict[str, str]
     degraded_reason: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class _Today:
+    """The child's day so far: whether their time is used up, and what the parent's summary
+    would say if the session ended now."""
+
+    reached: bool
+    talk_time: DailyTalkTime
 
 
 class ChildTalkLayer:
@@ -185,6 +206,14 @@ class ChildTalkLayer:
             )
         learner = _learner(ctx.learners, session.learner_id)
         previous = ctx.recent_exchanges[-1].reply_text if ctx.recent_exchanges else None
+        today = _Today(
+            reached=ChildDailyLimitRules.is_reached(
+                learner, ctx.child_talk_today, now, self._limits
+            ),
+            talk_time=ChildDailyLimitRules.talk_time(
+                learner, ctx.child_talk_today, session.started_at, now, self._limits
+            ),
+        )
         control = self._session_control(
             session,
             learner,
@@ -193,12 +222,20 @@ class ChildTalkLayer:
             now=now,
             register=register,
             previous_reply=previous,
+            today=today,
         )
         if control is not None:
             return control
         voice = LocalVoice.for_turn(register, ctx, user_text)
         return await self._turn(
-            session, learner, user_text, now, register, voice=voice, blocked=blocked
+            session,
+            learner,
+            user_text,
+            now,
+            register,
+            voice=voice,
+            blocked=blocked,
+            today=today,
         )
 
     def _session_control(  # noqa: PLR0913, PLR0911  # one return per rule, in order
@@ -211,19 +248,30 @@ class ChildTalkLayer:
         now: datetime,
         register: Language,
         previous_reply: str | None,
+        today: _Today,
     ) -> LayerResult | None:
         """What ends or steers the session before anything is answered: the parent taking the
         phone back, an account action, the limits, a goodbye, a parent's words, a language.
-        None: the child's message is answered."""
+        None: the child's message is answered (and, with the day's time used up, the session
+        then ends: `_turn`)."""
         if KID_PARENT in interactive_ids:
-            return self._parent_took_over(session, learner, register)
-        if ChildTalkLayer._is_account_action(user_text, interactive_ids):
+            return self._parent_took_over(session, learner, register, today.talk_time)
+        if ChildTalkLayer._is_account_action(user_text, interactive_ids, learner):
             return _fixed(ASK_A_GROWNUP, register)
         if ChildSessionRules.is_over(session, now, self._limits):
-            return self._goodbye(session, learner, register, ChildSessionEndReason.TIME_LIMIT, ())
+            return self._goodbye(
+                session, learner, register, ChildSessionEndReason.TIME_LIMIT, today
+            )
         small_talk = SmallTalkRules.kind(user_text)
         if ChildSessionRules.says_goodbye(user_text) or small_talk in {"good_night", "goodbye"}:
-            return self._goodbye(session, learner, register, ChildSessionEndReason.CHILD_ENDED, ())
+            return self._goodbye(
+                session, learner, register, ChildSessionEndReason.CHILD_ENDED, today
+            )
+        if today.reached and small_talk in {"thanks", "greeting"}:
+            # the day's time is used up and there is nothing to answer: the day's goodbye now
+            return self._goodbye(
+                session, learner, register, ChildSessionEndReason.DAILY_LIMIT, today
+            )
         if small_talk == "thanks":
             # an "ok" or emoji: answered at once and not counted as a question (2026-11-02)
             repeated = SmallTalkRules.repeats(CHILD_ACKNOWLEDGED[register], previous_reply)
@@ -302,6 +350,9 @@ class ChildTalkLayer:
                 id=f"{CHILD_TALK_YES}:{learner.id}", title=CHILD_TALK_ON_BUTTON[register]
             )
             return _fixed(CHILD_TALK_NOT_ENABLED, register, (button,), name=name)
+        if ChildDailyLimitRules.is_reached(learner, ctx.child_talk_today, now, self._limits):
+            # before the cooldown: "tomorrow", not "a little later", is what's true
+            return _fixed(CHILD_DAILY_LIMIT_REACHED, register)
         if ChildSessionRules.in_cooldown(ctx.last_child_session_ended_at, now, self._limits):
             return _fixed(CHILD_TALK_COOLDOWN, register)
         session = ChildSession(
@@ -315,8 +366,15 @@ class ChildTalkLayer:
             hello = _fixed(CHILD_HELLO, register, name=name)
             return hello.model_copy(update={"writes": [start]})
         voice = LocalVoice.for_turn(register, ctx, user_text)
+        # the day's time isn't used up (checked above); the new session has used none of it
+        today = _Today(
+            reached=False,
+            talk_time=ChildDailyLimitRules.talk_time(
+                learner, ctx.child_talk_today, now, now, self._limits
+            ),
+        )
         result = await self._turn(
-            session, learner, user_text, now, register, voice=voice, blocked=blocked
+            session, learner, user_text, now, register, voice=voice, blocked=blocked, today=today
         )
         return result.model_copy(update={"writes": [start, *result.writes]})
 
@@ -332,28 +390,29 @@ class ChildTalkLayer:
         *,
         voice: str,
         blocked: frozenset[SafetyCategory] = frozenset(),
+        today: _Today,
     ) -> LayerResult:
+        ending = self._ending(session, daily_reached=today.reached)
         if blocked:
             reason = ChildTalkLayer._reason(blocked)
             answer = await self._redirect(
                 learner, user_text, now, register, voice=voice, reason=reason
             )
         else:
-            last_answer = ChildSessionRules.is_last_turn(session, self._limits)
             answer = await self._answer(
                 learner,
                 user_text,
                 now,
                 register,
                 voice,
-                last_answer=last_answer,
+                last_answer=ending is not None,
                 first_answer=session.turns_count == 0,
             )
         counted = ChildTalkTurn(session_id=session.id, topic=answer.topic)
         source = CuriositySource(
             learner_id=learner.id, kind="child_words", hint_domains=[], activity_title=None
         )
-        if not ChildSessionRules.is_last_turn(session, self._limits):
+        if ending is None:
             return LayerResult(
                 curiosity=source if answer.degraded_reason is None else None,
                 reply=answer.text,
@@ -366,7 +425,7 @@ class ChildTalkLayer:
             )
         new_topics = (answer.topic,) if answer.topic else ()
         goodbye = self._goodbye(
-            session, learner, register, ChildSessionEndReason.TURN_LIMIT, new_topics
+            session, learner, register, ending, today, new_topics=new_topics, answered_now=True
         )
         reply = answer.text.model_copy(
             update={
@@ -385,29 +444,50 @@ class ChildTalkLayer:
             }
         )
 
-    def _goodbye(
+    def _ending(
+        self, session: ChildSession, *, daily_reached: bool
+    ) -> ChildSessionEndReason | None:
+        """Whether the answer this turn is the session's last, and why: the session's last
+        allowed question, or the child's time for today used up (owner, 2026-11-13: the answer
+        is completed, then the goodbye). None: the session goes on."""
+        if ChildSessionRules.is_last_turn(session, self._limits):
+            return ChildSessionEndReason.TURN_LIMIT
+        if daily_reached:
+            return ChildSessionEndReason.DAILY_LIMIT
+        return None
+
+    def _goodbye(  # noqa: PLR0913  # plus this turn's topic and whether it answered
         self,
         session: ChildSession,
         learner: Learner,
         register: Language,
         reason: ChildSessionEndReason,
-        new_topics: Sequence[CuriosityDomain],
+        today: _Today,
+        *,
+        new_topics: Sequence[CuriosityDomain] = (),
+        answered_now: bool = False,
     ) -> LayerResult:
-        """The goodbye to the child (spoken), then the parent's summary (text only). No summary
-        when the child asked nothing: "Munni talked with Marg" wouldn't be true (owner,
-        2026-10-29)."""
-        asked_something = session.turns_count > 0 or reason is ChildSessionEndReason.TURN_LIMIT
-        body = CHILD_GOODBYE[register]
+        """The goodbye to the child (spoken), then the parent's summary (text only): the topics
+        and the child's time today against their limit. No summary when the child asked
+        nothing: "Munni talked with Marg" wouldn't be true (owner, 2026-10-29). When the day's
+        time ran out, the goodbye says so: until tomorrow."""
+        asked_something = session.turns_count > 0 or answered_now
+        goodbye = (
+            CHILD_DAILY_LIMIT_REACHED
+            if reason is ChildSessionEndReason.DAILY_LIMIT
+            else CHILD_GOODBYE
+        )
+        body = goodbye[register]
         if asked_something:
             summary = ChildTalkLayer.parent_summary(
-                learner.nickname, [*session.topics, *new_topics], register
+                learner.nickname, [*session.topics, *new_topics], register, today.talk_time
             )
             body = f"{body}\n\n{summary}"
         return LayerResult(
             reply=CanonicalReply(
                 body=body,
                 body_language=register,
-                spoken_text=CHILD_GOODBYE[_voice_language(register)],
+                spoken_text=goodbye[_voice_language(register)],
                 citations=[],
                 buttons=[],
                 fixed_kind=None,
@@ -422,15 +502,17 @@ class ChildTalkLayer:
 
     @staticmethod
     def _parent_took_over(
-        session: ChildSession, learner: Learner, register: Language
+        session: ChildSession, learner: Learner, register: Language, talk_time: DailyTalkTime
     ) -> LayerResult:
         """ "Yes, I'm the parent": the child's session ends (recorded like a goodbye from the
-        phone, CHILD_ENDED), and the parent gets the topics summary; their next message is
-        answered as theirs (owner, 2026-11-01)."""
+        phone, CHILD_ENDED), and the parent gets the summary, topics and time; their next
+        message is answered as theirs (owner, 2026-11-01)."""
         name = learner.nickname or UNNAMED_CHILD_NAME[register]
         body = PARENT_TAKEOVER_DONE[register].format(name=name)
         if session.turns_count > 0:
-            summary = ChildTalkLayer.parent_summary(learner.nickname, session.topics, register)
+            summary = ChildTalkLayer.parent_summary(
+                learner.nickname, session.topics, register, talk_time
+            )
             body = f"{body}\n\n{summary}"
         ended = ChildSessionEnd(session_id=session.id, reason=ChildSessionEndReason.CHILD_ENDED)
         return LayerResult(
@@ -576,22 +658,32 @@ class ChildTalkLayer:
 
     @staticmethod
     def parent_summary(
-        nickname: str | None, topics: Sequence[CuriosityDomain], register: Language
+        nickname: str | None,
+        topics: Sequence[CuriosityDomain],
+        register: Language,
+        talk_time: DailyTalkTime,
     ) -> str:
         """What the child asked about, for the parent: reviewed wording and topic labels only,
-        never the child's words. Used at the goodbye, and by maintenance for a session the
-        child left without one."""
-        return _ParentSummary.text(nickname, topics, register)
+        never the child's words; then the child's time that day against their daily limit
+        (owner, 2026-11-13). Used at the goodbye, when the parent takes the phone back, and by
+        maintenance for a session the child left without a goodbye. Never after a crisis."""
+        topics_line = _ParentSummary.text(nickname, topics, register)
+        return f"{topics_line}\n{_ParentSummary.time_line(talk_time, register)}"
 
     @staticmethod
-    def _is_account_action(user_text: str, interactive_ids: Sequence[str]) -> bool:
-        """Anything that would change the account (C16): deletion, adding a child, or any
-        button but `kid:`. A language request changes only the session (handled before)."""
+    def _is_account_action(
+        user_text: str, interactive_ids: Sequence[str], learner: Learner
+    ) -> bool:
+        """Anything that would change the account (C16): deletion, adding a child, the daily
+        talk limit (the parent's alone; owner, 2026-11-13), or any button but `kid:`. A language
+        request changes only the session (handled before)."""
         if any(not button.startswith(KID_START) for button in interactive_ids):
             return True
-        return OnboardingAnswerParser.asks_for_deletion(
-            user_text
-        ) or OnboardingAnswerParser.asks_to_add_child(user_text)
+        return (
+            OnboardingAnswerParser.asks_for_deletion(user_text)
+            or OnboardingAnswerParser.asks_to_add_child(user_text)
+            or ChildTalkLimitParser.is_about_the_limit(user_text, [learner])
+        )
 
 
 class _ChildText:
@@ -644,6 +736,18 @@ class _ParentSummary:
             return PARENT_SUMMARY_NO_TOPICS[register].format(name=name)
         labels = [TOPIC_LABELS[topic][register] for topic in unique_topics]
         return PARENT_SUMMARY[register].format(name=name, topics=", ".join(labels))
+
+    @staticmethod
+    def time_line(talk_time: DailyTalkTime, register: Language) -> str:
+        """ "⏱️ Aaj kul baat: 14 minute. Roz ki limit: 30 minute.", or the limit is used up,
+        or there is none."""
+        used = minutes_said(talk_time.used, register)
+        if talk_time.limit is DailyTalkLimit.NO_LIMIT:
+            return PARENT_TALK_TIME_NO_LIMIT[register].format(used=used)
+        limit = DAILY_LIMIT_NAMES[talk_time.limit][register]
+        if ChildDailyLimitRules.is_used_up(talk_time):
+            return PARENT_TALK_TIME_USED_UP[register].format(used=used, limit=limit)
+        return PARENT_TALK_TIME[register].format(used=used, limit=limit)
 
 
 class _ChildChecks:

@@ -74,7 +74,8 @@ class CuriosityDomain(StrEnum):    NATURE_LIVING; EARTH_SKY; NUMBERS_PATTERNS; W
                                    EVERYDAY_WORK
 class Sentiment(StrEnum):          POSITIVE; NEUTRAL; NEGATIVE
 class Speaker(StrEnum):            GUIDE; LEARNER                 # who is talking this turn (C13 child talk)
-class ChildSessionEndReason(StrEnum): TURN_LIMIT; TIME_LIMIT; CHILD_ENDED; CRISIS; EXPIRED
+class ChildSessionEndReason(StrEnum): TURN_LIMIT; TIME_LIMIT; CHILD_ENDED; CRISIS; EXPIRED; DAILY_LIMIT
+class DailyTalkLimit(StrEnum): MINUTES_20; MINUTES_30; MINUTES_60; NO_LIMIT   # s10b: a child's talk a day
 ```
 
 `Route` → owner of the `GENERATE` work: `ONBOARDING`, `DATA_DELETION` → s08; `EXPOSURE` → s10;
@@ -157,6 +158,8 @@ class Learner(BaseModel):                    # the child or student whose journe
     relation: LearnerRelation                # SELF for a student; PARENT for a parent's child
     nickname: str | None                     # ≤ 20 chars, optional, never a full name
     birth_year: int                          # validated: ≥ current_year − 19, ≤ current_year − 2
+    child_talk_consented_at: datetime | None # C13: the parent's consent; None = child talk off
+    child_talk_daily_limit: DailyTalkLimit | None = None  # s10b: the parent's daily limit; None = default (30 min)
     # derived in app/domain/stages.py: age_band(birth_year, today) and nep_stage(...)
 
 class Exchange(BaseModel):                   # one past turn, for context windows
@@ -183,6 +186,7 @@ class TurnContext(BaseModel):                # built by the worker (s04), read b
     open_activity: "OfferedActivity | None"  # s10b: the latest OFFERED activity for active_learner, < 48 h old
     speaker: Speaker                         # LEARNER only inside an open child session (C13)
     child_session: "ChildSession | None"     # the open child session for active_learner, if any
+    child_talk_today: list[ChildSessionSpan] # s10b: the user's children's sessions from yesterday's midnight IST: the daily limit and the summary's time
     is_session_start: bool                   # gap since the previous turn > SESSION_GAP (6 h)
 ```
 
@@ -248,6 +252,7 @@ TurnWrite = Annotated[
   | NudgePreference          # s10b: opt in / change time / opt out
   | MarkPurgeAfterDelivery   # s08: delete the user once this turn's last part is delivered
   | ChildTalkConsent         # s08: parent grants or revokes direct child talk (C13); field granted: bool
+  | ChildTalkDailyLimit      # s10b: parent picks one child's daily talk limit; fields learner_id, limit: DailyTalkLimit
   | ChildSessionStart        # s10b: the child started talking
   | ChildSessionEnd,         # s10b: limit reached, child ended, crisis, or expired
   Field(discriminator="kind")]
@@ -738,3 +743,7 @@ Per-step timeouts `TIMEOUT_<STEP>_S`: `FETCH_MEDIA` 5, `TRANSCRIBE` 8, `SAFETY_I
 | 2026-11-02 | Removed: `SIDECAR_BASE_URL`, `SIDECAR_TOKEN`, `TTS_ENGINE`, `TTS_PITCH`, `TtsEngine`, `SidecarSynthesizer`, `HealthChecks.sidecar`; `VoiceSteps.synthesizer: Synthesizer \| None` | MMS-TTS sidecar removed (s06 log) | owner |
 | 2026-11-03 | `SAFETY_BASE_URL`, `SAFETY_API_KEY`, `OPEN_MODEL_BASE_URL`, `OPEN_MODEL_API_KEY` optional; `Settings.llama_guard_configured`, `open_model_configured`, `open_model_in_use`; `SafetyGate(classifier: SafetyClassifier \| None)`; `OrchestratorPorts.safety_classifier: SafetyClassifier \| None`; `Providers.open_model`, `safety_classifier` optional, `Providers.language_models` | A local run with only a Meta Model API key (s07, s10b logs) | owner |
 | 2026-11-03 | Setting defaults: `TURN_BUDGET_S` 35 → 90, `LEASE_DURATION_S` 75 → 180, `TIMEOUT_GENERATE_S` 20 → 45, `TIMEOUT_EXPOSURE_S` and `TIMEOUT_MENTOR_S` 24 → 60, `TIMEOUT_SAFETY_IN_S` 5 → 20, `TIMEOUT_SAFETY_OUT_S` 6 → 20, `TIMEOUT_TRANSCRIBE_S` 10 → 30, `TIMEOUT_FETCH_MEDIA_S` and `TIMEOUT_FETCH_IMAGE_S` 5 → 15, `TIMEOUT_ANALYZE_IMAGE_S` 6 → 20, `TIMEOUT_MAKE_CARD_S` 30 → 90, `TIMEOUT_WHATSAPP_S` 5 → 15. Unchanged: `TIMEOUT_GUARD_S` 1.5, `TIMEOUT_OPEN_MODEL_S` 7, `TIMEOUT_ROUTE_S` 4 | A late reply over one that seems to fail (s05 and s07 logs) | owner |
+| 2026-11-13 | `DailyTalkLimit` (StrEnum) and `Learner.child_talk_daily_limit: DailyTalkLimit \| None = None`; `ChildSessionEndReason.DAILY_LIMIT`; `ChildSessionSpan` (`app/domain/models/child_session.py`); `TurnContext.child_talk_today: list[ChildSessionSpan]` (default empty); `TurnWrite` variant `ChildTalkDailyLimit`; `ChildDailyLimitRules` (`DEFAULT`, `limit_for`, `time_allowed`, `day_started`, `used_today`, `is_reached`); `LearnerRepository.set_child_talk_daily_limit`, `ChildSessionRepository.spans_since`; copy `CHILD_DAILY_LIMIT_REACHED` | A daily limit on each child's own talk (s10b §4.16, decisions log) | owner |
+| 2026-11-13 | `ChildDailyLimitRules.used_today` / `is_reached` take the `ChildSessionLimits` (the 10-minute cap); `chosen(learner)`, `LAST_ANSWER_COUNTS`; `ChildTalkLimitParser` (`is_about_the_limit`, `limit_named`, `child_named`); `ChildTalkSettingsLayer` (`daily_limit`, `consent_question`); `CopyKey.ASK_CHILD_TALK_LIMIT`; button namespace `jrn:limit:<DailyTalkLimit>|ask:<learner_id>`; copy `CHILD_TALK_LIMIT_ASK`, `CHILD_TALK_LIMIT_SET`, `CHILD_TALK_NO_LIMIT_SET`, `CHILD_TALK_LIMIT_WHICH_CHILD`, `DAILY_LIMIT_NAMES`, `LIMITS_ON_BUTTONS`, `limit_buttons` | The parent picks each child's limit; owner's counting decisions (s10b §4.16, decisions log) | owner |
+| 2026-11-13 | `DailyTalkTime` (`used`, `limit`; `app/domain/models/child_session.py`); `ChildDailyLimitRules.used_that_day`, `talk_time`, `is_used_up`, `whole_minutes`, `read_since`, `picked_or_default`; `ChildTalkLimitParser.is_about_the_limit(text, learners)`, `asks_a_question`; `ChildTalkLayer.parent_summary(nickname, topics, register, talk_time)`; `ExpiredSession.learner_id`, `started_at`, `ended_at`, `daily_limit`; `ChildSessionRepository.learner_sessions_since`; `SummaryDeps.limits`; `TurnContext.child_talk_today` now from yesterday's midnight; copy `PARENT_TALK_TIME`, `PARENT_TALK_TIME_NO_LIMIT`, `PARENT_TALK_TIME_USED_UP`, `TALK_MINUTES`, `TALK_ONE_MINUTE`, `TALK_UNDER_A_MINUTE` | Precise limit messages; time used in the parent's summary (s10b §4.16) | owner |
+| 2026-11-13 | `ChildTalkLimitParser.asks_time_left(text, learners)`; `ChildDailyLimitRules.minutes_left_shown`; `ParentTurnFacts` and `ChildTalkSettingsLayer.daily_limit(facts, button, user_text, register)` (`app/layers/child_talk_settings_layer.py`); `JourneySettings.talk_limits: ChildSessionLimits`; button `jrn:limit:time:<learner_id>`; copy `TALKED_TODAY`, `NOT_TALKED_TODAY`, `TIME_LEFT_TODAY`, `TIME_USED_UP_TODAY`, `NO_DAILY_LIMIT`, `CHANGE_LIMIT_HINT`, `minutes_said` | The parent asks the time left today (s10b §4.16) | owner |

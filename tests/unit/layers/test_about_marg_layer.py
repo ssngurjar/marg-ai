@@ -8,7 +8,8 @@ import pytest
 from app.constants.crisis_replies import CHILD_HELPLINE, TELE_MANAS
 from app.constants.marg_facts import MARG_FACTS
 from app.core.config import Settings
-from app.domain.enums import Language, Role, StepOutcome
+from app.domain.enums import DailyTalkLimit, Language, Role, StepOutcome
+from app.domain.rules.child_daily_limit_rules import ChildDailyLimitRules
 from app.layers.about_marg_layer import AboutMargAnswer, AboutMargLayer
 from app.layers.layer_result import LayerResult
 from tests.fakes.language_model import FakeLanguageModel
@@ -104,6 +105,20 @@ def test_the_child_talk_limits_in_the_facts_are_the_settings_defaults() -> None:
     assert f"after {turns} questions or {minutes} minutes" in fact.text
 
 
+def test_the_daily_limits_in_the_facts_are_the_rules_choices() -> None:
+    def minutes_of(limit: DailyTalkLimit) -> int:
+        allowed = ChildDailyLimitRules.time_allowed(limit)
+        assert allowed is not None
+        return int(allowed.total_seconds() // 60)
+
+    [fact] = [fact for fact in MARG_FACTS if fact.topic == "a child talking to Marg"]
+    assert f"at most {minutes_of(ChildDailyLimitRules.DEFAULT)} minutes" in fact.text
+    assert minutes_of(DailyTalkLimit.MINUTES_60) == 60  # said as "1 hour"
+    picks = f"{minutes_of(DailyTalkLimit.MINUTES_20)} minutes, 1 hour or no limit"
+    assert picks in fact.text
+    assert ChildDailyLimitRules.time_allowed(DailyTalkLimit.NO_LIMIT) is None
+
+
 def test_the_retention_in_the_facts_is_the_settings_default() -> None:
     days = Settings.model_fields["retention_turn_text_days"].default
     [fact] = [fact for fact in MARG_FACTS if fact.topic == "how long messages are kept"]
@@ -120,6 +135,7 @@ def test_the_facts_say_replies_are_written_only_while_voice_replies_are_off() ->
 def test_every_number_in_the_facts_is_accounted_for() -> None:
     allowed = {
         "3", "8", "6", "12", "10", "90", "2023",
+        "20", "30", "1",  # the daily limits (test_the_daily_limits_in_the_facts_are_…)
         CHILD_HELPLINE.number, TELE_MANAS.number,
     }  # fmt: skip
     for fact in MARG_FACTS:

@@ -83,6 +83,7 @@ from tests.fakes.sender import FakeSender
 from tests.fakes.sleeper import FakeSleeper
 from tests.support import whatsapp_payloads as wa
 from tests.support.app_factory import TEST_PHONE_NUMBER_ID, make_identity, make_settings
+from tests.support.child_talk import LIMITS
 from tests.support.journey import CURIOSITY_SIGNALS
 from tests.support.prompts import shipped_registry
 
@@ -241,6 +242,7 @@ def build(
                     sessions=ChildSessionRepository(sessions),
                     gate=SafetyGate(FakeSafetyClassifier(), rules_only_policy()),
                     deliverer=deliverer,
+                    limits=LIMITS,
                 ),
                 WORKER,
             ),

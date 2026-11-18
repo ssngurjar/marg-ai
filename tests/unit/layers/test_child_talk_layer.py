@@ -29,12 +29,13 @@ from app.core.errors import ProviderResponseInvalid, ProviderUnavailable
 from app.domain.enums import (
     ChildSessionEndReason,
     CuriosityDomain,
+    DailyTalkLimit,
     Language,
     Route,
     SafetyCategory,
     StepOutcome,
 )
-from app.domain.models.child_session import ChildSession
+from app.domain.models.child_session import ChildSession, DailyTalkTime
 from app.domain.models.learner import Learner
 from app.domain.models.turn import Exchange
 from app.domain.models.writes import (
@@ -395,7 +396,10 @@ def test_exactly_ten_minutes_after_the_question_still_brings_it() -> None:
 )
 def test_the_parents_summary_never_quotes_the_child(words: list[str]) -> None:
     """The summary is built from topics and the nickname only."""
-    summary = ChildTalkLayer.parent_summary(MUNNI.nickname, [CuriosityDomain.EARTH_SKY], H)
+    talk_time = DailyTalkTime(used=timedelta(minutes=14), limit=DailyTalkLimit.MINUTES_30)
+    summary = ChildTalkLayer.parent_summary(
+        MUNNI.nickname, [CuriosityDomain.EARTH_SKY], H, talk_time
+    )
     said = " ".join(words)
     for word in said.split():
         if word != "Munni":
@@ -659,9 +663,9 @@ async def test_the_parents_button_ends_the_session_with_the_topics_summary() -> 
     session = open_session(MUNNI, turns=2, topics=[CuriosityDomain.EARTH_SKY])
     result, llm = await talk(buttons=["kid:parent"], session=session)
     assert result.reply.body.startswith(copy.PARENT_TAKEOVER_DONE[H].format(name="Munni"))
-    assert (
-        ChildTalkLayer.parent_summary("Munni", [CuriosityDomain.EARTH_SKY], H) in result.reply.body
-    )
+    nothing_today = DailyTalkTime(used=timedelta(0), limit=DailyTalkLimit.MINUTES_30)
+    summary = ChildTalkLayer.parent_summary("Munni", [CuriosityDomain.EARTH_SKY], H, nothing_today)
+    assert summary in result.reply.body
     assert result.writes == [
         ChildSessionEnd(session_id=SESSION_ID, reason=ChildSessionEndReason.CHILD_ENDED)
     ]

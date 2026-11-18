@@ -6,7 +6,7 @@ Needs `make test-db-up` and migrations applied (`make test-int` does both).
 
 import asyncio
 import random
-from datetime import timedelta
+from datetime import datetime, timedelta
 from uuid import UUID
 
 import pytest
@@ -22,7 +22,9 @@ from app.domain.enums import (
     Language,
     PartKind,
 )
+from app.domain.models.learner import LearnerId
 from app.domain.models.writes import ChildSessionEnd, ChildTalkTurn
+from app.domain.rules.child_daily_limit_rules import ChildDailyLimitRules
 from app.providers.http import RetryPolicy, RetryTiming
 from app.providers.ports import ChannelSender
 from app.safety.safety_gate import SafetyGate
@@ -37,8 +39,16 @@ from tests.fakes.domain_policy import rules_only_policy
 from tests.fakes.safety_classifier import FakeSafetyClassifier
 from tests.fakes.sender import FakeSender
 from tests.fakes.sleeper import FakeSleeper
-from tests.integration.test_child_session_store import MUNNI, PARENT, engine, sessions, started
+from tests.integration.test_child_session_store import (
+    GOLU,
+    MUNNI,
+    PARENT,
+    engine,
+    sessions,
+    started,
+)
 from tests.support.app_factory import make_identity
+from tests.support.child_talk import LIMITS
 
 pytestmark = pytest.mark.integration
 __all__ = ["engine", "sessions"]  # the shared fixtures
@@ -75,6 +85,7 @@ def summary_sender(
             sessions=ChildSessionRepository(sessions),
             gate=SafetyGate(FakeSafetyClassifier(), rules_only_policy()),
             deliverer=deliverer,
+            limits=LIMITS,
         ),
         worker_id="test-worker",
     )
@@ -226,7 +237,139 @@ async def test_a_parent_deleted_meanwhile_gets_nothing(
     await run(engine, "DELETE FROM users WHERE user_hash = :h", h=PARENT)
     sender = FakeSender(FixedClock(SystemClock().now()))
     summaries = summary_sender(sessions, sender)
+    talk_time = await summaries._talk_time(due)  # the parent's sessions went with them
     assert (
-        await repository.queue_summary(summaries._summary(due)) is None
+        await repository.queue_summary(summaries._summary(due, talk_time)) is None
     )  # the race, made deterministic
     assert sender.sent == []
+
+
+# --- the time used, in the summary (owner, 2026-11-13) -----------------------------------------
+
+
+async def database_now(engine: AsyncEngine) -> datetime:
+    async with engine.connect() as connection:
+        now: datetime = (await connection.execute(text("SELECT now()"))).scalar_one()
+    return now
+
+
+def an_hour_inside_one_india_day(now: datetime) -> datetime:
+    """An end point with the hour before it inside one India day, and before `now`: these
+    tests never straddle midnight IST, whenever they run."""
+    day_started = ChildDailyLimitRules.day_started(now)
+    if now - day_started >= timedelta(hours=2):
+        return now - timedelta(minutes=1)
+    return day_started - timedelta(minutes=5)  # late yesterday, still inside the 24 hours
+
+
+async def a_session_at(
+    engine: AsyncEngine,
+    sessions: async_sessionmaker[AsyncSession],
+    learner: LearnerId,
+    *,
+    started_at: datetime,
+    ended: tuple[datetime, ChildSessionEndReason],
+) -> None:
+    """A session with answered questions that ended in a turn, moved to fixed times."""
+    session_id = await started(sessions, learner)
+    async with sessions() as session, session.begin():
+        await ChildSessionRepository.count_turn(
+            session, PARENT, ChildTalkTurn(session_id=session_id, topic=None)
+        )
+        await ChildSessionRepository.end(
+            session, PARENT, ChildSessionEnd(session_id=session_id, reason=ended[1])
+        )
+    await run(
+        engine,
+        "UPDATE child_sessions SET started_at = :s, ended_at = :e, last_answered_at = :e "
+        "WHERE id = :id",
+        s=started_at,
+        e=ended[0],
+        id=session_id,
+    )
+
+
+async def walked_away_at(
+    engine: AsyncEngine,
+    sessions: async_sessionmaker[AsyncSession],
+    *,
+    started_at: datetime,
+    last_answered_at: datetime,
+) -> None:
+    session_id = await started(sessions, MUNNI)
+    async with sessions() as session, session.begin():
+        await ChildSessionRepository.count_turn(
+            session, PARENT, ChildTalkTurn(session_id=session_id, topic=CuriosityDomain.EARTH_SKY)
+        )
+    await run(
+        engine,
+        "UPDATE child_sessions SET started_at = :s, last_answered_at = :a WHERE id = :id",
+        s=started_at,
+        a=last_answered_at,
+        id=session_id,
+    )
+    assert await ChildSessionRepository(sessions).close_abandoned(timedelta(minutes=10)) == 1
+
+
+async def the_summary(sessions: async_sessionmaker[AsyncSession]) -> str:
+    sender = FakeSender(FixedClock(SystemClock().now()))
+    assert await summary_sender(sessions, sender).send_due() == 1
+    [sent] = sender.sent
+    return sent.part.text or ""
+
+
+async def test_the_summary_of_a_session_left_gives_the_days_time_and_the_limit(
+    engine: AsyncEngine, sessions: async_sessionmaker[AsyncSession]
+) -> None:
+    """An earlier talk of 10 minutes, then one left 3 minutes in: 10 + 3 + a minute."""
+    await a_parent_writing_recently(engine)
+    end = an_hour_inside_one_india_day(await database_now(engine))
+    earlier = end - timedelta(minutes=50)
+    await a_session_at(
+        engine,
+        sessions,
+        MUNNI,
+        started_at=earlier,
+        ended=(earlier + timedelta(minutes=10), ChildSessionEndReason.CHILD_ENDED),
+    )
+    left = end - timedelta(minutes=15)
+    await walked_away_at(
+        engine, sessions, started_at=left, last_answered_at=left + timedelta(minutes=3)
+    )
+    summary = await the_summary(sessions)
+    assert summary.endswith("⏱️ Aaj kul baat: 14 minute. Roz ki limit: 30 minute.")
+
+
+async def test_the_summary_shows_the_parents_pick(
+    engine: AsyncEngine, sessions: async_sessionmaker[AsyncSession]
+) -> None:
+    await a_parent_writing_recently(engine)
+    await run(
+        engine, "UPDATE learners SET child_talk_daily_limit = 'no_limit' WHERE id = :id", id=MUNNI
+    )
+    end = an_hour_inside_one_india_day(await database_now(engine))
+    left = end - timedelta(minutes=15)
+    await walked_away_at(engine, sessions, started_at=left, last_answered_at=left)
+    summary = await the_summary(sessions)
+    assert summary.endswith("⏱️ Aaj kul baat: 1 minute. Roz ki koi limit nahi.")
+
+
+async def test_a_siblings_time_is_left_out_of_the_summary(
+    engine: AsyncEngine, sessions: async_sessionmaker[AsyncSession]
+) -> None:
+    await a_parent_writing_recently(engine)
+    end = an_hour_inside_one_india_day(await database_now(engine))
+    golu_at = end - timedelta(minutes=50)
+    await a_session_at(
+        engine,
+        sessions,
+        GOLU,
+        started_at=golu_at,
+        ended=(golu_at + timedelta(minutes=10), ChildSessionEndReason.TURN_LIMIT),
+    )
+    left = end - timedelta(minutes=15)
+    await walked_away_at(
+        engine, sessions, started_at=left, last_answered_at=left + timedelta(minutes=5)
+    )
+    summary = await the_summary(sessions)
+    assert summary.endswith("⏱️ Aaj kul baat: 6 minute. Roz ki limit: 30 minute.")

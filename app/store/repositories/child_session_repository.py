@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from uuid import UUID, uuid4
 
-from sqlalchemy import ColumnElement, and_, func, or_, select, update
+from sqlalchemy import ColumnElement, RowMapping, and_, func, or_, select, update
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -17,13 +17,14 @@ from app.domain.enums import (
     Channel,
     ChildSessionEndReason,
     CuriosityDomain,
+    DailyTalkLimit,
     FixedReplyKind,
     Language,
     Route,
     TurnStatus,
 )
 from app.domain.models.base import TurnId, UserHash
-from app.domain.models.child_session import ChildSession
+from app.domain.models.child_session import ChildSession, ChildSessionSpan
 from app.domain.models.learner import LearnerId
 from app.domain.models.progress import ChildTalkTopics
 from app.domain.models.writes import (
@@ -49,6 +50,11 @@ class ExpiredSession:
     language: Language | None
     nickname: str | None
     topics: list[CuriosityDomain]
+    # for the time line (owner, 2026-11-13): whose session, when it ran, the child's limit
+    learner_id: LearnerId
+    started_at: datetime
+    ended_at: datetime
+    daily_limit: DailyTalkLimit | None  # None: not picked, the default applies
 
 
 @dataclass(frozen=True, slots=True)
@@ -114,6 +120,38 @@ class ChildSessionRepository:
         ]
 
     @staticmethod
+    async def spans_since(
+        session: AsyncSession, user_hash: UserHash, since: datetime
+    ) -> list[ChildSessionSpan]:
+        """When each of the user's children's sessions started since `since` ran, open ones
+        included (the daily limit; ChildDailyLimitRules.day_started gives `since`). Times and
+        counts only, never what was said."""
+        rows = (
+            (
+                await session.execute(
+                    select(
+                        child_sessions.c.learner_id,
+                        child_sessions.c.started_at,
+                        child_sessions.c.ended_at,
+                        child_sessions.c.end_reason,
+                        child_sessions.c.last_answered_at,
+                        child_sessions.c.turns_count,
+                    )
+                    .where(
+                        and_(
+                            child_sessions.c.user_hash == user_hash,
+                            child_sessions.c.started_at >= since,
+                        )
+                    )
+                    .order_by(child_sessions.c.started_at)
+                )
+            )
+            .mappings()
+            .all()
+        )
+        return [_span(row) for row in rows]
+
+    @staticmethod
     async def last_ended_at(session: AsyncSession, user_hash: UserHash) -> datetime | None:
         """When the last session in which the child asked something ended (for the cooldown).
         A session with no answered question doesn't count (owner, 2026-10-29)."""
@@ -156,7 +194,10 @@ class ChildSessionRepository:
 
     @staticmethod
     async def count_turn(session: AsyncSession, owner: UserHash, write: ChildTalkTurn) -> None:
-        values: dict[str, object] = {"turns_count": child_sessions.c.turns_count + 1}
+        values: dict[str, object] = {
+            "turns_count": child_sessions.c.turns_count + 1,
+            "last_answered_at": func.now(),
+        }
         if write.topic is not None:
             topic = write.topic.value
             values["topics"] = func.array_append(
@@ -215,7 +256,11 @@ class ChildSessionRepository:
                 child_sessions.c.id,
                 child_sessions.c.user_hash,
                 child_sessions.c.topics,
+                child_sessions.c.learner_id,
+                child_sessions.c.started_at,
+                child_sessions.c.ended_at,
                 learners.c.nickname,
+                learners.c.child_talk_daily_limit,
                 users.c.channel,
                 users.c.language,
             )
@@ -246,9 +291,46 @@ class ChildSessionRepository:
                 language=Language(row.language) if row.language else None,
                 nickname=row.nickname,
                 topics=[CuriosityDomain(topic) for topic in row.topics],
+                learner_id=LearnerId(row.learner_id),
+                started_at=row.started_at,
+                ended_at=row.ended_at,
+                daily_limit=(
+                    DailyTalkLimit(row.child_talk_daily_limit)
+                    if row.child_talk_daily_limit is not None
+                    else None
+                ),
             )
             for row in rows
         ]
+
+    async def learner_sessions_since(
+        self, learner_id: LearnerId, since: datetime
+    ) -> list[ChildSessionSpan]:
+        """One child's sessions started since `since`: the day's time in the summary of a
+        session they left (times and counts only)."""
+        query = (
+            select(
+                child_sessions.c.learner_id,
+                child_sessions.c.started_at,
+                child_sessions.c.ended_at,
+                child_sessions.c.end_reason,
+                child_sessions.c.last_answered_at,
+                child_sessions.c.turns_count,
+            )
+            .where(
+                and_(
+                    child_sessions.c.learner_id == learner_id,
+                    child_sessions.c.started_at >= since,
+                )
+            )
+            .order_by(child_sessions.c.started_at)
+        )
+        try:
+            async with self._session_factory() as session:
+                rows = (await session.execute(query)).mappings().all()
+        except (SQLAlchemyError, OSError) as exc:
+            raise StoreError(f"could not read a child's sessions: {type(exc).__name__}") from exc
+        return [_span(row) for row in rows]
 
     async def queue_summary(self, summary: QueuedSummary) -> TurnId | None:
         """Mark the summary sent and queue its turn, in one transaction. None when another
@@ -299,4 +381,17 @@ def _open_session(owner: UserHash, session_id: UUID) -> ColumnElement[bool]:
         child_sessions.c.id == session_id,
         child_sessions.c.user_hash == owner,
         child_sessions.c.ended_at.is_(None),
+    )
+
+
+def _span(row: RowMapping) -> ChildSessionSpan:
+    """A session's times and counts; the model checks each (aware times, a known end reason)."""
+    end_reason = row["end_reason"]
+    return ChildSessionSpan(
+        learner_id=LearnerId(row["learner_id"]),
+        started_at=row["started_at"],
+        ended_at=row["ended_at"],
+        end_reason=ChildSessionEndReason(end_reason) if end_reason is not None else None,
+        last_answered_at=row["last_answered_at"],
+        turns_count=row["turns_count"],
     )

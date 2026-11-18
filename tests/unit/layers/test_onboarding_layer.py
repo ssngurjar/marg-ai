@@ -988,7 +988,8 @@ def test_buttons_fit_whatsapp_and_ids_match_across_languages() -> None:
 def test_copy_holds_only_known_placeholders_and_no_hardcoded_links() -> None:
     for (key, language), entry in COPY.items():
         fields = {name for _, name, _, _ in string.Formatter().parse(entry.body) if name}
-        assert fields <= {"child", "invite_link", "district", "choices", "state"}, (key, language)
+        known = {"child", "invite_link", "district", "choices", "state", "current"}
+        assert fields <= known, (key, language)
         assert not re.search(r"https?://", entry.body), (key, language)
 
 
