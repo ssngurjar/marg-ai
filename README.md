@@ -28,7 +28,7 @@ Oct 26 – Nov 4, 2026, by Santram Gurjar.
 | [The models](#the-models) | Six Meta models, each with one job, and where they run |
 | [How it works](#how-it-works) | The pipeline, ports and adapters, and why no message is lost or doubled |
 | [Safety and children's privacy](#safety-and-childrens-privacy) | Two checks on every message, fixed crisis replies, child rules, data minimisation |
-| [What's next](#whats-next) | A daily limit for child talk, reading children's words, anganwadi workers, more sources, and khoj spaces where children try things for real |
+| [What's next](#whats-next) | Reading children's words, anganwadi workers, more sources, and khoj spaces where children try things for real |
 | [Quality](#quality) | 3,741 tests, 112 eval cases (11 new ones not run yet), the latest scorecard, and what hands-on testing found |
 | [Try it](#try-it) | The video, the web demo and WhatsApp |
 | [Repository map](#repository-map) | Where everything lives |
@@ -324,10 +324,6 @@ and every module and class in [docs/code-map.md](docs/code-map.md).
 
 ## What's next
 
-- **A daily limit on a child's time with Marg.** Today a child session ends after 6 questions or
-  10 minutes, and the next can start 30 minutes later, so nothing caps a child's total for the
-  day. Planned: a daily cap the parent can set, with the time shown in the parent's summary, so
-  Marg stays a short daily spark, not screen time.
 - **Reading what a child means, too.** Muse Spark reads what a parent's words mean (a report, a
   question, someone else writing). A child's messages in child talk still go through fixed rules
   for things like "Hindi" or "bye", which miss some ways children write. Planned: the same reading
