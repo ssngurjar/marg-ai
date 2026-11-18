@@ -2,7 +2,7 @@ import json
 from datetime import UTC, datetime
 
 import pytest
-from hypothesis import assume, given
+from hypothesis import assume, example, given
 from hypothesis import strategies as st
 from pydantic import ValidationError
 
@@ -262,6 +262,8 @@ _TEXT = st.text(max_size=60)
 
 @given(wa_id=st.text(alphabet="0123456789", min_size=10, max_size=13), caption=_TEXT, body=_TEXT,
        reply_to_sender=st.booleans())  # fmt: skip
+# a body of just "url" once read as a leaked "url" key (2026-11-13): the check looks for the key
+@example(wa_id="0000000000", caption="", body="url", reply_to_sender=False)
 def test_property_stripped_payload_never_contains_the_number(
     wa_id: str, caption: str, body: str, *, reply_to_sender: bool
 ) -> None:
@@ -286,7 +288,7 @@ def test_property_stripped_payload_never_contains_the_number(
     for item in parse(wa.webhook([text, image])).messages:
         serialised = json.dumps(item.raw_payload)
         assert wa_id not in serialised
-        assert '"url"' not in serialised
+        assert '"url":' not in serialised  # the media URL key, not a message that says "url"
         assert "CAPTION-MARKER" not in serialised
 
 
