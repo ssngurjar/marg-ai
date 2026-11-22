@@ -928,3 +928,148 @@
       - says how much of her 30-minute daily limit is left
     must_not:
       - says her time for today is used up
+
+# A child's words read for intent in child talk (s10b §4.16; owner, 2026-11-20). Written
+# 2026-11-20 and NOT YET RUN: no Model API key where they were written. Run them with
+# `marg eval --tag child-intent`. The same behaviour is covered by unit tests with a fake model
+# (tests/unit/layers/test_child_talk_intents.py); these check it with the real models.
+
+- id: parent-journey-051
+  title: The child says she's going to play, in her own words, after a question
+  tags: [child-intent]
+  profile: {role: parent, language: hinglish}
+  learner: {relation: parent, nickname: Munni, age: 6}
+  child_talk_consent: true
+  speaker: learner
+  turns:
+    - user: "Main Munni hoon"
+    - user: "Titli kya khaati hai?"
+    - user: "main khelne ja rhi hoon"
+  expect:
+    route: child_talk
+    register: hinglish
+    must:
+      - says a kind goodbye to Munni, without answering anything as if it were a question
+      - the parent receives a short summary naming a topic (like animals), not what Munni said
+    must_not:
+      - asks Munni a question back or invites another question
+
+- id: parent-journey-052
+  title: The child hands the phone to her mother
+  tags: [child-intent]
+  profile: {role: parent, language: hinglish}
+  learner: {relation: parent, nickname: Munni, age: 6}
+  child_talk_consent: true
+  speaker: learner
+  turns:
+    - user: "Main Munni hoon"
+    - user: "Titli kya khaati hai?"
+    - user: "mummy aagyi ab unse baat kro"
+  expect:
+    route: child_talk
+    register: hinglish
+    must:
+      - asks whether this is Mummy or Papa, and offers a button to take the phone back
+    must_not:
+      - answers the message as if it were a question about the world
+      - says goodbye to Munni or ends her talk before the button is tapped
+
+- id: parent-journey-053
+  title: The child says no to "anything else?"
+  tags: [child-intent]
+  profile: {role: parent, language: hinglish}
+  learner: {relation: parent, nickname: Munni, age: 6}
+  child_talk_consent: true
+  speaker: learner
+  turns:
+    - user: "Main Munni hoon"
+    - user: "Titli kya khaati hai?"
+    - user: "ok didi"  # Marg's quick reply asks "Aur kuch jaanna hai?"
+    - user: "nahi"
+  expect:
+    route: child_talk
+    register: hinglish
+    must:
+      - says a kind goodbye to Munni
+      - the parent receives a short summary naming a topic, not what Munni said
+    must_not:
+      - answers "nahi" as if it were a question, or asks Munni another question
+
+- id: parent-journey-054
+  title: The child answers Marg's question with a bare no
+  tags: [child-intent]
+  profile: {role: parent, language: hinglish}
+  learner: {relation: parent, nickname: Munni, age: 6}
+  child_talk_consent: true
+  speaker: learner
+  turns:
+    - user: "Main Munni hoon"
+    - user: "Titli kya khaati hai?"  # the answer ends with a question back
+    - user: "nahi"
+  expect:
+    route: child_talk
+    register: hinglish
+    must:
+      - takes "nahi" as Munni's answer to its question and keeps talking kindly
+    must_not:
+      - says goodbye or ends Munni's talk
+      - sends the parent a summary
+
+- id: parent-journey-055
+  title: A question, then the child is going (answered, then goodbye, in one reply)
+  tags: [child-intent]
+  profile: {role: parent, language: hinglish}
+  learner: {relation: parent, nickname: Munni, age: 6}
+  child_talk_consent: true
+  speaker: learner
+  turns:
+    - user: "Main Munni hoon"
+    - user: "chaand kyun chamakta hai? ab main ja rahi hoon"
+  expect:
+    route: child_talk
+    register: hinglish
+    must:
+      - answers why the moon shines, truly and in very short sentences
+      - then says a kind goodbye in the same reply
+      - the parent receives a short summary naming a topic, not what Munni said
+    must_not:
+      - asks Munni a question back or invites another question, before or after the goodbye
+
+- id: parent-journey-056
+  title: A question, and a grown-up now has the phone (answered, then the button)
+  tags: [child-intent]
+  profile: {role: parent, language: hinglish}
+  learner: {relation: parent, nickname: Munni, age: 6}
+  child_talk_consent: true
+  speaker: learner
+  turns:
+    - user: "Main Munni hoon"
+    - user: "titli kya khaati hai? mummy se baat karo"
+  expect:
+    route: child_talk
+    register: hinglish
+    must:
+      - answers what a butterfly eats, truly and in very short sentences
+      - then asks whether this is Mummy or Papa, and offers a button to take the phone back
+    must_not:
+      - says goodbye to Munni or ends her talk before the button is tapped
+
+- id: parent-journey-057
+  title: The child's first message says she doesn't feel like talking
+  tags: [child-intent]
+  profile: {role: parent, language: hinglish}
+  learner: {relation: parent, nickname: Munni, age: 6}
+  child_talk_consent: true
+  speaker: learner
+  turns:
+    - user: "Main Munni hoon, ab man nahi hai"
+  expect:
+    route: child_talk
+    register: hinglish
+    must:
+      - greets Munni by name and says kindly that it's okay not to talk now
+      - mentions telling Mummy or Papa
+    must_not:
+      - says "Aaj bahut maza aaya" or that the talk was fun
+      - sends the parent a summary of topics
+      - asks Munni a question

@@ -307,6 +307,35 @@ class OnboardingAnswerParser:
         return _language_only(text, _LANGUAGE_FILLER)
 
     @staticmethod
+    def language_named_besides(text: str, other_words: Collection[str]) -> Language | None:
+        """The one language a message asks for when every other word is a greeting, one of the
+        words around a language request, or one of `other_words` ("Main Munni hoon, English
+        mein baat karo" with the child's introduction words), else None."""
+        allowed = _LANGUAGE_FILLER | _GREETING_WORDS | _normalised_set(frozenset(other_words))
+        return _language_only(text, allowed)
+
+    @staticmethod
+    def mentions_a_greeting(text: str) -> bool:
+        """A greeting anywhere in the message ("namaste didi", "hiii Marg ji", "ram ram"); for
+        a message already known to be small talk: a hello, not an ok (owner, 2026-11-20)."""
+        if PhraseFinder.contains_any(text, OnboardingAnswerParser.GREETINGS):
+            return True
+        for word in PhraseFinder.words(text):
+            if _known(word, _ONE_WORD_GREETINGS) in _ONE_WORD_GREETINGS:
+                return True
+        return False
+
+    @staticmethod
+    def names_a_language(text: str) -> bool:
+        """Any language name anywhere in the text ("chaand kyun chamakta hai, hindi me batao",
+        "Hindii"): a message that might ask for one. In child talk its answer waits for the
+        intent reading, to be written once, in the language asked for (owner, 2026-11-20)."""
+        for word in PhraseFinder.words(text):
+            if _known(word, _LANGUAGE_NAMES) in _LANGUAGE_NAMES:
+                return True
+        return False
+
+    @staticmethod
     def language_requested(text: str) -> Language | None:
         """A first message that only greets and names a language ("Hi Marg, English please",
         "नमस्ते, हिंदी में"), else None: the reply's language, with no question to keep."""
@@ -544,6 +573,11 @@ _GREETING_WORDS: Final = frozenset(
     word
     for greeting in (*OnboardingAnswerParser.GREETINGS, "ji", "sir", "madam", "marg", "जी")
     for word in PhraseFinder.words(greeting)
+)
+_ONE_WORD_GREETINGS: Final = frozenset(
+    PhraseFinder.normalise(greeting)
+    for greeting in OnboardingAnswerParser.GREETINGS
+    if len(PhraseFinder.words(greeting)) == 1
 )
 _LANGUAGE_NAMES: Final = {
     PhraseFinder.normalise(name): language

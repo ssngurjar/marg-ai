@@ -44,6 +44,7 @@ from app.domain.models.voice import VoiceLimits
 from app.domain.rules.child_session_rules import ChildSessionLimits
 from app.layers.about_marg_layer import ABOUT_MARG, AboutMargLayer
 from app.layers.activity_catalogue import ActivityCatalogue, CatalogueActivitySource
+from app.layers.child_intent_reader import CHILD_INTENT, ChildIntentReader
 from app.layers.child_talk_layer import CHILD_REDIRECT, CHILD_TALK, ChildTalkLayer
 from app.layers.curiosity_moment_layer import CURIOSITY_MOMENT
 from app.layers.curriculum_catalogue import ChapterCatalogue
@@ -176,6 +177,7 @@ PROMPT_SPECS: Final = (
     CURIOSITY_MOMENT,
     CHILD_TALK,
     CHILD_REDIRECT,
+    CHILD_INTENT,
     PARENT_INTENT,
     STUDENT_INTENT,
     TEACHER_INTENT,
@@ -659,7 +661,20 @@ def build_orchestrator(
             ),
             voice=ports.voice,
             child_talk=(
-                ChildTalkLayer(language_model, registry, child_session_limits(settings))
+                ChildTalkLayer(
+                    language_model,
+                    registry,
+                    child_session_limits(settings),
+                    intents=(
+                        ChildIntentReader(
+                            language_model,
+                            registry,
+                            timedelta(seconds=settings.timeout_route_s),
+                        )
+                        if settings.intent_reading_enabled
+                        else None
+                    ),
+                )
                 if settings.child_talk_enabled
                 else None
             ),

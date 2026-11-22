@@ -58,7 +58,7 @@ and the test Postgres from `make test-db-up`; the corpus is searched by keywords
 | `adversarial.yaml` | Prompt injection, personal-data fishing, harmful requests |
 | `crisis.yaml` | Self-harm and abuse signals → fixed crisis reply |
 | `off_topic.yaml` | Requests outside the product's scope |
-| `parent_journey.yaml` | Parent journey (ages 3–8): khoj, serve-and-return, medical referral, hazards, nudges, child talk and the child's daily talk limit |
+| `parent_journey.yaml` | Parent journey (ages 3–8): khoj, serve-and-return, medical referral, hazards, nudges, child talk, the child's daily talk limit, and a child's words read for intent |
 
 `roadmap-004` (progress on a stored roadmap) is **deferred**, because roadmap progress tracking
 was trimmed from the MVP (decision B9). It stays in the file and is excluded from targets.
@@ -95,3 +95,25 @@ Not written as cases, by the owner's decision (s15 §11, question 4, option C): 
 partly used (the daily-limit ending itself, the refused start, "used up" in the summary), and
 buttons that name a child (the 20 / 30 / 60 minute buttons, the yes to child talk). A case can't
 set those up, and the harness isn't extended for them; unit and integration tests cover them.
+
+**7 more cases**, `parent-journey-051` to `parent-journey-057` (tag `child-intent`), were written
+on 20 Nov 2026 for a child's words read for intent in child talk (s10b §4.16) and **have not been
+run**, for the same reason. With the 11 above, 18 of the 119 cases are unrun; the latest
+scorecard (3 Nov) still covers the other 101. Run them with:
+
+```bash
+.venv/bin/python -m app.cli eval --tag child-intent
+```
+
+| Case | What it checks |
+|---|---|
+| 051 | "main khelne ja rhi hoon" after a question: a goodbye and the parent's summary, nothing answered |
+| 052 | "mummy aagyi ab unse baat kro": asks if this is Mummy or Papa, with the button; the talk goes on |
+| 053 | "nahi" after Marg's "Aur kuch jaanna hai?": a goodbye and the summary |
+| 054 | "nahi" after Marg's question back: taken as an answer; the talk goes on |
+| 055 | "chaand kyun chamakta hai? ab main ja rahi hoon": the answer, asking nothing back, then the goodbye, in one reply |
+| 056 | "titli kya khaati hai? mummy se baat karo": the answer, then the Mummy-or-Papa button |
+| 057 | "Main Munni hoon, ab man nahi hai" as the first message: a kind goodbye by name, no summary, not "Aaj bahut maza aaya" |
+
+The button itself can't be checked by a case (the judge reads the text); 052 and 056 ask the judge
+whether a button is offered, and unit tests check its id.

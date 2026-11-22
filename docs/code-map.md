@@ -108,7 +108,7 @@ line of the module's docstring.
 
 | Module | Classes | What it does |
 |---|---|---|
-| `enums.py` | `Channel`, `MessageKind`, `ConversationState`, `InboxStatus`, `OutboxStatus`, `AudioVerdict`, `Speaker`, `ChildSessionEndReason`, `DailyTalkLimit`, `MediaPurpose`, `PartKind`, `Language`, `Route`, `StepName`, `StepOutcome`, `FailureKind`, `TurnStatus`, `SafetyDecision`, `SafetyCategory`, `FixedReplyKind`, `FixedReplyVariant`, `Mode`, `Role`, `ConsentEventKind`, `LearnerRelation`, `CopyKey`, `CuriosityDomain`, `ActivityStatus`, `AgeBand`, `ParentIntent`, `StudentIntent`, `TeacherIntent`, `CorpusTopic`, `RoadmapStatus`, `RoadmapStepStatus`, `AspirationField`, `ConstraintKind`, `Sentiment` | Closed sets of values shared across the app (contracts.md §1). |
+| `enums.py` | `Channel`, `MessageKind`, `ConversationState`, `InboxStatus`, `OutboxStatus`, `AudioVerdict`, `Speaker`, `ChildSessionEndReason`, `DailyTalkLimit`, `MediaPurpose`, `PartKind`, `Language`, `Route`, `StepName`, `StepOutcome`, `FailureKind`, `TurnStatus`, `SafetyDecision`, `SafetyCategory`, `FixedReplyKind`, `FixedReplyVariant`, `Mode`, `Role`, `ConsentEventKind`, `LearnerRelation`, `CopyKey`, `CuriosityDomain`, `ActivityStatus`, `AgeBand`, `ParentIntent`, `StudentIntent`, `TeacherIntent`, `ChildIntent`, `LeavingReason`, `CorpusTopic`, `RoadmapStatus`, `RoadmapStepStatus`, `AspirationField`, `ConstraintKind`, `Sentiment` | Closed sets of values shared across the app (contracts.md §1). |
 
 ## `domain/models`
 
@@ -201,6 +201,7 @@ line of the module's docstring.
 |---|---|---|
 | `about_marg_layer.py` | `AboutMargAnswer`, `AboutMargLayer` | AboutMargLayer: a question about Marg itself (how it keeps people safe, what it keeps, who |
 | `activity_catalogue.py` | `ActivityCatalogue`, `CatalogueActivitySource` | ActivityCatalogue: the reviewed khoj catalogue, loaded and checked at startup (s10b §4.3). |
+| `child_intent_reader.py` | `ChildIntentReading`, `ChildIntentRead`, `ChildIntentReader` | ChildIntentReader: what a child's free text means inside a child-talk session, read by Muse |
 | `child_talk_layer.py` | `ChildReply`, `ChildTalkLayer` | ChildTalkLayer: a child talks to Marg.ai directly, with the parent's consent (s10b §4.16, C13). |
 | `child_talk_settings_layer.py` | `ParentTurnFacts`, `ChildTalkSettingsLayer` | ChildTalkSettingsLayer: a parent's settings for their children's own talk (s10b §4.16). |
 | `curiosity_moment_layer.py` | `CuriosityMoment`, `NotAChildQuestion`, `CuriosityMomentLayer` | CuriosityMomentLayer: the child's own question, answered through the parent (s10b §4.15, C11). |

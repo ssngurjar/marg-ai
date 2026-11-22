@@ -704,3 +704,22 @@ def test_without_a_parent_word_a_switch_or_the_childs_name_nothing_is_a_claim(te
     )
     assume(not words & signals)
     assert not ChildSessionRules.claims_to_be_parent(text, "Munni")
+
+
+async def test_a_degraded_last_answer_stays_degraded_with_the_goodbye_after_it() -> None:
+    # regression (2026-11-20): the goodbye's result dropped the answer's DEGRADED outcome, so a
+    # sixth answer that fell back to the redirect was recorded as OK
+    llm = FakeLanguageModel(
+        [ProviderResponseInvalid("twice", provider="meta_model_api"), CHILD_REPLY]
+    )
+    layer = ChildTalkLayer(llm, shipped_registry(), LIMITS)
+    ctx = turn_context(text_message("chaand kyun?"), learners=[MUNNI]).model_copy(
+        update={"child_session": open_session(MUNNI, turns=5)}
+    )
+    result = await layer.handle(ctx, "chaand kyun?", [], NOW, H)
+    assert result.writes[-1] == ChildSessionEnd(
+        session_id=SESSION_ID, reason=ChildSessionEndReason.TURN_LIMIT
+    )
+    assert result.outcome is StepOutcome.DEGRADED
+    assert result.degraded_reason == "child_redirect_after=ProviderResponseInvalid"
+    assert result.curiosity is None

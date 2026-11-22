@@ -71,6 +71,29 @@ class ChildSessionRules:
             return True
         return ChildSessionRules.introduced(user_text, learners) is not None
 
+    ENGLISH_INTRODUCTION_WORDS: ClassVar[frozenset[str]] = frozenset(
+        {"i", "am", "im", "this", "is", "it", "its", "s", "my", "name"}
+    )
+
+    @staticmethod
+    def introduction_words(learner: Learner) -> frozenset[str]:
+        """The words a child introduces themselves with ("main Munni hi bol rahi hoon", "I'm
+        Munni", "main bachcha hoon"), as PhraseFinder sees them: what an opening message may
+        hold besides a language request (owner, 2026-11-20)."""
+        rules = ChildSessionRules
+        vocabulary = (
+            rules.I_WORDS
+            | rules.CHILD_WORDS
+            | rules.FILLER_WORDS
+            | rules.EMPHASIS_WORDS
+            | rules.AM_WORDS
+            | rules.SPEAKING_WORDS
+            | rules.SPEAKING_NOW_WORDS
+            | rules.ENGLISH_INTRODUCTION_WORDS
+        )
+        name = learner.nickname or ""
+        return frozenset(PhraseFinder.words(" ".join([*vocabulary, name])))
+
     @staticmethod
     def says_i_am_the_child(text: str) -> bool:
         """Only "main bachcha hoon", "mai bacha hun", "मैं बच्ची हूँ", "I am the child", "I'm the
@@ -174,17 +197,30 @@ class ChildSessionRules:
 
     @staticmethod
     def claims_to_be_parent(user_text: str, child_nickname: str | None) -> bool:
-        """Someone on the phone seems to be the child's parent: "I'm her mother", "mein parent
-        hoon", "switch to parent", the child named in the third person ("Munni ne aaj kya
-        kiya"), or a summary asked for. "main mummy ko bataungi" (I'll tell mummy) is not."""
+        """Someone on the phone seems to be the child's parent: they say so (`speaks_as_parent`)
+        or name the child in the third person (`names_the_child`). "main mummy ko bataungi"
+        (I'll tell mummy) is not."""
+        return ChildSessionRules.speaks_as_parent(user_text) or ChildSessionRules.names_the_child(
+            user_text, child_nickname
+        )
+
+    @staticmethod
+    def speaks_as_parent(user_text: str) -> bool:
+        """A grown-up says they're the parent or acts as one: "I'm her mother", "mein parent
+        hoon", "switch to parent", or a summary asked for. Always a rule, read or not."""
         if PhraseFinder.contains_any(user_text, ChildSessionRules.SWITCH_PHRASES):
             return True
         words = PhraseFinder.words(user_text)
         if set(words) & ChildSessionRules.PARENT_ASKS:
             return True
-        if ChildSessionRules._names_the_child(words, child_nickname):
-            return True
         return ChildSessionRules._says_i_am_a_parent(words)
+
+    @staticmethod
+    def names_the_child(user_text: str, child_nickname: str | None) -> bool:
+        """The talking child named in the third person ("Munni ne aaj kya kiya"): a grown-up,
+        or the child talking about themselves. Where the words are read for intent, the reading
+        decides; the rule decides when they aren't, or the reading fails (owner, 2026-11-20)."""
+        return ChildSessionRules._names_the_child(PhraseFinder.words(user_text), child_nickname)
 
     @staticmethod
     def _says_i_am_a_parent(words: Sequence[str]) -> bool:

@@ -395,6 +395,33 @@ class TeacherIntent(StrEnum):
     OTHER_ROLE = "other_role"  # wants to use Marg as a parent or student instead (2026-11-02)
 
 
+class ChildIntent(StrEnum):
+    """What a child's free text means inside a child-talk session (s10b §4.16): read by Muse
+    Spark into this fixed set, like a parent's (owner, 2026-11-20). Code acts on it; when the
+    reading fails or is UNSURE, the session rules decide and the child is answered."""
+
+    TALK = "talk"  # asks or tells Marg something, or shares a feeling: answered
+    LEAVING = "leaving"  # is going, or done talking, in any words ("main khelne ja rhi hoon")
+    PARENT_HERE = "parent_here"  # a grown-up has the phone now ("mummy aagyi, unse baat kro")
+    SMALL_TALK = "small_talk"  # only a hello, ok, thanks or emoji, or agreeing to Marg
+    ACCOUNT_ACTION = "account_action"  # wants what only a parent may change (C16)
+    LANGUAGE_SWITCH = "language_switch"  # only asks Marg to talk in another language
+    UNSURE = "unsure"  # the model can't tell: the session rules decide (owner, 2026-11-20)
+
+
+class LeavingReason(StrEnum):
+    """Why a child says they're going, read with ChildIntent.LEAVING: an opening that says
+    going gets a goodbye for it ("Namaste Munni! Theek hai, jao khoob khelo!"; owner,
+    2026-11-20)."""
+
+    PLAY = "play"  # to play or have fun: games, friends, TV
+    SLEEP = "sleep"
+    FOOD = "food"  # to eat
+    STUDY = "study"  # school, homework, studying
+    NOT_IN_THE_MOOD = "not_in_the_mood"  # "ab man nahi hai"
+    OTHER = "other"  # something else, or no reason given
+
+
 class CorpusTopic(StrEnum):
     """The corpus folders (s11 §4.1); a document's topic must equal its folder."""
 

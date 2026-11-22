@@ -8,6 +8,30 @@ in that step doc's Decisions log in the same commit.
 The owner reviewed every item up to 2026-11-03; that list, with every outcome, is in git history
 (`git log -- docs/reviews/owner-review-pending.md`).
 
+## Pending (2026-11-20)
+
+- [ ] **Child talk: the goodbye when an opening says the child is going** (`CHILD_OPENING_GOODBYE`,
+  `app/constants/child_talk_copy.py`, 2026-11-20). "Main Munni hoon, ab man nahi hai": the
+  session opens and ends at once, so not `CHILD_GOODBYE`'s "Aaj bahut maza aaya!". A hello by
+  name, "okay", a kind line for why the child is going (read with the intent: `LeavingReason`),
+  and telling Mummy-Papa (a session's start and end, CLAUDE.md §11). Nothing asked, no summary.
+  Hinglish:
+  - not in the mood: "Namaste {name}! Theek hai, abhi man nahi hai toh koi baat nahi. Jab man
+    kare, tab baat karenge. Kuch pareshaani ho, toh Mummy-Papa ko batana."
+  - play: "Namaste {name}! Theek hai, jao khoob khelo! Khel mein kuch naya dikhe, toh Mummy-Papa
+    ko batana."
+  - sleep: "Namaste {name}! Theek hai, ab aaram se so jao. Sapne mein kya dekha, uthkar
+    Mummy-Papa ko batana."
+  - food: "Namaste {name}! Theek hai, jao pet bhar ke khana khao. Khane mein kya bana,
+    Mummy-Papa se poochhna."
+  - study: "Namaste {name}! Theek hai, jao man se padhna. Aaj kya seekha, Mummy-Papa ko batana."
+  - other: "Namaste {name}! Theek hai, phir baat karenge, jab man kare. Mummy-Papa ko bhi batana
+    ki tumne aaj kya kiya!"
+
+  Hindi and English alongside. Spoken from the Hindi, the name left out, like all fixed child
+  text. "Kuch pareshaani ho, toh Mummy-Papa ko batana" on a child who is only not in the mood:
+  the owner keeps it (2026-11-20). With no reason, or an odd one, the "other" text is used.
+
 ## Reviewed 2026-11-13
 
 All three approved by the owner as written (2026-11-13); nothing changed.

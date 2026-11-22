@@ -10,6 +10,11 @@
              When the child's time for the day runs out (ChildDailyLimitRules), their message is
              still answered in full, then the day's goodbye and the summary (DAILY_LIMIT)
 
+Words no session rule decides are read for intent (ChildIntentReader; owner, 2026-11-20), once
+safety_in has allowed them, while the answer is written: going ("main khelne ja rhi hoon") says
+goodbye, a grown-up on the phone ("mummy aagyi") is asked to tap "Yes, I'm the parent", a
+question before either is answered first; an unsure or failed reading leaves the rules' answer.
+
 Inside a session nothing changes the account: deletion, adding a child and any other button get
 "Mummy-Papa karenge" (C16). Asking for a language ("Hindi") changes only this session's replies.
 A reply to a child follows what they asked for, then how they write, then the family's language;
@@ -18,6 +23,8 @@ Crisis in a child's words is handled before this layer, by the orchestrator, wit
 fixed text (s07).
 """
 
+import asyncio
+import dataclasses
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -47,6 +54,7 @@ from app.constants.child_talk_copy import (
     CHILD_GREETED,
     CHILD_HELLO,
     CHILD_LANGUAGE_SWITCHED,
+    CHILD_OPENING_GOODBYE,
     CHILD_REFUSE_DANGER,
     CHILD_REFUSE_HURTING,
     CHILD_REFUSE_OTHER,
@@ -73,10 +81,12 @@ from app.constants.journey_words import CAREER_WORDS, EXPOSURE_PUSH_WORDS, LABEL
 from app.constants.onboarding_copy import CHILD_TALK_YES
 from app.core.errors import ProviderResponseInvalid
 from app.domain.enums import (
+    ChildIntent,
     ChildSessionEndReason,
     CuriosityDomain,
     DailyTalkLimit,
     Language,
+    LeavingReason,
     SafetyCategory,
     StepOutcome,
 )
@@ -84,13 +94,14 @@ from app.domain.models.child_session import ChildSession, DailyTalkTime
 from app.domain.models.curiosity import CuriositySource
 from app.domain.models.learner import Learner
 from app.domain.models.reply import CanonicalReply, ReplyButton
-from app.domain.models.turn import TurnContext
+from app.domain.models.turn import Exchange, TurnContext
 from app.domain.models.usage import StepUsage
 from app.domain.models.writes import (
     ChildSessionEnd,
     ChildSessionLanguage,
     ChildSessionStart,
     ChildTalkTurn,
+    TurnWrite,
 )
 from app.domain.rules.activity_validator import ActivityValidator
 from app.domain.rules.child_daily_limit_rules import ChildDailyLimitRules
@@ -111,6 +122,7 @@ from app.domain.rules.register_detector import RegisterDetector
 from app.domain.rules.sentence_case import SentenceCase
 from app.domain.rules.small_talk_rules import SmallTalkRules
 from app.domain.rules.stage_rules import StageRules
+from app.layers.child_intent_reader import ChildIntentRead, ChildIntentReader
 from app.layers.layer_result import LayerResult
 from app.layers.local_voice import LocalVoice
 from app.layers.parent_question_layer import ParentQuestionLayer
@@ -145,6 +157,15 @@ class _Answer:
     usages: list[StepUsage]
     prompt_versions: dict[str, str]
     degraded_reason: str | None
+    child_reply: ChildReply | None = None  # what the model wrote; None: fixed text
+
+    def without_question(self, register: Language) -> "_Answer":
+        """The answer in the last-answer style, made by code from what the model wrote: its
+        question back left out, written and spoken, since a goodbye follows (owner,
+        2026-11-20: one model call). Fixed text (the fallback) is reviewed copy, kept as is."""
+        if self.child_reply is None:
+            return self
+        return dataclasses.replace(self, text=_ChildText.last_answer(self.child_reply, register))
 
 
 @dataclass(frozen=True, slots=True)
@@ -154,6 +175,29 @@ class _Today:
 
     reached: bool
     talk_time: DailyTalkTime
+
+
+@dataclass(frozen=True, slots=True)
+class _SessionTurn:
+    """A child's words in an open session that no rule decided: what the reading and the answer
+    need."""
+
+    ctx: TurnContext
+    session: ChildSession
+    learner: Learner
+    text: str
+    now: datetime
+    register: Language
+    voice: str
+    today: _Today
+
+    @property
+    def recent(self) -> Sequence[Exchange]:
+        return self.ctx.recent_exchanges
+
+    @property
+    def previous_reply(self) -> str | None:
+        return self.recent[-1].reply_text if self.recent else None
 
 
 class ChildTalkLayer:
@@ -180,11 +224,17 @@ class ChildTalkLayer:
     """How long after "Who's writing?" a tapped name still brings the child's message along."""
 
     def __init__(
-        self, llm: LanguageModel, registry: PromptRegistry, limits: ChildSessionLimits
+        self,
+        llm: LanguageModel,
+        registry: PromptRegistry,
+        limits: ChildSessionLimits,
+        intents: ChildIntentReader | None = None,
     ) -> None:
+        """`intents`: None when INTENT_READING_ENABLED is off; the rules then decide alone."""
         self._llm = llm
         self._registry = registry
         self._limits = limits
+        self._intents = intents
 
     async def handle(  # noqa: PLR0913  # plus the input check's verdict (owner, 2026-10-28)
         self,
@@ -195,14 +245,23 @@ class ChildTalkLayer:
         register: Language,
         *,
         blocked: frozenset[SafetyCategory] = frozenset(),
+        input_cleared: asyncio.Event | None = None,
     ) -> LayerResult:
         """Raises ProviderError when the model can't be reached (the orchestrator answers).
         `blocked`: the input check blocked the child's message for these (all in
-        REDIRECT_REASONS): the turn gets a redirect, never an answer to what was asked."""
+        REDIRECT_REASONS): the turn gets a redirect, never an answer to what was asked.
+        `input_cleared`: set by the orchestrator when safety_in allows the message; the intent
+        reading never starts before it (owner, 2026-11-20). None: the words aren't read."""
         session = ctx.child_session
         if session is None:
             return await self._start(
-                ctx, user_text, interactive_ids, now, register, blocked=blocked
+                ctx,
+                user_text,
+                interactive_ids,
+                now,
+                register,
+                blocked=blocked,
+                input_cleared=input_cleared,
             )
         learner = _learner(ctx.learners, session.learner_id)
         previous = ctx.recent_exchanges[-1].reply_text if ctx.recent_exchanges else None
@@ -214,6 +273,9 @@ class ChildTalkLayer:
                 learner, ctx.child_talk_today, session.started_at, now, self._limits
             ),
         )
+        # the words are read when there are words, clearance will come, and it isn't a redirect
+        readable = input_cleared is not None and not blocked and bool(user_text.strip())
+        reader = self._intents if readable else None
         control = self._session_control(
             session,
             learner,
@@ -223,10 +285,14 @@ class ChildTalkLayer:
             register=register,
             previous_reply=previous,
             today=today,
+            read=reader is not None,
         )
         if control is not None:
             return control
         voice = LocalVoice.for_turn(register, ctx, user_text)
+        if reader is not None and input_cleared is not None:
+            turn = _SessionTurn(ctx, session, learner, user_text, now, register, voice, today)
+            return await self._turn_as_read(turn, reader, input_cleared)
         return await self._turn(
             session,
             learner,
@@ -249,11 +315,13 @@ class ChildTalkLayer:
         register: Language,
         previous_reply: str | None,
         today: _Today,
+        read: bool = False,
     ) -> LayerResult | None:
         """What ends or steers the session before anything is answered: the parent taking the
         phone back, an account action, the limits, a goodbye, a parent's words, a language.
         None: the child's message is answered (and, with the day's time used up, the session
-        then ends: `_turn`)."""
+        then ends: `_turn`). `read`: the words will be read for intent, which then decides
+        whether the child named in the third person ("Munni ne aaj kya kiya") is a grown-up."""
         if KID_PARENT in interactive_ids:
             return self._parent_took_over(session, learner, register, today.talk_time)
         if ChildTalkLayer._is_account_action(user_text, interactive_ids, learner):
@@ -274,21 +342,37 @@ class ChildTalkLayer:
             )
         if small_talk == "thanks":
             # an "ok" or emoji: answered at once and not counted as a question (2026-11-02)
-            repeated = SmallTalkRules.repeats(CHILD_ACKNOWLEDGED[register], previous_reply)
-            return _fixed(CHILD_ACKNOWLEDGED_AGAIN if repeated else CHILD_ACKNOWLEDGED, register)
+            return ChildTalkLayer._acknowledged(register, previous_reply)
         if small_talk == "greeting":
             return _fixed(CHILD_GREETED, register)
-        if ChildSessionRules.claims_to_be_parent(user_text, learner.nickname):
-            # only asks: a child typing it can't reach the parent's side without the button
-            button = ReplyButton(id=KID_PARENT, title=PARENT_TAKEOVER_BUTTON[register])
-            name = learner.nickname or UNNAMED_CHILD_NAME[register]
-            return _fixed(PARENT_TAKEOVER_ASK, register, (button,), name=name)
+        names_the_child = ChildSessionRules.names_the_child(user_text, learner.nickname)
+        if ChildSessionRules.speaks_as_parent(user_text) or (names_the_child and not read):
+            return ChildTalkLayer._takeover_ask(learner, register)
         asked = OnboardingAnswerParser.language_named(user_text)
         if asked is not None:
-            switched = _fixed(CHILD_LANGUAGE_SWITCHED, asked)
-            language = ChildSessionLanguage(session_id=session.id, language=asked)
-            return switched.model_copy(update={"writes": [language]})
+            return ChildTalkLayer._language_switched(session, asked)
         return None
+
+    @staticmethod
+    def _acknowledged(register: Language, previous_reply: str | None) -> LayerResult:
+        """An ok or thanks: a quick fixed reply, said differently if Marg just said it."""
+        repeated = SmallTalkRules.repeats(CHILD_ACKNOWLEDGED[register], previous_reply)
+        return _fixed(CHILD_ACKNOWLEDGED_AGAIN if repeated else CHILD_ACKNOWLEDGED, register)
+
+    @staticmethod
+    def _takeover_ask(learner: Learner, register: Language) -> LayerResult:
+        """ "Is this Mummy or Papa?" with the button. Only asks: a child typing it can't reach
+        the parent's side without the button."""
+        button = ReplyButton(id=KID_PARENT, title=PARENT_TAKEOVER_BUTTON[register])
+        name = learner.nickname or UNNAMED_CHILD_NAME[register]
+        return _fixed(PARENT_TAKEOVER_ASK, register, (button,), name=name)
+
+    @staticmethod
+    def _language_switched(session: ChildSession, asked: Language) -> LayerResult:
+        """This session's replies in the language asked for; the account is unchanged (C16)."""
+        switched = _fixed(CHILD_LANGUAGE_SWITCHED, asked)
+        language = ChildSessionLanguage(session_id=session.id, language=asked)
+        return switched.model_copy(update={"writes": [language]})
 
     @staticmethod
     def language_for(ctx: TurnContext, child_words: str, family_language: Language) -> Language:
@@ -340,6 +424,7 @@ class ChildTalkLayer:
         register: Language,
         *,
         blocked: frozenset[SafetyCategory],
+        input_cleared: asyncio.Event | None = None,
     ) -> LayerResult:
         learner = ChildSessionRules.chosen_learner(interactive_ids, user_text, ctx.learners)
         if learner is None:
@@ -359,12 +444,9 @@ class ChildTalkLayer:
             id=uuid4(), learner_id=learner.id, started_at=now, turns_count=0, topics=[]
         )
         start = ChildSessionStart(session_id=session.id, learner_id=learner.id)
-        says_more = len(PhraseFinder.words(user_text)) > self.INTRODUCTION_WORDS
-        if not blocked and not ChildQuestionDetector.asks(user_text) and not says_more:
-            # only "Main Munni hoon": a hello; anything more ("…mujhe gaali seekhni hai") is
-            # answered (owner's second demo, 2026-11-01)
-            hello = _fixed(CHILD_HELLO, register, name=name)
-            return hello.model_copy(update={"writes": [start]})
+        opening = None if blocked else self._opening(session, learner, user_text, register)
+        if opening is not None:
+            return opening.model_copy(update={"writes": [start, *opening.writes]})
         voice = LocalVoice.for_turn(register, ctx, user_text)
         # the day's time isn't used up (checked above); the new session has used none of it
         today = _Today(
@@ -373,10 +455,77 @@ class ChildTalkLayer:
                 learner, ctx.child_talk_today, now, now, self._limits
             ),
         )
-        result = await self._turn(
-            session, learner, user_text, now, register, voice=voice, blocked=blocked, today=today
-        )
+        readable = input_cleared is not None and not blocked and bool(user_text.strip())
+        if readable and input_cleared is not None and self._intents is not None:
+            turn = _SessionTurn(ctx, session, learner, user_text, now, register, voice, today)
+            result = await self._opening_as_read(turn, self._intents, input_cleared)
+        else:
+            result = await self._turn(
+                session,
+                learner,
+                user_text,
+                now,
+                register,
+                voice=voice,
+                blocked=blocked,
+                today=today,
+            )
         return result.model_copy(update={"writes": [start, *result.writes]})
+
+    async def _opening_as_read(
+        self, turn: _SessionTurn, intents: ChildIntentReader, input_cleared: asyncio.Event
+    ) -> LayerResult:
+        """An opening that says more than the introduction, read for intent (once safety_in
+        allows it) alongside its answer. Going ("Main Munni hoon, ab man nahi hai") opens the
+        session, then a goodbye for why they're going, with no summary: nothing was asked
+        (owner, 2026-11-20).
+        Any other reading, unsure or failed: answered, as before. Several things in one
+        opening (a question and a language, a question and going) wait (decisions log)."""
+        answering = asyncio.create_task(self._answer_for(turn, turn.register, turn.voice))
+        try:
+            read = await ChildTalkLayer._read(intents, turn, input_cleared)
+            if read.intent is ChildIntent.LEAVING:
+                result = ChildTalkLayer._opening_goodbye(turn, read.leaving_reason)
+            else:
+                answer = await answering
+                ending = self._ending(turn.session, daily_reached=turn.today.reached)
+                result = self._answered(
+                    turn.session, turn.learner, turn.register, answer, turn.today, ending=ending
+                )
+        finally:
+            await _discard_unused(answering)
+        return _with_child_reading(result, read)
+
+    @staticmethod
+    def _opening_goodbye(turn: _SessionTurn, reason: LeavingReason | None) -> LayerResult:
+        """ "Namaste Munni! Theek hai, abhi man nahi hai toh koi baat nahi…": a hello by name,
+        okay, a kind line for why they're going, and telling Mummy-Papa. Not CHILD_GOODBYE's
+        "Aaj bahut maza aaya!": nothing was talked about (owner, 2026-11-20)."""
+        copy = CHILD_OPENING_GOODBYE[reason or LeavingReason.OTHER]
+        name = turn.learner.nickname or UNNAMED_CHILD_NAME[turn.register]
+        goodbye = _fixed(copy, turn.register, name=name)
+        ended = ChildSessionEnd(
+            session_id=turn.session.id, reason=ChildSessionEndReason.CHILD_ENDED
+        )
+        return goodbye.model_copy(update={"writes": [ended]})
+
+    def _opening(
+        self, session: ChildSession, learner: Learner, user_text: str, register: Language
+    ) -> LayerResult | None:
+        """An opening with nothing to answer: a language asked for beside the introduction
+        ("Main Munni hoon, English mein baat karo") gets the switch (owner, 2026-11-20); only
+        "Main Munni hoon" gets the hello. None: the opening says more, and is answered
+        ("…mujhe gaali seekhni hai"; owner's second demo, 2026-11-01)."""
+        asked = OnboardingAnswerParser.language_named_besides(
+            user_text, ChildSessionRules.introduction_words(learner)
+        )
+        if asked is not None:
+            return ChildTalkLayer._language_switched(session, asked)
+        says_more = len(PhraseFinder.words(user_text)) > self.INTRODUCTION_WORDS
+        if ChildQuestionDetector.asks(user_text) or says_more:
+            return None
+        name = learner.nickname or UNNAMED_CHILD_NAME[register]
+        return _fixed(CHILD_HELLO, register, name=name)
 
     # --- a turn and the goodbye -------------------------------------------------------------------
 
@@ -408,14 +557,40 @@ class ChildTalkLayer:
                 last_answer=ending is not None,
                 first_answer=session.turns_count == 0,
             )
+        return self._answered(session, learner, register, answer, today, ending=ending)
+
+    def _answered(  # noqa: PLR0913  # plus how the reply ends
+        self,
+        session: ChildSession,
+        learner: Learner,
+        register: Language,
+        answer: _Answer,
+        today: _Today,
+        *,
+        ending: ChildSessionEndReason | None,
+        handover: bool = False,
+    ) -> LayerResult:
+        """The answer as one reply, counted as a question: then the goodbye and the parent's
+        summary when the session ends with it (a limit, or the child going), or the "Yes, I'm
+        the parent" button when a grown-up has the phone too (`handover`; owner, 2026-11-20)."""
         counted = ChildTalkTurn(session_id=session.id, topic=answer.topic)
         source = CuriositySource(
             learner_id=learner.id, kind="child_words", hint_domains=[], activity_title=None
         )
         if ending is None:
+            reply = answer.text
+            if handover:
+                ask = ChildTalkLayer._takeover_ask(learner, register).reply
+                reply = reply.model_copy(
+                    update={
+                        "body": f"{reply.body}\n\n{ask.body}",
+                        "spoken_text": f"{reply.spoken_text} {ask.spoken_text}",
+                        "buttons": ask.buttons,
+                    }
+                )
             return LayerResult(
                 curiosity=source if answer.degraded_reason is None else None,
-                reply=answer.text,
+                reply=reply,
                 usages=answer.usages,
                 prompt_versions=answer.prompt_versions,
                 outcome=StepOutcome.DEGRADED if answer.degraded_reason else StepOutcome.OK,
@@ -440,9 +615,162 @@ class ChildTalkLayer:
                 "prompt_versions": answer.prompt_versions,
                 "writes": [counted, *goodbye.writes],
                 "curiosity": source if answer.degraded_reason is None else None,
+                # a degraded last answer stays degraded with the goodbye after it
+                "outcome": StepOutcome.DEGRADED if answer.degraded_reason else StepOutcome.OK,
+                "degraded_reason": answer.degraded_reason,
                 "hazard_rule": TALKABLE_HAZARDS,  # the last answer may still talk about one
             }
         )
+
+    # --- the intent reading (owner, 2026-11-20) ----------------------------------------------
+
+    async def _turn_as_read(
+        self, turn: _SessionTurn, intents: ChildIntentReader, input_cleared: asyncio.Event
+    ) -> LayerResult:
+        """Words no rule decided, read for intent once safety_in has allowed them. The answer is
+        written alongside the reading and used only if the words ask or tell something; when
+        they might name a language, the answer waits for the reading, to be written once, in
+        the language asked for. An unsure or failed reading: the rules' answer, as before."""
+        if OnboardingAnswerParser.names_a_language(turn.text):
+            read = await ChildTalkLayer._read(intents, turn, input_cleared)
+            result = await self._act_on(read, turn, answering=None)
+            return _with_child_reading(result, read)
+        answering = asyncio.create_task(self._answer_for(turn, turn.register, turn.voice))
+        try:
+            read = await ChildTalkLayer._read(intents, turn, input_cleared)
+            result = await self._act_on(read, turn, answering=answering)
+        finally:
+            await _discard_unused(answering)
+        return _with_child_reading(result, read)
+
+    @staticmethod
+    async def _read(
+        intents: ChildIntentReader, turn: _SessionTurn, input_cleared: asyncio.Event
+    ) -> ChildIntentRead:
+        await input_cleared.wait()  # never before safety_in's ALLOW (owner, 2026-11-20)
+        return await intents.read(turn.text, turn.learner.nickname, turn.recent)
+
+    async def _act_on(  # noqa: PLR0911  # one return per intent
+        self,
+        read: ChildIntentRead,
+        turn: _SessionTurn,
+        *,
+        answering: "asyncio.Task[_Answer] | None",
+    ) -> LayerResult:
+        """What code does for each reading; the model never picks a route itself. `answering`:
+        the answer already being written, in the turn's language; None: none started yet."""
+        session, learner, register = turn.session, turn.learner, turn.register
+        match read.intent:
+            case ChildIntent.LEAVING:
+                return self._goodbye(
+                    session, learner, register, ChildSessionEndReason.CHILD_ENDED, turn.today
+                )
+            case ChildIntent.PARENT_HERE:
+                return ChildTalkLayer._takeover_ask(learner, register)
+            case ChildIntent.SMALL_TALK:
+                return self._small_talk(turn)
+            case ChildIntent.ACCOUNT_ACTION:
+                return _fixed(ASK_A_GROWNUP, register)
+            case ChildIntent.LANGUAGE_SWITCH if read.asked_language is not None:
+                asked = ChildTalkLayer._asked_language(read.asked_language, turn.text)
+                return ChildTalkLayer._language_switched(session, asked)
+            case ChildIntent.TALK:
+                return await self._talk(read, turn, answering)
+            case _ if ChildSessionRules.names_the_child(turn.text, learner.nickname):
+                # UNSURE or failed, on words the rule reads as a grown-up's ("Munni ne…")
+                return ChildTalkLayer._takeover_ask(learner, register)
+            case _:
+                # UNSURE, or a failed reading: the rules already let it through, to be answered
+                if answering is not None:
+                    answer = await answering
+                else:
+                    answer = await self._answer_for(turn, register, turn.voice)
+                ending = self._ending(session, daily_reached=turn.today.reached)
+                return self._answered(session, learner, register, answer, turn.today, ending=ending)
+
+    async def _talk(
+        self,
+        read: ChildIntentRead,
+        turn: _SessionTurn,
+        answering: "asyncio.Task[_Answer] | None",
+    ) -> LayerResult:
+        """The answer, once: in the language asked for, if any (then kept for the session, as
+        a language asked for alone is). A session limit ends it as before; else the child going
+        ends it, or a grown-up on the phone gets the button after it."""
+        register, voice = turn.register, turn.voice
+        writes: list[TurnWrite] = []
+        if read.asked_language is not None:
+            asked = ChildTalkLayer._asked_language(read.asked_language, turn.text)
+            writes.append(ChildSessionLanguage(session_id=turn.session.id, language=asked))
+            if answering is None:
+                register, voice = asked, LocalVoice.for_turn(asked, turn.ctx, turn.text)
+        ending = self._ending(turn.session, daily_reached=turn.today.reached)
+        if ending is None and read.leaving_after:
+            # the child is going: the answer in the last-answer style, then the goodbye; one
+            # call (owner, 2026-11-20): the answer written alongside, its question removed in
+            # code, or, written after the reading, asked for in the prompt (LAST_ANSWER_RULE)
+            ending = ChildSessionEndReason.CHILD_ENDED
+            if answering is not None:
+                answer = (await answering).without_question(register)
+            else:
+                answer = await self._answer_for(turn, register, voice, last_answer=True)
+        elif answering is not None:
+            answer = await answering
+        else:
+            answer = await self._answer_for(turn, register, voice)
+        answered = self._answered(
+            turn.session,
+            turn.learner,
+            register,
+            answer,
+            turn.today,
+            ending=ending,
+            handover=read.handover_after,
+        )
+        return answered.model_copy(update={"writes": [*writes, *answered.writes]})
+
+    async def _answer_for(
+        self, turn: _SessionTurn, register: Language, voice: str, *, last_answer: bool = False
+    ) -> _Answer:
+        """`last_answer`: a goodbye follows for another reason than the limits (which set it
+        themselves): nothing asked back (LAST_ANSWER_RULE)."""
+        ending = self._ending(turn.session, daily_reached=turn.today.reached)
+        return await self._answer(
+            turn.learner,
+            turn.text,
+            turn.now,
+            register,
+            voice,
+            last_answer=last_answer or ending is not None,
+            first_answer=turn.session.turns_count == 0,
+        )
+
+    def _small_talk(self, turn: _SessionTurn) -> LayerResult:
+        """Small talk the reading found: the rules' replies, never counted as a question
+        (owner, 2026-11-20). With the day's time used up, the day's goodbye; a greeting in it
+        ("namaste didi"), the hello; else the quick ok."""
+        if turn.today.reached:
+            return self._goodbye(
+                turn.session,
+                turn.learner,
+                turn.register,
+                ChildSessionEndReason.DAILY_LIMIT,
+                turn.today,
+            )
+        if OnboardingAnswerParser.mentions_a_greeting(turn.text):
+            return _fixed(CHILD_GREETED, turn.register)
+        return ChildTalkLayer._acknowledged(turn.register, turn.previous_reply)
+
+    @staticmethod
+    def _asked_language(asked: Language, child_words: str) -> Language:
+        """The script follows what was typed, as for a language named alone (owner,
+        2026-10-29): Hindi asked for in Roman letters is Hinglish."""
+        roman = (
+            RegisterDetector.devanagari_share(child_words) or 0.0
+        ) < RegisterDetector.DEVANAGARI_AT_MOST
+        if asked is Language.HINDI and roman:
+            return Language.HINGLISH
+        return asked
 
     def _ending(
         self, session: ChildSession, *, daily_reached: bool
@@ -576,11 +904,12 @@ class ChildTalkLayer:
                 redirect.usages,
                 {**versions, **redirect.prompt_versions},
                 redirect.degraded_reason or "child_redirect_after=ProviderResponseInvalid",
+                redirect.child_reply,
             )
         # "Tell Mummy and Papa too" at the start and on feelings; the goodbye says it at the end
         remind = first_answer or result.output.topic is CuriosityDomain.PEOPLE_FEELINGS
         reply = _ChildText.reply(result.output, register, remind=remind and not last_answer)
-        return _Answer(reply, result.output.topic, [result.usage], versions, None)
+        return _Answer(reply, result.output.topic, [result.usage], versions, None, result.output)
 
     async def _redirect(  # noqa: PLR0913  # the same inputs as an answer, plus the reason
         self,
@@ -627,7 +956,7 @@ class ChildTalkLayer:
             )
         # a redirect is always about something sensitive: always "tell Mummy and Papa"
         reply = _ChildText.reply(result.output, register, remind=True)
-        return _Answer(reply, result.output.topic, [result.usage], versions, None)
+        return _Answer(reply, result.output.topic, [result.usage], versions, None, result.output)
 
     @staticmethod
     def _redirect_fallback(reason: RedirectReason, register: Language) -> CanonicalReply:
@@ -698,6 +1027,23 @@ class _ChildText:
         return _child_reply_text(
             "\n\n".join(parts), child_reply.spoken_text, register, remind=remind
         )
+
+    @staticmethod
+    def last_answer(child_reply: ChildReply, register: Language) -> CanonicalReply:
+        """The reply without its question back: `ask_back` left out of the text, and every
+        sentence ending in "?" out of the spoken text (ask_back is the reply's only question:
+        the child_talk prompt). No "tell Mummy and Papa": the goodbye after it says so."""
+        parts = [child_reply.answer]
+        if child_reply.find_out.strip():
+            parts.append(child_reply.find_out)
+        if child_reply.who_explores_this.strip():
+            parts.append(SentenceCase.of(child_reply.who_explores_this))
+        spoken = " ".join(
+            sentence.strip()
+            for sentence in ChildReplyMatcher.sentences(child_reply.spoken_text)
+            if sentence.strip() and not sentence.strip().endswith("?")
+        )
+        return _child_reply_text("\n\n".join(parts), spoken, register, remind=False)
 
 
 def _child_reply_text(
@@ -823,6 +1169,36 @@ def _fixed(
         degraded_reason=None,
         hazard_rule=frozenset(),
     )
+
+
+async def _discard_unused(answering: "asyncio.Task[_Answer]") -> None:
+    """The answer written alongside a reading that didn't need it (a goodbye, the parent's
+    button…): cancelled and never read. An answer already used is left as it is."""
+    answering.cancel()
+    await asyncio.gather(answering, return_exceptions=True)
+
+
+def _with_child_reading(result: LayerResult, read: ChildIntentRead) -> LayerResult:
+    """The reading's usage and prompt version go with the turn's result. A failed reading (the
+    rules decided) marks the turn DEGRADED; else the step's detail says what was read
+    ("child_intent=talk+leaving_after")."""
+    update: dict[str, object] = {
+        "usages": [read.usage, *result.usages] if read.usage else result.usages,
+        "prompt_versions": {**read.prompt_versions, **result.prompt_versions},
+    }
+    if read.failed is not None:
+        if result.outcome is StepOutcome.OK:
+            update |= {"outcome": StepOutcome.DEGRADED, "degraded_reason": read.failed}
+    elif read.intent is not None and result.step_note is None:
+        note = f"child_intent={read.intent.value}"
+        if read.leaving_reason is not None:
+            note += f":{read.leaving_reason.value}"
+        if read.leaving_after:
+            note += "+leaving_after"
+        if read.handover_after:
+            note += "+handover_after"
+        update["step_note"] = note
+    return result.model_copy(update=update)
 
 
 def _voice_language(register: Language) -> Language:

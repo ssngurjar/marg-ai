@@ -211,7 +211,10 @@ mujhe ye nahi chahiye", which could mean either, gets both as buttons (**Stop da
 ### How it starts
 1. The parent says yes once per child (after the first khoj, or by asking "can my child talk to
    you?"), then picks how long that child may talk a day (see **A daily limit per child** below).
-2. The child taps **Main bachcha hoon 🙋**, or says "Main Munni hoon". If a child or student seems
+2. The child taps **Main bachcha hoon 🙋**, or says "Main Munni hoon" (or "Main Munni hoon, English
+   mein baat karo": the talk starts in English; "Main Munni hoon, ab man nahi hai": a kind
+   goodbye by name, for why they're going: "Namaste Munni! Theek hai, abhi man nahi hai toh koi
+   baat nahi…"). If a child or student seems
    to be writing on the parent's phone without that, Marg asks who is writing and answers no one
    the parent hasn't added.
 
@@ -228,7 +231,17 @@ mujhe ye nahi chahiye", which could mean either, gets both as buttons (**Stop da
 ### How it ends
 After **6 exchanges or 10 minutes**, when the child says bye or walks away, or when a parent
 takes the phone back ("I am the parent", then the **Yes, I'm the parent** button): a kind goodbye with
-something to go and find, then a 30-minute break before the next talk. The parent gets a summary
+something to go and find, then a 30-minute break before the next talk.
+
+Marg understands a goodbye in the child's own words, not only "bye": "main khelne ja rhi hoon"
+or "ab man nhi hai" ends the talk, and the parent gets the summary; so does a "nahi" after Marg
+asks "Aur kuch jaanna hai?" (after a question like "Kya tumne kabhi titli dekhi hai?", "nahi" is
+an answer). "Mummy aagyi, unse baat kro" gets the **Yes, I'm the parent** button. A question and
+a goodbye in one message ("ye kya hai? ab main ja rahi hoon") gets the answer, asking nothing
+back, then the goodbye, in one reply; a question with a grown-up now on the phone ("ye kya hai?
+mummy se baat karo") gets the answer, then the button. "Namaste didi" gets a hello, and an "ok"
+never uses up one of the six questions. When Marg can't tell what the child means, the child is
+answered, as before. The parent gets a summary
 of the **topics** and the child's **time that day**, never the child's words, and never what a
 child disclosed.
 

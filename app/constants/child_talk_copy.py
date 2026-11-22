@@ -10,7 +10,13 @@ from datetime import timedelta
 from typing import Final
 
 from app.constants.crisis_replies import CHILD_HELPLINE, TELE_MANAS
-from app.domain.enums import CuriosityDomain, DailyTalkLimit, FixedReplyVariant, Language
+from app.domain.enums import (
+    CuriosityDomain,
+    DailyTalkLimit,
+    FixedReplyVariant,
+    Language,
+    LeavingReason,
+)
 from app.domain.models.reply import ReplyButton
 from app.domain.rules.child_daily_limit_rules import ChildDailyLimitRules
 
@@ -145,6 +151,77 @@ CHILD_GOODBYE: Final[dict[Language, str]] = {
         "That was fun! Now go and find three things of different colours at home. Tell Mummy"
         " and Papa what you found!"
     ),
+}
+# An opening that says the child is going ("Main Munni hoon, ab man nahi hai"): the session opens
+# and ends at once. Nothing was talked about, so not "Aaj bahut maza aaya!" (CHILD_GOODBYE): a
+# hello by name, "okay", a kind line for why they're going, and telling Mummy-Papa, as a session's
+# start and end do (CLAUDE.md §11). No summary follows: nothing was asked. v1, 2026-11-20, pending
+# the owner's review.
+CHILD_OPENING_GOODBYE: Final[dict[LeavingReason, dict[Language, str]]] = {
+    LeavingReason.NOT_IN_THE_MOOD: {
+        _HINGLISH: (
+            "Namaste {name}! Theek hai, abhi man nahi hai toh koi baat nahi. Jab man kare, tab"
+            " baat karenge. Kuch pareshaani ho, toh Mummy-Papa ko batana."
+        ),
+        _HINDI: (
+            "नमस्ते {name}! ठीक है, अभी मन नहीं है तो कोई बात नहीं। जब मन करे, तब बात करेंगे। कुछ परेशानी हो,"
+            " तो मम्मी-पापा को बताना।"
+        ),
+        _ENGLISH: (
+            "Hello {name}! That's okay if you don't feel like talking now. We can talk when you"
+            " want to. If something is bothering you, tell Mummy and Papa."
+        ),
+    },
+    LeavingReason.PLAY: {
+        _HINGLISH: (
+            "Namaste {name}! Theek hai, jao khoob khelo! Khel mein kuch naya dikhe, toh Mummy-Papa"
+            " ko batana."
+        ),
+        _HINDI: "नमस्ते {name}! ठीक है, जाओ खूब खेलो! खेल में कुछ नया दिखे, तो मम्मी-पापा को बताना।",
+        _ENGLISH: "Hello {name}! Okay, go and play! If you see something new, tell Mummy and Papa.",
+    },
+    LeavingReason.SLEEP: {
+        _HINGLISH: (
+            "Namaste {name}! Theek hai, ab aaram se so jao. Sapne mein kya dekha, uthkar"
+            " Mummy-Papa ko batana."
+        ),
+        _HINDI: "नमस्ते {name}! ठीक है, अब आराम से सो जाओ। सपने में क्या देखा, उठकर मम्मी-पापा को बताना।",
+        _ENGLISH: (
+            "Hello {name}! Okay, sleep well. When you wake up, tell Mummy and Papa what you dreamt."
+        ),
+    },
+    LeavingReason.FOOD: {
+        _HINGLISH: (
+            "Namaste {name}! Theek hai, jao pet bhar ke khana khao. Khane mein kya bana,"
+            " Mummy-Papa se poochhna."
+        ),
+        _HINDI: "नमस्ते {name}! ठीक है, जाओ पेट भर के खाना खाओ। खाने में क्या बना, मम्मी-पापा से पूछना।",
+        _ENGLISH: (
+            "Hello {name}! Okay, go and have a good meal. Ask Mummy and Papa what they cooked."
+        ),
+    },
+    LeavingReason.STUDY: {
+        _HINGLISH: (
+            "Namaste {name}! Theek hai, jao man se padhna. Aaj kya seekha, Mummy-Papa ko batana."
+        ),
+        _HINDI: "नमस्ते {name}! ठीक है, जाओ मन से पढ़ना। आज क्या सीखा, मम्मी-पापा को बताना।",
+        _ENGLISH: (
+            "Hello {name}! Okay, go and study well. Tell Mummy and Papa what you learn today."
+        ),
+    },
+    LeavingReason.OTHER: {
+        _HINGLISH: (
+            "Namaste {name}! Theek hai, phir baat karenge, jab man kare. Mummy-Papa ko bhi batana"
+            " ki tumne aaj kya kiya!"
+        ),
+        _HINDI: (
+            "नमस्ते {name}! ठीक है, फिर बात करेंगे, जब मन करे। मम्मी-पापा को भी बताना कि तुमने आज क्या किया!"
+        ),
+        _ENGLISH: (
+            "Hello {name}! Okay, we can talk later, whenever you like. Tell Mummy and Papa what"
+            " you did today!"
+        ),
+    },
 }
 CHILD_REFUSE: Final[dict[Language, str]] = {
     _HINGLISH: "Yeh baat Mummy-Papa ya doctor se poochho. Mujhse kuch aur poochho!",

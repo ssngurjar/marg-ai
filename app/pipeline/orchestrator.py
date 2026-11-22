@@ -778,7 +778,12 @@ class _Turn:
         self.register = ChildTalkLayer.language_for(
             self.ctx, self.user_text, self.ctx.profile.language or self.register
         )
-        generation = asyncio.create_task(self._child_generate(layer, interactive_ids))
+        # The child's words are read for intent only after safety_in allows them (owner,
+        # 2026-11-20); the answer may start now, as any generation may (C3a).
+        input_cleared = asyncio.Event()
+        generation = asyncio.create_task(
+            self._child_generate(layer, interactive_ids, input_cleared)
+        )
         if self.user_text:
             try:
                 input_check = await self._bounded(
@@ -797,6 +802,7 @@ class _Turn:
                 ):
                     return await self._child_redirect(layer, interactive_ids, input_check)
                 return self._child_refusal(input_check)
+            input_cleared.set()
         try:
             layer_result = await generation
         except (ProviderError, TimeoutError) as error:
@@ -851,7 +857,7 @@ class _Turn:
         return await self._check_and_seal(layer_result, Route.CHILD_TALK)
 
     async def _child_generate(
-        self, layer: ChildTalkLayer, interactive_ids: list[str]
+        self, layer: ChildTalkLayer, interactive_ids: list[str], input_cleared: asyncio.Event
     ) -> LayerResult:
         return await self._bounded(
             layer.handle(
@@ -860,6 +866,7 @@ class _Turn:
                 interactive_ids,
                 self.steps.clock.now(),
                 self.register,
+                input_cleared=input_cleared,
             ),
             self.settings.generate_timeout,
         )

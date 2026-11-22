@@ -100,6 +100,14 @@ QUESTION_READING: Final[Mapping[str, object]] = {
     "report_about": None,
 }
 REPORT_READING: Final[Mapping[str, object]] = {**QUESTION_READING, "intent": "report"}
+# What the child intent reading (s10b §4.16) makes of a child's words in these tests
+CHILD_TALK_READING: Final[Mapping[str, object]] = {
+    "intent": "talk",
+    "asked_language": None,
+    "leaving_after": False,
+    "handover_after": False,
+    "leaving_reason": None,
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -141,6 +149,7 @@ def wire(
             "activity_personalise": FakeLanguageModel([personalisation_for(first_choice())]),
             "parent_reflection": FakeLanguageModel([REFLECTION]),
             "child_talk": FakeLanguageModel([CHILD_REPLY]),
+            "child_intent": FakeLanguageModel([CHILD_TALK_READING]),
             "curiosity_extract": FakeLanguageModel([CURIOSITY_SIGNALS]),
             "khoj_card_text": FakeLanguageModel([CARD_TEXT]),
         }
@@ -627,6 +636,10 @@ async def test_a_child_talks_answers_are_counted_and_bye_sends_the_parents_summa
         (1, ["earth_sky"])
     ]
     assert await rows(engine, "SELECT source FROM curiosity_signals") == [("child_words",)]
+    # the question no rule decided was read for intent (owner, 2026-11-20)
+    assert await rows(
+        engine, "SELECT prompt_versions FROM turns WHERE user_text = 'chaand kyun chamakta hai?'"
+    ) == [({"child_intent": "1.5.0", "child_talk": "1.3.1"},)]
     await ask(pipeline, "bye", message_id="wamid.K3")
     goodbye = pipeline.sender.sent[-1].part.text or ""
     assert "Mummy-Papa ke liye" in goodbye
