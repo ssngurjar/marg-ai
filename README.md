@@ -324,10 +324,6 @@ and every module and class in [docs/code-map.md](docs/code-map.md).
 
 ## What's next
 
-- **Reading what a child means, too.** Muse Spark reads what a parent's words mean (a report, a
-  question, someone else writing). A child's messages in child talk still go through fixed rules
-  for things like "Hindi" or "bye", which miss some ways children write. Planned: the same reading
-  for children, once its extra second per reply is worth it.
 - **Anganwadi and ASHA workers.** They already see the families Marg serves, and a role for them
   (a few families' khojs and questions, with each family's consent) would carry Marg to parents
   without a phone of their own. Not built for the hackathon.
